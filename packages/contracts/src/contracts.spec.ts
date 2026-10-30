@@ -390,6 +390,73 @@ describe('Hợp đồng định danh', () => {
     expect(() => listUsersQuerySchema.parse({ pageSize: 101 })).toThrow();
   });
 
+  it('hợp đồng truy vấn danh sách người dùng kèm gán vai: nhận ba nhóm trạng thái dùng chung, chặn trạng thái ngoài tập, trường lạ và pageSize vượt trần 100', async () => {
+    const { listUsersWithAssignmentsQuerySchema } = await import('./identity.js');
+    // Truy vấn rỗng và từng giá trị trong tập đóng đều hợp lệ.
+    expect(listUsersWithAssignmentsQuerySchema.parse({})).toEqual({});
+    for (const status of ['active', 'suspended', 'deleted'] as const) {
+      expect(listUsersWithAssignmentsQuerySchema.parse({ status }).status).toBe(status);
+    }
+    expect(listUsersWithAssignmentsQuerySchema.parse({ roleId: '01900000-0000-7000-8000-000000000001' }).roleId)
+      .toBe('01900000-0000-7000-8000-000000000001');
+    // pageSize tại đúng trần 100 vẫn hợp lệ.
+    expect(listUsersWithAssignmentsQuerySchema.parse({ pageSize: 100 }).pageSize).toBe(100);
+    // Trạng thái ngoài tập dùng chung, roleId không phải uuid, trường lạ
+    // (strict) và pageSize vượt trần bị validation chặn.
+    expect(() => listUsersWithAssignmentsQuerySchema.parse({ status: 'archived' })).toThrow();
+    expect(() => listUsersWithAssignmentsQuerySchema.parse({ roleId: 'khong-phai-uuid' })).toThrow();
+    expect(() => listUsersWithAssignmentsQuerySchema.parse({ sortBy: 'name' })).toThrow();
+    expect(() => listUsersWithAssignmentsQuerySchema.parse({ pageSize: 101 })).toThrow();
+  });
+
+  it('hợp đồng phản hồi danh sách người dùng kèm gán vai: mỗi người một phần tử kèm toàn bộ gán, total đếm theo người dùng', async () => {
+    const { userWithAssignmentsListResponseSchema } = await import('./identity.js');
+    const parsed = userWithAssignmentsListResponseSchema.parse({
+      users: [{
+        id: '01900000-0000-7000-8000-000000000001',
+        username: 'giaovien1',
+        firstName: 'Giao',
+        lastName: 'Vien',
+        email: 'giaovien1@example.com',
+        suspended: false,
+        deleted: false,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        assignments: [
+          {
+            id: '01900000-0000-7000-8000-000000000002',
+            roleId: '01900000-0000-7000-8000-000000000003',
+            roleName: 'Giáo viên',
+            contextId: '01900000-0000-7000-8000-000000000004',
+            contextLevel: 10,
+            component: '',
+          },
+          {
+            id: '01900000-0000-7000-8000-000000000005',
+            roleId: '01900000-0000-7000-8000-000000000006',
+            roleName: 'Học viên',
+            contextId: '01900000-0000-7000-8000-000000000007',
+            contextLevel: 50,
+            component: 'enrol',
+          },
+        ],
+      }],
+      total: 1,
+      page: 1,
+      pageSize: 10,
+    });
+    expect(parsed.users).toHaveLength(1);
+    expect(parsed.users[0].assignments).toHaveLength(2);
+    expect(parsed.users[0].assignments[1].component).toBe('enrol');
+    // Thiếu createdAt (cột ngày tham gia) hoặc contextLevel không nguyên thì bị chặn.
+    expect(() => userWithAssignmentsListResponseSchema.parse({
+      users: [{
+        id: '01900000-0000-7000-8000-000000000001', username: 'u', firstName: 'F', lastName: 'L',
+        email: 'u@example.com', suspended: false, deleted: false, assignments: [],
+      }],
+      total: 1, page: 1, pageSize: 10,
+    })).toThrow();
+  });
+
   it('hợp đồng ma trận quyền theo context: query chỉ nhận contextId là UUID, đáp ứng giữ đúng hình dạng vai kèm tập ghi đè', async () => {
     const { capabilityMatrixQuerySchema, capabilityMatrixResponseSchema } = await import('./identity.js');
     const contextId = '01900000-0000-7000-8000-000000000040';

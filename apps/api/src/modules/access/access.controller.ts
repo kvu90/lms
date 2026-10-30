@@ -4,7 +4,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { RequireCapability } from '../../common/require-capability.decorator';
 import { ContextsService } from './contexts.service';
-import { assignRoleSchema, capabilityMatrixQuerySchema, createContextSchema, createRoleSchema, hasCapabilityQueryServerSchema, listAssignmentsQueryServerSchema, overrideCapabilitySchema, replaceRoleCapabilitiesSchema, updateRoleSchema, type AssignRoleDto, type CapabilityMatrixQueryDto, type CreateContextDto, type CreateRoleDto, type HasCapabilityQueryDto, type ListAssignmentsQueryDto, type OverrideCapabilityDto, type ReplaceRoleCapabilitiesDto, type UpdateRoleDto } from './dto/access.dto';
+import { assignRoleSchema, capabilityMatrixQuerySchema, createContextSchema, createRoleSchema, hasCapabilityQueryServerSchema, listAssignmentsQueryServerSchema, listUsersWithAssignmentsQueryServerSchema, overrideCapabilitySchema, replaceRoleCapabilitiesSchema, updateRoleSchema, type AssignRoleDto, type CapabilityMatrixQueryDto, type CreateContextDto, type CreateRoleDto, type HasCapabilityQueryDto, type ListAssignmentsQueryDto, type ListUsersWithAssignmentsQueryDto, type OverrideCapabilityDto, type ReplaceRoleCapabilitiesDto, type UpdateRoleDto } from './dto/access.dto';
 import { PermissionEvaluator } from './permission-evaluator.service';
 import { RolesService } from './roles.service';
 
@@ -135,6 +135,27 @@ export class AccessController {
   async listAssignments(@Query({ schema: listAssignmentsQueryServerSchema }) query: ListAssignmentsQueryDto) {
     return this.roles.listAssignmentsPage(
       { userId: query.userId, contextId: query.contextId, roleId: query.roleId, search: query.search },
+      query.page,
+      query.pageSize,
+    );
+  }
+  @Get('users-with-assignments')
+  @RequireCapability('role:assign')
+  /**
+   * GET /access/users-with-assignments — liệt kê người dùng kèm toàn
+   * bộ gán vai của họ cho bảng người dùng của trang vai trò: phân
+   * trang theo NGƯỜI DÙNG (mỗi người đúng một dòng, `total` đếm
+   * người), lọc đồng thời phía server theo tìm kiếm (họ tên, email,
+   * tên đăng nhập), vai trò (người có ít nhất một gán với vai đó,
+   * mảng gán trả về không bị cắt theo vai lọc) và trạng thái tài
+   * khoản; mỗi dòng gán kèm tên vai, số cấp context và `component`
+   * để nhận biết gán do ghi danh. Cổng `role:assign` tại context hệ
+   * thống như đường đọc bảng gán vai; truy vấn phá hợp đồng bị
+   * validation chặn bằng lỗi `http.validation_failed`.
+   */
+  async listUsersWithAssignments(@Query({ schema: listUsersWithAssignmentsQueryServerSchema }) query: ListUsersWithAssignmentsQueryDto) {
+    return this.roles.listUsersWithAssignmentsPage(
+      { search: query.search, roleId: query.roleId, status: query.status },
       query.page,
       query.pageSize,
     );

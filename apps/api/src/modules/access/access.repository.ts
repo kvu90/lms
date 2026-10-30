@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, eq, ilike, inArray, isNull, like, notInArray, or, sql } from 'drizzle-orm';
+import { and, eq, exists, ilike, inArray, isNull, like, notInArray, or, sql } from 'drizzle-orm';
+import type { UserListStatus } from '@lms/contracts';
 import type { Database, DbTx } from '../../db/database';
 import { capabilities, config, context, role, roleAssignments, roleCapabilities, tenantMemberships, tenants, users } from '../../db/schema';
 import { tenantAls } from '../tenants/tenant-als';
@@ -19,6 +20,40 @@ export type AssignmentListRow = (typeof roleAssignments.$inferSelect) & {
   userName: string | null;
   userEmail: string | null;
 };
+
+/**
+ * Một dòng gán nằm trong danh sách người dùng kèm gán: dòng gán đã lưu
+ * kèm tên hiển thị của vai và số cấp của context, do hai phép ghép nội
+ * với bảng vai và bảng context trả về. Cả hai phép ghép đều là ghép nội
+ * vì `roleId`/`contextId` của dòng gán là khoá ngoại bắt buộc — dòng gán
+ * không thể trỏ tới vai hay context không tồn tại.
+ */
+export interface UserWithAssignmentsAssignmentRow {
+  id: string;
+  roleId: string;
+  roleName: string;
+  contextId: string;
+  contextLevel: number;
+  component: string;
+}
+
+/**
+ * Một người dùng trong danh sách kèm gán vai: các trường tài khoản mà
+ * bảng người dùng của trang vai trò cần (kèm `createdAt` cho cột ngày
+ * tham gia và hai cờ trạng thái) cùng toàn bộ dòng gán của người đó.
+ * `assignments` rỗng khi người dùng chưa giữ vai nào.
+ */
+export interface UserWithAssignmentsRow {
+  id: string;
+  username: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  suspended: boolean;
+  deleted: boolean;
+  createdAt: Date;
+  assignments: UserWithAssignmentsAssignmentRow[];
+}
 
 /** Truy cập dữ liệu chỉ dành cho module Access — các module khác phải dùng các service facade của Access. */
 @Injectable()
@@ -372,6 +407,113 @@ export class AccessRepository {
       .leftJoin(users, eq(users.id, roleAssignments.userId))
       .where(where);
     return { rows, total: count?.n ?? 0 };
+  }
+  /**
+   * Liệt kê người dùng kèm toàn bộ gán vai của họ cho bảng người dùng
+   * của trang vai trò — đơn vị phân trang là NGƯỜI DÙNG, khác
+   * `listAssignmentsPage` phân trang theo từng dòng gán.
+   *
+   * Flow: dựng điều kiện trên bảng người dùng từ ba bộ lọc → đếm tổng
+   * số NGƯỜI DÙNG khớp → lấy đúng một trang người dùng sắp theo id
+   * tăng dần cho thứ tự trang ổn định → chỉ khi trang không rỗng mới
+   * nạp dòng gán của đúng các người dùng trong trang (ghép nội với
+   * bảng vai để lấy tên vai và với bảng context để lấy số cấp) rồi
+   * gom theo người dùng. Nhờ vậy chi phí nạp gán tỉ lệ với kích thước
+   * trang, không tỉ lệ với toàn bộ tập khớp lọc.
+   *
+   * Ngữ nghĩa lọc: trạng thái suy ra từ hai cờ của tài khoản đúng như
+   * phép tìm kiếm người dùng của module users (không truyền thì chỉ
+   * lấy tài khoản chưa xoá gồm cả đang bị đình chỉ; `active` thêm
+   * điều kiện không bị đình chỉ; `suspended` lấy tài khoản chưa xoá
+   * đang bị đình chỉ; `deleted` chỉ lấy tài khoản đã xoá mềm). Lọc
+   * theo vai là điều kiện TỒN TẠI một dòng gán với vai đó ở bất kỳ
+   * context nào (EXISTS trên bảng gán) — nó chỉ quyết định người
+   * dùng nào được liệt kê, KHÔNG cắt mảng gán: mỗi người trong kết
+   * quả vẫn mang toàn bộ dòng gán của mình. Tìm kiếm khớp không phân
+   * biệt hoa thường trên họ, tên, họ+tên ghép, email và tên đăng
+   * nhập — cùng tập trường với `listAssignmentsPage`.
+   *
+   * @param filter - Ba bộ lọc tuỳ chọn: `search`, `roleId`, `status`.
+   * @param page - Trang cần lấy (bắt đầu từ 1).
+   * @param pageSize - Số người dùng tối đa trên một trang.
+   * @returns Các người dùng của trang kèm mảng gán đã gom, và tổng số
+   * người dùng khớp bộ lọc trên toàn bộ kết quả.
+   */
+  async listUsersWithAssignmentsPage(
+    filter: { search?: string; roleId?: string; status?: UserListStatus },
+    page: number,
+    pageSize: number,
+  ): Promise<{ rows: UserWithAssignmentsRow[]; total: number }> {
+    const conds = [];
+    if (filter.status === 'deleted') conds.push(eq(users.deleted, true));
+    else conds.push(eq(users.deleted, false));
+    if (filter.status === 'active') conds.push(eq(users.suspended, false));
+    if (filter.status === 'suspended') conds.push(eq(users.suspended, true));
+    if (filter.roleId !== undefined) {
+      conds.push(exists(
+        this.db.select({ one: sql`1` }).from(roleAssignments)
+          .where(and(eq(roleAssignments.userId, users.id), eq(roleAssignments.roleId, filter.roleId))),
+      ));
+    }
+    if (filter.search) {
+      const pattern = `%${filter.search}%`;
+      conds.push(or(
+        ilike(users.firstName, pattern),
+        ilike(users.lastName, pattern),
+        ilike(users.email, pattern),
+        ilike(users.username, pattern),
+        sql`${users.firstName} || ' ' || ${users.lastName} ilike ${pattern}`,
+      ));
+    }
+    const where = conds.length ? and(...conds) : undefined;
+    const [count] = await this.db.select({ n: sql<number>`count(*)::int` }).from(users).where(where);
+    const total = count?.n ?? 0;
+    const userRows = await this.db.select({
+      id: users.id,
+      username: users.username,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      email: users.email,
+      suspended: users.suspended,
+      deleted: users.deleted,
+      createdAt: users.createdAt,
+    }).from(users)
+      .where(where)
+      .orderBy(users.id)
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
+    if (userRows.length === 0) return { rows: [], total };
+    const assignmentRows = await this.db.select({
+      id: roleAssignments.id,
+      userId: roleAssignments.userId,
+      roleId: roleAssignments.roleId,
+      roleName: role.name,
+      contextId: roleAssignments.contextId,
+      contextLevel: context.contextLevel,
+      component: roleAssignments.component,
+    }).from(roleAssignments)
+      .innerJoin(role, eq(role.id, roleAssignments.roleId))
+      .innerJoin(context, eq(context.id, roleAssignments.contextId))
+      .where(inArray(roleAssignments.userId, userRows.map((row) => row.id)))
+      .orderBy(roleAssignments.id);
+    const assignmentsByUser = new Map<string, UserWithAssignmentsAssignmentRow[]>();
+    for (const row of assignmentRows) {
+      const entry: UserWithAssignmentsAssignmentRow = {
+        id: row.id,
+        roleId: row.roleId,
+        roleName: row.roleName,
+        contextId: row.contextId,
+        contextLevel: row.contextLevel,
+        component: row.component,
+      };
+      const entries = assignmentsByUser.get(row.userId);
+      if (entries) entries.push(entry);
+      else assignmentsByUser.set(row.userId, [entry]);
+    }
+    return {
+      rows: userRows.map((row) => ({ ...row, assignments: assignmentsByUser.get(row.id) ?? [] })),
+      total,
+    };
   }
   /** Các assignment có context nằm trên đường tổ tiên cho trước (các id theo đúng thứ tự được truyền vào). */
   /**
