@@ -13,7 +13,7 @@ import { PlanLimitsService } from '../access/plan-limits.service';
 import { RolesService } from '../access/roles.service';
 import { CustomFieldsService } from '../custom-fields/custom-fields.service';
 import { PasswordService } from './password.service';
-import { UsersRepository, type UserRow } from './users.repository';
+import { UsersRepository, type UserListFilter, type UserRow } from './users.repository';
 
 export const USER_COMPONENT = 'core_user';
 export const USER_AREA = 'user';
@@ -281,10 +281,12 @@ export class UsersService {
   async getUsersByIds(ids: string[]): Promise<UserRow[]> { return this.repo.getByIds(ids); }
 
   /**
-   * Danh sách user có tìm kiếm/phân trang.
+   * Danh sách user có tìm kiếm/phân trang, kèm lọc trạng thái và sắp xếp theo
+   * hợp đồng truy vấn: không truyền trạng thái thì ẩn tài khoản đã xoá, không
+   * truyền trường sắp xếp thì giữ thứ tự theo id — đúng hành vi mặc định vốn có.
    */
-  async listUsers(search: string | undefined, page = 1, pageSize = 20, includeDeleted = false): Promise<{ users: UserRow[]; total: number; page: number; pageSize: number }> {
-    const { rows, total } = await this.repo.search(search, page, pageSize, includeDeleted);
+  async listUsers(search: string | undefined, page = 1, pageSize = 20, filter: UserListFilter = {}): Promise<{ users: UserRow[]; total: number; page: number; pageSize: number }> {
+    const { rows, total } = await this.repo.search(search, page, pageSize, filter);
     return { users: rows, total, page, pageSize };
   }
 

@@ -28,10 +28,18 @@ export class UsersController {
   @Get()
   @RequireCapability('user:viewdetails')
   /**
-   * GET /users — tìm kiếm/phân trang tài khoản (user:viewdetails).
+   * GET /users — tìm kiếm/phân trang tài khoản (user:viewdetails), kèm lọc
+   * theo trạng thái (đang hoạt động/bị đình chỉ/đã xoá) và sắp xếp theo
+   * tên/ngày tạo/lần đăng nhập gần nhất theo hợp đồng truy vấn; không truyền
+   * tham số mới thì giữ hành vi mặc định vốn có (ẩn tài khoản đã xoá, thứ tự
+   * theo id).
    */
   async list(@Query({ schema: listUsersQueryServerSchema }) query: ListUsersQueryDto, @CurrentUser() viewer: AuthenticatedUser) {
-    const result = await this.users.listUsers(query.search, query.page ?? 1, query.pageSize ?? 20);
+    const result = await this.users.listUsers(query.search, query.page ?? 1, query.pageSize ?? 20, {
+      status: query.status,
+      sortBy: query.sortBy,
+      sortDirection: query.sortDirection,
+    });
     // View của cả trang lắp MỘT lần theo lô (DL-07, issue #489) thay
     // vì gọi getProfileView lặp cho từng user.
     const views = await this.users.getProfileViews(result.users, viewer.id);

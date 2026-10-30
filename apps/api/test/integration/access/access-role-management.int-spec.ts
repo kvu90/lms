@@ -258,6 +258,68 @@ describe('Access: tổng hợp vai trò, ma trận thay toàn bộ, bảng gán 
     expect(seen.size).toBe(5);
   });
 
+  it('bảng gán vai lọc theo userId trả đúng các dòng của người đó và kết hợp đúng với lọc vai, context, tìm kiếm và phân trang (issue #560)', async () => {
+    const roleId = await createRoleViaApi(app, admin);
+    const otherRoleId = await createRoleViaApi(app, admin);
+    const catContextId = (await createContextViaApi(app, admin, 40, uuidv7(), systemId)).id;
+    const marker = uniqueName('uf560');
+    const userOne = await createUserViaApi(app, admin, {
+      firstName: 'Loc560', lastName: 'Rieng560', email: `${marker}@example.com`,
+    });
+    const userTwo = await createUserViaApi(app, admin);
+    // Người một giữ 3 dòng gán: vai chính ở hai context và vai phụ ở context hệ thống.
+    await assignRole(app, admin, userOne.id, roleId, systemId);
+    await assignRole(app, admin, userOne.id, roleId, catContextId);
+    await assignRole(app, admin, userOne.id, otherRoleId, systemId);
+    // Người hai giữ cùng vai chính để lọc theo người phải tách ra được.
+    await assignRole(app, admin, userTwo.id, roleId, systemId);
+
+    const list = (query: Record<string, string | number>) =>
+      http(app).get('/api/v1/access/assignments').query(query).set('Authorization', `Bearer ${admin}`);
+
+    // Chỉ theo userId: đúng 3 dòng của người một, không lẫn dòng của người khác.
+    const byUser = await list({ userId: userOne.id });
+    expect(byUser.status).toBe(200);
+    expect(byUser.body.total).toBe(3);
+    expect(byUser.body.assignments).toHaveLength(3);
+    for (const row of byUser.body.assignments as { userId: string }[]) {
+      expect(row.userId).toBe(userOne.id);
+    }
+
+    // userId của một người không có dòng gán nào: trả rỗng, tổng 0.
+    const noAssignments = await createUserViaApi(app, admin);
+    const byEmptyUser = await list({ userId: noAssignments.id });
+    expect(byEmptyUser.status).toBe(200);
+    expect(byEmptyUser.body.total).toBe(0);
+    expect(byEmptyUser.body.assignments).toEqual([]);
+
+    // Kết hợp userId + roleId: chỉ còn dòng của người đó ở vai được lọc.
+    const byUserAndRole = await list({ userId: userOne.id, roleId: otherRoleId });
+    expect(byUserAndRole.body.total).toBe(1);
+    expect((byUserAndRole.body.assignments as { roleId: string }[])[0].roleId).toBe(otherRoleId);
+    const byUserAndMainRole = await list({ userId: userOne.id, roleId });
+    expect(byUserAndMainRole.body.total).toBe(2);
+
+    // Kết hợp userId + contextId: chỉ còn dòng của người đó tại context được lọc.
+    const byUserAndContext = await list({ userId: userOne.id, contextId: catContextId });
+    expect(byUserAndContext.body.total).toBe(1);
+    expect((byUserAndContext.body.assignments as { contextId: string }[])[0].contextId).toBe(catContextId);
+
+    // Kết hợp userId + tìm kiếm: từ khoá khớp người đó thì còn dòng, từ khoá của người khác thì rỗng.
+    const byUserAndSearch = await list({ userId: userOne.id, search: 'Rieng560' });
+    expect(byUserAndSearch.body.total).toBe(3);
+    const byUserAndForeignSearch = await list({ userId: userTwo.id, search: 'Rieng560' });
+    expect(byUserAndForeignSearch.body.total).toBe(0);
+
+    // Kết hợp userId + phân trang: 3 dòng, trang 2 dòng thì trang hai còn đúng 1 dòng, tổng không đổi.
+    const pageTwo = await list({ userId: userOne.id, page: 2, pageSize: 2 });
+    expect(pageTwo.status).toBe(200);
+    expect(pageTwo.body.total).toBe(3);
+    expect(pageTwo.body.page).toBe(2);
+    expect(pageTwo.body.pageSize).toBe(2);
+    expect(pageTwo.body.assignments).toHaveLength(1);
+  });
+
   it('xoá vai bị chặn với vai dựng sẵn và vai đang còn người giữ — hai lỗi phân biệt được; vai thường không còn người giữ xoá được', async () => {
     // Vai dựng sẵn (archetype manager): bị chặn bằng mã lỗi riêng, vai còn nguyên.
     const managerId = await roleIdByShortname(app, admin, 'manager');
