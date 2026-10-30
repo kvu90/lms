@@ -3,9 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { RolesService } from '../access/roles.service';
+import { ControlPlaneRegistryService } from '../control-plane/control-plane.service';
 import { SiteConfigService } from '../site-config/site-config.service';
 import { tenantAls } from '../tenants/tenant-als';
 import { TenantsService } from '../tenants/tenants.service';
+import type { TenantRow } from '../tenants/tenants.repository';
 import { UsersService } from '../users/users.service';
 import type { UserRow } from '../users/users.repository';
 
@@ -34,6 +36,7 @@ export class SeedService implements OnApplicationBootstrap {
     private readonly config: ConfigService,
     private readonly tenants: TenantsService,
     private readonly siteConfig: SiteConfigService,
+    private readonly controlPlane: ControlPlaneRegistryService,
   ) {}
   /**
    * Điểm vào bootstrap: gieo context hệ thống, role mặc định, capability, guest và admin.
@@ -91,6 +94,7 @@ export class SeedService implements OnApplicationBootstrap {
       }
     }
     await this.ensurePlatformOperator(zero.id);
+    await this.seedControlPlaneRegistry(zero, school);
   }
 
   /** Gán vai nếu chưa có dòng gán tương ứng (assignRole luôn chèn dòng mới nên seed phải tự canh trùng). */
@@ -130,5 +134,51 @@ export class SeedService implements OnApplicationBootstrap {
 
   private async currentSiteAdmins(): Promise<string[]> {
     return this.evaluator.listSiteAdmins();
+  }
+
+  /**
+   * Gieo sổ đăng ký CONTROL PLANE (issue #580): hai không gian hiện
+   * hữu của hệ — Trang chính (tenant-zero) và tenant trường mặc
+   * định — được đăng ký ở chế độ kho CHUNG (cùng database nghiệp vụ
+   * hiện tại), để sổ phản ánh đúng thực địa trước khi chương trình
+   * tách kho riêng bắt đầu. Tên database đích và role kết nối suy ra
+   * từ `DATABASE_URL` của chính kho chung; bí mật chỉ lưu tham chiếu
+   * `env:DATABASE_URL`, không lưu giá trị.
+   *
+   * Bước này là ghi sổ VẬN HÀNH, không phải dữ kiện nghiệp vụ: khi
+   * control plane chưa cấu hình thì bỏ qua; khi ghi lỗi thì chỉ ghi
+   * log lỗi rồi để bootstrap nghiệp vụ đi tiếp — sổ đăng ký thiếu
+   * dòng sẽ được chính bước gieo này bổ sung ở lần khởi động sau,
+   * không bao giờ chặn ứng dụng sống vì sổ chưa khớp.
+   */
+  private async seedControlPlaneRegistry(zero: TenantRow, school: TenantRow): Promise<void> {
+    if (!this.controlPlane.isConfigured) return;
+    try {
+      const businessUrl = new URL(this.config.get<string>('DATABASE_URL')!);
+      const databaseName = decodeURIComponent(businessUrl.pathname.replace(/^\//, ''));
+      const connectionRoleRef = decodeURIComponent(businessUrl.username);
+      await this.controlPlane.seedExistingSpaces([
+        {
+          slug: zero.slug,
+          name: zero.name,
+          kind: 'platform',
+          plan: zero.plan,
+          databaseName,
+          connectionRoleRef,
+          secretRef: 'env:DATABASE_URL',
+        },
+        {
+          slug: school.slug,
+          name: school.name,
+          kind: 'center',
+          plan: school.plan,
+          databaseName,
+          connectionRoleRef,
+          secretRef: 'env:DATABASE_URL',
+        },
+      ]);
+    } catch (err) {
+      this.logger.error(`Control plane registry seeding failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 }

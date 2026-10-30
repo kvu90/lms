@@ -41,6 +41,7 @@ import { UsersModule } from './modules/users/users.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { BackupModule } from './modules/backup/backup.module';
 import { ContentBankModule } from './modules/content-bank/content-bank.module';
+import { ControlPlaneModule } from './modules/control-plane/control-plane.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { PrivacyModule } from './modules/privacy/privacy.module';
@@ -180,6 +181,7 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
     ReportsModule,
     EventLogModule,
     ContentBankModule,
+    ControlPlaneModule,
     PrivacyModule,
     SiteConfigModule,
     TenantsModule,
