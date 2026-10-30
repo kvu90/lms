@@ -363,6 +363,27 @@ describe('identity contracts', () => {
     expect(() => mfaTotpSetupSchema.parse({ currentCode: '123456', other: 'x' })).toThrow();
   });
 
+  it('hợp đồng truy vấn danh sách người dùng: nhận đúng ba nhóm trạng thái và ba trường sắp xếp, chặn giá trị ngoài tập và pageSize vượt trần 100', async () => {
+    const { listUsersQuerySchema } = await import('./identity.js');
+    // Truy vấn rỗng và từng giá trị trong tập đóng đều hợp lệ.
+    expect(listUsersQuerySchema.parse({})).toEqual({});
+    for (const status of ['active', 'suspended', 'deleted'] as const) {
+      expect(listUsersQuerySchema.parse({ status }).status).toBe(status);
+    }
+    for (const sortBy of ['name', 'createdAt', 'lastLogin'] as const) {
+      expect(listUsersQuerySchema.parse({ sortBy }).sortBy).toBe(sortBy);
+    }
+    expect(listUsersQuerySchema.parse({ sortDirection: 'asc' }).sortDirection).toBe('asc');
+    expect(listUsersQuerySchema.parse({ sortDirection: 'desc' }).sortDirection).toBe('desc');
+    // pageSize tại đúng trần 100 vẫn hợp lệ.
+    expect(listUsersQuerySchema.parse({ pageSize: 100 }).pageSize).toBe(100);
+    // Giá trị ngoài tập đóng và pageSize vượt trần bị validation chặn.
+    expect(() => listUsersQuerySchema.parse({ status: 'archived' })).toThrow();
+    expect(() => listUsersQuerySchema.parse({ sortBy: 'email' })).toThrow();
+    expect(() => listUsersQuerySchema.parse({ sortDirection: 'up' })).toThrow();
+    expect(() => listUsersQuerySchema.parse({ pageSize: 101 })).toThrow();
+  });
+
   it('parses a login response and a profile without email (identity field hidden)', () => {
     expect(loginResponseSchema.parse({
       accessToken: 'a', refreshToken: 'r', expiresIn: 900,

@@ -232,11 +232,40 @@ export const updateUserSchema = z.strictObject({
 });
 export type UpdateUser = z.infer<typeof updateUserSchema>;
 
-/** Query danh sách người dùng (dạng nền — phía server ép kiểu phân trang từ query string). */
+/**
+ * Nhóm trạng thái tài khoản mà danh sách người dùng lọc theo — suy ra từ hai
+ * cờ `suspended`/`deleted` của tài khoản: `active` là chưa xoá và không bị
+ * đình chỉ; `suspended` là chưa xoá và đang bị đình chỉ; `deleted` là đã xoá
+ * mềm. Không truyền `status` thì danh sách ẩn tài khoản đã xoá như hành vi
+ * vốn có — tài khoản đã xoá chỉ xuất hiện khi lọc đích danh `deleted`.
+ */
+export const userListStatusSchema = z.enum(['active', 'suspended', 'deleted']);
+export type UserListStatus = z.infer<typeof userListStatusSchema>;
+
+/**
+ * Trường sắp xếp của danh sách người dùng — tập đóng: `name` sắp theo cột
+ * `firstName` rồi `lastName`, `createdAt` theo thời điểm tạo tài khoản,
+ * `lastLogin` theo lần đăng nhập gần nhất. Giá trị ngoài tập bị validation
+ * chặn. Không truyền `sortBy` thì danh sách giữ thứ tự mặc định theo id như
+ * hành vi vốn có.
+ */
+export const userListSortBySchema = z.enum(['name', 'createdAt', 'lastLogin']);
+export type UserListSortBy = z.infer<typeof userListSortBySchema>;
+
+/**
+ * Query danh sách người dùng (dạng nền — phía server ép kiểu phân trang từ
+ * query string). `sortDirection` chỉ có hiệu lực khi có `sortBy`, mặc định
+ * `asc`. Trần `pageSize` là 100, khớp trần của danh sách gán vai quản trị —
+ * mọi danh sách quản trị phân trang phía server đều có trần cứng để chặn
+ * truy vấn quá lớn.
+ */
 export const listUsersQuerySchema = z.strictObject({
   search: z.string().optional(),
+  status: userListStatusSchema.optional(),
+  sortBy: userListSortBySchema.optional(),
+  sortDirection: z.enum(['asc', 'desc']).optional(),
   page: z.number().int().min(1).optional(),
-  pageSize: z.number().int().min(1).optional(),
+  pageSize: z.number().int().min(1).max(100).optional(),
 });
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 
