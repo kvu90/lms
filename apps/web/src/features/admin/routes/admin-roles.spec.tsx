@@ -26,6 +26,18 @@ import { AdminRolesPage } from './admin-roles';
  * Cổng "trang đã tải" của các test đợt 2 đổi từ tên vai sang nút thẻ
  * thêm vai, vì tên vai giờ xuất hiện cả ở lưới thẻ lẫn các dòng bảng
  * đợt 3 nên không còn duy nhất cho findByText.
+ *
+ * Lượt căn chỉnh trình bày khớp bản demo mẫu (issue #555) đổi các bề
+ * mặt sau và spec này ghim trạng thái mới: thẻ thêm vai là một thẻ đầy
+ * đủ (tiêu đề + mô tả + nút trong thẻ); mặt thẻ vai không còn tên ngắn
+ * và dòng nguyên mẫu, ba con số Đọc/Ghi/Tổng thành dải nền xám số lớn
+ * với nhãn dưới số; hộp thoại vai có đúng một nút Huỷ, thêm nút × và
+ * dòng mô tả phụ theo chế độ; trang không còn khối tiêu đề phía trên
+ * lưới; thanh lọc của bảng co thành một hàng; chân bảng hiện khoảng
+ * dòng kèm cụm nút luôn bày. Nhãn ngữ cảnh giữ nguyên chuỗi hiện tại
+ * vì hạng mục nhãn ngắn của issue đã dừng theo điều kiện dừng (dữ
+ * liệu API không có tên thực thể) — các assertion nhãn ngữ cảnh trong
+ * spec này vì thế không đổi.
  */
 const ROLE_ID = '01900000-0000-7000-8000-0000000000b1';
 const NEW_ROLE_ID = '01900000-0000-7000-8000-0000000000b2';
@@ -310,9 +322,22 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
 
     await screen.findByRole('button', { name: 'Thêm vai trò mới' });
     expect(screen.getByText('5 người dùng')).toBeInTheDocument();
-    expect(screen.getByText(/Đọc: 2/)).toBeInTheDocument();
-    expect(screen.getByText(/Ghi: 1/)).toBeInTheDocument();
-    expect(screen.getByText('Tổng: 2 resource')).toBeInTheDocument();
+    // Dải số của thẻ vai: đúng ba con số thật với nhãn Đọc/Ghi/Tổng nằm
+    // dưới số (khoanh vùng trong thẻ của vai duy nhất trong fixture).
+    const roleCard = screen.getByRole('button', { name: 'Thao tác với vai trò' }).closest('[data-slot="card"]');
+    expect(roleCard).not.toBeNull();
+    const cardScope = within(roleCard as HTMLElement);
+    expect(cardScope.getByText('Đọc')).toBeInTheDocument();
+    expect(cardScope.getByText('Ghi')).toBeInTheDocument();
+    expect(cardScope.getByText('Tổng')).toBeInTheDocument();
+    // Số Đọc là 2, số Ghi là 1, số Tổng (resource) là 2.
+    expect(cardScope.getAllByText('2')).toHaveLength(2);
+    expect(cardScope.getByText('1')).toBeInTheDocument();
+    // Mặt thẻ không còn tên ngắn (shortName) và dòng nguyên mẫu.
+    expect(screen.queryByText(/editingteacher/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/nguyên mẫu/)).not.toBeInTheDocument();
+    // Thẻ thêm vai là thẻ đầy đủ: tiêu đề, một dòng mô tả ngắn và nút trong thẻ.
+    expect(screen.getByText('Thêm một vai trò, nếu vai trò đó chưa tồn tại.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Thêm vai trò mới' })).toBeInTheDocument();
     expect(calls.some((c) => c.url === '/api/v1/access/roles')).toBe(true);
     expect(calls.some((c) => c.url === '/api/v1/access/capabilities')).toBe(true);
@@ -514,6 +539,29 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     await userEvent.click(within(dialog).getByRole('button', { name: 'Xoá vai trò' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
+
+  it('hộp thoại vai trò có đúng một nút Huỷ, dòng mô tả phụ theo chế độ và nút × đóng được hộp thoại', async () => {
+    stubFetch([]);
+    renderPage();
+
+    await screen.findByRole('button', { name: 'Thêm vai trò mới' });
+    await userEvent.click(screen.getByRole('button', { name: 'Thêm vai trò mới' }));
+    const createDialog = await screen.findByRole('dialog', { name: 'Thêm vai trò mới' });
+    expect(within(createDialog).getByText('Tạo vai trò mới và cấu hình quyền của nó.')).toBeInTheDocument();
+    // Chỉ đúng một nút Huỷ (ở hàng nút dưới cùng) — nút ở đầu hộp thoại đã thay bằng nút ×.
+    expect(within(createDialog).getAllByRole('button', { name: 'Huỷ' })).toHaveLength(1);
+    await userEvent.click(within(createDialog).getByRole('button', { name: 'Đóng' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    await openEditDialog();
+    const editDialog = screen.getByRole('dialog', { name: 'Sửa vai trò' });
+    expect(
+      within(editDialog).getByText('Cập nhật tên vai trò và đặt quyền theo từng resource.'),
+    ).toBeInTheDocument();
+    expect(within(editDialog).getAllByRole('button', { name: 'Huỷ' })).toHaveLength(1);
+    await userEvent.click(within(editDialog).getByRole('button', { name: 'Đóng' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
 });
 
 describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
@@ -580,13 +628,14 @@ describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
 
     await userEvent.selectOptions(screen.getByLabelText('Số dòng mỗi trang'), '10');
     await waitFor(() => expect(assignmentsCalls().some((c) => c.url.includes('pageSize=10'))).toBe(true));
-    // Tổng 25 dòng với cỡ trang 10 thành 3 trang: nút chuyển trang hiện ra.
-    expect(screen.getByText('Trang 1 / 3')).toBeInTheDocument();
+    // Tổng 25 dòng với cỡ trang 10 thành 3 trang: chân bảng hiện khoảng
+    // dòng của trang 1 (stub trả 2 dòng mỗi trang bất kể cỡ trang).
+    expect(screen.getByText('Hiển thị 1–2 trong 25 dòng')).toBeInTheDocument();
     // Bảng có hai nút mang tên 'Sau' (tới trang kế và tới trang cuối, nút
     // cuối ẩn bằng class responsive mà jsdom không tính) nên bấm nút đầu.
     await userEvent.click(screen.getAllByRole('button', { name: 'Sau' })[0]);
     await waitFor(() => expect(assignmentsCalls().some((c) => c.url.includes('page=2'))).toBe(true));
-    expect(screen.getByText('Trang 2 / 3')).toBeInTheDocument();
+    expect(screen.getByText('Hiển thị 11–12 trong 25 dòng')).toBeInTheDocument();
   });
 
   it('gán vai qua hộp thoại POST đúng bộ ba và làm mới các truy vấn access', async () => {
@@ -711,19 +760,21 @@ describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
     renderPage();
 
     await screen.findByText('Người dùng 1');
-    expect(screen.getByText('Trang 1 / 2')).toBeInTheDocument();
+    expect(screen.getByText('Hiển thị 1–20 trong 21 dòng')).toBeInTheDocument();
     // Sang trang 2: chỉ còn dòng 21.
     await userEvent.click(screen.getAllByRole('button', { name: 'Sau' })[0]);
-    await waitFor(() => expect(screen.getByText('Trang 2 / 2')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Hiển thị 21–21 trong 21 dòng')).toBeInTheDocument());
     expect(screen.getByText('Người dùng 21')).toBeInTheDocument();
     // Gỡ dòng duy nhất của trang 2 rồi xác nhận.
     await userEvent.click(screen.getByRole('button', { name: 'Gỡ gán' }));
     const dialog = await screen.findByRole('dialog', { name: 'Gỡ gán vai trò' });
     await userEvent.click(within(dialog).getByRole('button', { name: 'Gỡ gán' }));
-    // Tổng còn 20 dòng (1 trang): bảng tự về trang 1, không kẹt 'Trang 2 / 1' rỗng.
-    await waitFor(() => expect(screen.getByText('Trang 1 / 1')).toBeInTheDocument());
+    // Tổng còn 20 dòng (1 trang): bảng tự về trang 1, không kẹt ở khoảng
+    // dòng của trang 2; cụm phân trang vẫn hiện khi chỉ còn một trang.
+    await waitFor(() => expect(screen.getByText('Hiển thị 1–20 trong 20 dòng')).toBeInTheDocument());
     expect(screen.getByText('Người dùng 1')).toBeInTheDocument();
-    expect(screen.queryByText('Trang 2 / 1')).not.toBeInTheDocument();
+    expect(screen.queryByText('Hiển thị 21–21 trong 20 dòng')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument();
     expect(
       calls.some(
         (c) =>
@@ -750,5 +801,35 @@ describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
     expect(
       calls.some((c) => c.url.startsWith('/api/v1/users') && c.url.includes('pageSize=40')),
     ).toBe(true);
+  });
+
+  it('bảng có mô tả phụ dưới tiêu đề, thanh lọc co thành một hàng và chân bảng hiện khoảng dòng ngay cả khi một trang', async () => {
+    stubFetch([]);
+    renderPage();
+
+    await screen.findByText('An Nguyễn');
+    // Dòng mô tả phụ dưới tiêu đề bảng.
+    expect(screen.getByText('Mọi người dùng đang giữ vai trò và ngữ cảnh họ được gán.')).toBeInTheDocument();
+    // Thanh lọc một hàng: các trường co chiều ngang thay vì full-width
+    // như Field mặc định — ô tìm kiếm mang bề rộng cố định, ô chọn lọc
+    // co theo nội dung. jsdom không tính layout nên hành vi quan sát
+    // được ở đây là class co chiều ngang trên đúng các trường của
+    // thanh lọc.
+    const searchField = screen.getByLabelText('Tìm người dùng').closest('[data-slot="field"]');
+    expect(searchField?.className).toContain('w-72');
+    const roleFilterField = screen.getByLabelText('Lọc theo vai trò').closest('[data-slot="field"]');
+    expect(roleFilterField?.className).toContain('w-auto');
+    // Chân bảng: dòng khoảng dòng thay cho "Trang X / Y", và cụm nút
+    // chuyển trang LUÔN hiện — dữ kiện chỉ có 1 trang nên các nút
+    // Trước/Sau ở trạng thái tắt, nút số trang 1 vẫn bày.
+    expect(screen.getByText('Hiển thị 1–2 trong 2 dòng')).toBeInTheDocument();
+    expect(screen.queryByText('Trang 1 / 1')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument();
+    for (const button of screen.getAllByRole('button', { name: 'Sau' })) {
+      expect(button).toBeDisabled();
+    }
+    for (const button of screen.getAllByRole('button', { name: 'Trước' })) {
+      expect(button).toBeDisabled();
+    }
   });
 });
