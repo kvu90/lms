@@ -59,7 +59,7 @@ interface PaperBody {
   } | null;
 }
 
-describe('Bank traceability (issue #228 S2)', () => {
+describe('Truy vết ngân hàng (issue #228 S2)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;

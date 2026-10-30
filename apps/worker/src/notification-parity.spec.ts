@@ -44,8 +44,8 @@ import {
  * notification-badge-award.spec.ts phía worker) nên không lặp ở đây.
  */
 
-describe('Notification parity: worker mirror local sanity (issue #293)', () => {
-  it('every mirror entry is keyed by its own provider name', () => {
+describe('Đối chiếu thông báo: worker mirror kiểm tra tỉnh táo cục bộ (issue #293)', () => {
+  it('mọi mục mirror đều khoá theo đúng tên provider của nó', () => {
     const entries = Object.entries(WORKER_PROVIDERS);
     expect(entries.length).toBeGreaterThan(0);
     for (const [key, law] of entries) {
@@ -99,8 +99,8 @@ function buildDelivery(scenario: {
 const ACTIVE_USER = { id: 'user-parity', suspended: false, deleted: false };
 const CALENDAR_INPUT = { subject: 'Nhắc lịch', body: 'Nội dung nhắc', smallMessage: 'Nhắc lịch' };
 
-describe('Notification parity: worker delivery law matches the API hard laws (issue #293)', () => {
-  it('a suspended recipient is skipped and nothing is stored — same as notify() on the API side', async () => {
+describe('Đối chiếu thông báo: luật gửi của worker khớp luật cứng phía API (issue #293)', () => {
+  it('người nhận bị đình chỉ thì bị bỏ qua và không lưu gì — giống notify() phía API', async () => {
     const { delivery, insertedNotifications, insertedLogs } = buildDelivery({
       user: { id: 'user-parity', suspended: true, deleted: false },
     });
@@ -111,14 +111,14 @@ describe('Notification parity: worker delivery law matches the API hard laws (is
     expect(insertedLogs[0]).toMatchObject({ provider: 'calendar_reminder', channel: 'popup', status: 'skipped-suspended' });
   });
 
-  it('a recipient that no longer exists is skipped the same way', async () => {
+  it('người nhận không còn tồn tại cũng bị bỏ qua theo cùng cách', async () => {
     const { delivery, insertedNotifications } = buildDelivery({});
     const result = await delivery.deliverInApp('user-gone', 'calendar_reminder', CALENDAR_INPUT);
     expect(result.status).toBe('skipped-suspended');
     expect(insertedNotifications).toHaveLength(0);
   });
 
-  it('a provider disabled by the site admin policy (NB-7) is skipped before user preference is consulted', async () => {
+  it('provider bị chính sách site admin tắt (NB-7) thì bị bỏ qua trước khi xét tuỳ chọn người dùng', async () => {
     const { delivery, insertedNotifications, insertedLogs } = buildDelivery({
       user: ACTIVE_USER, sitePolicyValue: 'false',
     });
@@ -128,7 +128,7 @@ describe('Notification parity: worker delivery law matches the API hard laws (is
     expect(insertedLogs[0]).toMatchObject({ provider: 'calendar_reminder', status: 'skipped-admin-disabled' });
   });
 
-  it('a recipient who turned the provider off in-app is skipped by preference', async () => {
+  it('người nhận đã tắt provider trong app thì bị bỏ qua theo tuỳ chọn', async () => {
     const { delivery, insertedNotifications, insertedLogs } = buildDelivery({
       user: ACTIVE_USER, preferenceValue: '0',
     });
@@ -138,7 +138,7 @@ describe('Notification parity: worker delivery law matches the API hard laws (is
     expect(insertedLogs[0]).toMatchObject({ provider: 'calendar_reminder', status: 'skipped-preference' });
   });
 
-  it('an enabled recipient with no blocking preference receives the notification and a delivered dispatch log', async () => {
+  it('người nhận đang bật và không có tuỳ chọn chặn sẽ nhận thông báo kèm log gửi đã giao', async () => {
     const { delivery, insertedNotifications, insertedLogs } = buildDelivery({ user: ACTIVE_USER });
     const result = await delivery.deliverInApp('user-parity', 'calendar_reminder', CALENDAR_INPUT);
     expect(result.status).toBe('delivered');
@@ -148,7 +148,7 @@ describe('Notification parity: worker delivery law matches the API hard laws (is
     expect(insertedLogs[0]).toMatchObject({ provider: 'calendar_reminder', status: 'delivered', dedupeKey: 'popup-notif-parity-1' });
   });
 
-  it('a mandatory provider (P2) forces the in-app channel on even when the stored preference is off — the mirror of the API law', async () => {
+  it('provider bắt buộc (P2) ép bật kênh in-app ngay cả khi tuỳ chọn đã lưu đang tắt — đúng luật phía API', async () => {
     const mandatory: WorkerProviderLaw = { name: 'parity_mandatory_probe', component: 'core_probe', mandatoryInApp: true };
     const optional: WorkerProviderLaw = { name: 'parity_optional_probe', component: 'core_probe', mandatoryInApp: false };
     const { delivery } = buildDelivery({ user: ACTIVE_USER, preferenceValue: '0' });
@@ -159,7 +159,7 @@ describe('Notification parity: worker delivery law matches the API hard laws (is
     expect(await delivery.resolvePopupEnabled('user-parity', optional)).toBe(false);
   });
 
-  it('a mandatory provider (P2) is delivered end-to-end even when the site admin policy disables it and the stored preference is off', async () => {
+  it('provider bắt buộc (P2) vẫn gửi đầu-cuối ngay cả khi chính sách site admin tắt nó và tuỳ chọn đã lưu đang tắt', async () => {
     // Bản chiếu hiện chưa có provider bắt buộc thật (cả hai provider
     // phía worker đều `mandatoryInApp: false`), nên ca này đăng ký
     // tạm hai provider tổng hợp vào bản chiếu và gỡ ngay trong

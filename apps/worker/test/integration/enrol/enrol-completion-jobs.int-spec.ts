@@ -26,7 +26,7 @@ import {
  * chứng đi qua kết nối quản trị của harness — khẳng định nghiệp vụ
  * của spec không đổi.
  */
-describe('Worker enrol & completion: enrol-expiry + completion-recalculate processors', () => {
+describe('Ghi danh và hoàn thành của worker: bộ xử lý enrol-expiry + completion-recalculate', () => {
   let context: INestApplicationContext;
   let harness: OrdinaryWorkerModuleHarness;
   let db: any;
@@ -69,7 +69,7 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
   });
   afterAll(async () => { await harness.close(); });
 
-  it('enrol-expiry flips ACTIVE enrolments whose timeEnd passed to SUSPENDED and writes the outbox event; future enrolments untouched', async () => {
+  it('enrol-expiry chuyển ghi danh ACTIVE đã quá timeEnd thành SUSPENDED và ghi sự kiện outbox; ghi danh tương lai không động tới', async () => {
     const past = new Date(Date.now() - 3600_000);
     const future = new Date(Date.now() + 3600_000);
     const [expired] = await db.insert(userEnrolments).values({ enrolId: instanceId, userId: userId, status: 0, timeStart: new Date(Date.now() - 7200_000), timeEnd: past }).returning();
@@ -87,7 +87,7 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
     expect(second.suspendedIds).not.toContain(expired.id);
   });
 
-  it('enrol-expiry warning: an ACTIVE enrolment expiring inside the warning window gets exactly one enrol_expiry_warning outbox event; outside the window none (issue #49)', async () => {
+  it('cảnh báo enrol-expiry: ghi danh ACTIVE hết hạn trong cửa sổ cảnh báo nhận đúng một sự kiện outbox enrol_expiry_warning; ngoài cửa sổ thì không có (issue #49)', async () => {
     const processor = context.get(EnrolExpiryProcessor);
     const inWindow = new Date(Date.now() + 3 * 24 * 3600_000);
     const outWindow = new Date(Date.now() + 30 * 24 * 3600_000);
@@ -115,7 +115,7 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
     expect(await warningsFor(soon.id)).toHaveLength(1);
   });
 
-  it('completion-recalculate recomputes course completion from current criteria (AND), and reopens it when criteria tighten', async () => {
+  it('completion-recalculate tính lại hoàn thành khoá học từ tiêu chí hiện tại (AND), và mở lại khi tiêu chí thắt chặt', async () => {
     const processor = context.get(CompletionRecalculateProcessor);
     await db.insert(courseModulesCompletion).values({ courseModuleId: cmId, userId: userId, completionState: 1, viewed: true });
     await db.insert(courseCompletionSettings).values({ course: courseId, method: 1 }).onConflictDoNothing();
@@ -136,7 +136,7 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
     expect(cc.timeCompleted).toBeNull();
   });
 
-  it('completion-recalculate evaluates the remaining Moodle criteria types (course, self, duration, unenrol) like the API evaluator', async () => {
+  it('completion-recalculate đánh giá các loại tiêu chí Moodle còn lại (course, self, duration, unenrol) như bộ đánh giá API', async () => {
     const processor = context.get(CompletionRecalculateProcessor);
     const statusOf = async (uid: string) => {
       const [row] = await db.select().from(courseCompletions)

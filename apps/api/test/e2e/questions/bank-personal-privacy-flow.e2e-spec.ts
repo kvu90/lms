@@ -57,7 +57,7 @@ interface QuestionViewBody {
   entry: { id: string; status: string };
 }
 
-describe('Bank personal privacy (issue #123)', () => {
+describe('Riêng tư cá nhân của ngân hàng (issue #123)', () => {
   let app: INestApplication;
   let admin: string;
 

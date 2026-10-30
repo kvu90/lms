@@ -21,7 +21,7 @@ import {
  * như production, fixture và đọc kiểm chứng đi qua kết nối quản
  * trị của harness — khẳng định nghiệp vụ của spec không đổi.
  */
-describe('Worker: task_log recording and outbox → event_log mirroring', () => {
+describe('Worker: ghi task_log và mirror outbox → event_log', () => {
   let context: INestApplicationContext;
   let harness: OrdinaryWorkerModuleHarness;
   let db: any;
@@ -44,7 +44,7 @@ describe('Worker: task_log recording and outbox → event_log mirroring', () => 
     return rows[0];
   }
 
-  it('TaskLogService.run records a success row and returns the result', async () => {
+  it('TaskLogService.run ghi một dòng thành công và trả kết quả', async () => {
     const result = await taskLogService.run('unit-probe', async () => 42, (r) => `got ${r}`);
     expect(result).toBe(42);
     const row = await latestTaskLog('unit-probe');
@@ -54,7 +54,7 @@ describe('Worker: task_log recording and outbox → event_log mirroring', () => 
     expect(row.finishedAt).not.toBeNull();
   });
 
-  it('TaskLogService.run records a failed row and rethrows', async () => {
+  it('TaskLogService.run ghi một dòng thất bại và ném lại lỗi', async () => {
     await expect(taskLogService.run('unit-probe-fail', async () => { throw new Error('boom'); })).rejects.toThrow('boom');
     const row = await latestTaskLog('unit-probe-fail');
     expect(row).toBeDefined();
@@ -62,7 +62,7 @@ describe('Worker: task_log recording and outbox → event_log mirroring', () => 
     expect(row.message).toContain('boom');
   });
 
-  it('enrol-expiry processor run leaves a task_log row', async () => {
+  it('lượt chạy bộ xử lý enrol-expiry để lại một dòng task_log', async () => {
     const processor = context.get(EnrolExpiryProcessor);
     await processor.process({ data: {} } as never);
     const row = await latestTaskLog('enrol-expiry');
@@ -71,7 +71,7 @@ describe('Worker: task_log recording and outbox → event_log mirroring', () => 
     expect(row.finishedAt).not.toBeNull();
   });
 
-  it('relay tick mirrors a published outbox row into event_log and logs the tick', async () => {
+  it('tick relay mirror một dòng outbox đã phát hành sang event_log và ghi log tick', async () => {
     const actorId = '01900000-0000-7000-8000-00000000aa01';
     const studentId = '01900000-0000-7000-8000-00000000aa02';
     const courseId = '01900000-0000-7000-8000-00000000aa03';

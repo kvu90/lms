@@ -602,14 +602,14 @@ async function pickSelectOption(scope: ReturnType<typeof within>, label: string,
   await userEvent.click(await screen.findByRole('option', { name: optionText }));
 }
 
-describe('Question editor — four qtypes', () => {
+describe('Trình sửa câu hỏi — bốn dạng câu hỏi', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('creates a multichoice question from the unified document: split on save, four choices, one marked correct, guidance on the answer side', async () => {
+  it('tạo câu trắc nghiệm từ tài liệu thống nhất: tách khi lưu, bốn lựa chọn, một đáp án đúng, hướng dẫn ở phía đáp án', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderBank();
@@ -657,7 +657,7 @@ describe('Question editor — four qtypes', () => {
     expect(calls.some((c) => c.url.endsWith('/status'))).toBe(false);
   });
 
-  it('saves a new question as a draft through the status endpoint', async () => {
+  it('lưu câu hỏi mới dạng nháp qua endpoint trạng thái', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderBank();
@@ -683,7 +683,7 @@ describe('Question editor — four qtypes', () => {
     expect(statusIndex).toBeGreaterThan(createIndex);
   });
 
-  it('uploads an image pasted into the editor through onRequestImage and saves the durable file src', async () => {
+  it('tải lên ảnh dán vào editor qua onRequestImage và lưu src file bền vững', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderBank();
@@ -721,7 +721,7 @@ describe('Question editor — four qtypes', () => {
     });
   });
 
-  it('opens a file picker for the editor toolbar image button and uploads the chosen image', async () => {
+  it('mở bộ chọn file cho nút ảnh trên toolbar editor và tải lên ảnh đã chọn', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderBank();
@@ -761,7 +761,7 @@ describe('Question editor — four qtypes', () => {
     });
   });
 
-  it('shows the real API reason when question creation fails (issue #55)', async () => {
+  it('hiện lý do thật của API khi tạo câu hỏi thất bại (issue #55)', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls, [], 'multichoice requires exactly one correct answer');
     renderBank();
@@ -780,7 +780,7 @@ describe('Question editor — four qtypes', () => {
     expect(status).toHaveTextContent('multichoice requires exactly one correct answer');
   });
 
-  it('creates ONE truefalse TF-A question: stem + 4 statements in one document, answers as solution', async () => {
+  it('tạo ĐÚNG MỘT câu truefalse TF-A: thân câu + 4 mệnh đề trong một tài liệu, đáp án dạng solution', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderBank();
@@ -838,7 +838,7 @@ describe('Question editor — four qtypes', () => {
     ]);
   });
 
-  it('edits a truefalse TF-A question: statements and answers load from the stored document + answerKey', async () => {
+  it('sửa câu truefalse TF-A: mệnh đề và đáp án tải từ tài liệu đã lưu + answerKey', async () => {
     const calls: RecordedCall[] = [];
     const tfDoc = {
       type: 'doc',
@@ -910,7 +910,7 @@ describe('Question editor — four qtypes', () => {
     ]);
   });
 
-  it('creates a shortanswer question with accepted answers and the useCase option', async () => {
+  it('tạo câu shortanswer với đáp án chấp nhận và tuỳ chọn useCase', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderBank();
@@ -943,7 +943,7 @@ describe('Question editor — four qtypes', () => {
     });
   });
 
-  it('sends the numeric answer flags only when the numeric option is enabled', async () => {
+  it('chỉ gửi cờ đáp án số khi tuỳ chọn số được bật', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderBank();
@@ -973,7 +973,7 @@ describe('Question editor — four qtypes', () => {
     });
   });
 
-  it('creates an essay question with response options, grader info, template, guidance and a model answer on the answer side', async () => {
+  it('tạo câu tự luận với tuỳ chọn trả lời, thông tin người chấm, mẫu, hướng dẫn và đáp án mẫu ở phía đáp án', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderBank();
@@ -1016,7 +1016,7 @@ describe('Question editor — four qtypes', () => {
     });
   });
 
-  it('reopens the editor for an existing multichoice question and saves a new version', async () => {
+  it('mở lại editor cho câu trắc nghiệm sẵn có và lưu phiên bản mới', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls, [multichoiceView()]);
     renderBank();
@@ -1063,7 +1063,7 @@ describe('Question editor — four qtypes', () => {
     expect(await screen.findByTestId(`version-badge-${QUESTION_ID}`)).toHaveTextContent('v2');
   });
 
-  it('preserves non-default multichoice options and feedback documents when editing', async () => {
+  it('giữ nguyên tuỳ chọn trắc nghiệm không mặc định và tài liệu phản hồi khi sửa', async () => {
     const calls: RecordedCall[] = [];
     const correctFeedback = doc('Phản hồi khi đúng');
     const incorrectFeedback = doc('Phản hồi khi sai');
@@ -1107,7 +1107,7 @@ describe('Question editor — four qtypes', () => {
     });
   });
 
-  it('reopens an MCP-created draft intact and publishes it as ready', async () => {
+  it('mở lại nháp do MCP tạo còn nguyên vẹn và xuất bản thành sẵn sàng', async () => {
     const calls: RecordedCall[] = [];
     const generalFeedback = doc('Lời giải: Hà Nội là thủ đô.');
     const guidance = doc('Gợi ý: nhớ lại vị trí địa lý.');
@@ -1147,7 +1147,7 @@ describe('Question editor — four qtypes', () => {
     expect(statusCall?.body).toEqual({ status: 'ready' });
   });
 
-  it('preserves non-default essay response options and the model answer when editing', async () => {
+  it('giữ nguyên tuỳ chọn trả lời tự luận không mặc định và đáp án mẫu khi sửa', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls, [
       multichoiceView({
@@ -1199,13 +1199,13 @@ describe('Question editor — four qtypes', () => {
   });
 });
 
-describe('Stimulus in the question bank UI', () => {
+describe('Ngữ liệu trong giao diện ngân hàng câu hỏi', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
   });
 
-  it('creates a stimulus and attaches it to a new question', async () => {
+  it('tạo ngữ liệu và gắn vào câu hỏi mới', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     const router = renderBank();
@@ -1249,7 +1249,7 @@ describe('Stimulus in the question bank UI', () => {
     expect(createCall?.body).toMatchObject({ qtype: 'multichoice', stimulusId: STIMULUS_ID });
   });
 
-  it('shows the attached stimulus on the usage page for the pinned version', async () => {
+  it('hiện ngữ liệu đã gắn trên trang usage cho phiên bản đã ghim', async () => {
     const calls: RecordedCall[] = [];
     vi.stubGlobal(
       'fetch',

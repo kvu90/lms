@@ -94,7 +94,7 @@ async function openStream(url: string, headers: Record<string, string> = {}): Pr
   };
 }
 
-describe('Notification unread count SSE stream', () => {
+describe('Luồng SSE số thông báo chưa đọc', () => {
   let app: INestApplication;
   let base: string;
   let admin: string;

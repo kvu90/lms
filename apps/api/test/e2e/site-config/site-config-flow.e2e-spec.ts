@@ -12,7 +12,7 @@ import {
  * Hành vi tương ứng phía Moodle: get_config/set_config (config + config_plugins)
  * và admin setting tree chỉ dành cho user có site:config.
  */
-describe('Site config (admin settings)', () => {
+describe('Cấu hình site (cài đặt admin)', () => {
   let app: INestApplication;
   let admin: string;
   let adminId: string;
@@ -25,7 +25,7 @@ describe('Site config (admin settings)', () => {
   });
   afterAll(async () => { await app.close(); });
 
-  it('unset settings resolve to their code defaults, for core and plugin components alike', async () => {
+  it('cài đặt chưa đặt phân giải về mặc định code, cho cả component core và plugin', async () => {
     const list = await http(app).get('/api/v1/site-config').set('Authorization', `Bearer ${admin}`);
     expect(list.status).toBe(200);
     const byKey = new Map((list.body as { component: string; name: string }[]).map((s) => [`${s.component}/${s.name}`, s]));
@@ -35,7 +35,7 @@ describe('Site config (admin settings)', () => {
     expect(byKey.get('badges/enabled')).toMatchObject({ value: true, source: 'default' });
   });
 
-  it('an admin override wins over the default, is audited, and clearing it restores the default', async () => {
+  it('ghi đè của admin thắng mặc định, được kiểm toán, và xoá nó khôi phục mặc định', async () => {
     const put = await http(app).put('/api/v1/site-config/core/fullname')
       .set('Authorization', `Bearer ${admin}`).send({ value: 'Trường Học Số' });
     expect(put.status).toBe(200);
@@ -62,7 +62,7 @@ describe('Site config (admin settings)', () => {
     expect(clearAgain.body.code).toBe('site_config.override_not_found');
   });
 
-  it('plugin settings live in their own namespace, independent from core keys of the same name', async () => {
+  it('cài đặt plugin sống trong namespace riêng, độc lập với khoá core cùng tên', async () => {
     const put = await http(app).put('/api/v1/site-config/badges/enabled')
       .set('Authorization', `Bearer ${admin}`).send({ value: false });
     expect(put.status).toBe(200);
@@ -72,7 +72,7 @@ describe('Site config (admin settings)', () => {
     await http(app).delete('/api/v1/site-config/badges/enabled').set('Authorization', `Bearer ${admin}`);
   });
 
-  it('values are validated against the registered type: wrong type and out-of-enum values are refused, unknown keys are refused', async () => {
+  it('giá trị kiểm chứng theo loại đã đăng ký: sai loại và giá trị ngoài enum bị từ chối, khoá lạ bị từ chối', async () => {
     const badBool = await http(app).put('/api/v1/site-config/core/messagingallusers')
       .set('Authorization', `Bearer ${admin}`).send({ value: 'yes' });
     expect(badBool.status).toBe(400);
@@ -89,7 +89,7 @@ describe('Site config (admin settings)', () => {
     expect(unknown.body.code).toBe('site_config.unknown_setting');
   });
 
-  it('users without site:config can neither read nor write site configuration', async () => {
+  it('người không có site:config không thể đọc hay ghi cấu hình site', async () => {
     const plain = await createUserViaApi(app, admin);
     const plainLogin = await login(app, plain.username, STRONG_PASSWORD);
     const read = await http(app).get('/api/v1/site-config').set('Authorization', `Bearer ${plainLogin.accessToken}`);

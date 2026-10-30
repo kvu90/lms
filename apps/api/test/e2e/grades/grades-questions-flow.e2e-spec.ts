@@ -16,7 +16,7 @@ import { createGradeItem, getGradebook, setGrade } from '../../support/assessmen
  *    (test_internal_get_state_with_grade_criteria, test_inform_grade_changed)
  *    — ĐÃ KIỂM CHỨNG ở bản 5.3: hoàn thành đi theo điểm.
  */
-describe('Grades & questions', () => {
+describe('Điểm và câu hỏi', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;
@@ -73,7 +73,7 @@ describe('Grades & questions', () => {
     expect((history.body as unknown[]).length).toBeGreaterThanOrEqual(2);
   });
 
-  it('freeze: a grade produced with a multiplicator is frozen — changing the multiplicator later does not rewrite it until unfrozen', async () => {
+  it('đóng băng: điểm tạo bằng multiplicator bị đóng băng — đổi multiplicator sau đó không viết lại nó cho tới khi mở băng', async () => {
     const { course, student } = await setupCourse();
     const item = await createGradeItem(app, admin, course.id, { itemName: 'Penalised', gradeMax: 100, multiplicator: 0.5 });
     const grade = await setGrade(app, admin, item.id, student.id, 80);
@@ -94,7 +94,7 @@ describe('Grades & questions', () => {
     expect(book.activities.find((i) => i.item.id === item.id)?.grade?.finalGrade).toBeCloseTo(80, 6);
   });
 
-  it('permissions and privacy: students cannot enter grades, see only their own grades, and hidden items are filtered', async () => {
+  it('quyền và riêng tư: học viên không thể nhập điểm, chỉ thấy điểm của mình, và mục ẩn bị lọc', async () => {
     const { course, student, studentToken } = await setupCourse();
     const visible = await createGradeItem(app, admin, course.id, { itemName: 'Visible', gradeMax: 100 });
     const hidden = await createGradeItem(app, admin, course.id, { itemName: 'Secret', gradeMax: 100, hidden: true });
@@ -135,7 +135,7 @@ describe('Grades & questions', () => {
   });
   const TF_ALL_TRUE = JSON.stringify({ s1: true, s2: true, s3: true, s4: true });
 
-  it('question bank versioning: editing a question creates a new version and bumps the entry pointer; old versions stay intact', async () => {
+  it('phiên bản hoá ngân hàng câu hỏi: sửa câu hỏi tạo phiên bản mới và đẩy con trỏ entry; phiên bản cũ còn nguyên', async () => {
     const systemCtxRes = await http(app).get('/api/v1/access/contexts').set('Authorization', `Bearer ${admin}`);
     const systemCtx = (systemCtxRes.body as { id: string; contextLevel: number }[]).find((c) => c.contextLevel === 10)!;
     const catRes = await http(app).post('/api/v1/questions/categories').set('Authorization', `Bearer ${admin}`)
@@ -177,7 +177,7 @@ describe('Grades & questions', () => {
     ]);
   });
 
-  it('INVARIANT: an attempt started on version 1 is graded by version 1 even after the question is edited to version 2', async () => {
+  it('BẤT BIẾN: lượt làm bắt đầu ở phiên bản 1 được chấm bởi phiên bản 1 ngay cả sau khi câu hỏi sửa thành phiên bản 2', async () => {
     const systemCtxRes = await http(app).get('/api/v1/access/contexts').set('Authorization', `Bearer ${admin}`);
     const systemCtx = (systemCtxRes.body as { id: string; contextLevel: number }[]).find((c) => c.contextLevel === 10)!;
     const catRes = await http(app).post('/api/v1/questions/categories').set('Authorization', `Bearer ${admin}`)
@@ -227,7 +227,7 @@ describe('Grades & questions', () => {
     expect(finished2.body.attempts[0].state).toBe('gradedwrong');
   });
 
-  it('CHAIN: entering a grade drives completionUseGrade (pass/fail) and opens a grade-gated activity', async () => {
+  it('CHUỖI: nhập điểm dẫn completionUseGrade (đạt/trượt) và mở hoạt động cổng bằng điểm', async () => {
     const { course, sectionId, student, studentToken } = await setupCourse();
     const cmQuiz = await createCm(app, admin, course.id, sectionId, {
       name: 'Graded quiz', completion: 2, completionUseGrade: true,

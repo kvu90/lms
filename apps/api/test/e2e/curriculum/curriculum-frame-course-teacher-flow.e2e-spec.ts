@@ -96,7 +96,7 @@ function findByPath(nodes: TreeNode[], titles: string[]): TreeNode | undefined {
 
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
-describe('K0a frame access for course-level teachers (seed role model, issue #66 review blocker)', () => {
+describe('Truy cập khung K0a cho giáo viên cấp khoá học (mô hình vai seed, issue #66 review blocker)', () => {
   let app: INestApplication;
   let admin: string;
   let systemCtxId: string;
@@ -149,7 +149,7 @@ describe('K0a frame access for course-level teachers (seed role model, issue #66
   }, 180_000);
   afterAll(async () => { await app.close(); });
 
-  it('course teacher reads the whole frame-picker surface for their own course via forCourseId', async () => {
+  it('giáo viên khoá học đọc toàn bộ bề mặt chọn khung cho chính khoá của họ qua forCourseId', async () => {
     const subjects = await http(app).get(`/api/v1/curriculum/subjects?contextId=${systemCtxId}&forCourseId=${courseA}`).set(bearer(teacherA));
     expect(subjects.status).toBe(200);
     expect((subjects.body as { slug: string }[]).some((s) => s.slug === 'toan')).toBe(true);
@@ -160,7 +160,7 @@ describe('K0a frame access for course-level teachers (seed role model, issue #66
     expect((tree.body as { nodes: TreeNode[] }).nodes.length).toBeGreaterThan(0);
   });
 
-  it('course teacher applies a frame to their own course and sees the anchored outcomes', async () => {
+  it('giáo viên khoá học áp khung cho chính khoá của họ và thấy outcome có neo', async () => {
     const topic = findByPath(tree5, ['Số và phép tính', 'Phân số', 'Số thập phân']);
     expect(topic).toBeTruthy();
     const res = await http(app).post(`/api/v1/courses/${courseA}/curriculum-frame`).set(bearer(teacherA))
@@ -180,7 +180,7 @@ describe('K0a frame access for course-level teachers (seed role model, issue #66
       .toEqual(expectedUnitOutcomes(5, 'Số và phép tính', 'Phân số', 'Số thập phân'));
   });
 
-  it('the new branch is bound to the target course: no plain reads, no other course', async () => {
+  it('nhánh mới gắn với khoá đích: không đọc thuần, không khoá khác', async () => {
     const plainSubjects = await http(app).get(`/api/v1/curriculum/subjects?contextId=${systemCtxId}`).set(bearer(teacherA));
     expect(plainSubjects.status).toBe(403);
     const plainTree = await http(app).get(`/api/v1/curriculum/curricula/${curriculum5Id}/tree`).set(bearer(teacherA));
@@ -199,7 +199,7 @@ describe('K0a frame access for course-level teachers (seed role model, issue #66
     expect(applyOwn.status).toBe(201);
   });
 
-  it('students and unrelated users stay denied on every frame surface', async () => {
+  it('học viên và người không liên quan vẫn bị từ chối trên mọi bề mặt khung', async () => {
     const topic = findByPath(tree5, ['Số và phép tính', 'Phân số', 'Số thập phân'])!;
     for (const token of [studentA, plainToken]) {
       const subjects = await http(app).get(`/api/v1/curriculum/subjects?contextId=${systemCtxId}&forCourseId=${courseA}`).set(bearer(token));
@@ -212,7 +212,7 @@ describe('K0a frame access for course-level teachers (seed role model, issue #66
     }
   });
 
-  it('programme administration gates stay shut for course teachers (curriculum:manage not widened)', async () => {
+  it('cổng quản trị chương trình vẫn đóng với giáo viên khoá học (curriculum:manage không mở rộng)', async () => {
     const imp = await http(app).post('/api/v1/curriculum/program-import').set(bearer(teacherA)).send({ datasetKey: 'toan' });
     expect(imp.status).toBe(403);
     const status = await http(app).get('/api/v1/curriculum/program-import').set(bearer(teacherA));

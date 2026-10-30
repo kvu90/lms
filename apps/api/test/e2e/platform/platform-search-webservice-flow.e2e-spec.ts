@@ -20,7 +20,7 @@ const PROHIBIT = -1000;
  * - analytics/tests/model_test.php + prediction_test.php (model/indicator, insight không phải dữ kiện)
  * - reportbuilder/tests/manager_test.php + permission_test.php (audience ∩ quyền từng dòng)
  */
-describe('Platform services: search permission re-check, webservice tokens, content bank, analytics, reports', () => {
+describe('Dịch vụ platform: kiểm tra lại quyền tìm kiếm, token webservice, ngân hàng nội dung, phân tích, báo cáo', () => {
   let app: INestApplication;
   let admin: string;
 
@@ -40,7 +40,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     return { cat, course, instance, student, studentToken };
   }
 
-  it('search DoD: a user with PROHIBIT at the course context finds nothing, even with a stale index entry; an enrolled user finds the course', async () => {
+  it('tìm kiếm DoD: người có PROHIBIT tại ngữ cảnh khoá học không tìm thấy gì, ngay cả với mục index cũ; người đã ghi danh tìm thấy khoá học', async () => {
     const { course, student, studentToken } = await setupCourseWithStudent();
     const ctxId = await courseContextId(app, admin, course.id);
     // Index khoá học qua area thật.
@@ -73,7 +73,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     void student;
   });
 
-  it('search: a suspended user document leaves the index (purge by owner) and areas registry lists at least 3 real areas', async () => {
+  it('tìm kiếm: tài liệu người dùng bị đình chỉ rời khỏi index (purge theo chủ sở hữu) và registry area liệt kê ít nhất 3 area thật', async () => {
     const areas = await http(app).get('/api/v1/search/areas').set('Authorization', `Bearer ${admin}`);
     expect(areas.body).toEqual(expect.arrayContaining(['courses', 'users', 'contentbank']));
     const user = await createUserViaApi(app, admin);
@@ -87,7 +87,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     expect((res.body as { itemId: string }[]).some((d) => d.itemId === user.id)).toBe(false);
   });
 
-  it('search users: email stays hidden from non-managers in payload and matching, managers keep full behaviour, before and after a full reindex', async () => {
+  it('tìm kiếm người dùng: email vẫn ẩn với người không quản lý trong payload và khớp, quản lý giữ đầy đủ hành vi, trước và sau khi reindex toàn bộ', async () => {
     type Doc = { area: string; itemId: string; content: string };
     const searchAs = async (token: string, q: string): Promise<Doc[]> => {
       const res = await http(app).get(`/api/v1/search?q=${encodeURIComponent(q)}`).set('Authorization', `Bearer ${token}`);
@@ -163,7 +163,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     await expectFullForManager(mgrToken);
   });
 
-  it('search users: a stale legacy users document keeps email hidden from non-managers and visible to managers', async () => {
+  it('tìm kiếm người dùng: tài liệu users cũ còn tồn giữ email ẩn với người không quản lý và hiện với quản lý', async () => {
     type Doc = { area: string; itemId: string; content: string };
     const searchAs = async (token: string, q: string): Promise<Doc[]> => {
       const res = await http(app).get(`/api/v1/search?q=${encodeURIComponent(q)}`).set('Authorization', `Bearer ${token}`);
@@ -224,7 +224,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     }
   });
 
-  it('webservice DoD: a student token cannot call a function requiring a teacher capability (403), but can call a view function in its service', async () => {
+  it('webservice DoD: token học viên không thể gọi hàm cần năng lực giáo viên (403), nhưng có thể gọi hàm view trong service của nó', async () => {
     const { course, student } = await setupCourseWithStudent();
     const svc = await http(app).post('/api/v1/webservice/services').set('Authorization', `Bearer ${admin}`)
       .send({ name: `Svc ${Date.now()}`, shortName: `svc${Date.now()}`, functions: ['core_course_get_courses', 'core_grades_update_grades'] });
@@ -253,7 +253,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     expect(forbidden.status).toBe(403);
   });
 
-  it('webservice: a token is rejected at call time while its owner is suspended, and the same token works again once the owner is reinstated', async () => {
+  it('webservice: token bị từ chối lúc gọi khi chủ của nó bị đình chỉ, và cùng token chạy lại khi chủ được khôi phục', async () => {
     const { student } = await setupCourseWithStudent();
     const svc = await http(app).post('/api/v1/webservice/services').set('Authorization', `Bearer ${admin}`)
       .send({ name: `Svc ${Date.now()}`, shortName: `svc${Date.now()}`, functions: ['core_course_get_courses'] });
@@ -277,7 +277,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     expect((await call()).status).toBeLessThan(300);
   });
 
-  it('content bank: draft is author-only, public needs the contentbank view capability (not a generic course right), upload attaches a file', async () => {
+  it('ngân hàng nội dung: draft chỉ tác giả, public cần năng lực view contentbank (không phải quyền khoá học chung), tải lên gắn file', async () => {
     const { course, student, studentToken } = await setupCourseWithStudent();
     const ctxId = await courseContextId(app, admin, course.id);
     // Teacher của khoá tạo nội dung.
@@ -310,7 +310,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     void student;
   });
 
-  it('analytics: students-at-risk run creates insights only for teachers and changes neither grades nor enrolments', async () => {
+  it('phân tích: lần chạy students-at-risk tạo insights chỉ cho giáo viên và không đổi điểm hay ghi danh', async () => {
     const { course, instance } = await setupCourseWithStudent();
     const ctxId = await courseContextId(app, admin, course.id);
     const teacher = await createUserViaApi(app, admin);
@@ -341,7 +341,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     expect(gradesRes.status).toBe(200);
   });
 
-  it('reports DoD: a report in the audience of user A never leaks rows of a course A has no rights in, even with an empty filter; schedule runs as its creator', async () => {
+  it('báo cáo DoD: báo cáo trong audience của người A không bao giờ lộ dòng của khoá A không có quyền, ngay cả với bộ lọc rỗng; lịch chạy với tư cách người tạo', async () => {
     const a = await setupCourseWithStudent();
     const b = await setupCourseWithStudent();
     // Report enrolments do admin tạo, audience = student của course A.

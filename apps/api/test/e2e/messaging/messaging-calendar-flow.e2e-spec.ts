@@ -24,7 +24,7 @@ import { addGroupMember, createGroupViaApi, suspendUser } from '../../support/en
  *    chỉ chứa các sự kiện mà người dùng đó được phép thấy, và việc đặt lại
  *    khoá sẽ vô hiệu hoá URL cũ.
  */
-describe('Messaging & calendar', () => {
+describe('Nhắn tin và lịch', () => {
   let app: INestApplication;
   let admin: string;
 
@@ -89,7 +89,7 @@ describe('Messaging & calendar', () => {
     return events;
   }
 
-  it('conversations: two users exchange messages; unread counts track conversations and reading clears them (api_test mark_all_read)', async () => {
+  it('trò chuyện: hai người trao đổi tin nhắn; số chưa đọc theo dõi trò chuyện và đọc sẽ xoá chúng (api_test mark_all_read)', async () => {
     const { a, b, aToken, bToken } = await twoUsers();
     // Cổng liên hệ (mô hình contacts-only): hai người dùng trước hết là
     // liên hệ đã được chấp nhận của nhau (người nhận đã gửi yêu cầu, người gửi đã chấp nhận).
@@ -123,7 +123,7 @@ describe('Messaging & calendar', () => {
     expect(unreadA.body.conversations).toBe(0);
   });
 
-  it('conversations: the member named in memberIds at creation is a real member of the new conversation (not dropped)', async () => {
+  it('trò chuyện: thành viên nêu trong memberIds lúc tạo là thành viên thật của trò chuyện mới (không bị rơi)', async () => {
     const { a, b, aToken, bToken } = await twoUsers();
     // Cổng liên hệ (mô hình contacts-only): hai người dùng trước hết là liên hệ đã được chấp nhận của nhau.
     await befriend({ id: b.id, token: bToken }, { id: a.id, token: aToken });
@@ -143,7 +143,7 @@ describe('Messaging & calendar', () => {
     expect(mine!.members).toEqual(expect.arrayContaining([a.id, b.id]));
   });
 
-  it('a sent message cannot be EDITED; deletion follows the role lifecycle — delete-for-me hides it for the author only, recall invalidates it for everyone (bổ sung PR #94)', async () => {
+  it('tin nhắn đã gửi không thể SỬA; xoá tuân theo vòng đời vai trò — xoá-cho-tôi ẩn nó chỉ với tác giả, thu hồi vô hiệu nó với mọi người (bổ sung PR #94)', async () => {
     const { a, b, aToken, bToken } = await twoUsers();
     // Cổng liên hệ: hai người dùng là liên hệ đã được chấp nhận nên chính thao tác gửi thành công.
     await befriend({ id: b.id, token: bToken }, { id: a.id, token: aToken });
@@ -188,7 +188,7 @@ describe('Messaging & calendar', () => {
     expect(recalledForB!.recalledAt).toBeTruthy();
   });
 
-  it('blocked contacts cannot send: the recipient block list stops delivery (api_test test_count_blocked_users)', async () => {
+  it('liên hệ bị chặn không thể gửi: danh sách chặn của người nhận dừng phân phối (api_test test_count_blocked_users)', async () => {
     const { a, b, aToken, bToken } = await twoUsers();
     // Cổng liên hệ: hai người dùng là liên hệ đã được chấp nhận; danh sách chặn là một luật riêng, mạnh hơn, được kiểm tra trước tại thời điểm gửi.
     await befriend({ id: b.id, token: bToken }, { id: a.id, token: aToken });
@@ -207,7 +207,7 @@ describe('Messaging & calendar', () => {
     expect(ok.status).toBe(201);
   });
 
-  it('a suspended recipient receives neither messages nor notifications (§2#12 DoD)', async () => {
+  it('người nhận bị đình chỉ không nhận cả tin nhắn lẫn thông báo (§2#12 DoD)', async () => {
     const { a, b, aToken, bToken } = await twoUsers();
     // Cổng liên hệ: hai người dùng trở thành liên hệ đã được chấp nhận trước khi bị đình chỉ, nên luật đình chỉ là thứ chặn việc gửi.
     await befriend({ id: b.id, token: bToken }, { id: a.id, token: aToken });
@@ -230,7 +230,7 @@ describe('Messaging & calendar', () => {
     void listAsAdmin;
   });
 
-  it('notifications: provider dispatch honours (provider × channel × loggedin) preferences; disabling popup stores nothing (DoD)', async () => {
+  it('thông báo: phân phối provider tôn trọng tuỳ chọn (provider × kênh × loggedin); tắt popup không lưu gì (DoD)', async () => {
     const user = await createUserViaApi(app, admin);
     const { accessToken } = await login(app, user.username, STRONG_PASSWORD);
     // NB-7: đặt tuỳ chọn theo loại qua API chỉ còn cho nhân sự — ca
@@ -278,7 +278,7 @@ describe('Messaging & calendar', () => {
     expect(popupPref?.popupEnabled).toBe(false);
   });
 
-  it('calendar visibility: site events for all, user events owner-only, course events enrolled-only, category events for category learners', async () => {
+  it('hiển thị lịch: sự kiện site cho mọi người, sự kiện user chỉ chủ sở hữu, sự kiện khoá chỉ người đã ghi danh, sự kiện danh mục cho học viên của danh mục', async () => {
     const category = await createCategory(app, admin);
     const course = await createCourse(app, admin, category.id);
     const instance = await createEnrolInstance(app, admin, course.id);
@@ -318,7 +318,7 @@ describe('Messaging & calendar', () => {
     expect(outsiderNames).not.toContain('My dentist');
   });
 
-  it('calendar group events are visible only to group members (and staff) of the course (DoD)', async () => {
+  it('sự kiện nhóm trên lịch chỉ hiện với thành viên nhóm (và staff) của khoá học (DoD)', async () => {
     const category = await createCategory(app, admin);
     const course = await createCourse(app, admin, category.id);
     const instance = await createEnrolInstance(app, admin, course.id);
@@ -341,7 +341,7 @@ describe('Messaging & calendar', () => {
     expect((forNonMember.body as { name: string }[]).map((e) => e.name)).not.toContain('Alpha standup');
   });
 
-  it('calendar series: weekly repeat creates one series; an exception replaces its occurrence in listings', async () => {
+  it('chuỗi lịch: lặp hàng tuần tạo một chuỗi; ngoại lệ thay thế lần xuất hiện của nó trong danh sách', async () => {
     const user = await createUserViaApi(app, admin);
     const { accessToken } = await login(app, user.username, STRONG_PASSWORD);
     const start = new Date(Date.now() + 86400_000);
@@ -369,7 +369,7 @@ describe('Messaging & calendar', () => {
     expect(del.body.seriesDeleted).toBe(4); // 3 lần xuất hiện + 1 ngoại lệ
   });
 
-  it('calendar subscriptions: creating one queues an ICS import; reminders can be scheduled for visible events', async () => {
+  it('đăng ký lịch: tạo một đăng ký xếp hàng nhập ICS; nhắc nhở có thể lên lịch cho sự kiện nhìn thấy được', async () => {
     const ics = [
       'BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VEVENT', 'UID:sub-test-1@lms',
       'SUMMARY:Imported keynote', 'DTSTART:20270105T090000Z', 'DTEND:20270105T100000Z',
@@ -397,7 +397,7 @@ describe('Messaging & calendar', () => {
     expect(forbidden.status).toBe(403);
   });
 
-  it('calendar export (ICS download): only the events the exporter may see, in a parseable VCALENDAR (behat/export.feature)', async () => {
+  it('xuất lịch (tải ICS): chỉ sự kiện người xuất được thấy, trong VCALENDAR phân tích được (behat/export.feature)', async () => {
     const category = await createCategory(app, admin);
     const course = await createCourse(app, admin, category.id);
     const instance = await createEnrolInstance(app, admin, course.id);
@@ -484,7 +484,7 @@ describe('Messaging & calendar', () => {
     expect(rangedSummaries.filter((n) => n === 'Export weekly series')).toHaveLength(1);
   });
 
-  it('calendar export URL: a secret per-user token downloads without login; rotating or revoking it kills the old URL (behat/export.feature)', async () => {
+  it('URL xuất lịch: token bí mật mỗi người tải được mà không cần đăng nhập; xoay hoặc thu hồi nó huỷ URL cũ (behat/export.feature)', async () => {
     const { aToken, bToken } = await twoUsers();
     const soon = new Date(Date.now() + 3600_000).toISOString();
     await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${aToken}`)
@@ -595,7 +595,7 @@ describe('Messaging & calendar', () => {
     expect(bList.body.contacts).toEqual([]);
   });
 
-  it('contact gate (model re-decided 24/10/2026 on issue #33): direct messages are contacts-only — a shared course no longer opens the gate and messagingallusers has no effect on messaging', async () => {
+  it('cổng liên hệ (mô hình chốt lại 24/10/2026 tại issue #33): tin nhắn trực tiếp chỉ-dành-cho-liên-hệ — khoá chung không còn mở cổng và messagingallusers không còn tác dụng với nhắn tin', async () => {
     // Bắt đầu từ giá trị mặc định đã đăng ký, bất kể các lượt chạy trước để lại gì.
     await http(app).delete('/api/v1/site-config/core/messagingallusers').set('Authorization', `Bearer ${admin}`);
 
@@ -681,7 +681,7 @@ describe('Messaging & calendar', () => {
     expect(cleared.body).toMatchObject({ value: false, source: 'default' });
   });
 
-  it('group conversation sync: members mirror the course group lazily — joins appear on open/list, removals disappear, messages survive (behat group conversation sync)', async () => {
+  it('đồng bộ trò chuyện nhóm: thành viên phản chiếu nhóm khoá học một cách lười — người vào hiện khi mở/liệt kê, người ra biến mất, tin nhắn còn lại (behat group conversation sync)', async () => {
     const category = await createCategory(app, admin);
     const course = await createCourse(app, admin, category.id);
     const instance = await createEnrolInstance(app, admin, course.id);

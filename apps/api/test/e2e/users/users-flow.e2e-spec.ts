@@ -8,13 +8,13 @@ import { adminToken, assignRole, createRoleViaApi, createTestApp, createUserViaA
  * Oracle: lib/tests/user_test.php (MOODLE_503_STABLE) — test_search_no_identity_fields,
  * test_search_deleted_users, test_validate; báo cáo §2#2 (xoá mềm, guest, định danh theo capability).
  */
-describe('Users: identity rules, soft delete, preferences, outbox events', () => {
+describe('Người dùng: quy tắc định danh, xoá mềm, tuỳ chọn, sự kiện outbox', () => {
   let app: INestApplication;
   let admin: string;
   beforeAll(async () => { app = await createTestApp(); admin = await adminToken(app); });
   afterAll(async () => { await app.close(); });
 
-  it('normalizes username/email to lowercase and enforces uniqueness case-insensitively', async () => {
+  it('chuẩn hoá username/email về chữ thường và áp đặt duy nhất không phân biệt hoa thường', async () => {
     const name = uniqueName('Mixed');
     const created = await http(app).post('/api/v1/users').set('Authorization', `Bearer ${admin}`)
       .send({ username: name, email: `${name}@EXAMPLE.com`, password: STRONG_PASSWORD });
@@ -27,7 +27,7 @@ describe('Users: identity rules, soft delete, preferences, outbox events', () =>
     expect(dup.body.code).toBe('user.email_taken');
   });
 
-  it('hides identity fields (email) from users without site:viewuseridentity, shows them to admins', async () => {
+  it('ẩn trường định danh (email) với người thiếu site:viewuseridentity, hiện chúng với admin', async () => {
     const target = await createUserViaApi(app, admin);
     const viewer = await createUserViaApi(app, admin);
     const { accessToken } = await login(app, viewer.username, STRONG_PASSWORD);
@@ -42,7 +42,7 @@ describe('Users: identity rules, soft delete, preferences, outbox events', () =>
     expect(list.body.users[0].email).toBeUndefined();
   });
 
-  it('searches and paginates users', async () => {
+  it('tìm kiếm và phân trang người dùng', async () => {
     const marker = uniqueName('findme');
     await createUserViaApi(app, admin, { username: marker, email: `${marker}@example.com` });
     const res = await http(app).get('/api/v1/users').query({ search: marker, page: 1, pageSize: 5 }).set('Authorization', `Bearer ${admin}`);
@@ -51,7 +51,7 @@ describe('Users: identity rules, soft delete, preferences, outbox events', () =>
     expect(res.body.users[0].username).toBe(marker);
   });
 
-  it('soft-deletes: row is kept and marked, identity is mangled, login is refused, the username can be reused', async () => {
+  it('xoá mềm: dòng giữ lại và đánh dấu, định danh bị xáo, đăng nhập bị từ chối, username dùng lại được', async () => {
     const user = await createUserViaApi(app, admin);
     const del = await http(app).delete(`/api/v1/users/${user.id}`).set('Authorization', `Bearer ${admin}`);
     expect(del.status).toBe(200);
@@ -66,7 +66,7 @@ describe('Users: identity rules, soft delete, preferences, outbox events', () =>
     expect(recreated.status).toBe(201);
   });
 
-  it('stores and reads user preferences', async () => {
+  it('lưu và đọc tuỳ chọn người dùng', async () => {
     const user = await createUserViaApi(app, admin);
     const { accessToken } = await login(app, user.username, STRONG_PASSWORD);
     const put = await http(app).put(`/api/v1/users/${user.id}/preferences`).set('Authorization', `Bearer ${accessToken}`)
@@ -76,7 +76,7 @@ describe('Users: identity rules, soft delete, preferences, outbox events', () =>
     expect(got.body.value).toBe('dark');
   });
 
-  it('emits user_created/user_deleted through the transactional outbox', async () => {
+  it('phát user_created/user_deleted qua outbox giao dịch', async () => {
     const user = await createUserViaApi(app, admin);
     await http(app).delete(`/api/v1/users/${user.id}`).set('Authorization', `Bearer ${admin}`);
     const client = new Client({ connectionString: process.env.DATABASE_URL });
@@ -87,7 +87,7 @@ describe('Users: identity rules, soft delete, preferences, outbox events', () =>
     } finally { await client.end(); }
   });
 
-  it('the guest account cannot be suspended or deleted', async () => {
+  it('tài khoản khách không thể bị đình chỉ hay xoá', async () => {
     const list = await http(app).get('/api/v1/users').query({ search: 'guest' }).set('Authorization', `Bearer ${admin}`);
     const guest = (list.body.users as { id: string; username: string }[]).find((u) => u.username === 'guest');
     expect(guest).toBeTruthy();
@@ -105,13 +105,13 @@ describe('Users: identity rules, soft delete, preferences, outbox events', () =>
  * hiển thị đúng những gì người dùng thao tác được thay vì dò endpoint.
  * Nó không nhận tham số người dùng: dữ liệu của người dùng khác không tới được ở đây.
  */
-describe('Users: self-service capabilities view', () => {
+describe('Người dùng: view năng lực tự phục vụ', () => {
   let app: INestApplication;
   let admin: string;
   beforeAll(async () => { app = await createTestApp(); admin = await adminToken(app); });
   afterAll(async () => { await app.close(); });
 
-  it('a plain user sees their own assignments and resolved capabilities, and nothing of anyone else', async () => {
+  it('người dùng thường thấy gán vai trò và năng lực đã phân giải của mình, và không gì của người khác', async () => {
     const systemId = await systemContextId(app, admin);
     const alice = await createUserViaApi(app, admin);
     const bob = await createUserViaApi(app, admin);
@@ -144,7 +144,7 @@ describe('Users: self-service capabilities view', () => {
     expect(systemView!.capabilities).not.toContain('site:config');
   });
 
-  it('the site admin sees isSiteAdmin=true and the full capability set at the system context', async () => {
+  it('site admin thấy isSiteAdmin=true và đầy đủ tập năng lực tại ngữ cảnh system', async () => {
     const res = await http(app).get('/api/v1/users/me/capabilities').set('Authorization', `Bearer ${admin}`);
     expect(res.status).toBe(200);
     expect(res.body.isSiteAdmin).toBe(true);
@@ -155,7 +155,7 @@ describe('Users: self-service capabilities view', () => {
     expect(systemView!.capabilities).toContain('course:view');
   });
 
-  it('requires authentication', async () => {
+  it('cần xác thực', async () => {
     const res = await http(app).get('/api/v1/users/me/capabilities');
     expect(res.status).toBe(401);
   });
@@ -168,7 +168,7 @@ describe('Users: self-service capabilities view', () => {
  * Hàng huy hiệu/kế hoạch chèn trực tiếp bằng SQL (như test outbox phía
  * trên) để không phụ thuộc luồng cấp huy hiệu/tạo kế hoạch qua API.
  */
-describe('Users: hasLearnerArtifacts in self-service capabilities view', () => {
+describe('Người dùng: hasLearnerArtifacts trong view năng lực tự phục vụ', () => {
   let app: INestApplication;
   let admin: string;
   beforeAll(async () => { app = await createTestApp(); admin = await adminToken(app); });
@@ -223,13 +223,13 @@ describe('Users: hasLearnerArtifacts in self-service capabilities view', () => {
   });
 });
 
-describe('Users: password set through profile update is guarded', () => {
+describe('Người dùng: mật khẩu đặt qua cập nhật hồ sơ được rào', () => {
   let app: INestApplication;
   let admin: string;
   beforeAll(async () => { app = await createTestApp(); admin = await adminToken(app); });
   afterAll(async () => { await app.close(); });
 
-  it('rejects a self-service password set through PATCH /users/:id and keeps the old password working', async () => {
+  it('từ chối đặt mật khẩu tự phục vụ qua PATCH /users/:id và giữ mật khẩu cũ hoạt động', async () => {
     const user = await createUserViaApi(app, admin);
     const { accessToken } = await login(app, user.username, STRONG_PASSWORD);
     // Một phiên hợp lệ (kịch bản phiên bị đánh cắp) không được phép tự
@@ -247,7 +247,7 @@ describe('Users: password set through profile update is guarded', () => {
     expect(attemptedLogin.status).toBe(401);
   });
 
-  it('an admin password set through PATCH /users/:id revokes the target refresh families', async () => {
+  it('đặt mật khẩu bởi admin qua PATCH /users/:id thu hồi các họ refresh của đối tượng', async () => {
     const target = await createUserViaApi(app, admin);
     const session = await login(app, target.username, STRONG_PASSWORD);
     const res = await http(app).patch(`/api/v1/users/${target.id}`)
@@ -266,7 +266,7 @@ describe('Users: password set through profile update is guarded', () => {
     expect(oldLogin.status).toBe(401);
   });
 
-  it('self-service profile update without a password keeps working unchanged', async () => {
+  it('cập nhật hồ sơ tự phục vụ không kèm mật khẩu vẫn chạy không đổi', async () => {
     const user = await createUserViaApi(app, admin);
     const { accessToken } = await login(app, user.username, STRONG_PASSWORD);
     const res = await http(app).patch(`/api/v1/users/${user.id}`)

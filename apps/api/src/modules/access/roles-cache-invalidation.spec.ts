@@ -148,7 +148,7 @@ function makeWorld() {
 }
 
 describe('Thu hồi quyền phải vô hiệu hoá cache đánh giá ngay (unassignRole / deleteRole)', () => {
-  it('unassigning a role assignment makes the next capability check recompute and deny', async () => {
+  it('gỡ gán vai trò khiến lần kiểm năng lực sau tính lại và từ chối', async () => {
     const { state, rolesService, evaluator } = makeWorld();
     const assignment = (await rolesService.assignRole(USER_ID, ROLE_ID, COURSE_ID)) as { id: string };
 

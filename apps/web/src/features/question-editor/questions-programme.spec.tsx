@@ -212,14 +212,14 @@ async function pickSelectOption(scope: ReturnType<typeof within>, label: string,
   await userEvent.click(await screen.findByRole('option', { name: optionName }, { timeout: 10000 }));
 }
 
-describe('Question editor — programme links (issue #20 phase 2)', () => {
+describe('Trình sửa câu hỏi — liên kết chương trình (issue #20 giai đoạn 2)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('links a subject and an outcome with a cognitive level from the editor', async () => {
+  it('liên kết môn học và outcome với mức độ nhận thức từ editor', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderBank();

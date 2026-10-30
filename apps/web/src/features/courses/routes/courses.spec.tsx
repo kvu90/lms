@@ -128,14 +128,14 @@ function renderWithProviders(router: ReturnType<typeof createMemoryRouter>) {
   );
 }
 
-describe('Courses pages', () => {
+describe('Trang khoá học', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('renders the category tree with its courses nested under the right category', async () => {
+  it('render cây danh mục với các khoá học lồng đúng danh mục', async () => {
     stubFetch((url) => {
       if (url === '/api/v1/courses/categories/tree') return TREE;
       if (url === '/api/v1/courses') return COURSES;
@@ -177,7 +177,7 @@ describe('Courses pages', () => {
     expect(screen.getByTestId('card-color-slate')).toBeInTheDocument();
   });
 
-  it('renders a locked module as shown-but-unavailable (show=true) with its restriction text, and an available module as available', async () => {
+  it('render module bị khoá dạng hiện-nhưng-không-khả-dụng (show=true) kèm văn bản hạn chế, và module khả dụng dạng khả dụng', async () => {
     stubFetch((url) => {
       if (url === '/api/v1/courses/01900000-0000-7000-8000-000000000010/content') return CONTENT;
       return undefined;
@@ -197,7 +197,7 @@ describe('Courses pages', () => {
   });
 });
 
-describe('Courses page — category administration (admin)', () => {
+describe('Trang khoá học — quản trị danh mục (admin)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -211,7 +211,7 @@ describe('Courses page — category administration (admin)', () => {
    * /api/v1/courses/categories với body đúng `createCourseCategorySchema`
    * (chỉ `name` khi tạo ở cấp cao nhất, không gửi `parent`).
    */
-  it('creates a category via POST /courses/categories with the contracts body when admin', async () => {
+  it('tạo danh mục qua POST /courses/categories với body contracts khi là admin', async () => {
     const profile = {
       id: '01900000-0000-7000-8000-0000000000a1',
       username: 'admin',

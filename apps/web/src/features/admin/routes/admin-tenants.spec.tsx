@@ -204,7 +204,7 @@ function renderPage() {
   );
 }
 
-describe('Admin tenants page', () => {
+describe('Trang quản trị tenant', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();

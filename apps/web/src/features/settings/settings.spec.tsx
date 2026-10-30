@@ -51,14 +51,14 @@ function renderSettings(initialEntry: string) {
   );
 }
 
-describe('Settings area — left menu, section routes, root redirect (#288)', () => {
+describe('Khu vực Cài đặt — menu trái, route mục, chuyển hướng gốc (#288)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('/settings redirects to the first section (Security) with the menu marking it current', async () => {
+  it('/settings chuyển hướng tới mục đầu tiên (Security) kèm menu đánh dấu mục hiện tại', async () => {
     stubFetch();
     renderSettings('/settings');
 
@@ -69,7 +69,7 @@ describe('Settings area — left menu, section routes, root redirect (#288)', ()
     expect(securityLink).toHaveAttribute('href', '/settings/security');
   });
 
-  it('left menu switches sections: content follows and aria-current moves', async () => {
+  it('menu trái chuyển mục: nội dung theo sau và aria-current di chuyển', async () => {
     stubFetch();
     renderSettings('/settings/security');
     expect(await screen.findByText('Xác thực hai lớp')).toBeInTheDocument();

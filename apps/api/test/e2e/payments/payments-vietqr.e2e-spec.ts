@@ -24,7 +24,7 @@ const SEPAY_KEY = 'sk-test-sepay-9f27c1d4aa';
 const SEPAY_XID = 'xid-test-org-001';
 const BANK_ACCOUNT = '113366668888';
 
-describe('VietQR slice 1: SePay IPN pipeline for enrol_fee (issue #189, §6.4)', () => {
+describe('VietQR lát 1: pipeline IPN SePay cho enrol_fee (issue #189, §6.4)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;

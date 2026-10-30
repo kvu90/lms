@@ -25,7 +25,7 @@ import { courseContextId } from '../../support/engagement-helpers';
  *    hai đầu này còn đòi quyền tại context của môn; học sinh bị
  *    chặn 403 tại cổng bank của luồng ở cả hai đầu.
  */
-describe('Matrix import I-1 (template + preview, no DB write)', () => {
+describe('Nhập ma trận I-1 (mẫu + xem trước, không ghi DB)', () => {
   let app: INestApplication;
   let admin: string;
 
@@ -287,7 +287,7 @@ describe('Matrix import I-1 (template + preview, no DB write)', () => {
  * môn/chương trình dựng riêng cho describe này bằng admin như
  * describe chính.
  */
-describe('Matrix import I-1 with seed-model teacher actor (D-3 regression, issue #233)', () => {
+describe('Nhập ma trận I-1 với actor giáo viên mô hình seed (hồi quy D-3, issue #233)', () => {
   let app: INestApplication;
   let admin: string;
   let subjectId: string;

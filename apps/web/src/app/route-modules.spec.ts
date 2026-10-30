@@ -91,7 +91,7 @@ function listRouteModuleFiles(): string[] {
 const ROUTE_MODULE_FILES = listRouteModuleFiles();
 
 describe('Gác route module (issue #406): mọi module đăng ký trong src/app/routes.ts đều có export mặc định', () => {
-  it('derives the full route module list from routes.ts itself', () => {
+  it('suy ra đầy đủ danh sách module route từ chính routes.ts', () => {
     // Số route module tại thời điểm viết spec là 94; ngưỡng 50 chỉ để
     // bắt trường hợp cách suy danh sách hỏng và quét thiếu hàng loạt.
     expect(ROUTE_MODULE_FILES.length).toBeGreaterThan(50);
@@ -101,7 +101,7 @@ describe('Gác route module (issue #406): mọi module đăng ký trong src/app/
   });
 
   for (const file of ROUTE_MODULE_FILES) {
-    it(`route module ${file} has a default export`, () => {
+    it(`module route ${file} có export mặc định`, () => {
       const source = readFileSync(join(SRC_ROOT, file), 'utf8');
       expect(
         hasDefaultExport(source),

@@ -30,7 +30,7 @@ import {
  * tạo (platform manager); mọi thao tác trong tenant đi qua chuyển
  * phiên (switch-tenant) như người dùng thật.
  */
-describe('tenant isolation (TENANT-0, #168)', () => {
+describe('Cô lập tenant (TENANT-0, #168)', () => {
   let app: INestApplication;
   let adminZero = '';
   let adminA = '';

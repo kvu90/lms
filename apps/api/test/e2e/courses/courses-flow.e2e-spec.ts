@@ -10,14 +10,14 @@ import { createCategory, createCm, createCourse, createEnrolInstance, createSect
  * (test_create_course, test_create_course_sections, test_create_module,
  * test_course_module_deleted_event_exceptions / sự kiện vòng đời cm).
  */
-describe('Courses: categories, courses, sections, course modules', () => {
+describe('Khoá học: danh mục, khoá học, section, module khoá học', () => {
   let app: INestApplication;
   let admin: string;
 
   beforeAll(async () => { app = await createTestApp(); admin = await adminToken(app); });
   afterAll(async () => { await app.close(); });
 
-  it('creates a category tree with path/depth/sortOrder and a course context per node', async () => {
+  it('tạo cây danh mục với path/depth/sortOrder và ngữ cảnh khoá học cho mỗi node', async () => {
     const parent = await createCategory(app, admin);
     const child = await createCategory(app, admin, { parent: parent.id });
     expect(child.path).toBe(`${parent.path}/${child.id}`);
@@ -31,7 +31,7 @@ describe('Courses: categories, courses, sections, course modules', () => {
     expect(content.body.sections[0].section).toBe(0);
   });
 
-  it('rejects a duplicate course shortName and an end date before the start date', async () => {
+  it('từ chối shortName khoá học trùng và ngày kết thúc trước ngày bắt đầu', async () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
     const dup = await http(app).post('/api/v1/courses').set('Authorization', `Bearer ${admin}`)
@@ -51,7 +51,7 @@ describe('Courses: categories, courses, sections, course modules', () => {
     expect(res.status).toBe(403);
   });
 
-  it('moving a category rewrites the subtree path/depth (category_test::test_hierarchy + test_update)', async () => {
+  it('di chuyển danh mục viết lại path/depth của cây con (category_test::test_hierarchy + test_update)', async () => {
     const a = await createCategory(app, admin);
     const b = await createCategory(app, admin);
     const child = await createCategory(app, admin, { parent: a.id });
@@ -68,7 +68,7 @@ describe('Courses: categories, courses, sections, course modules', () => {
     expect(cycle.status).toBe(400);
   });
 
-  it('deleting a non-empty category without an explicit mode is refused (400)', async () => {
+  it('xoá danh mục không rỗng mà không nêu mode bị từ chối (400)', async () => {
     const cat = await createCategory(app, admin);
     await createCourse(app, admin, cat.id);
     const res = await http(app).delete(`/api/v1/courses/categories/${cat.id}`).set('Authorization', `Bearer ${admin}`);
@@ -76,7 +76,7 @@ describe('Courses: categories, courses, sections, course modules', () => {
     expect(res.body.code).toBe('course.category_not_empty');
   });
 
-  it('delete mode=moveup moves courses and child categories to the parent (category_test::test_delete)', async () => {
+  it('xoá mode=moveup chuyển khoá học và danh mục con lên cha (category_test::test_delete)', async () => {
     const parent = await createCategory(app, admin);
     const cat = await createCategory(app, admin, { parent: parent.id });
     const child = await createCategory(app, admin, { parent: cat.id });
@@ -89,7 +89,7 @@ describe('Courses: categories, courses, sections, course modules', () => {
     expect(childAfter.body.parent).toBe(parent.id);
   });
 
-  it('delete mode=recursive deletes contained courses and subcategories', async () => {
+  it('xoá mode=recursive xoá khoá học và danh mục con bên trong', async () => {
     const cat = await createCategory(app, admin);
     const child = await createCategory(app, admin, { parent: cat.id });
     const course = await createCourse(app, admin, child.id);
@@ -99,7 +99,7 @@ describe('Courses: categories, courses, sections, course modules', () => {
     expect((await http(app).get(`/api/v1/courses/${course.id}`).set('Authorization', `Bearer ${admin}`)).status).toBe(404);
   });
 
-  it('supports course custom fields (customfield category for core_course/course) and format options', async () => {
+  it('hỗ trợ trường tuỳ chỉnh khoá học (danh mục customfield cho core_course/course) và tuỳ chọn định dạng', async () => {
     // Tạo một danh mục trường tuỳ chỉnh + trường cho khoá học qua API identity.
     const catRes = await http(app).post('/api/v1/custom-fields/categories').set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Course fields', component: 'core_course', area: 'course' });
@@ -122,7 +122,7 @@ describe('Courses: categories, courses, sections, course modules', () => {
     expect(bad.status).toBe(400);
   });
 
-  it('hidden course is invisible to an enrolled student but visible with viewhiddencourses (staff)', async () => {
+  it('khoá học ẩn vô hình với học viên đã ghi danh nhưng hiện ra với viewhiddencourses (staff)', async () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id, { visible: false });
     const student = await createUserViaApi(app, admin);
@@ -135,7 +135,7 @@ describe('Courses: categories, courses, sections, course modules', () => {
     expect(asAdmin.status).toBe(200);
   });
 
-  it('sections and cms: create, move cm between sections, delete cm emits cm_deleted and cleans completion + files', async () => {
+  it('section và cm: tạo, chuyển cm giữa các section, xoá cm phát cm_deleted và dọn completion + file', async () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
     const section0 = await getFirstSectionId(app, admin, course.id);

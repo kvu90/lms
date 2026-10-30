@@ -27,7 +27,7 @@ import {
  * tenant), fixture và đọc kiểm chứng đi qua kết nối quản trị của
  * harness — khẳng định nghiệp vụ của spec không đổi.
  */
-describe('Worker platform services: backup, search reindex, analytics, report schedule, privacy, payment', () => {
+describe('Dịch vụ platform của worker: backup, reindex tìm kiếm, analytics, lịch báo cáo, riêng tư, thanh toán', () => {
   let context: INestApplicationContext;
   let harness: OrdinaryWorkerModuleHarness;
   let db: any;
@@ -83,7 +83,7 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
   });
   afterAll(async () => { await harness.close(); });
 
-  it('backup processor builds a versioned archive with contributor steps and is idempotent on replay', async () => {
+  it('bộ xử lý backup dựng kho lưu trữ có phiên bản kèm bước đóng góp và lũy đẳng khi phát lại', async () => {
     const [job] = await db.insert(backupJobs).values({ type: 'backup', courseId: courseId, userId: teacherId, status: 'pending' }).returning();
     const processor = context.get(BackupProcessor);
     const first = await processor.process({ data: { jobId: job.id } } as never);
@@ -96,7 +96,7 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
     expect(second.status).toBe('duplicate');
   });
 
-  it('backup processor archive contains the new questions/badges/calendar sections (same lms-backup v1 format as the API)', async () => {
+  it('kho lưu trữ của bộ xử lý backup chứa các mục questions/badges/calendar mới (cùng định dạng lms-backup v1 như API)', async () => {
     // Ngân hàng câu hỏi ở context của khoá + badge của khoá + sự kiện/subscription của khoá.
     const qCatRows = await db.execute(sql`insert into question_categories (name, context_id) values (${`wk5-bank-${suffix}`}, ${courseCtxId}) returning id`);
     const qCatId = (qCatRows.rows[0] as { id: string }).id;
@@ -131,7 +131,7 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
       expect.arrayContaining(['questions', 'badges', 'calendar']));
   });
 
-  it('backup processor handles a site-scope job (no course) with only the site-level sections', async () => {
+  it('bộ xử lý backup xử lý job phạm vi site (không khoá học) chỉ với các mục cấp site', async () => {
     const sysRows = await db.execute(sql`select id from context where context_level = 10 and instance_id is null limit 1`);
     const systemCtxId = (sysRows.rows[0] as { id: string }).id;
     await db.execute(sql`insert into question_categories (name, context_id) values (${`wk5-site-bank-${suffix}`}, ${systemCtxId})`);
@@ -148,7 +148,7 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
     expect(row.archive.contributors.courses).toBeUndefined();
   });
 
-  it('restore processor copies sections to a target course and writes id mappings (never the original ids)', async () => {
+  it('bộ xử lý restore sao chép các mục sang khoá học đích và ghi ánh xạ id (không bao giờ là id gốc)', async () => {
     const catRows = await db.execute(sql`select category from course where id = ${courseId}`);
     const catId = (catRows.rows[0] as { category: string }).category;
     const targetRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, class_id) values (${catId}, (select tenant_id from course_categories where id = ${catId}), ${`Restore target ${suffix}`}, ${`wk5tgt${suffix}`}, ${await fixtureClassId()}) returning id`);
@@ -162,7 +162,7 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
     expect(sections.rows.every((r: { id: string }) => r.id !== undefined)).toBe(true);
   });
 
-  it('search reindex indexes the course and the active user, and a rerun does not duplicate documents', async () => {
+  it('reindex tìm kiếm lập chỉ mục khoá học và người dùng đang hoạt động, chạy lại không trùng tài liệu', async () => {
     const processor = context.get(SearchReindexProcessor);
     const first = await processor.process({ data: {} } as never);
     expect(first.indexed).toBeGreaterThan(0);
@@ -173,7 +173,7 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
     expect(docs2).toHaveLength(1);
   });
 
-  it('analytics run creates a prediction + teacher insight for an at-risk student and never touches grades', async () => {
+  it('lượt chạy analytics tạo dự đoán + insight giáo viên cho học viên có nguy cơ và không bao giờ động tới điểm', async () => {
     const [instance] = await db.insert(enrol).values({ courseId: courseId, enrol: 'manual', status: 0 }).returning();
     await db.insert(userEnrolments).values({ enrolId: instance.id, userId: userId, status: 0 });
     const itemsRows = await db.execute(sql`insert into grade_items (course_id, item_name, item_type, grade_max) values (${courseId}, 'WK5 item', 'manual', 100) returning id`);
@@ -189,7 +189,7 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
     expect(gradesAfter[0].finalGrade).toBe(10);
   });
 
-  it('report schedule processor runs as the creator, stores the result and notifies the creator', async () => {
+  it('bộ xử lý lịch báo cáo chạy với tư cách người tạo, lưu kết quả và thông báo cho người tạo', async () => {
     const [report] = await db.insert(reportBuilderReport).values({ name: `WK5 report ${suffix}`, dataSource: 'enrolments', createdBy: teacherId, columns: ['userId'] }).returning();
     const [schedule] = await db.insert(reportBuilderSchedule).values({ reportId: report.id, createdBy: teacherId, cron: 'daily', enabled: true }).returning();
     const processor = context.get(ReportScheduleProcessor);
@@ -201,7 +201,7 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
     expect(notes.rows.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('privacy processor: approved delete anonymizes the user and clears enrolments/grades; export writes a manifest', async () => {
+  it('bộ xử lý riêng tư: xoá đã duyệt ẩn danh người dùng và xoá ghi danh/điểm; xuất ghi manifest', async () => {
     const [expReq] = await db.insert(privacyRequests).values({ userId: userId, type: 'export', status: 'approved', requestedBy: userId }).returning();
     const processor = context.get(PrivacyProcessor);
     const exp = await processor.process({ data: { requestId: expReq.id } } as never);
@@ -219,7 +219,7 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
     expect(u.username).toContain('.deleted');
   });
 
-  it('payment webhook twin is idempotent by external transaction id and reconciliation counts succeeded', async () => {
+  it('bản song sinh webhook thanh toán lũy đẳng theo id giao dịch ngoài và đối soát đếm các giao dịch thành công', async () => {
     const acctRows = await db.execute(sql`insert into payment_accounts (name, gateway, tenant_id) values (${`WK5 acct ${suffix}`}, 'manual', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const acctId = (acctRows.rows[0] as { id: string }).id;
     const tenantRows = await db.execute(sql`select id from tenants where slug = 'worker-fixture'`);
@@ -239,8 +239,8 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
   });
 });
 
-describe('worker i18n catalogs', () => {
-  it('keeps the vi and en catalogs in key parity so no locale silently falls back', async () => {
+describe('Catalog i18n của worker', () => {
+  it('giữ catalog vi và en ngang bằng khoá để không locale nào lặng lẽ fallback', async () => {
     const { readFile } = await import('node:fs/promises');
     const { join } = await import('node:path');
     const flatten = (obj: Record<string, unknown>, prefix = ''): string[] =>

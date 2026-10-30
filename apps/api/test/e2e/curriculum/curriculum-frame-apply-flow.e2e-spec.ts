@@ -100,7 +100,7 @@ function findByPath(nodes: TreeNode[], titles: string[]): TreeNode | undefined {
 
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
-describe('K0a curriculum frame application (programme → course sections, anchored copy)', () => {
+describe('Áp khung chương trình K0a (chương trình → section khoá học, bản sao có neo)', () => {
   let app: INestApplication;
   let admin: string;
   let systemCtxId: string;
@@ -170,7 +170,7 @@ describe('K0a curriculum frame application (programme → course sections, ancho
     expect(bogus.body.code).toBe('course.subject_not_found');
   });
 
-  it('teacher reads the frame picker for their own course via forCourseId, but not the plain tree', async () => {
+  it('giáo viên đọc bộ chọn khung cho chính khoá của họ qua forCourseId, nhưng không đọc cây thuần', async () => {
     // Bề mặt chọn khung trong quản trị khoá: kèm forCourseId = khoá mình
     // có course:update thì đọc được cả 3 GET; không kèm thì vẫn 403 vì
     // giáo viên này không có curriculum:view tại context hệ thống.
@@ -184,7 +184,7 @@ describe('K0a curriculum frame application (programme → course sections, ancho
     expect(plainTree.status).toBe(403);
   });
 
-  it('applies a topic frame: one section carrying exactly the topic outcomes from the dataset', async () => {
+  it('áp khung chủ đề: một section mang đúng outcome chủ đề từ dataset', async () => {
     const topic = findByPath(tree5, ['Số và phép tính', 'Phân số', 'Số thập phân']);
     expect(topic).toBeTruthy();
     const res = await http(app).post(`/api/v1/courses/${courseId}/curriculum-frame`).set(bearer(teacherToken))
@@ -199,7 +199,7 @@ describe('K0a curriculum frame application (programme → course sections, ancho
       .toEqual(expectedUnitOutcomes(5, 'Số và phép tính', 'Phân số', 'Số thập phân'));
   });
 
-  it('inserts a section-level frame at a position and the outline shows anchored outcomes', async () => {
+  it('chèn khung cấp section tại một vị trí và dàn ý hiện outcome có neo', async () => {
     const sectionNode = findByPath(tree5, ['Số và phép tính', 'Phân số']);
     expect(sectionNode).toBeTruthy();
     const res = await http(app).post(`/api/v1/courses/${courseId}/curriculum-frame`).set(bearer(teacherToken))
@@ -220,7 +220,7 @@ describe('K0a curriculum frame application (programme → course sections, ancho
     expect(sections[0]!.frame).toBeNull();
   });
 
-  it('editing the programme tree afterwards does NOT change the applied course (snapshots hold)', async () => {
+  it('sửa cây chương trình sau đó KHÔNG đổi khoá đã áp (snapshot giữ nguyên)', async () => {
     const topic = findByPath(tree5, ['Số và phép tính', 'Phân số', 'Số thập phân'])!;
     const lesson = topic.children.find((n) => n.kind === 'lesson')!;
     const outcome = lesson.outcomes[0]!;
@@ -245,7 +245,7 @@ describe('K0a curriculum frame application (programme → course sections, ancho
     }
   });
 
-  it('denies frame application without course:update and rejects non-selectable nodes', async () => {
+  it('từ chối áp khung khi thiếu course:update và từ chối node không chọn được', async () => {
     const topic = findByPath(tree5, ['Số và phép tính', 'Phân số', 'Số thập phân'])!;
     const plain = await http(app).post(`/api/v1/courses/${courseId}/curriculum-frame`).set(bearer(plainToken))
       .send({ curriculumId: curriculum5Id, nodeIds: [topic.id] });

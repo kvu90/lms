@@ -25,7 +25,7 @@ const STORAGE = '/tmp/lms-worker-test-files';
  * `files` đổi điều kiện giữa hai ca) đi qua kết nối quản trị của
  * harness — khẳng định nghiệp vụ của spec không đổi.
  */
-describe('Worker: file-cleanup processor removes only unreferenced physical files', () => {
+describe('Worker: bộ xử lý file-cleanup chỉ xoá file vật lý không còn tham chiếu', () => {
   let context: INestApplicationContext;
   let harness: OrdinaryWorkerModuleHarness;
   let db: {
@@ -49,7 +49,7 @@ describe('Worker: file-cleanup processor removes only unreferenced physical file
   });
   afterAll(async () => { await harness.close(); });
 
-  it('keeps the physical file while a record still references the hash', async () => {
+  it('giữ file vật lý khi còn bản ghi tham chiếu tới hash', async () => {
     const processor = context.get(FileCleanupProcessor);
     const result = await processor.process({ data: { contentHash: hash } } as never);
     expect(result.removed).toBe(false);
@@ -57,7 +57,7 @@ describe('Worker: file-cleanup processor removes only unreferenced physical file
     expect(existsSync(physical)).toBe(true);
   });
 
-  it('removes the physical file once the last record is gone', async () => {
+  it('xoá file vật lý khi bản ghi cuối cùng đã mất', async () => {
     await db.delete(files).where(eq(files.contentHash, hash));
     const processor = context.get(FileCleanupProcessor);
     const result = await processor.process({ data: { contentHash: hash } } as never);

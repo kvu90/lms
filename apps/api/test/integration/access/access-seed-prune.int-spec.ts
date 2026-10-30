@@ -15,7 +15,7 @@ import {
  * Tên cũ được lắp ghép bằng nối chuỗi có chủ đích, để spec này tự nó
  * không mang literal capability có tiền tố.
  */
-describe('Access: seed prunes stale capability definitions (issue #35)', () => {
+describe('Access: seed cắt bỏ các định nghĩa năng lực đã cũ (issue #35)', () => {
   let app: INestApplication;
   let pg: Client;
 
@@ -26,7 +26,7 @@ describe('Access: seed prunes stale capability definitions (issue #35)', () => {
   });
   afterAll(async () => { await pg.end(); await app.close(); });
 
-  it('re-seeding a database polluted with legacy prefixed names removes them everywhere', async () => {
+  it('seed lại cơ sở dữ liệu nhiễm tên tiền tố cũ sẽ xoá sạch chúng ở mọi nơi', async () => {
     const admin = await adminToken(app);
     const systemId = await systemContextId(app, admin);
     const managerId = await roleIdByShortname(app, admin, 'manager');

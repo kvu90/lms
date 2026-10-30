@@ -15,7 +15,7 @@ import {
  * Điều 5 (thang 10, làm tròn 1 chữ số thập phân), Điều 9 (ĐTBmhk =
  * (TĐĐGtx + 2×ĐĐGgk + 3×ĐĐGck) / (số ĐĐGtx + 5), chỉ tổng kết khi đủ điểm).
  */
-describe('roundToOneDecimal', () => {
+describe('Hàm roundToOneDecimal', () => {
   it('làm tròn nửa lên tới 1 chữ số thập phân, khử nhiễu phẩy động', () => {
     expect(roundToOneDecimal(8.25)).toBe(8.3);
     expect(roundToOneDecimal(8.24)).toBe(8.2);
@@ -26,7 +26,7 @@ describe('roundToOneDecimal', () => {
   });
 });
 
-describe('toTenScale', () => {
+describe('Hàm toTenScale', () => {
   it('quy đổi tuyến tính theo khoảng điểm của mục điểm rồi làm tròn', () => {
     expect(toTenScale(85, 0, 100)).toBe(8.5);
     expect(toTenScale(40, 0, 50)).toBe(8);
@@ -38,7 +38,7 @@ describe('toTenScale', () => {
   });
 });
 
-describe('semesterAverage', () => {
+describe('Hàm semesterAverage', () => {
   it('áp đúng công thức Điều 9: thường xuyên hệ số 1, giữa kỳ 2, cuối kỳ 3, mẫu số = số ĐĐGtx + 5', () => {
     // (8 + 7.5 + 2×7 + 3×9) / (2 + 5) = 56.5 / 7 ≈ 8.071 → 8.1
     expect(semesterAverage([8, 7.5], 7, 9)).toBe(8.1);
@@ -83,7 +83,7 @@ function sampleModel(): VneduExportModel {
   };
 }
 
-describe('buildVneduGrid', () => {
+describe('Hàm buildVneduGrid', () => {
   it('bố cục: tựa + thông tin + đầu bảng 2 tầng (STT/Mã/Họ tên/Thường xuyên/Định kỳ/ĐTBmhk), dữ liệu từ dòng 6', () => {
     const grid = buildVneduGrid(sampleModel());
     expect(grid.columnCount).toBe(8);
@@ -121,7 +121,7 @@ describe('buildVneduGrid', () => {
   });
 });
 
-describe('renderVneduWorkbook', () => {
+describe('Hàm renderVneduWorkbook', () => {
   it('sinh file .xlsx đọc lại được, giữ đúng giá trị từng ô điểm', async () => {
     const buffer = await renderVneduWorkbook(sampleModel());
     expect(buffer.subarray(0, 2).toString('latin1')).toBe('PK'); // xlsx là zip

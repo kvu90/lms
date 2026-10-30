@@ -39,13 +39,13 @@ function lastPayload(calls: unknown[]): AvailabilityNodeModel {
   return calls[calls.length - 1] as AvailabilityNodeModel;
 }
 
-describe('AvailabilityEditor', () => {
+describe('Khối AvailabilityEditor', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
   });
 
-  it('renders an existing tree with a date leaf and a nested OR group holding a group leaf', () => {
+  it('render cây sẵn có với lá ngày và nhóm OR lồng chứa lá nhóm', () => {
     const calls: unknown[] = [];
     renderEditor(
       {
@@ -69,7 +69,7 @@ describe('AvailabilityEditor', () => {
     expect(within(nested).getByLabelText('Nhóm')).toHaveTextContent('Nhóm 1');
   });
 
-  it('emits the tree with the new operator when the root operator changes', async () => {
+  it('phát cây với toán tử mới khi toán tử gốc thay đổi', async () => {
     const calls: unknown[] = [];
     renderEditor({ op: '&', c: [{ type: 'group', id: GROUP_ID }] }, calls);
 
@@ -80,7 +80,7 @@ describe('AvailabilityEditor', () => {
     expect(lastPayload(calls).c).toEqual([{ type: 'group', id: GROUP_ID }]);
   });
 
-  it('adds a grade condition pointing at the first grade item', async () => {
+  it('thêm điều kiện điểm trỏ tới mục điểm đầu tiên', async () => {
     const calls: unknown[] = [];
     renderEditor(null, calls);
     const root = screen.getByTestId('availability-node-root');
@@ -94,7 +94,7 @@ describe('AvailabilityEditor', () => {
     expect(payload.c[0]).toMatchObject({ type: 'grade', id: GRADE_ITEM_ID });
   });
 
-  it('builds a nested group with a completion condition inside it', async () => {
+  it('dựng nhóm lồng chứa điều kiện hoàn thành bên trong', async () => {
     const calls: unknown[] = [];
     renderEditor(null, calls);
     const root = screen.getByTestId('availability-node-root');
@@ -111,7 +111,7 @@ describe('AvailabilityEditor', () => {
     expect(child.c[0]).toEqual({ type: 'completion', id: MODULE_ID, state: 1 });
   });
 
-  it('emits null once the last condition is removed', async () => {
+  it('phát null khi điều kiện cuối cùng bị xoá', async () => {
     const calls: unknown[] = [];
     renderEditor({ op: '&', c: [{ type: 'group', id: GROUP_ID }] }, calls);
 
@@ -120,7 +120,7 @@ describe('AvailabilityEditor', () => {
     expect(calls[calls.length - 1]).toBeNull();
   });
 
-  it('keeps unknown leaf types untouched while editing around them', async () => {
+  it('giữ nguyên loại lá lạ trong khi sửa xung quanh chúng', async () => {
     const calls: unknown[] = [];
     renderEditor({ op: '&', c: [{ type: 'futureplugin', level: 3 }] }, calls);
 

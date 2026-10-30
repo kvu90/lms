@@ -184,14 +184,14 @@ function renderTree() {
   );
 }
 
-describe('Admin curriculum pages', () => {
+describe('Trang quản trị chương trình', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('renders dataset status and subjects; expanding a subject lists its curricula', async () => {
+  it('render trạng thái dataset và môn học; mở rộng một môn liệt kê các chương trình của nó', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderList();
@@ -208,7 +208,7 @@ describe('Admin curriculum pages', () => {
     expect(calls.some((c) => c.url.startsWith('/api/v1/curriculum/curricula?subjectId=subj-toan'))).toBe(true);
   });
 
-  it('imports a dataset through POST /curriculum/program-import and shows the result counts', async () => {
+  it('nhập dataset qua POST /curriculum/program-import và hiện số lượng kết quả', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderList();
@@ -220,7 +220,7 @@ describe('Admin curriculum pages', () => {
     expect(post?.body).toEqual({ datasetKey: 'toan' });
   });
 
-  it('shows the forbidden notice instead of the admin content when the API answers 403', async () => {
+  it('hiện thông báo cấm thay vì nội dung admin khi API trả 403', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls, true);
     renderList();
@@ -229,7 +229,7 @@ describe('Admin curriculum pages', () => {
     expect(screen.queryByRole('button', { name: 'Đồng bộ lại' })).not.toBeInTheDocument();
   });
 
-  it('renders the tree with outcomes and their source trace', async () => {
+  it('render cây kèm outcome và vết nguồn của chúng', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderTree();
@@ -254,7 +254,7 @@ describe('Admin curriculum pages', () => {
     expect(row!.textContent).toContain('Đọc, viết được các số có nhiều chữ số.');
   });
 
-  it('paginates the tree: one page of content rows at a time, next page shows the following rows', async () => {
+  it('phân trang cây: mỗi lần một trang dòng nội dung, trang sau hiện các dòng tiếp theo', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls, false, BIG_TREE);
     renderTree();
@@ -301,7 +301,7 @@ describe('Admin curriculum pages', () => {
     expect(editLinks[0]).toHaveAttribute('href', '/admin/curriculum/nodes/lesson-a11/edit');
   });
 
-  it('renders every outcome as its own dash-bulleted item in the outcomes cell', async () => {
+  it('render mỗi outcome thành một mục gạch đầu dòng riêng trong ô outcome', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls, false, BIG_TREE);
     renderTree();

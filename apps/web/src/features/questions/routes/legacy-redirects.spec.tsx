@@ -112,7 +112,7 @@ describe('URL ngân hàng cũ — chuyển hướng sang path mới (issue #221)
   ];
 
   for (const redirectCase of REDIRECT_CASES) {
-    it(`${redirectCase.from} → ${redirectCase.toPath}`, async () => {
+    it(`chuyển hướng ${redirectCase.from} → ${redirectCase.toPath}`, async () => {
       stubRedirectFetch();
       const router = createMemoryRouter(
         [
@@ -187,7 +187,7 @@ describe('URL kho học liệu cũ — chuyển hướng sang path mới (issue 
   });
 
   for (const redirectCase of REDIRECT_CASES) {
-    it(`${redirectCase.from} → ${redirectCase.toPath}`, async () => {
+    it(`chuyển hướng ${redirectCase.from} → ${redirectCase.toPath}`, async () => {
       stubContentBankRedirectFetch();
       const router = createMemoryRouter(
         [

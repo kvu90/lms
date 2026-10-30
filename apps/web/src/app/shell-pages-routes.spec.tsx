@@ -58,11 +58,11 @@ const CASES = [
 
 describe('F-07/F-08 (#133): 10 page module trong shell — ErrorBoundary dùng chung + meta() theo trang', () => {
   for (const { name, route, ns, key } of CASES) {
-    it(`page ${name} exports the shared RouteErrorBoundary as its ErrorBoundary`, () => {
+    it(`trang ${name} export RouteErrorBoundary dùng chung làm ErrorBoundary`, () => {
       expect(route.ErrorBoundary).toBe(RouteErrorBoundary);
     });
 
-    it(`page ${name} meta() returns the title built from its own ${ns} key ${key}`, () => {
+    it(`trang ${name} meta() trả tiêu đề dựng từ khoá ${ns} riêng ${key}`, () => {
       const expectedTitle = i18n.t(key, { ns });
       expect(expectedTitle).not.toBe(key);
       expect(route.meta()).toEqual([{ title: `${expectedTitle} · LMS` }]);

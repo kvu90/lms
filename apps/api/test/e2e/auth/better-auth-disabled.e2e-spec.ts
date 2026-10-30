@@ -9,7 +9,7 @@ import { createTestApp, http, login } from '../../support/identity-access-helper
  * mọi request nguyên vẹn (issue #7, Giai đoạn 1: rollback = tắt cờ /
  * gỡ mount + guard; trạng thái này phải luôn là trạng thái an toàn).
  */
-describe('Better Auth disabled by default (issue #7 phase 1)', () => {
+describe('Better Auth tắt mặc định (issue #7 giai đoạn 1)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
@@ -20,12 +20,12 @@ describe('Better Auth disabled by default (issue #7 phase 1)', () => {
     await app?.close();
   });
 
-  it('does not mount the Better Auth handler', async () => {
+  it('không mount handler Better Auth', async () => {
     const res = await http(app).get('/api/v1/auth/get-session');
     expect(res.status).toBe(404);
   });
 
-  it('the existing auth flow is untouched', async () => {
+  it('luồng xác thực sẵn có không bị động tới', async () => {
     const session = await login(app, 'admin', 'Admin123!');
     expect(session.accessToken).toBeTruthy();
     const me = await http(app).get('/api/v1/users/me').set('Authorization', `Bearer ${session.accessToken}`);

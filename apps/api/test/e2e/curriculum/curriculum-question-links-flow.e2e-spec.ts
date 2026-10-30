@@ -19,7 +19,7 @@ const RANDOM_UUID = '018e0000-0000-7000-8000-000000000000';
 interface LinksView { questionId: string; subjectIds: string[]; outcomes: { outcomeId: string; cognitiveLevel: string }[] }
 interface OutcomeRow { id: string; sourceKind: string; sourceRef: string | null; derivedFromId: string | null }
 
-describe('Curriculum phase 2 (question ↔ programme links)', () => {
+describe('Chương trình giai đoạn 2 (liên kết câu hỏi ↔ chương trình)', () => {
   let app: INestApplication;
   let admin: string;
   let systemCtxId: string;
@@ -108,7 +108,7 @@ describe('Curriculum phase 2 (question ↔ programme links)', () => {
   const getLinks = async (questionId: string, token = admin) =>
     http(app).get(`/api/v1/questions/${questionId}/curriculum-links`).set(bearer(token));
 
-  it('runs the full subject + outcome link lifecycle at question identity level', async () => {
+  it('chạy đầy đủ vòng đời liên kết môn học + outcome ở cấp định danh câu hỏi', async () => {
     const tree = await mkTree();
     const other = await mkTree();
     const categoryId = await mkCategory();
@@ -191,7 +191,7 @@ describe('Curriculum phase 2 (question ↔ programme links)', () => {
     expect(ghostQ.body.code).toBe('question.not_found');
   });
 
-  it('allows an outcome link without a prior subject link (subject is derived from the outcome)', async () => {
+  it('cho liên kết outcome mà không cần liên kết môn học trước (môn học suy từ outcome)', async () => {
     const tree = await mkTree();
     const categoryId = await mkCategory();
     const q = await mkQuestion(categoryId, 'truefalse');
@@ -206,7 +206,7 @@ describe('Curriculum phase 2 (question ↔ programme links)', () => {
     expect((bySubject.body as { question: { id: string } }[]).map((v) => v.question.id)).toContain(q);
   });
 
-  it('keeps both subject doors open after an outcome of another subject is linked (F1 regression)', async () => {
+  it('giữ cả hai cửa môn học mở sau khi liên kết outcome của môn khác (hồi quy F1)', async () => {
     const treeA = await mkTree();
     const treeB = await mkTree();
     const categoryId = await mkCategory();
@@ -259,7 +259,7 @@ describe('Curriculum phase 2 (question ↔ programme links)', () => {
     ]));
   });
 
-  it('gates link writes by question edit capability at the category context', async () => {
+  it('cổng ghi liên kết theo năng lực sửa câu hỏi tại ngữ cảnh danh mục', async () => {
     const tree = await mkTree();
     const categoryId = await mkCategory();
     const q = await mkQuestion(categoryId, 'multichoice');
@@ -271,7 +271,7 @@ describe('Curriculum phase 2 (question ↔ programme links)', () => {
     expect(deniedOutcome.status).toBe(403);
   });
 
-  it('filters the bank by subject, outcome, cognitive level, qtype and status', async () => {
+  it('lọc ngân hàng theo môn học, outcome, mức độ nhận thức, qtype và trạng thái', async () => {
     const tree = await mkTree();
     const categoryId = await mkCategory();
     const mc = await mkQuestion(categoryId, 'multichoice');
@@ -316,7 +316,7 @@ describe('Curriculum phase 2 (question ↔ programme links)', () => {
     expect(badLevelFilter.body.code).toBe('question.invalid_cognitive_level');
   });
 
-  it('counts ready questions per (level x qtype) for an outcome', async () => {
+  it('đếm câu hỏi sẵn sàng theo (mức độ x qtype) cho một outcome', async () => {
     const tree = await mkTree();
     const categoryId = await mkCategory();
     const mcBiet = await mkQuestion(categoryId, 'multichoice');
@@ -352,7 +352,7 @@ describe('Curriculum phase 2 (question ↔ programme links)', () => {
     expect(ghost.body.code).toBe('curriculum.outcome_not_found');
   });
 
-  it('stores source tracing on learning outcomes (program vs derived)', async () => {
+  it('lưu vết nguồn trên outcome học tập (program so với derived)', async () => {
     const tree = await mkTree();
     // Mặc định: nguyên văn chương trình.
     const originRes = await http(app).get(`/api/v1/curriculum/outcomes/${tree.outcomeTopic}`).set(bearer(admin));
@@ -397,7 +397,7 @@ describe('Curriculum phase 2 (question ↔ programme links)', () => {
     expect((reRef.body as OutcomeRow).sourceRef).toContain('TT 13/2022');
   });
 
-  it('requires derivedFromId whenever sourceKind is derived, on create and on PATCH (F2)', async () => {
+  it('bắt buộc derivedFromId mỗi khi sourceKind là derived, lúc tạo và lúc PATCH (F2)', async () => {
     const tree = await mkTree();
     // Tạo mới: derived không kèm gốc → 400.
     const noOrigin = await http(app).post('/api/v1/curriculum/outcomes').set(bearer(admin)).send({
@@ -440,7 +440,7 @@ describe('Curriculum phase 2 (question ↔ programme links)', () => {
     expect(clearOrigin.body.code).toBe('curriculum.outcome_derived_from_required');
   });
 
-  it('blocks indirect parent cycles in updateNode but still allows valid reparenting', async () => {
+  it('chặn chu trình cha gián tiếp trong updateNode nhưng vẫn cho reparenting hợp lệ', async () => {
     const tree = await mkTree();
     // Chuỗi hiện tại: strand → topic → lesson.
     const strandRes = await http(app).get(`/api/v1/curriculum/curricula/${tree.curriculumId}/tree`).set(bearer(admin));

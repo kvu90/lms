@@ -65,14 +65,14 @@ function renderPlayer(cmId: string) {
   );
 }
 
-describe('Player page (K2)', () => {
+describe('Trang trình phát (K2)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('renders page content with outline + next link, and auto-records the view via POST /view', async () => {
+  it('render nội dung trang kèm dàn ý + liên kết tiếp theo, và tự ghi lại lượt xem qua POST /view', async () => {
     const calls = stubFetch((url, init) => {
       if (url === `/api/v1/courses/${COURSE_ID}/player/${PAGE_CM}`) return playerPayload();
       if (url === `/api/v1/courses/${COURSE_ID}/modules/${PAGE_CM}/view` && init?.method === 'POST') return { cmId: PAGE_CM, viewed: true };

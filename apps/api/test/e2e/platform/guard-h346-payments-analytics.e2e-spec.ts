@@ -20,7 +20,7 @@ import { createGradeItem, setGrade } from '../../support/assessment-helpers';
  * - H6: POST /analytics/models/:name/run đòi analytics:manage tại context
  *   khoá cho người gọi (403 khi thiếu; holder tại system qua nhờ cây context).
  */
-describe('Guard H3+H4+H6: payments read + analytics insights/run', () => {
+describe('Guard H3+H4+H6: đọc thanh toán + insights/run phân tích', () => {
   let app: INestApplication;
   let admin: string;
 
@@ -38,7 +38,7 @@ describe('Guard H3+H4+H6: payments read + analytics insights/run', () => {
     return { user, token };
   }
 
-  it('H3: only the owner or a payment:manageaccounts holder can read a payment and its refunds; accounts list is manager-only', async () => {
+  it('H3: chỉ chủ sở hữu hoặc người có payment:manageaccounts mới đọc được thanh toán và hoàn tiền của nó; danh sách tài khoản chỉ dành cho quản lý', async () => {
     const account = await http(app).post('/api/v1/payments/accounts').set('Authorization', `Bearer ${admin}`)
       .send({ name: `Acct ${Date.now()}`, gateway: 'manual' });
     expect(account.status).toBeLessThan(300);
@@ -89,7 +89,7 @@ describe('Guard H3+H4+H6: payments read + analytics insights/run', () => {
     expect((mine.body as { id: string }[]).some((p) => p.id === payment.body.id)).toBe(true);
   });
 
-  it('H6+H4: running a model requires analytics:manage; the global insights list is filtered by viewinsights at each row context', async () => {
+  it('H6+H4: chạy model cần analytics:manage; danh sách insights toàn cục lọc theo viewinsights tại từng ngữ cảnh dòng', async () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
     const instance = await createEnrolInstance(app, admin, course.id);

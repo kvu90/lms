@@ -22,7 +22,7 @@ import { canTransition, gradeAnswer, truefalseHashAnswers, usageState, DeferredF
  * tỉ trọng từng phần, khớp wildcard, hay chấm truefalse theo hai phía).
  */
 describe('question engine domain (mô hình giaokhoa — chấm nhị phân theo isCorrect)', () => {
-  it('state machine: notstarted can only start; graded states are terminal', () => {
+  it('máy trạng thái: notstarted chỉ có thể start; trạng thái đã chấm là trạng thái cuối', () => {
     expect(canTransition('notstarted', 'todo')).toBe(true);
     expect(canTransition('notstarted', 'gradedright')).toBe(false);
     expect(canTransition('todo', 'complete')).toBe(true);
@@ -38,7 +38,7 @@ describe('question engine domain (mô hình giaokhoa — chấm nhị phân theo
     expect(canTransition('needsgrading', 'needsgrading')).toBe(false);
   });
 
-  it('deferredfeedback: submitting records complete/incomplete without grading; grading happens at finish', () => {
+  it('deferredfeedback: nộp bài ghi complete/incomplete mà không chấm; chấm diễn ra lúc kết thúc', () => {
     const b = new DeferredFeedbackBehaviour();
     expect(b.stateAfterSubmit('true')).toBe('complete');
     expect(b.stateAfterSubmit('')).toBe('incomplete');
@@ -184,13 +184,13 @@ describe('question engine domain (mô hình giaokhoa — chấm nhị phân theo
     expect(gradeAnswer('multichoice', data, 'a').rightAnswer).toBe('A');
   });
 
-  it('essay is never auto-graded: it lands in needsgrading with a null fraction', () => {
+  it('essay không bao giờ tự chấm: nó rơi vào needsgrading với fraction null', () => {
     const outcome = gradeAnswer('essay', { answers: [] }, 'A long student essay.');
     expect(outcome.state).toBe('needsgrading');
     expect(outcome.fraction).toBeNull();
   });
 
-  it('usage state rolls up: finished only when every attempt is finished (needsgrading counts as finished)', () => {
+  it('trạng thái usage cuộn lên: chỉ finished khi mọi lượt làm đều finished (needsgrading tính là finished)', () => {
     expect(usageState(['notstarted', 'notstarted'])).toBe('notstarted');
     expect(usageState(['todo', 'gradedright'])).toBe('inprogress');
     expect(usageState(['gradedright', 'gaveup'])).toBe('finished');

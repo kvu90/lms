@@ -19,8 +19,8 @@ import { SiteConfigService } from './site-config.service';
  *   (site_config.notification_mandatory) — admin cũng không tắt được;
  *   đặt true/bật lại thì được.
  */
-describe('Notification site policy settings (NB-7)', () => {
-  it('registers exactly one boolean platform setting per notification provider, default enabled', () => {
+describe('Cài đặt chính sách site cho thông báo (NB-7)', () => {
+  it('đăng ký đúng một cài đặt platform boolean cho mỗi provider thông báo, mặc định bật', () => {
     const policySettings = SITE_SETTINGS.filter((s) => s.component === NOTIFICATION_POLICY_COMPONENT);
     expect(policySettings).toHaveLength(MESSAGE_PROVIDERS.length);
     expect(MESSAGE_PROVIDERS).toHaveLength(20);
@@ -31,7 +31,7 @@ describe('Notification site policy settings (NB-7)', () => {
     }
   });
 
-  it('the mandatory set is exactly the two P2 types', () => {
+  it('tập bắt buộc đúng là hai loại P2', () => {
     expect([...MANDATORY_NOTIFICATION_PROVIDERS].sort()).toEqual(['admin_announcement', 'enrol_expiry_warning']);
   });
 
@@ -46,7 +46,7 @@ describe('Notification site policy settings (NB-7)', () => {
     return { service: new SiteConfigService(repo as never), repo };
   }
 
-  it('refuses to disable a mandatory notification type at site level', async () => {
+  it('từ chối tắt loại thông báo bắt buộc ở cấp site', async () => {
     const { service, repo } = buildService();
     for (const provider of MANDATORY_NOTIFICATION_PROVIDERS) {
       const error = await service
@@ -58,7 +58,7 @@ describe('Notification site policy settings (NB-7)', () => {
     expect(repo.storeValue).not.toHaveBeenCalled();
   });
 
-  it('allows disabling a regular type and (re)enabling a mandatory one', async () => {
+  it('cho tắt loại thường và (bật lại) loại bắt buộc', async () => {
     const { service, repo } = buildService();
     const off = await service.setSetting('admin-1', NOTIFICATION_POLICY_COMPONENT, notificationPolicySettingName('grade_updated'), false);
     expect(off.value).toBe(false);

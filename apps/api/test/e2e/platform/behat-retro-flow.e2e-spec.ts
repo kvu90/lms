@@ -10,7 +10,7 @@ import { createGroupViaApi } from '../../support/engagement-helpers';
  * điền form) được bỏ qua theo quy ước; chỉ dịch bước nghiệp vụ + kết quả kỳ vọng
  * thành lời gọi HTTP. Nguồn đối chiếu ghi tại từng test.
  */
-describe('Behat retro-audit journeys', () => {
+describe('Hành trình kiểm toán ngược Behat', () => {
   let app: INestApplication;
   let admin: string;
 
@@ -61,7 +61,7 @@ describe('Behat retro-audit journeys', () => {
     expect(ids).toContain(bId);
   });
 
-  it('deleting a calendar event removes it from the owner listing (Behat: calendar/tests/behat/calendar.feature — "Delete an event")', async () => {
+  it('xoá sự kiện lịch xoá nó khỏi danh sách của chủ sở hữu (Behat: calendar/tests/behat/calendar.feature — "Delete an event")', async () => {
     const user = await createUserViaApi(app, admin);
     const userToken = (await login(app, user.username, STRONG_PASSWORD)).accessToken;
     const soon = new Date(Date.now() + 3600_000).toISOString();

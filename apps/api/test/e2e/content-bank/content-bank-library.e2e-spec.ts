@@ -38,7 +38,7 @@ import { createCategory, createCourse, getFirstSectionId } from '../../support/c
  * approved+public mở cho mọi người dùng đã đăng nhập (kể cả học sinh
  * chỉ có vai ở khoá) — trạng thái draft/pending vẫn gác chặt.
  */
-describe('Content bank library (CB-1, issue #69)', () => {
+describe('Thư viện ngân hàng nội dung (CB-1, issue #69)', () => {
   let app: INestApplication;
   let admin: string;
   let sysCtx: string;
@@ -171,7 +171,7 @@ describe('Content bank library (CB-1, issue #69)', () => {
     return (res.body as { id: string }[]).map((r) => r.id);
   }
 
-  it('org lifecycle: draft and pending stay hidden from colleagues, approved becomes visible and insertable as a copy', async () => {
+  it('vòng đời org: draft và pending vẫn ẩn với đồng nghiệp, approved hiện ra và chèn được dạng bản sao', async () => {
     const item = await createOrgItem(authorToken);
     const created = await http(app).get(`/api/v1/contentbank/${item.id}`).set(bearer(authorToken));
     expect(created.body.reviewStatus).toBe('draft');
@@ -241,14 +241,14 @@ describe('Content bank library (CB-1, issue #69)', () => {
     expect(modules2.find((m) => m.id === insert.body.cmId)?.name).toBe(cm?.name);
   });
 
-  it('submit requires complete program metadata', async () => {
+  it('submit cần metadata chương trình đầy đủ', async () => {
     const item = await createOrgItem(authorToken, false);
     const submit = await http(app).post(`/api/v1/contentbank/${item.id}/submit`).set(bearer(authorToken)).send({});
     expect(submit.status).toBe(400);
     expect(submit.body.code).toBe('contentbank.metadata_incomplete');
   });
 
-  it('rejected items carry the note and can be resubmitted', async () => {
+  it('mục bị từ chối mang ghi chú và có thể gửi lại', async () => {
     const item = await createOrgItem(authorToken);
     await http(app).post(`/api/v1/contentbank/${item.id}/file`).set(bearer(authorToken)).send(fileBody);
     await http(app).post(`/api/v1/contentbank/${item.id}/submit`).set(bearer(authorToken)).send({});
@@ -262,7 +262,7 @@ describe('Content bank library (CB-1, issue #69)', () => {
     expect(resubmit.body.reviewStatus).toBe('pending');
   });
 
-  it('school scope: hidden while pending for students, visible school-wide after approval', async () => {
+  it('phạm vi school: ẩn khi pending với học viên, hiện toàn school sau khi duyệt', async () => {
     const created = await http(app).post('/api/v1/contentbank').set(bearer(authorToken)).send({
       name: uniqueName('Tai lieu truong'), resourceType: 'multimedia_lecture', scope: 'school',
       subjectId, grade: 10, level: 'upper_secondary', curriculumNodeId: nodeId, ...pedagogicalMeta,
@@ -283,7 +283,7 @@ describe('Content bank library (CB-1, issue #69)', () => {
     expect(await listIds(studentToken, 'scope=school')).toContain(id);
   });
 
-  it('school scope cannot be submitted without complete copyright fields (CB1-B1)', async () => {
+  it('phạm vi school không thể submit khi thiếu trường bản quyền đầy đủ (CB1-B1)', async () => {
     const created = await http(app).post('/api/v1/contentbank').set(bearer(authorToken)).send({
       name: uniqueName('Tai lieu thieu ban quyen'), resourceType: 'multimedia_lecture', scope: 'school',
       subjectId, grade: 10, curriculumNodeId: nodeId, ...pedagogicalMeta,
@@ -302,7 +302,7 @@ describe('Content bank library (CB-1, issue #69)', () => {
     expect(detail).toContain('sourceCitation');
   });
 
-  it('review gates: rejection needs a reason, approval needs the full checklist (CB1-B3)', async () => {
+  it('cổng duyệt: từ chối cần lý do, duyệt cần đủ checklist (CB1-B3)', async () => {
     const item = await createOrgItem(authorToken);
     await http(app).post(`/api/v1/contentbank/${item.id}/file`).set(bearer(authorToken)).send(fileBody);
     await http(app).post(`/api/v1/contentbank/${item.id}/submit`).set(bearer(authorToken)).send({});
@@ -322,7 +322,7 @@ describe('Content bank library (CB-1, issue #69)', () => {
     expect(partial.status).toBe(400);
   });
 
-  it('derived items keep the derived_from trace to the source item (CB1-B1)', async () => {
+  it('mục dẫn xuất giữ vết derived_from tới mục nguồn (CB1-B1)', async () => {
     const source = await http(app).post('/api/v1/contentbank').set(bearer(authorToken)).send({
       name: uniqueName('Hoc lieu goc'), resourceType: 'reference', scope: 'personal',
       originalAuthor: 'Trần Thị B', sourceKind: 'self', license: 'Chỉ dùng nội bộ trường',
@@ -345,7 +345,7 @@ describe('Content bank library (CB-1, issue #69)', () => {
     expect(bogus.body.code).toBe('contentbank.derived_from_not_found');
   });
 
-  it('derived_from cannot point to itself or form a cycle, and self-derived school items fail the submit gate (CB1-B1)', async () => {
+  it('derived_from không được trỏ tới chính nó hay tạo chu trình, và mục school tự dẫn xuất trượt cổng submit (CB1-B1)', async () => {
     const mkPersonal = async (extra: Record<string, unknown> = {}) => {
       const res = await http(app).post('/api/v1/contentbank').set(bearer(authorToken)).send({
         name: uniqueName('Hoc lieu vong dan xuat'), resourceType: 'reference', scope: 'personal', ...extra,
@@ -400,7 +400,7 @@ describe('Content bank library (CB-1, issue #69)', () => {
     expect(String(submit.body.detail ?? submit.body.message ?? '')).toContain('derivedFromId');
   });
 
-  it('question_set items only reference the question bank and cannot be inserted as course resources', async () => {
+  it('mục question_set chỉ tham chiếu ngân hàng câu hỏi và không thể chèn làm tài nguyên khoá học', async () => {
     const created = await http(app).post('/api/v1/contentbank').set(bearer(authorToken)).send({
       name: uniqueName('Bo cau hoi tham chieu'), resourceType: 'question_set', scope: 'personal',
       questionCategoryId: categoryId,
@@ -413,7 +413,7 @@ describe('Content bank library (CB-1, issue #69)', () => {
     expect(insert.body.code).toBe('contentbank.question_set_not_insertable');
   });
 
-  it('personal items are private to their author; users without roles cannot create library items', async () => {
+  it('mục cá nhân riêng tư với tác giả; người không có vai trò không thể tạo mục thư viện', async () => {
     const created = await http(app).post('/api/v1/contentbank').set(bearer(authorToken)).send({
       name: uniqueName('Hoc lieu ca nhan'), resourceType: 'reference', scope: 'personal',
     });
@@ -430,7 +430,7 @@ describe('Content bank library (CB-1, issue #69)', () => {
     expect(denied.status).toBe(403);
   });
 
-  it('personal bank: teacher whose only role is at a course context creates without contextId; course-only student still cannot (probe v86)', async () => {
+  it('ngân hàng cá nhân: giáo viên chỉ có vai ở ngữ cảnh khoá học tạo được mà không cần contextId; học viên chỉ-ở-khoá vẫn không thể (probe v86)', async () => {
     // Đường mặc định của UI: không contextId, scope personal. Giáo viên
     // chỉ có editingteacher tại context khoá vẫn dùng được kho của mình.
     const created = await http(app).post('/api/v1/contentbank').set(bearer(courseTeacherToken)).send({
@@ -450,7 +450,7 @@ describe('Content bank library (CB-1, issue #69)', () => {
     expect(denied.body.code).toBe('access.capability_denied');
   });
 
-  it('school scope: approved+public opens to course-only students and teachers; draft/pending stay hidden from them (probe v86)', async () => {
+  it('phạm vi school: approved+public mở cho học viên và giáo viên chỉ-ở-khoá; draft/pending vẫn ẩn với họ (probe v86)', async () => {
     const created = await http(app).post('/api/v1/contentbank').set(bearer(authorToken)).send({
       name: uniqueName('Tai lieu truong cong khai'), resourceType: 'multimedia_lecture', scope: 'school',
       subjectId, grade: 10, level: 'upper_secondary', curriculumNodeId: nodeId, ...pedagogicalMeta,
@@ -487,7 +487,7 @@ describe('Content bank library (CB-1, issue #69)', () => {
     expect(await listIds(courseTeacherToken, 'scope=school')).toContain(id);
   });
 
-  it('spaces endpoint lists personal, my departments and school', async () => {
+  it('endpoint spaces liệt kê personal, department của tôi và school', async () => {
     const res = await http(app).get('/api/v1/contentbank/spaces').set(bearer(authorToken));
     expect(res.status).toBe(200);
     const spaces = res.body as { scope: string; spaceId: string | null; canReview: boolean }[];

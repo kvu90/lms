@@ -43,7 +43,7 @@ describe('Controller consolidation R6-A1 (issue #343) — hành vi alias', () =>
 
 
 
-  it('serves the exam-papers alias with deprecation headers and structured logs while canonical routes stay unmarked', async () => {
+  it('phục vụ alias exam-papers kèm header deprecation và log có cấu trúc trong khi route chuẩn không bị đánh dấu', async () => {
     // Bank đề trường để có bankId thật cho route danh sách đề theo bank.
     const bankRes = await http(app).post('/api/v1/question-banks').set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Ngân hàng đề trường R6-A1', scope: 'school', bankKind: 'exam' });
