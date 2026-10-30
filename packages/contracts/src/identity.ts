@@ -165,6 +165,61 @@ export const replaceRoleCapabilitiesSchema = z.strictObject({
 export type ReplaceRoleCapabilities = z.infer<typeof replaceRoleCapabilitiesSchema>;
 
 /**
+ * Query đọc ma trận quyền của mọi vai tại đúng một context (bề mặt
+ * trang Permissions toàn trang dựng bảng chuyển vị resource × vai từ
+ * một lần gọi này, thay vì gọi ma trận riêng cho từng vai): đầu vào
+ * chỉ gồm `contextId` của context cần đọc. `contextId` phải là UUID —
+ * giá trị sai khuôn bị tầng kiểm chứng hợp đồng chặn ở đầu vào bằng
+ * lỗi 400 ProblemDetails mang mã `http.validation_failed` (mã thật
+ * của cơ chế kiểm chứng dùng chung của hệ, không có mã riêng theo
+ * schema). `contextId` đúng khuôn nhưng không tồn tại được tầng API
+ * xử lý như các đường đọc hiện hành của module phân quyền: 404
+ * `access.context_not_found`.
+ */
+export const capabilityMatrixQuerySchema = z.strictObject({
+  contextId: uuidIdSchema,
+});
+export type CapabilityMatrixQuery = z.infer<typeof capabilityMatrixQuerySchema>;
+
+/**
+ * Một dòng vai trong ma trận quyền theo context: định danh và tên
+ * vai, số người dùng PHÂN BIỆT đang giữ vai (cùng phép đếm với danh
+ * sách vai — một người giữ cùng vai ở nhiều context vẫn đếm một), và
+ * tập ghi đè ĐÃ LƯU của vai tại đúng context được hỏi. Vai không có
+ * ghi đè nào tại context đó mang tập rỗng và vẫn xuất hiện trong ma
+ * trận. Mỗi phần tử ghi đè gồm tên năng lực và giá trị quyền thuộc
+ * đúng bốn trạng thái đã chốt: Cho phép (ALLOW = 1), Kế thừa
+ * (INHERIT = 0), Ngăn (PREVENT = −1), Cấm (PROHIBIT = −1000); các
+ * đường ghi hiện hành không lưu dòng mang giá trị Kế thừa (đặt một
+ * ô về Kế thừa là xoá dòng ghi đè của ô đó), nên tập đã lưu trên
+ * thực tế chỉ mang ba giá trị còn lại.
+ */
+export const capabilityMatrixRoleSchema = z.object({
+  id: uuidIdSchema,
+  name: z.string(),
+  userCount: z.number().int().min(0),
+  overrides: z.array(z.strictObject({
+    capability: z.string().min(1),
+    permission: z.number().int(),
+  })),
+});
+export type CapabilityMatrixRole = z.infer<typeof capabilityMatrixRoleSchema>;
+
+/**
+ * Đáp ứng đọc ma trận quyền theo context: `contextId` đã đọc kèm một
+ * dòng cho MỌI vai trong hệ tại context đó. Chỉ ghi đè thuộc đúng
+ * context được hỏi mới xuất hiện — ghi đè của context khác không rò
+ * sang, vì việc phân giải quyền hiệu lực theo cây context thuộc
+ * tầng phân giải quyền, còn bề mặt này chỉ trình bày tập đã lưu tại
+ * một context.
+ */
+export const capabilityMatrixResponseSchema = z.object({
+  contextId: uuidIdSchema,
+  roles: z.array(capabilityMatrixRoleSchema),
+});
+export type CapabilityMatrixResponse = z.infer<typeof capabilityMatrixResponseSchema>;
+
+/**
  * Query liệt kê gán vai (dạng nền — phía server ép kiểu `page`/`pageSize`
  * từ query string): lọc tuỳ chọn theo người dùng, context và vai; tìm
  * kiếm theo người dùng khớp trên tên và email; phân trang phía server.

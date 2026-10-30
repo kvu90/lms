@@ -4,7 +4,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { RequireCapability } from '../../common/require-capability.decorator';
 import { ContextsService } from './contexts.service';
-import { assignRoleSchema, createContextSchema, createRoleSchema, hasCapabilityQueryServerSchema, listAssignmentsQueryServerSchema, listUsersWithAssignmentsQueryServerSchema, overrideCapabilitySchema, replaceRoleCapabilitiesSchema, updateRoleSchema, type AssignRoleDto, type CreateContextDto, type CreateRoleDto, type HasCapabilityQueryDto, type ListAssignmentsQueryDto, type ListUsersWithAssignmentsQueryDto, type OverrideCapabilityDto, type ReplaceRoleCapabilitiesDto, type UpdateRoleDto } from './dto/access.dto';
+import { assignRoleSchema, capabilityMatrixQuerySchema, createContextSchema, createRoleSchema, hasCapabilityQueryServerSchema, listAssignmentsQueryServerSchema, listUsersWithAssignmentsQueryServerSchema, overrideCapabilitySchema, replaceRoleCapabilitiesSchema, updateRoleSchema, type AssignRoleDto, type CapabilityMatrixQueryDto, type CreateContextDto, type CreateRoleDto, type HasCapabilityQueryDto, type ListAssignmentsQueryDto, type ListUsersWithAssignmentsQueryDto, type OverrideCapabilityDto, type ReplaceRoleCapabilitiesDto, type UpdateRoleDto } from './dto/access.dto';
 import { PermissionEvaluator } from './permission-evaluator.service';
 import { RolesService } from './roles.service';
 
@@ -89,6 +89,21 @@ export class AccessController {
    * GET /access/roles/:id/capabilities — ma trận override đã lưu của role.
    */
   async listRoleCapabilities(@Param('id', { schema: uuidIdSchema }) id: string) { return this.roles.listRoleCapabilities(id); }
+  @Get('capability-matrix')
+  @RequireCapability('role:manage')
+  /**
+   * GET /access/capability-matrix?contextId=… — ma trận ghi đè đã lưu
+   * của MỌI role tại đúng một context trong một lần gọi (trang
+   * Permissions toàn trang dựng bảng chuyển vị từ đáp ứng này thay vì
+   * gọi ma trận riêng cho từng role): mỗi role kèm số người giữ phân
+   * biệt và tập ghi đè tại context được hỏi; role không có ghi đè tại
+   * context đó mang tập rỗng, ghi đè của context khác không xuất
+   * hiện. Context không tồn tại trả 404 `access.context_not_found`
+   * như các đường đọc hiện hành của module.
+   */
+  async getCapabilityMatrix(@Query({ schema: capabilityMatrixQuerySchema }) query: CapabilityMatrixQueryDto) {
+    return this.roles.getCapabilityMatrix(query.contextId);
+  }
   @Put('roles/:id/capabilities')
   @RequireCapability('role:override', 'body:contextId')
   /**

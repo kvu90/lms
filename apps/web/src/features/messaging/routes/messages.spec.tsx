@@ -225,6 +225,7 @@ function stubRealtimeFetch(calls: RecordedCall[]) {
             { id: CONV_ID, name: 'Nhóm một', myRole: 'staff', conversationId: CONV_ID, unread: 0 },
             { id: CONV2_ID, name: 'Nhóm hai', myRole: 'staff', conversationId: CONV2_ID, unread: 2 },
           ],
+          canCreateFreeGroup: true,
         });
       if (url === `/api/v1/messages/conversations/${CONV_ID}`)
         return respond({
@@ -460,6 +461,7 @@ function stubDomainFetch(calls: RecordedCall[]) {
           freeGroups: [
             { id: CONV_ID, name: 'Nhóm lớp', myRole: 'staff', conversationId: CONV_ID, unread: 0 },
           ],
+          canCreateFreeGroup: true,
         });
       if (url === '/api/v1/messages/contacts')
         return respond({
@@ -1402,6 +1404,7 @@ function stubFetchM4(calls: RecordedCall[], opts: { failSearch?: boolean } = {})
           freeGroups: [
             { id: CONV_CLASS, name: 'Lớp Toán 10A1', myRole: 'staff', conversationId: CONV_CLASS, unread: 0 },
           ],
+          canCreateFreeGroup: true,
         });
       return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
     }),
@@ -1673,10 +1676,13 @@ const T3_GROUP_CONV = '01900000-0000-7000-8000-0000000000d5';
 /**
  * Stub fetch cho các ca MSG-T3: hai hội thoại 1–1 (một chưa đọc),
  * một hội thoại nhóm tự do chỉ thuộc cây, và cây Lớp → Khoá → Nhóm
- * con theo vai DẠY. `studentView` đổi mọi vai của cây thành HỌC và
- * bỏ nút tạo nhóm khỏi tầm tay học sinh.
+ * con theo vai DẠY. `studentView` đổi mọi vai của cây thành HỌC.
+ * `canCreateFreeGroup` là cờ server trả trong cây (chỉ quản trị
+ * viên hệ thống/chủ trung tâm mới true) — nút tạo nhóm hiện theo
+ * cờ này, KHÔNG theo vai trên cây; mặc định suy từ `studentView`
+ * (góc học sinh thì false, góc dạy thì true).
  */
-function stubMsgT3Fetch(calls: RecordedCall[], opts: { studentView?: boolean } = {}) {
+function stubMsgT3Fetch(calls: RecordedCall[], opts: { studentView?: boolean; canCreateFreeGroup?: boolean } = {}) {
   const role = opts.studentView ? 'learning' : 'teaching';
   const dmMessage = {
     id: '01900000-0000-7000-8000-0000000000e1', conversationId: T3_DM_A, userIdFrom: OTHER_ID,
@@ -1710,6 +1716,7 @@ function stubMsgT3Fetch(calls: RecordedCall[], opts: { studentView?: boolean } =
           freeGroups: opts.studentView
             ? []
             : [{ id: T3_GROUP_CONV, name: 'Nhóm Riêng', myRole: 'staff', conversationId: T3_GROUP_CONV, unread: 0 }],
+          canCreateFreeGroup: opts.canCreateFreeGroup ?? !opts.studentView,
         });
       if (url === `/api/v1/messages/classes/${T3_CLASS_ID}/conversation`)
         return respond({ id: T3_CLASS_CONV, type: 2, name: 'Lớp 10A1', members: [ME_ID, OTHER_ID] });
@@ -1828,9 +1835,11 @@ describe('Messages page — MSG-T3: phân tab, cây nhóm, sheet Tin nhắn mớ
     );
   });
 
-  it('giáo viên tạo được nhóm tự do từ sheet Tạo nhóm; học sinh không thấy nút tạo nhóm', async () => {
+  it('nút Tạo nhóm chỉ hiện khi server cấp cờ canCreateFreeGroup: người có cờ tạo được nhóm từ sheet; giáo viên có vai dạy trên cây nhưng không có cờ thì không thấy nút; học sinh cũng không thấy nút', async () => {
+    // Góc có cờ (quản trị viên hệ thống/chủ trung tâm): nút hiện và
+    // luồng tạo nhóm chạy đủ — POST đúng thân type 2.
     const calls: RecordedCall[] = [];
-    stubMsgT3Fetch(calls);
+    stubMsgT3Fetch(calls, { canCreateFreeGroup: true });
     renderMessages();
 
     await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
@@ -1844,6 +1853,17 @@ describe('Messages page — MSG-T3: phân tab, cây nhóm, sheet Tin nhắn mớ
       const create = calls.find((c) => c.url === '/api/v1/messages/conversations' && c.method === 'POST');
       expect(create?.body).toEqual({ type: 2, name: 'Nhóm mới lập', memberIds: [OTHER_ID] });
     });
+
+    cleanup();
+    // Góc giáo viên: cây vẫn mang vai DẠY ở mọi nút nhưng server
+    // không cấp cờ — nút phải ẩn (trước đây trang tự suy từ vai nên
+    // giáo viên vẫn thấy nút dù API đã chặn).
+    const teacherCalls: RecordedCall[] = [];
+    stubMsgT3Fetch(teacherCalls, { canCreateFreeGroup: false });
+    renderMessages();
+    await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
+    expect(await screen.findByRole('button', { name: /^(?!(Mở rộng|Thu gọn):).*Lớp 10A1/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Tạo nhóm/ })).not.toBeInTheDocument();
 
     cleanup();
     const studentCalls: RecordedCall[] = [];
@@ -1932,6 +1952,7 @@ function stubDupSendFetch(calls: RecordedCall[]) {
           freeGroups: [
             { id: CONV_ID, name: 'Nhóm một', myRole: 'staff', conversationId: CONV_ID, unread: 0 },
           ],
+          canCreateFreeGroup: true,
         });
       if (url === `/api/v1/messages/conversations/${CONV_ID}`)
         return respond({
@@ -2100,6 +2121,7 @@ function stubMsgT4Fetch(calls: RecordedCall[]) {
           freeGroups: [
             { id: T4_FREE_CONV, name: 'Nhóm ôn tập', myRole: 'staff', conversationId: T4_FREE_CONV, unread: 0 },
           ],
+          canCreateFreeGroup: false,
         });
       if (url === `/api/v1/messages/courses/${COURSE_ID}/conversation`)
         return respond({
@@ -2366,6 +2388,7 @@ function stubMsgT4StudentFetch(calls: RecordedCall[]) {
             { courseId: COURSE_ID, name: 'Toán 10', myRole: 'learning', conversationId: T4_COURSE_CONV, unread: 0, groups: [] },
           ],
           freeGroups: [],
+          canCreateFreeGroup: false,
         });
       if (url === `/api/v1/messages/courses/${COURSE_ID}/conversation`)
         return respond({
@@ -2724,6 +2747,7 @@ function stubFix530Fetch(calls: RecordedCall[]) {
             { id: CONV_ID, name: 'Nhóm một', myRole: 'staff', conversationId: CONV_ID, unread: 0 },
             { id: CONV2_ID, name: 'Nhóm hai', myRole: 'staff', conversationId: CONV2_ID, unread: 2 },
           ],
+          canCreateFreeGroup: true,
         });
       if (url === `/api/v1/messages/conversations/${CONV_ID}`)
         return respond({

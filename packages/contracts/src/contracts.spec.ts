@@ -192,8 +192,14 @@ describe('Hợp đồng engagement', () => {
       }],
       coursesOutsideClasses: [],
       freeGroups: [{ conversationId: '01900000-0000-7000-8000-000000000030', name: 'Nhóm ôn thi', myRole: 'learning', unread: 0 }],
+      canCreateFreeGroup: true,
     });
     expect(tree.classes[0]!.courses[0]!.groups[0]!.conversationId).toBeNull();
+    // Cờ tạo nhóm tự do là trường BẮT BUỘC do server tính theo cổng
+    // tạo nhóm (chỉ quản trị viên hệ thống/chủ trung tâm mới true):
+    // thiếu cờ thì schema từ chối, tránh client tự suy quyền từ vai.
+    expect(tree.canCreateFreeGroup).toBe(true);
+    expect(() => conversationGroupTreeSchema.parse({ classes: [], coursesOutsideClasses: [], freeGroups: [] })).toThrow();
     // Vai ngoài tập chốt (teaching/learning/staff) và unread âm đều bị từ chối.
     expect(() => conversationGroupTreeSchema.parse({ ...tree, freeGroups: [{ conversationId: '01900000-0000-7000-8000-000000000030', name: 'X', myRole: 'owner', unread: 0 }] })).toThrow();
     expect(() => conversationGroupTreeSchema.parse({ ...tree, freeGroups: [{ conversationId: '01900000-0000-7000-8000-000000000030', name: 'X', myRole: 'staff', unread: -1 }] })).toThrow();
@@ -448,6 +454,33 @@ describe('Hợp đồng định danh', () => {
         email: 'u@example.com', suspended: false, deleted: false, assignments: [],
       }],
       total: 1, page: 1, pageSize: 10,
+    })).toThrow();
+  });
+
+  it('hợp đồng ma trận quyền theo context: query chỉ nhận contextId là UUID, đáp ứng giữ đúng hình dạng vai kèm tập ghi đè', async () => {
+    const { capabilityMatrixQuerySchema, capabilityMatrixResponseSchema } = await import('./identity.js');
+    const contextId = '01900000-0000-7000-8000-000000000040';
+    const roleId = '01900000-0000-7000-8000-000000000041';
+    // Query hợp lệ: đúng một trường contextId mang UUID.
+    expect(capabilityMatrixQuerySchema.parse({ contextId })).toEqual({ contextId });
+    // Thiếu contextId, contextId sai khuôn UUID và trường lạ đều bị chặn (strict).
+    expect(() => capabilityMatrixQuerySchema.parse({})).toThrow();
+    expect(() => capabilityMatrixQuerySchema.parse({ contextId: 'khong-phai-uuid' })).toThrow();
+    expect(() => capabilityMatrixQuerySchema.parse({ contextId, roleId })).toThrow();
+    // Đáp ứng: vai có ghi đè giữ nguyên cặp năng lực/quyền; vai không có
+    // ghi đè tại context mang tập rỗng; số người giữ không được âm.
+    const parsed = capabilityMatrixResponseSchema.parse({
+      contextId,
+      roles: [
+        { id: roleId, name: 'Manager', userCount: 2, overrides: [{ capability: 'role:manage', permission: 1 }] },
+        { id: '01900000-0000-7000-8000-000000000042', name: 'Guest', userCount: 0, overrides: [] },
+      ],
+    });
+    expect(parsed.roles[0].overrides).toEqual([{ capability: 'role:manage', permission: 1 }]);
+    expect(parsed.roles[1].overrides).toEqual([]);
+    expect(() => capabilityMatrixResponseSchema.parse({
+      contextId,
+      roles: [{ id: roleId, name: 'Manager', userCount: -1, overrides: [] }],
     })).toThrow();
   });
 

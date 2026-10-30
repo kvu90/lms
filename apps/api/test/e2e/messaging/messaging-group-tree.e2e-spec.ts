@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Client } from 'pg';
 import {
   adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD,
+  systemContextId,
 } from '../../support/identity-access-helpers';
 import { createCategory, createClass, createCourse, createEnrolInstance, enrolUser, grantActiveTeacherPlan } from '../../support/course-enrolment-helpers';
 import { addGroupMember, contextIdByLevelInstance, createGroupViaApi } from '../../support/engagement-helpers';
@@ -26,8 +27,10 @@ import { addGroupMember, contextIdByLevelInstance, createGroupViaApi } from '../
  *  (4) Người ngoài hoàn toàn: cây rỗng cả ba mục.
  *  (5) Nhóm con trong khoá: thành viên thấy nút nhóm con dưới khoá
  *      (chưa ensure → null), ensure xong thì mang conversationId;
- *      nhóm tự do GV tạo hiện ở mục freeGroups với vai staff của
- *      người tạo, thành viên thường vai learning.
+ *      nhóm tự do do quản trị viên tạo hiện ở mục freeGroups, GV và
+ *      HS đều là thành viên thường vai learning. Cờ
+ *      `canCreateFreeGroup` trên cây khớp đúng cổng tạo nhóm tự do:
+ *      quản trị viên true; GV, HS, nhân viên và người ngoài false.
  *  (6) Phân loại trên GET /messages/conversations: chat khoá mang
  *      itemType 'course' + itemId đúng; nhóm con 'groups'; nhóm tự
  *      do cả ba trường null.
@@ -43,6 +46,7 @@ interface TreeBody {
   classes: TreeClass[];
   coursesOutsideClasses: TreeCourse[];
   freeGroups: (TreeLeaf & { conversationId: string })[];
+  canCreateFreeGroup: boolean;
 }
 
 /**
@@ -112,6 +116,7 @@ describe('Messaging — cây nhóm theo vai (MSG-T1, issue #33)', () => {
   let teacher: Person;
   let student: Person;
   let outsider: Person;
+  let staff: Person;
   let class1: string;
   let class2: string;
   let classX: string;
@@ -146,6 +151,15 @@ describe('Messaging — cây nhóm theo vai (MSG-T1, issue #33)', () => {
     teacher = await person();
     student = await person();
     outsider = await person();
+    staff = await person();
+
+    // Nhân viên: vai coursecreator tại context HỆ THỐNG — có gán
+    // vai staff nhưng không dạy khoá nào và không quản lý tenant
+    // nào; dùng cho khẳng định cờ tạo nhóm tự do trên cây ở ca 5
+    // (persona tương ứng đã bị từ chối tạo nhóm ở spec cổng).
+    const systemCtx = await systemContextId(app, admin);
+    const courseCreator = await roleIdByShortname(app, admin, 'coursecreator');
+    await assignRole(app, admin, staff.id, courseCreator, systemCtx);
 
     // GV của spec làm chủ 2 lớp/khoá ở tenant platform: theo đặc tả
     // slot đã duyệt của issue #189, giáo viên không có gói chỉ làm
@@ -203,10 +217,12 @@ describe('Messaging — cây nhóm theo vai (MSG-T1, issue #33)', () => {
     await addGroupMember(app, admin, course1, group1, student.id);
     await addGroupMember(app, admin, course1, group1, teacher.id);
 
-    // Nhóm tự do do GV tạo, HS là thành viên.
+    // Nhóm tự do do quản trị viên tạo (chỉ quản trị viên hệ thống
+    // hoặc chủ trung tâm mới tạo được nhóm thủ công), GV và HS là
+    // thành viên thường.
     const free = await http(app).post('/api/v1/messages/conversations')
-      .set('Authorization', `Bearer ${teacher.token}`)
-      .send({ type: 2, memberIds: [student.id], name: 'Nhóm ôn thi' });
+      .set('Authorization', `Bearer ${admin}`)
+      .send({ type: 2, memberIds: [teacher.id, student.id], name: 'Nhóm ôn thi' });
     expect(free.status).toBe(201);
     freeGroupId = free.body.id as string;
   });
@@ -285,6 +301,7 @@ describe('Messaging — cây nhóm theo vai (MSG-T1, issue #33)', () => {
     expect(t.classes).toEqual([]);
     expect(t.coursesOutsideClasses).toEqual([]);
     expect(t.freeGroups).toEqual([]);
+    expect(t.canCreateFreeGroup).toBe(false);
   });
 
   it('5. nhóm con ensure xong mang conversationId; nhóm tự do ở freeGroups đúng vai', async () => {
@@ -299,11 +316,26 @@ describe('Messaging — cây nhóm theo vai (MSG-T1, issue #33)', () => {
     expect(groupNode.conversationId).toBe(groupConv);
     expect(t.freeGroups.map((g) => g.conversationId)).toEqual([freeGroupId]);
     expect(t.freeGroups[0]!.myRole).toBe('learning');
+    // Cờ tạo nhóm tự do trên cây khớp cổng API: HS không tạo được.
+    expect(t.canCreateFreeGroup).toBe(false);
 
     const teacherTree = await tree(teacher.token);
     expect(teacherTree.freeGroups.map((g) => g.conversationId)).toEqual([freeGroupId]);
-    expect(teacherTree.freeGroups[0]!.myRole).toBe('staff'); // người tạo nhóm tự do
+    // GV chỉ là thành viên thường của nhóm tự do này (quản trị viên
+    // mới là người tạo) — vai learning, và cờ tạo nhóm vẫn false dù
+    // GV có vai dạy trên cây.
+    expect(teacherTree.freeGroups[0]!.myRole).toBe('learning');
     expect(teacherTree.freeGroups[0]!.name).toBe('Nhóm ôn thi');
+    expect(teacherTree.canCreateFreeGroup).toBe(false);
+
+    // Nhân viên (gán vai staff tại context hệ thống, không quản lý
+    // tenant nào): cờ vẫn false, khớp cổng tạo nhóm ở tầng service.
+    const staffTree = await tree(staff.token);
+    expect(staffTree.canCreateFreeGroup).toBe(false);
+
+    // Quản trị viên hệ thống: cờ true theo đúng cổng tạo nhóm.
+    const adminTree = await tree(admin);
+    expect(adminTree.canCreateFreeGroup).toBe(true);
   });
 
   it('6. phân loại trên danh sách conversation: itemType/itemId đúng từng loại, nhóm tự do thì null', async () => {

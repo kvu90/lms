@@ -219,18 +219,14 @@ export function useGroupActions({
   }
 
   /**
-   * Có hiện nút tạo nhóm tự do hay không (lát MSG-T3): người xem có
-   * vai DẠY/STAFF ở bất kỳ nút nào của cây (dạy lớp/khoá, staff lớp,
-   * hoặc đang quản trị một nhóm tự do) thì hiện; học sinh thuần
-   * (mọi nút đều là vai học) thì ẩn. Đây chỉ là trình bày — cổng
-   * thật chặn học sinh tạo nhóm nằm ở server.
+   * Có hiện nút tạo nhóm tự do hay không (lát MSG-T3): đọc thẳng cờ
+   * `canCreateFreeGroup` do SERVER tính trong cây nhóm theo đúng
+   * cổng tạo nhóm của API cho tenant hiện hành — chỉ quản trị viên
+   * hệ thống hoặc chủ trung tâm mới thấy nút; giáo viên, nhân viên
+   * và học viên không thấy. Đây chỉ là trình bày — cổng thật chặn
+   * tạo nhóm nằm ở server.
    */
-  const canCreateFreeGroup = Boolean(
-    groupTree &&
-    (groupTree.classes.some((c) => c.myRole !== 'learning') ||
-      groupTree.coursesOutsideClasses.some((c) => c.myRole !== 'learning') ||
-      groupTree.freeGroups.some((g) => g.myRole === 'staff')),
-  );
+  const canCreateFreeGroup = groupTree?.canCreateFreeGroup ?? false;
 
   return {
     groupCreateError,

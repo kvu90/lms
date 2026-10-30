@@ -592,6 +592,23 @@ export class AccessRepository {
       eq(roleCapabilities.roleId, roleId), eq(roleCapabilities.contextId, contextId)));
   }
   /**
+   * Liệt kê MỌI dòng ghi đè của MỌI role tại đúng một context — đầu
+   * vào của ma trận quyền theo context: một truy vấn duy nhất nạp
+   * trọn tập ghi đè của context, thay cho một truy vấn riêng cho
+   * từng role khi phía gọi chỉ có `listRoleCapabilitiesAtContext`.
+   * Sắp theo tên năng lực để tầng service ghép theo role ra tập đã
+   * có thứ tự ổn định; ghi đè của context khác không nằm trong kết
+   * quả vì điều kiện lọc neo đúng một context.
+   *
+   * @param contextId - Định danh của context cần đọc.
+   * @returns Mọi dòng ghi đè thuộc context đó, của mọi role.
+   */
+  async listAllRoleCapabilitiesAtContext(contextId: string): Promise<(typeof roleCapabilities.$inferSelect)[]> {
+    return this.db.select().from(roleCapabilities)
+      .where(eq(roleCapabilities.contextId, contextId))
+      .orderBy(roleCapabilities.capability);
+  }
+  /**
    * Xoá MỌI override của một role tại đúng một context — bước dọn tập
    * cũ của thao tác lưu ma trận thay toàn bộ (sau bước này tầng service
    * ghi lại đúng tập mới trong cùng một transaction, nên tập lưu cuối

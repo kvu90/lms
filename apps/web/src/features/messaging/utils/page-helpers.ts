@@ -112,6 +112,9 @@ export function withTreeUnread(
     classes: tree.classes.map(patchClass),
     coursesOutsideClasses: tree.coursesOutsideClasses.map(patchCourse),
     freeGroups: tree.freeGroups.map((g) => (g.conversationId === conversationId ? { ...g, unread: unreadCount } : g)),
+    // Cờ tạo nhóm tự do là quyền do server cấp, không đổi theo số
+    // chưa đọc — giữ nguyên khi vá cây.
+    canCreateFreeGroup: tree.canCreateFreeGroup,
   };
 }
 

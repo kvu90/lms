@@ -41,6 +41,22 @@ export interface RoleListItem extends RoleRow {
   resourceCount: number;
 }
 
+/**
+ * Một dòng vai trong ma trận quyền tại đúng một context: định danh
+ * và tên vai, số người dùng phân biệt đang giữ vai (cùng phép đếm
+ * với danh sách vai) và tập ghi đè ĐÃ LƯU của vai tại context đó —
+ * mỗi phần tử chỉ gồm tên năng lực và giá trị quyền, sắp theo tên
+ * năng lực. Vai không có ghi đè nào tại context mang `overrides`
+ * rỗng. Đây là hình dạng một phần tử của đáp ứng
+ * `GET /access/capability-matrix`.
+ */
+export interface RoleCapabilityMatrixItem {
+  id: string;
+  name: string;
+  userCount: number;
+  overrides: { capability: string; permission: number }[];
+}
+
 /** Dòng gán vai này có do ghi danh cấp hay không (quyết định chốt gỡ ở unassignRole). */
 export function isEnrolManagedAssignment(assignment: { component?: string | null }): boolean {
   return assignment.component === ENROL_ASSIGNMENT_COMPONENT;
@@ -463,6 +479,52 @@ export class RolesService {
   async listRoleCapabilities(roleId: string): Promise<unknown[]> {
     await this.getRole(roleId);
     return this.repo.listRoleCapabilities(roleId);
+  }
+  /**
+   * Đọc ma trận quyền của MỌI vai tại đúng một context trong một
+   * lần gọi — bề mặt đọc cho trang Permissions toàn trang, thay cho
+   * vòng gọi ma trận riêng của từng vai qua `listRoleCapabilities`
+   * (vừa thừa số lần gọi, vừa kéo theo ghi đè của mọi context khác).
+   *
+   * Luồng: xác thực context tồn tại trước (vắng mặt thì ném
+   * `access.context_not_found`, khớp hành vi của các đường đọc hiện
+   * hành của module khi đối tượng được hỏi không tồn tại) → đọc
+   * song song ba tập trong đúng lượt gọi này: danh sách vai, số
+   * người giữ phân biệt theo vai (cùng phép tổng hợp của danh sách
+   * vai) và toàn bộ dòng ghi đè thuộc đúng context được hỏi (một
+   * truy vấn cho cả context, không lặp theo vai) → ghép ghi đè theo
+   * vai. Vai không có ghi đè nào tại context vẫn xuất hiện với tập
+   * rỗng; ghi đè của context khác không bao giờ rò vào kết quả vì
+   * truy vấn đã neo đúng một context.
+   *
+   * @param contextId - Định danh của context cần đọc ma trận.
+   * @returns `contextId` đã đọc kèm một dòng cho mỗi vai trong hệ.
+   * @throws Lỗi 404 ProblemDetails `access.context_not_found` khi
+   * context không tồn tại.
+   */
+  async getCapabilityMatrix(contextId: string): Promise<{ contextId: string; roles: RoleCapabilityMatrixItem[] }> {
+    await this.contexts.getContext(contextId);
+    const [roles, userCounts, overrideRows] = await Promise.all([
+      this.repo.listRoles(),
+      this.repo.countDistinctUsersByRole(),
+      this.repo.listAllRoleCapabilitiesAtContext(contextId),
+    ]);
+    const userCountByRole = new Map(userCounts.map((row) => [row.roleId, row.userCount]));
+    const overridesByRole = new Map<string, { capability: string; permission: number }[]>();
+    for (const row of overrideRows) {
+      const list = overridesByRole.get(row.roleId) ?? [];
+      list.push({ capability: row.capability, permission: row.permission });
+      overridesByRole.set(row.roleId, list);
+    }
+    return {
+      contextId,
+      roles: roles.map((roleRow) => ({
+        id: roleRow.id,
+        name: roleRow.name,
+        userCount: userCountByRole.get(roleRow.id) ?? 0,
+        overrides: overridesByRole.get(roleRow.id) ?? [],
+      })),
+    };
   }
   /**
    * Liệt kê mọi capability đã khai báo.

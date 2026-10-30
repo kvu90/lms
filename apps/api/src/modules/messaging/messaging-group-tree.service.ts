@@ -78,6 +78,13 @@ export interface ConversationGroupTreeView {
   classes: ConversationTreeClassView[];
   coursesOutsideClasses: ConversationTreeCourseView[];
   freeGroups: ConversationTreeFreeGroupView[];
+  /**
+   * Người gọi có được tạo nhóm tự do hay không, do facade tính bằng
+   * ĐÚNG cổng của API (MessagingConversationsService.canCreateFreeGroup)
+   * cho tenant hiện hành và truyền xuống — web hiện nút tạo nhóm theo
+   * cờ này, không tự suy từ vai trên cây.
+   */
+  canCreateFreeGroup: boolean;
 }
 
 /** Roster thành viên khoá: kích thước trang mặc định và trần cứng mỗi trang (phân trang con trỏ là bắt buộc — xem contracts). */
@@ -157,8 +164,13 @@ export class MessagingGroupTreeService {
    * endpoint cấp lớp). Đồng bộ lười membership được kích hoạt như ở
    * danh sách conversation để số chưa đọc bám đúng tư cách thành
    * viên hiện tại.
+   *
+   * @param actorId - Người gọi cây nhóm của chính mình.
+   * @param canCreateFreeGroup - Cờ quyền tạo nhóm tự do do facade tính
+   * bằng cổng tạo nhóm của cụm hội thoại cho tenant hiện hành; cụm này
+   * chỉ gắn nguyên vẹn vào kết quả, không tự suy quyền.
    */
-  async getGroupTree(actorId: string): Promise<ConversationGroupTreeView> {
+  async getGroupTree(actorId: string, canCreateFreeGroup: boolean): Promise<ConversationGroupTreeView> {
     // Đồng bộ lười membership như listConversations: group/khoá tôi
     // mới gia nhập (hoặc đã rời) phải phản ánh đúng trước khi đếm.
     for (const c of await this.repo.listGroupConversationsForGroupMember(actorId)) {
@@ -286,7 +298,7 @@ export class MessagingGroupTreeService {
         unread: s.unreadCount,
       }));
 
-    return { classes: classNodes, coursesOutsideClasses: outsideNodes, freeGroups };
+    return { classes: classNodes, coursesOutsideClasses: outsideNodes, freeGroups, canCreateFreeGroup };
   }
 
   /** Giải mã con trỏ phân trang roster; con trỏ hỏng → 400 rõ ràng thay vì lặng lẽ về trang đầu. */

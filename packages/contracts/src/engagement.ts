@@ -162,11 +162,22 @@ export type ConversationTreeClass = z.infer<typeof conversationTreeClassSchema>;
  * theo quan hệ lớp–khoá ở course ngoài — không nhân bản thành nút
  * "khoá ngoài lớp" tách rời khỏi lớp của nó khi tôi có lớp đó ở
  * `classes`); `freeGroups` là các nhóm tự do tôi là thành viên.
+ * `canCreateFreeGroup` là cờ server tính theo ĐÚNG cổng tạo nhóm tự
+ * do của API cho tenant hiện hành (chỉ quản trị viên hệ thống hoặc
+ * chủ trung tâm — người giữ capability `tenant:manage` tại context
+ * của tenant hiện hành — mới `true`); web hiện nút tạo nhóm theo cờ
+ * này thay vì tự suy từ vai trên cây.
  */
 export const conversationGroupTreeSchema = z.object({
   classes: z.array(conversationTreeClassSchema),
   coursesOutsideClasses: z.array(conversationTreeCourseSchema),
   freeGroups: z.array(conversationTreeFreeGroupSchema),
+  // Cờ server tính theo ĐÚNG cổng tạo nhóm tự do của API cho tenant
+  // hiện hành: chỉ quản trị viên hệ thống hoặc chủ trung tâm (giữ
+  // capability `tenant:manage` tại context của tenant hiện hành)
+  // mới `true`; web hiện nút tạo nhóm theo cờ này thay vì tự suy từ
+  // vai trên cây.
+  canCreateFreeGroup: z.boolean(),
 });
 export type ConversationGroupTree = z.infer<typeof conversationGroupTreeSchema>;
 
