@@ -47,7 +47,9 @@ export interface PermissionsMatrixProps {
    * có) rồi tới ghi đè đã lưu, vắng mặt thì kế thừa.
    */
   valueOf: (roleId: string, capability: string) => number;
-  /** Khoá `vai trò:năng lực` của các ô đang chờ ghi xong. */
+  /** Ngữ cảnh đang hiển thị của ma trận — cùng vai trò và năng lực tạo thành khoá ô đang lưu. */
+  contextId: string;
+  /** Khoá `ngữ cảnh:vai trò:năng lực` của các ô đang chờ ghi xong. */
   savingCells: ReadonlySet<string>;
   /** Báo trang chứa khi người dùng đổi giá trị một ô. */
   onCellChange: (roleId: string, capability: string, permission: number) => void;
@@ -58,6 +60,7 @@ const PERMISSION_VALUES = [CAP.ALLOW, CAP.INHERIT, CAP.PREVENT, CAP.PROHIBIT] as
 export function PermissionsMatrix({
   groups,
   matrix,
+  contextId,
   valueOf,
   savingCells,
   onCellChange,
@@ -100,7 +103,7 @@ export function PermissionsMatrix({
                   <code className="text-xs text-muted-foreground">{capability.name}</code>
                 </TableCell>
                 {matrix.roles.map((role) => {
-                  const key = `${role.id}:${capability.name}`;
+                  const key = `${contextId}:${role.id}:${capability.name}`;
                   return (
                     <TableCell key={role.id}>
                       <NativeSelect

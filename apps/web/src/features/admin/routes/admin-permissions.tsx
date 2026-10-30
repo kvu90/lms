@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CAP } from '@lms/contracts';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent } from '@lms/ui/components/card';
@@ -41,7 +41,9 @@ import { groupCapabilitiesByResource } from '../types/admin-roles';
  *    ngay 1, không cần tải lại.
  * 3. Sửa từng ô áp dụng ngay qua `POST /access/overrides` (đúng một
  *    lần gọi cho một lần đổi, thân gồm vai trò + năng lực + ngữ cảnh
- *    + giá trị): trong lúc chờ, chỉ ô đó bị khoá; ghi lỗi thì ô hoàn
+ *    + giá trị): trong lúc chờ, chỉ ô đó bị khoá (khoá mang cả
+ *    ngữ cảnh nên đổi ngữ cảnh không khoá nhầm ô cùng vị trí ở
+ *    ngữ cảnh mới); ghi lỗi thì ô hoàn
  *    lại giá trị trước đó kèm thông báo lỗi cho người dùng. Không có
  *    nút Lưu toàn trang, không tìm kiếm/lọc/phân trang cho bảng (demo
  *    cũng không có), không cột Read/Write/Create/Delete tách riêng —
@@ -62,7 +64,7 @@ export function AdminPermissionsPage() {
    * ghi lỗi thì mục tương ứng bị xoá để ô hoàn lại giá trị đã lưu.
    */
   const [edits, setEdits] = useState<Record<string, Record<string, number>>>({});
-  /** Khoá `vai trò:năng lực` của các ô đang chờ ghi xong. */
+  /** Khoá `ngữ cảnh:vai trò:năng lực` của các ô đang chờ ghi xong. */
   const [savingCells, setSavingCells] = useState<ReadonlySet<string>>(new Set());
   /** Thông báo lỗi ghi của lần đổi ô gần nhất; null khi không có lỗi. */
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -73,6 +75,16 @@ export function AdminPermissionsPage() {
   const systemContextId =
     contexts.find((ctx) => ctx.contextLevel === 10)?.id ?? contexts[0]?.id ?? '';
   const contextId = contextOverride || systemContextId;
+  /**
+   * Gương ngữ cảnh mới nhất để đối chiếu khi lỗi muộn về: callback
+   * lỗi của lần ghi chụp ngữ cảnh lúc gọi, còn ngữ cảnh hiển thị
+   * có thể đã đổi trong lúc chờ — chỉ hiện lỗi khi hai bên vẫn
+   * trùng nhau (xem `handleCellChange`).
+   */
+  const contextIdRef = useRef(contextId);
+  useEffect(() => {
+    contextIdRef.current = contextId;
+  }, [contextId]);
   const matrixQuery = useCapabilityMatrix(contextId);
   const setOverrideMutation = useSetCapabilityOverride();
 
@@ -121,7 +133,7 @@ export function AdminPermissionsPage() {
 
   /** Đổi một ô: ghi lạc quan ngay, khoá riêng ô đó, lỗi thì hoàn lại. */
   const handleCellChange = (roleId: string, capability: string, permission: number) => {
-    const key = `${roleId}:${capability}`;
+    const key = `${contextId}:${roleId}:${capability}`;
     setEdits((prev) => ({ ...prev, [roleId]: { ...prev[roleId], [capability]: permission } }));
     setSavingCells((prev) => new Set(prev).add(key));
     setSaveError(null);
@@ -153,7 +165,12 @@ export function AdminPermissionsPage() {
             else next[roleId] = nextRole;
             return next;
           });
-          setSaveError(t('permissionsSaveFailed'));
+          // Lỗi muộn về sau khi đã đổi ngữ cảnh thì không hiện sai
+          // chỗ: chỉ hiện lỗi khi vẫn đang xem đúng ngữ cảnh của
+          // lần ghi đó (gương ngữ cảnh mới nhất ở trên).
+          if (contextIdRef.current === contextId) {
+            setSaveError(t('permissionsSaveFailed'));
+          }
         },
       },
     );
@@ -193,7 +210,10 @@ export function AdminPermissionsPage() {
                 value={contextId}
                 onChange={(event) => {
                   // Đổi ngữ cảnh là đổi tập ghi đè đang xem: xoá sạch
-                  // sửa đổi lạc quan của ngữ cảnh trước.
+                  // sửa đổi lạc quan của ngữ cảnh trước. Tập ô đang
+                  // lưu KHÔNG xoá theo — khoá mang ngữ cảnh nên
+                  // không khoá nhầm ô ở ngữ cảnh mới, và quay lại
+                  // ngữ cảnh cũ khi yêu cầu còn chờ thì ô vẫn khoá.
                   setContextOverride(event.target.value);
                   setEdits({});
                   setSaveError(null);
@@ -237,6 +257,7 @@ export function AdminPermissionsPage() {
             <CardContent>
               <div className="overflow-x-auto">
                 <PermissionsMatrix
+                  contextId={contextId}
                   groups={groups}
                   matrix={matrix}
                   valueOf={valueOf}

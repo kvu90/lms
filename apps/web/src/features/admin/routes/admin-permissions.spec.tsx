@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -31,6 +31,11 @@ interface StubOptions {
   matrixBehavior?: 'pending';
   /** POST /access/overrides luôn trả lỗi 500 (ca hoàn lại khi ghi lỗi). */
   postError?: boolean;
+  /** POST /access/overrides treo chờ điều khiển tay (ca đổi ngữ cảnh khi lưu còn chờ). */
+  onPostDeferred?: (controls: {
+    resolvePost: () => void;
+    rejectPost: (reason?: unknown) => void;
+  }) => void;
 }
 
 /** Kho ghi đè theo ngữ cảnh, khởi tạo lại mỗi lần stub. */
@@ -93,11 +98,22 @@ function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
           contextId: string;
           permission: number;
         };
-        const contextStore = (store[body.contextId] ??= {});
-        const roleStore = (contextStore[body.roleId] ??= {});
-        if (body.permission === 0) delete roleStore[body.capability];
-        else roleStore[body.capability] = body.permission;
-        return respond({ updated: true });
+        const applyAndRespond = () => {
+          const contextStore = (store[body.contextId] ??= {});
+          const roleStore = (contextStore[body.roleId] ??= {});
+          if (body.permission === 0) delete roleStore[body.capability];
+          else roleStore[body.capability] = body.permission;
+          return respond({ updated: true });
+        };
+        if (options.onPostDeferred) {
+          return new Promise<Response>((resolve, reject) => {
+            options.onPostDeferred!({
+              resolvePost: () => resolve(applyAndRespond()),
+              rejectPost: (reason) => reject(reason ?? new Error('Lỗi ghi ô')),
+            });
+          });
+        }
+        return applyAndRespond();
       }
       return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
     }),
@@ -224,6 +240,62 @@ describe('Trang Permissions độc lập — bảng chuyển vị và ghi từng
     expect(cellSelect('Quản trị viên', 'course:view')).toHaveValue('1');
     const allowCard = screen.getByText('Quyền đang cho phép').closest('[data-slot="card"]');
     expect(within(allowCard as HTMLElement).getByText('2')).toBeInTheDocument();
+  });
+
+  it('đổi ngữ cảnh trong lúc lưu còn chờ thì ô cùng vị trí ở ngữ cảnh mới vẫn sửa được và lỗi muộn của ngữ cảnh cũ không hiện ở ngữ cảnh mới', async () => {
+    const calls: RecordedCall[] = [];
+    let postControls:
+      | { resolvePost: () => void; rejectPost: (reason?: unknown) => void }
+      | undefined;
+    stubFetch(calls, {
+      onPostDeferred: (controls) => {
+        postControls = controls;
+      },
+    });
+    renderPage();
+
+    const cell = await screen.findByRole('combobox', { name: 'Quyền course:edit của vai trò Giáo viên' });
+    expect(cell).toHaveValue('0');
+    await userEvent.selectOptions(cell, '1');
+    // Ô đang chờ ghi thì bị khoá tại ngữ cảnh hệ thống, và lần ghi
+    // đã thực sự bay đi (treo chờ điều khiển tay).
+    await waitFor(() => {
+      expect(cellSelect('Giáo viên', 'course:edit')).toBeDisabled();
+      expect(postControls).toBeDefined();
+    });
+    // Đổi sang ngữ cảnh tenant trong lúc lần ghi còn chờ: ô cùng vị
+    // trí ở ngữ cảnh mới không bị khoá nhầm theo lần ghi cũ.
+    const picker = screen.getByLabelText('Ngữ cảnh');
+    await userEvent.selectOptions(picker, TENANT_CONTEXT_ID);
+    await waitFor(() => {
+      expect(
+        calls.filter((call) => call.url.startsWith('/api/v1/access/capability-matrix')),
+      ).toHaveLength(2);
+    });
+    const tenantCell = cellSelect('Giáo viên', 'course:edit');
+    expect(tenantCell).not.toBeDisabled();
+    expect(tenantCell).toHaveValue('1');
+    // Lỗi muộn của lần ghi ở ngữ cảnh hệ thống về sau khi đã đổi ngữ
+    // cảnh: cho chuỗi xử lý lỗi chạy xong rồi mới khẳng định banner
+    // không hiện sai chỗ.
+    await act(async () => {
+      postControls?.rejectPost(new Error('Lỗi ghi muộn'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(screen.queryByText('Không lưu được ô này — giá trị đã hoàn lại.')).not.toBeInTheDocument();
+    // Quay lại ngữ cảnh hệ thống: lần ghi đã lỗi nên ô hoàn về giá
+    // trị đã lưu và không còn bị khoá. Ma trận hệ thống còn tươi
+    // trong cache nên lần quay lại này không gọi lại server — chỉ
+    // khẳng định giá trị hiển thị, không đếm lần gọi. Lưu ý: phải
+    // tìm lại bộ chọn ngữ cảnh vì khối chứa nó đã tháo ra rồi gắn
+    // lại trong lúc tải ma trận của ngữ cảnh mới (nút cũ đã rời cây).
+    const pickerBack = screen.getByLabelText('Ngữ cảnh');
+    await userEvent.selectOptions(pickerBack, SYSTEM_CONTEXT_ID);
+    await waitFor(() => {
+      expect(cellSelect('Giáo viên', 'course:edit')).toHaveValue('0');
+    });
+    const systemCell = cellSelect('Giáo viên', 'course:edit');
+    expect(systemCell).not.toBeDisabled();
   });
 
   it('ma trận chưa tải xong thì không có ô nào sửa được', async () => {

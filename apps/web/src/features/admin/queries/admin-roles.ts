@@ -90,9 +90,11 @@ export function useCapabilityMatrix(contextId: string) {
 
 /**
  * Đột biến ghi một ô ma trận (POST /access/overrides) — thành công
- * thì làm mới ma trận của mọi ngữ cảnh (gốc khoá của feature) để bảng
- * về đúng trạng thái đã lưu; trang giữ giá trị hiển thị lạc quan của
- * ô trong lúc chờ và chỉ hoàn lại khi ghi lỗi (xem route module).
+ * thì làm mới ma trận của mọi ngữ cảnh (gốc khoá của feature) và làm
+ * mới cả tiền tố `access` dùng chung để hộp thoại ma trận và lưới thẻ
+ * của trang Vai trò không giữ dữ liệu cũ trong cửa sổ staleTime;
+ * trang giữ giá trị hiển thị lạc quan của ô trong lúc chờ và chỉ hoàn
+ * lại khi ghi lỗi (xem route module).
  */
 export function useSetCapabilityOverride() {
   const client = useQueryClient();
@@ -100,6 +102,7 @@ export function useSetCapabilityOverride() {
     mutationFn: (input: OverrideCapability) => setCapabilityOverride(input),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: queryKeys.capabilityMatrixRoot });
+      void client.invalidateQueries({ queryKey: sharedQueryKeys.access });
     },
   });
 }
