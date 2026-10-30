@@ -18,6 +18,14 @@ export default defineConfig({
         test: {
           name: 'int',
           include: ['test/integration/**/*.int-spec.ts'],
+          // Chạy tuần tự theo file: các spec của tầng này dùng chung một
+          // DB test và một Redis, mỗi file lại khởi động một module
+          // worker đầy đủ; chạy song song theo file làm các module giẫm
+          // lên dữ liệu toàn cục của nhau (số đếm phát bù lệch, thứ tự
+          // sự kiện trên hàng đợi dùng chung bị đảo). `fileParallelism:
+          // false` là tuỳ chọn chính thức của Vitest: file chạy lần
+          // lượt, và tuỳ chọn này ghi đè maxWorkers/minWorkers về 1.
+          fileParallelism: false,
         },
       },
     ],
