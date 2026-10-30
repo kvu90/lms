@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { OutboxRelayService } from '../../../src/infra/events/outbox-relay.service';
+import { closeWorkerRelayDriver, flushWorkerRelay } from '../../support/worker-relay-driver';
 import {
   adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, ADMIN, STRONG_PASSWORD,
 } from '../../support/identity-access-helpers';
@@ -24,7 +24,6 @@ interface LogPage { items: LogItem[]; total: number; page: number; pageSize: num
  */
 describe('Event log: outbox actions are mirrored and queryable with filters + permissions', () => {
   let app: INestApplication;
-  let relay: OutboxRelayService;
   let admin: string;
   let adminId: string;
   let courseId: string;
@@ -59,7 +58,6 @@ describe('Event log: outbox actions are mirrored and queryable with filters + pe
     await stale.query('DELETE FROM outbox_events WHERE published_at IS NULL');
     await stale.end();
     app = await createTestApp();
-    relay = app.get(OutboxRelayService);
     const adminLogin = await login(app, ADMIN.username, ADMIN.password);
     admin = adminLogin.accessToken;
     adminId = adminLogin.userId;
@@ -98,13 +96,9 @@ describe('Event log: outbox actions are mirrored and queryable with filters + pe
       .set('Authorization', `Bearer ${admin}`);
     expect([200, 204]).toContain(del.status);
 
-    // Một lượt relay phản chiếu mọi dòng outbox đang chờ vào event_log.
-    let published = 0;
-    for (let i = 0; i < 20; i += 1) {
-      const n = await relay.publishPending(500);
-      published += n;
-      if (n === 0) break;
-    }
+    // Một lượt relay của worker phản chiếu mọi dòng outbox đang chờ
+    // vào event_log (issue #523: relay phía API đã gỡ).
+    const published = await flushWorkerRelay();
     expect(published).toBeGreaterThan(0);
     // Trần 120s thay vì 60s: beforeAll này dựng app + chạy một chuỗi
     // dài gọi HTTP tạo user/khoá/ghi điểm + vòng relay; chạy riêng chỉ
@@ -113,7 +107,7 @@ describe('Event log: outbox actions are mirrored and queryable with filters + pe
     // suite ngày 24/10/2026, trong khi mọi test đều pass khi đủ thời
     // gian — đây là trần tải, không phải lỗi logic.
   }, 120000);
-  afterAll(async () => { await app.close(); });
+  afterAll(async () => { await closeWorkerRelayDriver(); await app.close(); });
 
   it('course_created is logged with actor, course and resolved course context', async () => {
     const { status, body } = await queryLogs(admin, { eventType: 'course_created', courseId });

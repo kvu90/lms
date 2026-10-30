@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { OutboxRelayService } from '../../../src/infra/events/outbox-relay.service';
+import { closeWorkerRelayDriver, flushWorkerRelay } from '../../support/worker-relay-driver';
 import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD } from '../../support/identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser } from '../../support/course-enrolment-helpers';
 import { createGradeItem, getGradebook, setGrade } from '../../support/assessment-helpers';
@@ -30,7 +30,7 @@ describe('PH-0: công bố điểm theo bài + liên kết giám hộ + audit (i
     admin = await adminToken(app);
     catId = (await createCategory(app, admin)).id;
   }, 120000);
-  afterAll(async () => { await app.close(); });
+  afterAll(async () => { await closeWorkerRelayDriver(); await app.close(); });
 
   /** Khoá mới + một học sinh ghi danh + một giáo viên editingteacher tại context khoá. */
   async function courseWithPeople() {
@@ -49,11 +49,8 @@ describe('PH-0: công bố điểm theo bài + liên kết giám hộ + audit (i
   }
 
   async function flushRelay() {
-    const relay = app.get(OutboxRelayService);
-    for (let i = 0; i < 20; i += 1) {
-      const n = await relay.publishPending(500);
-      if (n === 0) break;
-    }
+    // Xả qua relay của worker (issue #523: relay phía API đã gỡ).
+    await flushWorkerRelay();
   }
 
   async function queryLogs(query: Record<string, string>) {

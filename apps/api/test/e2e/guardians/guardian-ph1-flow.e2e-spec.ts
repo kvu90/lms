@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { OutboxRelayService } from '../../../src/infra/events/outbox-relay.service';
+import { closeWorkerRelayDriver, flushWorkerRelay } from '../../support/worker-relay-driver';
 import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD } from '../../support/identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from '../../support/course-enrolment-helpers';
 import { addExamSlot, createExamDraft, pinExam } from '../../support/exam-pin-helpers';
@@ -50,7 +50,7 @@ describe('PH-1: bề mặt phụ huynh chỉ-xem (issue #130)', () => {
     pg = new Client({ connectionString: process.env.DATABASE_URL });
     await pg.connect();
   }, 120000);
-  afterAll(async () => { await pg.end(); await app.close(); });
+  afterAll(async () => { await closeWorkerRelayDriver(); await pg.end(); await app.close(); });
 
   /** Khoá mới + học sinh ghi danh + giáo viên editingteacher tại context khoá. */
   async function courseWithPeople() {
@@ -131,11 +131,8 @@ describe('PH-1: bề mặt phụ huynh chỉ-xem (issue #130)', () => {
   }
 
   async function flushRelay() {
-    const relay = app.get(OutboxRelayService);
-    for (let i = 0; i < 20; i += 1) {
-      const n = await relay.publishPending(500);
-      if (n === 0) break;
-    }
+    // Xả qua relay của worker (issue #523: relay phía API đã gỡ).
+    await flushWorkerRelay();
   }
 
   it('tổng quan 4 khối: tuần (đã nộp/chưa nộp/quá hạn), thông báo lớp (loại thông báo điểm), tiến độ, kết quả mới theo mốc xem của PH', async () => {

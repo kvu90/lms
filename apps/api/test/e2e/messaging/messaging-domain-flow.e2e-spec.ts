@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { OutboxRelayService } from '../../../src/infra/events/outbox-relay.service';
+import { closeWorkerRelayDriver, flushWorkerRelay } from '../../support/worker-relay-driver';
 import {
   adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD,
 } from '../../support/identity-access-helpers';
@@ -143,7 +143,7 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     expect(created.status).toBe(201);
     groupConvId = created.body.id as string;
   });
-  afterAll(async () => { await app.close(); });
+  afterAll(async () => { await closeWorkerRelayDriver(); await app.close(); });
 
   it('1. contact requests: decline keeps the gate closed, a blocked user cannot even request, and the recipient is notified of the request', async () => {
     const a = await person();
@@ -427,13 +427,10 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     expect(adminView.status).toBe(200);
     expect(adminView.body.report.id).toBe(reportId);
 
-    // Mọi lần xem đều vào event_log: chạy một lượt relay (đúng việc
-    // worker làm mỗi 5 giây) rồi truy vấn logstore bằng tài khoản admin.
-    const relay = app.get(OutboxRelayService);
-    for (let i = 0; i < 20; i += 1) {
-      const n = await relay.publishPending(500);
-      if (n === 0) break;
-    }
+    // Mọi lần xem đều vào event_log: chạy một lượt relay của worker
+    // (đúng việc worker làm mỗi 5 giây; issue #523: relay phía API
+    // đã gỡ) rồi truy vấn logstore bằng tài khoản admin.
+    await flushWorkerRelay();
     const logs = await http(app).get('/api/v1/event-logs?eventType=message_conversation_report_viewed')
       .set('Authorization', `Bearer ${admin}`);
     expect(logs.status).toBe(200);
