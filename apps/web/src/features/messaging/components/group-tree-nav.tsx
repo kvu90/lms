@@ -44,9 +44,9 @@ import { initialsOf } from '../utils/utils';
  *    xem (nút lớp = tổng của chat lớp + mọi nút con trong lớp) —
  *    nhìn lướt là biết lớp/khoá nào đang có tin. Mục Nhóm tự do có
  *    nút "+ Tạo nhóm" CHỈ khi trang chứa truyền
- *    `canCreateFreeGroup` (người xem có vai dạy/staff trên cây);
- *    cổng chặn học sinh tạo nhóm nằm ở server, đây chỉ là trình
- *    bày.
+ *    `canCreateFreeGroup` (cờ server tính theo cổng tạo nhóm của
+ *    API — chỉ quản trị viên hệ thống/chủ trung tâm); cổng chặn
+ *    tạo nhóm nằm ở server, đây chỉ là trình bày.
  *
  * Bất biến: component không tự gọi API; mọi hành động mở chat đi
  * lên trang chứa qua các callback — trang là nơi duy nhất biết cách
@@ -67,7 +67,7 @@ interface GroupTreeNavProps {
   onOpenCourseChat: (courseId: string) => void;
   /** Mở chat của một nhóm con trong khoá (trang chứa tạo/lấy conversation nhóm). */
   onOpenGroupConversation: (groupId: string) => void;
-  /** Người xem có được thấy nút tạo nhóm tự do hay không (vai dạy/staff trên cây). */
+  /** Người xem có được thấy nút tạo nhóm tự do hay không (cờ server theo cổng tạo nhóm — chỉ quản trị viên hệ thống/chủ trung tâm). */
   canCreateFreeGroup: boolean;
   /** Mở sheet tạo nhóm tự do. */
   onCreateFreeGroup: () => void;
