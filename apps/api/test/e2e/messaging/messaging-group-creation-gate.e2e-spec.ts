@@ -9,12 +9,18 @@ import { addGroupMember, contextIdByLevelInstance, createGroupViaApi } from '../
 
 /**
  * Cổng tạo NHÓM TỰ DO (issue #563): nhóm thủ công trong hệ thống chỉ
- * do hai nhóm người tạo —
+ * do ba nhóm người tạo —
  *
  *  1. Quản trị viên hệ thống (site admin);
  *  2. Chủ trung tâm: thành viên của tenant giữ vai manager tại
  *     context của chính tenant đó (capability `tenant:manage` tại
- *     context tenant hiện hành).
+ *     context tenant hiện hành);
+ *  3. Quản trị viên nền tảng: giữ vai manager tại context HỆ THỐNG
+ *     (capability `tenant:manage` tại context hệ thống) nhưng không
+ *     nằm trong danh sách site admin và không phải thành viên của
+ *     tenant hiện hành — qua cổng nhờ nhánh dự phòng của cùng
+ *     predicate chủ trung tâm, vì gán vai ở context hệ thống không
+ *     chảy vào cây tenant nên phải kiểm riêng tại context hệ thống.
  *
  * Giáo viên (gán vai giảng dạy tại context khoá), nhân viên (gán vai
  * staff tại context hệ thống) và học viên (ghi danh khoá) đều bị từ
@@ -34,6 +40,7 @@ describe('Messaging — cổng tạo nhóm tự do chỉ dành cho quản trị 
   let adminId: string;
   let teacher: Person;
   let staff: Person;
+  let platformManager: Person;
   let student: Person;
   let member: Person;
   let owner: Person;
@@ -79,6 +86,15 @@ describe('Messaging — cổng tạo nhóm tự do chỉ dành cho quản trị 
     const systemCtx = await systemContextId(app, admin);
     const courseCreator = await roleIdByShortname(app, admin, 'coursecreator');
     await assignRole(app, admin, staff.id, courseCreator, systemCtx);
+
+    // Quản trị viên nền tảng: vai manager tại context HỆ THỐNG —
+    // giữ `tenant:manage` tại context hệ thống nhưng KHÔNG nằm
+    // trong danh sách site admin và không phải thành viên của tenant
+    // hiện hành; persona này chỉ qua cổng bằng nhánh dự phòng quản
+    // trị nền tảng của predicate chủ trung tâm.
+    platformManager = await person();
+    const managerRoleAtSystem = await roleIdByShortname(app, admin, 'manager');
+    await assignRole(app, admin, platformManager.id, managerRoleAtSystem, systemCtx);
 
     // Nhóm con của khoá (cấu trúc): hai học viên ghi danh là thành
     // viên group — dùng cho ca đường cấu trúc không bị cổng này chặn
@@ -147,6 +163,13 @@ describe('Messaging — cổng tạo nhóm tự do chỉ dành cho quản trị 
     expect(res.body.createdBy).toBe(owner.id);
   });
 
+  it('quản trị viên nền tảng giữ tenant:manage tại context hệ thống (không phải site admin, không phải thành viên tenant) tạo được nhóm tự do', async () => {
+    const res = await createFreeGroup(platformManager.token, [student.id, member.id]);
+    expect(res.status).toBe(201);
+    expect(new Set(res.body.members as string[])).toEqual(new Set([platformManager.id, student.id, member.id]));
+    expect(res.body.createdBy).toBe(platformManager.id);
+  });
+
   it('đường cấu trúc không bị ảnh hưởng: thành viên nhóm con của khoá vẫn tạo được conversation của nhóm', async () => {
     const res = await http(app).post('/api/v1/messages/conversations/group')
       .set('Authorization', `Bearer ${student.token}`).send({ groupId: courseGroupId });
@@ -154,16 +177,18 @@ describe('Messaging — cổng tạo nhóm tự do chỉ dành cho quản trị 
     expect(new Set(res.body.members as string[])).toEqual(new Set([student.id, member.id]));
   });
 
-  it('cờ canCreateFreeGroup trên cây nhóm khớp cổng tạo nhóm: quản trị viên và chủ trung tâm true, giáo viên và học viên false', async () => {
+  it('cờ canCreateFreeGroup trên cây nhóm khớp cổng tạo nhóm: quản trị viên, chủ trung tâm và quản trị nền tảng true; giáo viên, nhân viên và học viên false', async () => {
     const flagOf = async (token: string) => {
       const res = await http(app).get('/api/v1/messages/group-tree').set('Authorization', `Bearer ${token}`);
       expect(res.status).toBe(200);
       return (res.body as { canCreateFreeGroup: boolean }).canCreateFreeGroup;
     };
     expect(await flagOf(teacher.token)).toBe(false);
+    expect(await flagOf(staff.token)).toBe(false);
     expect(await flagOf(student.token)).toBe(false);
     expect(await flagOf(admin)).toBe(true);
     expect(await flagOf(ownerCentreToken)).toBe(true);
+    expect(await flagOf(platformManager.token)).toBe(true);
   });
 
   it('hội thoại 1-1 qua cổng liên lạc không hồi quy: kết bạn xong vẫn mở được conversation riêng', async () => {
