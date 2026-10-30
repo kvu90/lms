@@ -35,8 +35,9 @@ import { RoleMatrixDialog } from '../components/role-matrix-dialog';
  *    lưới thẻ, không có khối tiêu đề riêng phía trên lưới. Lưới thẻ
  *    dựng từ ĐÚNG MỘT lần gọi danh sách — mỗi thẻ hiện tên vai, số
  *    người giữ phân biệt và một dải số nền xám gồm đúng ba con số thật
- *    (Đọc / Ghi / Tổng số resource vai chạm tới, số lớn với nhãn nằm
- *    dưới số); thẻ cuối của lưới là một thẻ đầy đủ cùng kích thước
+ *    (Đọc / Ghi / Tổng số resource vai chạm tới, số khoảng 14 px với
+ *    nhãn nằm dưới số theo thước đo typography của trang); thẻ cuối
+ *    của lưới là một thẻ đầy đủ cùng kích thước
  *    gồm tiêu đề, mô tả ngắn và nút mở hộp thoại tạo vai trò — lối
  *    vào tạo vai trò duy nhất của trang.
  * 2. Menu ba chấm trên mỗi thẻ chỉ có hai mục: Sửa vai trò (mở hộp
@@ -105,7 +106,7 @@ export function AdminRolesPage() {
                   <Card key={r.id}>
                     <CardContent className="space-y-2">
                       <div className="flex items-start justify-between gap-2">
-                        <strong>{r.name}</strong>
+                        <span className="font-semibold">{r.name}</span>
                         <DropdownMenu>
                           <DropdownMenuTrigger
                             render={
@@ -131,18 +132,20 @@ export function AdminRolesPage() {
                           đè Đọc, ghi đè Ghi, tổng resource) — hệ không có
                           khái niệm quyền Create/Delete tách riêng nên
                           không bày thêm con số như các mẫu quản trị
-                          chung. */}
+                          chung. Cỡ chữ/độ đậm và chiều cao dải theo thước
+                          đo typography của trang vai trò: số khoảng
+                          14 px độ đậm 600, dải cao khoảng 48 px. */}
                       <div className="flex divide-x rounded-lg bg-muted text-center">
-                        <div className="flex-1 px-2 py-3">
-                          <div className="text-xl font-semibold">{r.readOverrideCount ?? 0}</div>
+                        <div className="flex-1 px-2 py-2">
+                          <div className="text-sm font-semibold">{r.readOverrideCount ?? 0}</div>
                           <div className="text-xs text-muted-foreground">{t('roleReadLabel')}</div>
                         </div>
-                        <div className="flex-1 px-2 py-3">
-                          <div className="text-xl font-semibold">{r.writeOverrideCount ?? 0}</div>
+                        <div className="flex-1 px-2 py-2">
+                          <div className="text-sm font-semibold">{r.writeOverrideCount ?? 0}</div>
                           <div className="text-xs text-muted-foreground">{t('roleWriteLabel')}</div>
                         </div>
-                        <div className="flex-1 px-2 py-3">
-                          <div className="text-xl font-semibold">{r.resourceCount ?? 0}</div>
+                        <div className="flex-1 px-2 py-2">
+                          <div className="text-sm font-semibold">{r.resourceCount ?? 0}</div>
                           <div className="text-xs text-muted-foreground">{t('roleTotalLabel')}</div>
                         </div>
                       </div>
@@ -155,7 +158,7 @@ export function AdminRolesPage() {
                     với các thẻ vai trò. */}
                 <Card>
                   <CardContent className="flex h-full flex-col items-start gap-2">
-                    <strong>{t('addRoleCard')}</strong>
+                    <span className="font-semibold">{t('addRoleCard')}</span>
                     <p className="text-sm text-muted-foreground">{t('addRoleCardDescription')}</p>
                     <Button
                       type="button"

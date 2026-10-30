@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import type { AssignmentListItem } from '@lms/contracts';
 import { Button } from '@lms/ui/components/button';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
@@ -10,11 +9,13 @@ import { useDeleteRoleAssignment } from '../queries/admin-roles';
 /**
  * Dòng gán sắp gỡ kèm nhãn hiển thị đã phân giải ở bảng (tên người
  * dùng, tên vai trò, nhãn ngữ cảnh) — hộp thoại chỉ xác nhận và gọi
- * API, không tự phân giải định danh.
+ * API, không tự phân giải định danh. Dòng gán chỉ cần định danh để
+ * gọi DELETE; các trường hiển thị nằm ở các nhãn riêng nên target
+ * không mang nguyên kiểu dòng gán của bất kỳ bảng nào.
  */
 export interface UnassignTarget {
-  /** Dòng gán cần gỡ. */
-  assignment: AssignmentListItem;
+  /** Dòng gán cần gỡ (chỉ cần định danh để gọi API). */
+  assignment: { id: string };
   /** Tên người dùng hiển thị của dòng gán. */
   userLabel: string;
   /** Tên vai trò hiển thị của dòng gán. */

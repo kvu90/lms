@@ -33,8 +33,13 @@ import { useCreateRoleAssignment } from '../queries/admin-roles';
  * còn người chưa tải) để từ khoá khớp trên 20 người vẫn chọn được
  * người ở đợt sau, thay vì chặn ở 20 kết quả đầu như trước.
  *
+ * Mở từ hộp thoại quản lý theo dòng (issue #569) thì truyền thêm
+ * `presetUser`: người dùng hiện cố định đã chọn sẵn, không đổi được,
+ * và ô tìm kiếm cùng danh sách người dùng được bỏ hẳn (truy vấn danh
+ * sách cũng tắt) vì không còn đường chọn người khác.
+ *
  * @param props - Trạng thái mở, danh sách vai trò và cây context đã tải
- * ở trang, và hàm đóng hộp thoại.
+ * ở trang, người dùng chọn sẵn (tuỳ chọn) và hàm đóng hộp thoại.
  */
 export interface RoleAssignmentDialogProps {
   /** Hộp thoại đang mở hay không. */
@@ -43,6 +48,12 @@ export interface RoleAssignmentDialogProps {
   roles: RoleListItem[];
   /** Cây context để chọn ngữ cảnh gán. */
   contexts: ContextRow[];
+  /**
+   * Người dùng chọn sẵn khi hộp thoại mở từ hộp thoại quản lý theo
+   * dòng của người đó — bỏ qua thì hộp thoại hiện ô tìm người dùng
+   * như trước. Người dùng chọn sẵn không đổi được trong hộp thoại.
+   */
+  presetUser?: Pick<UserProfile, 'id' | 'username' | 'email'> | null;
   /** Đóng hộp thoại (sau khi gán thành công hoặc khi người dùng huỷ). */
   onClose: () => void;
 }
@@ -72,23 +83,30 @@ function assignErrorMessage(error: unknown, t: (key: string) => string): string 
   return t('assignRoleFailed');
 }
 
-export function RoleAssignmentDialog({ open, roles, contexts, onClose }: RoleAssignmentDialogProps) {
+export function RoleAssignmentDialog({ open, roles, contexts, presetUser = null, onClose }: RoleAssignmentDialogProps) {
   const { t } = useTranslation('app');
   const [userSearch, setUserSearch] = useState('');
   /** Số người tối đa tải về cho ô chọn; nút tải thêm tăng từng đợt 20. */
   const [userPageSize, setUserPageSize] = useState(20);
-  /** Người dùng đã chọn trong danh sách tìm kiếm; null khi chưa chọn. */
-  const [selectedUser, setSelectedUser] = useState<Pick<UserProfile, 'id' | 'username' | 'email'> | null>(null);
+  /**
+   * Người dùng đã chọn: chọn sẵn từ hộp thoại quản lý theo dòng khi có
+   * `presetUser`, ngược lại chọn từ danh sách tìm kiếm; null khi chưa chọn.
+   */
+  const [selectedUser, setSelectedUser] = useState<Pick<UserProfile, 'id' | 'username' | 'email'> | null>(presetUser);
   const [roleId, setRoleId] = useState('');
   const [contextId, setContextId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const createMutation = useCreateRoleAssignment();
 
-  /** Danh sách người dùng cho ô chọn: tải từ đầu với cỡ trang hiện tại, tìm phía server theo từ khoá. */
+  /**
+   * Danh sách người dùng cho ô chọn: tải từ đầu với cỡ trang hiện tại,
+   * tìm phía server theo từ khoá — tắt hẳn khi đã có người dùng chọn
+   * sẵn vì khi đó không còn ô tìm kiếm.
+   */
   const usersQuery = useQuery({
     ...adminUsersQueryOptions(1, userPageSize, userSearch),
     placeholderData: keepPreviousData,
-    enabled: open,
+    enabled: open && presetUser === null,
   });
 
   /** Phím Escape đóng hộp thoại khi không trong lúc gán. */
@@ -148,21 +166,32 @@ export function RoleAssignmentDialog({ open, roles, contexts, onClose }: RoleAss
           </ErrorAlert>
         ) : null}
         <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="assign-dialog-user-search">{t('assignUserSearch')}</FieldLabel>
-            <Input
-              id="assign-dialog-user-search"
-              placeholder={t('assignUserSearchPlaceholder')}
-              value={userSearch}
-              onChange={(e) => {
-                setUserSearch(e.target.value);
-                setSelectedUser(null);
-                setUserPageSize(20);
-              }}
-            />
-          </Field>
-          {/* Danh sách chọn người dùng: mỗi dòng là một nút chọn, dòng đã chọn tô đậm. */}
-          {usersQuery.isPending ? (
+          {presetUser !== null ? (
+            /* Người dùng chọn sẵn từ hộp thoại quản lý theo dòng: hiện cố định, không đổi được. */
+            <div>
+              <p className="text-sm text-muted-foreground">{t('assignPresetUserLabel')}</p>
+              <p>
+                <strong>{presetUser.username}</strong>
+                <span className="block text-sm text-muted-foreground">{presetUser.email ?? '—'}</span>
+              </p>
+            </div>
+          ) : (
+            <>
+              <Field>
+                <FieldLabel htmlFor="assign-dialog-user-search">{t('assignUserSearch')}</FieldLabel>
+                <Input
+                  id="assign-dialog-user-search"
+                  placeholder={t('assignUserSearchPlaceholder')}
+                  value={userSearch}
+                  onChange={(e) => {
+                    setUserSearch(e.target.value);
+                    setSelectedUser(null);
+                    setUserPageSize(20);
+                  }}
+                />
+              </Field>
+              {/* Danh sách chọn người dùng: mỗi dòng là một nút chọn, dòng đã chọn tô đậm. */}
+              {usersQuery.isPending ? (
             <PageSkeleton label={t('loading')} rows={['h-9 w-full', 'h-9 w-full']} />
           ) : usersQuery.isError ? (
             <ErrorAlert variant="destructive">
@@ -203,6 +232,8 @@ export function RoleAssignmentDialog({ open, roles, contexts, onClose }: RoleAss
                   {t('assignLoadMoreUsers')}
                 </Button>
               ) : null}
+                </>
+              )}
             </>
           )}
           <Field>
