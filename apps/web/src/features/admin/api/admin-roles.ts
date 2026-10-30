@@ -160,18 +160,42 @@ export function listUsersWithAssignments(params: ListUsersWithAssignmentsParams)
  * nên lượt này quét lần lượt các trang ở cỡ trần 100 cho tới khi gặp
  * người cần tìm hoặc hết tổng server công bố; chỉ đọc từ đúng endpoint
  * gộp này, không ghép danh sách người dùng và danh sách gán riêng lẻ.
- * Quy mô quản trị nền tảng nhỏ (hàng chục người dùng) nên lượt quét
- * này chỉ là vài lần gọi trong trường hợp xấu nhất.
+ * Lượt tra cứu chạy hai vòng theo nhóm trạng thái tài khoản: vòng mặc
+ * định (không truyền `status`) theo ngữ nghĩa của endpoint chỉ thấy
+ * tài khoản chưa xoá, nên không gặp thì quét thêm đúng một vòng với
+ * `status: 'deleted'` — trang danh sách người dùng vẫn bày liên kết
+ * vai trò cho dòng tài khoản đã xoá, và tài khoản đã xoá vẫn có thể
+ * còn giữ gán vai cần rà soát; chỉ khi cả hai vòng đều không gặp mới
+ * kết luận không tìm thấy. Ca phổ biến (người chưa xoá) không phát
+ * sinh thêm lượt gọi nào. Quy mô quản trị nền tảng nhỏ (hàng chục
+ * người dùng) nên lượt quét này chỉ là vài lần gọi trong trường hợp
+ * xấu nhất.
  *
  * @param userId - Định danh người dùng cần tìm.
- * @returns Dòng người dùng kèm gán vai, hoặc null khi không tìm thấy trong toàn bộ danh sách.
+ * @returns Dòng người dùng kèm gán vai, hoặc null khi không tìm thấy trong cả hai nhóm trạng thái.
  */
 export async function fetchUserWithAssignmentsById(userId: string) {
+  const found = await scanUsersWithAssignmentsById(userId);
+  if (found) return found;
+  return scanUsersWithAssignmentsById(userId, 'deleted');
+}
+
+/**
+ * Một vòng quét của lượt tra cứu theo người dùng: quét lần lượt các
+ * trang ở cỡ trần 100 của endpoint gộp trong đúng một nhóm trạng thái
+ * tài khoản cho tới khi gặp người cần tìm hoặc hết tổng server công
+ * bố của nhóm đó.
+ *
+ * @param userId - Định danh người dùng cần tìm.
+ * @param status - Nhóm trạng thái của vòng quét; bỏ qua thì quét nhóm chưa xoá theo mặc định của endpoint.
+ * @returns Dòng người dùng kèm gán vai, hoặc null khi vòng quét không gặp.
+ */
+async function scanUsersWithAssignmentsById(userId: string, status?: UserListStatus) {
   let page = 1;
   let total = Number.POSITIVE_INFINITY;
   let fetched = 0;
   while (fetched < total) {
-    const result = await listUsersWithAssignments({ page, pageSize: 100 });
+    const result = await listUsersWithAssignments({ status, page, pageSize: 100 });
     const found = result.users.find((user) => user.id === userId);
     if (found) return found;
     fetched += result.users.length;

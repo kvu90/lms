@@ -49,6 +49,7 @@ const TENANT_CONTEXT_ID = '01900000-0000-7000-8000-000000000020';
 const USER_A_ID = '01900000-0000-7000-8000-0000000000a1';
 const USER_B_ID = '01900000-0000-7000-8000-0000000000a2';
 const USER_C_ID = '01900000-0000-7000-8000-0000000000a3';
+const USER_D_ID = '01900000-0000-7000-8000-0000000000a4';
 const ASSIGN_A_ID = '01900000-0000-7000-8000-0000000000d1';
 const ASSIGN_B_ID = '01900000-0000-7000-8000-0000000000d2';
 
@@ -103,7 +104,11 @@ function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
             },
           ],
         }));
-  /** Người dùng mặc định của bảng: An giữ hai vai ở hai cấp, Bình giữ một gán do ghi danh, Cô Lan bị khoá. */
+  /**
+   * Người dùng mặc định của bảng: An giữ hai vai ở hai cấp, Bình giữ một gán do ghi danh,
+   * Cô Lan bị khoá, Dũng đã xoá còn giữ một gán (chỉ lộ diện khi lọc theo trạng thái đã xoá
+   * hoặc khi tra cứu theo `userId` quét thêm tập đã xoá).
+   */
   const defaultTableUsers: Array<Record<string, unknown>> = [
     {
       id: USER_A_ID,
@@ -165,6 +170,26 @@ function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
       assignments: [
         {
           id: '01900000-0000-7000-8000-0000000000d4',
+          roleId: ROLE_ID,
+          roleName: 'Giáo viên',
+          contextId: SYSTEM_CONTEXT_ID,
+          contextLevel: 10,
+          component: '',
+        },
+      ],
+    },
+    {
+      id: USER_D_ID,
+      username: 'dungpham',
+      email: 'dung@example.com',
+      firstName: 'Dũng',
+      lastName: 'Phạm',
+      suspended: false,
+      deleted: true,
+      createdAt: '2020-05-20T00:00:00.000Z',
+      assignments: [
+        {
+          id: '01900000-0000-7000-8000-0000000000d5',
           roleId: ROLE_ID,
           roleName: 'Giáo viên',
           contextId: SYSTEM_CONTEXT_ID,
@@ -901,5 +926,25 @@ describe('Trang vai trò — bảng người dùng kèm vai trò (issue #569)', 
     await userEvent.click(screen.getByRole('button', { name: 'Xoá lọc' }));
     await screen.findByText('An Nguyễn');
     expect(screen.getByText('Hiển thị 1 đến 3 trong 3 người dùng')).toBeInTheDocument();
+  });
+
+  it('vào trang với tham số userId của người dùng đã xoá thì quét thêm tập đã xoá và hiện đúng người đó kèm các gán', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderPage(`/admin/roles?userId=${USER_D_ID}`);
+    // Người đã xoá không nằm trong lượt quét mặc định (endpoint chỉ trả tài khoản chưa xoá
+    // khi không truyền status): trang phải hiện biểu ngữ lọc theo đúng người đó, không báo không tìm thấy.
+    await screen.findByText('Đang lọc theo người dùng: Dũng Phạm');
+    expect(screen.queryByText('Không tìm thấy người dùng theo bộ lọc này.')).toBeNull();
+    // Bảng đúng một dòng của người đó: pill trạng thái đã xoá và đủ các gán kèm nhãn cấp dạng chữ.
+    const table = screen.getByRole('table');
+    expect(within(table).getAllByRole('row')).toHaveLength(2);
+    expect(within(table).getByText('Dũng Phạm')).toBeInTheDocument();
+    expect(within(table).getByText('Đã xoá')).toBeInTheDocument();
+    expect(within(table).getByText('Giáo viên · Hệ thống')).toBeInTheDocument();
+    // Lượt tra cứu đã quét thêm tập đã xoá: có lượt gọi endpoint gộp mang status=deleted.
+    expect(
+      calls.some((c) => c.url.startsWith('/api/v1/access/users-with-assignments') && c.url.includes('status=deleted')),
+    ).toBe(true);
   });
 });
