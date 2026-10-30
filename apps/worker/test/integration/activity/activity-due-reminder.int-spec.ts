@@ -36,7 +36,7 @@ import {
  * chứng đi qua kết nối quản trị của harness — khẳng định nghiệp vụ
  * của spec không đổi.
  */
-describe('Worker activity due-soon reminders (N5, issue #50)', () => {
+describe('Nhắc sắp đến hạn hoạt động của worker (N5, issue #50)', () => {
   let context: INestApplicationContext;
   let harness: OrdinaryWorkerModuleHarness;
   let db: any;
@@ -169,7 +169,7 @@ describe('Worker activity due-soon reminders (N5, issue #50)', () => {
     await harness.close();
   });
 
-  it('reminds each not-yet-submitted enrolled student exactly once; re-running the sweep does not duplicate', async () => {
+  it('nhắc mỗi học viên đã ghi danh chưa nộp đúng một lần; chạy lại lượt quét không trùng lặp', async () => {
     const { quizId, instanceId: inst } = await makeQuiz({ closeInHours: 12 });
     const noAttempt = uid(1);
     const finished = uid(2);
@@ -206,7 +206,7 @@ describe('Worker activity due-soon reminders (N5, issue #50)', () => {
     expect(await eventsFor(quizId)).toHaveLength(2);
   });
 
-  it('ignores quizzes outside the 24h window, already closed, without a deadline, in hidden courses, or behind hidden modules', async () => {
+  it('bỏ qua quiz ngoài cửa sổ 24h, đã đóng, không có hạn, trong khoá ẩn, hoặc sau module ẩn', async () => {
     const processor = context.get(ActivityDueReminderProcessor);
     const cases = [
       await makeQuiz({ closeInHours: 48 }),
@@ -224,7 +224,7 @@ describe('Worker activity due-soon reminders (N5, issue #50)', () => {
     }
   });
 
-  it('a moved deadline is a new deadline: the student is reminded again for the new timeClose only', async () => {
+  it('hạn bị dời là hạn mới: học viên được nhắc lại chỉ cho timeClose mới', async () => {
     const { quizId, instanceId: inst, timeClose } = await makeQuiz({ closeInHours: 12 });
     const student = uid(30);
     await enrolStudent(inst, student);
@@ -243,7 +243,7 @@ describe('Worker activity due-soon reminders (N5, issue #50)', () => {
     expect(await eventsFor(quizId, student)).toHaveLength(2);
   });
 
-  it('NB-1: reminds enrolled students about an assignment due within 24h exactly once; submitted students are skipped, draft-only students are reminded', async () => {
+  it('NB-1: nhắc học viên đã ghi danh về bài tập đến hạn trong 24h đúng một lần; học viên đã nộp thì bỏ qua, học viên chỉ có bản nháp thì được nhắc', async () => {
     const { assignmentId, instanceId: inst } = await makeAssignment({ dueInHours: 12 });
     const noSubmission = uid(41);
     const draftOnly = uid(42);
@@ -270,7 +270,7 @@ describe('Worker activity due-soon reminders (N5, issue #50)', () => {
     expect(events.every((e) => e.payload.activityType === 'assign')).toBe(true);
   });
 
-  it('NB-1: ignores assignments outside the 24h window, already past due, without a deadline, in hidden courses, or behind hidden modules', async () => {
+  it('NB-1: bỏ qua bài tập ngoài cửa sổ 24h, đã quá hạn, không có hạn, trong khoá ẩn, hoặc sau module ẩn', async () => {
     const processor = context.get(ActivityDueReminderProcessor);
     const cases = [
       await makeAssignment({ dueInHours: 48 }),
@@ -288,7 +288,7 @@ describe('Worker activity due-soon reminders (N5, issue #50)', () => {
     }
   });
 
-  it('NB-1: a moved assignment deadline is reminded again for the new dueDate only', async () => {
+  it('NB-1: hạn bài tập bị dời thì nhắc lại chỉ cho dueDate mới', async () => {
     const { assignmentId, instanceId: inst, dueDate } = await makeAssignment({ dueInHours: 12 });
     const student = uid(60);
     await enrolStudent(inst, student);
