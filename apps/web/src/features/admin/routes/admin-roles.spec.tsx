@@ -17,6 +17,9 @@ import { AdminRolesPage } from './admin-roles';
  * Spec đợt 3 (bảng gán vai, #547) thay thế form gán rời rạc cũ bằng
  * bảng + hộp thoại gán: mọi lọc/tìm/phân trang đều gửi tham số lên
  * server, gán/gỡ đi qua hộp thoại với đúng lý do của các chốt chặn.
+ * Lượt sửa theo phân xử của PR #553: kẹp trang hiện tại theo tổng mới
+ * nhất sau mỗi lần dữ liệu về (không kẹt ở trang rỗng sau gỡ), và bộ
+ * chọn người dùng tải thêm từng đợt 20 khi kết quả khớp vượt quá 20.
  * Hai kiểm chứng F-01 cũ vẫn giữ: ba danh sách (vai / capability /
  * context) là ba query TanStack, và đột biến gán vai làm mới các truy
  * vấn access sau POST — nay kiểm chứng qua hộp thoại gán của đợt 3.
@@ -57,10 +60,41 @@ interface StubOptions {
   assignmentsTotal?: number;
   /** Dòng gán thường trỏ tới người dùng không còn tồn tại (tên/email null). */
   nullUserRow?: boolean;
+  /** Bảng gán phân trang động: tạo đúng số dòng này, GET cắt theo trang/cỡ trang, DELETE trừ thật khỏi danh sách. */
+  pagedAssignmentsTotal?: number;
+  /** Danh sách người dùng phân trang động: tạo đúng số người này, GET lọc theo từ khoá rồi cắt theo trang/cỡ trang. */
+  pagedUsersTotal?: number;
 }
 
 function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
   let matrixCalls = 0;
+  /** Danh sách dòng gán động cho ca phân trang (chỉ khi dùng pagedAssignmentsTotal). */
+  let pagedRows: Array<Record<string, unknown>> | null =
+    options.pagedAssignmentsTotal === undefined
+      ? null
+      : Array.from({ length: options.pagedAssignmentsTotal }, (_, i) => ({
+          id: `01900000-0000-7000-8000-0000000000${String(i + 1).padStart(2, '0')}`,
+          roleId: ROLE_ID,
+          userId: `01900000-0000-7000-8000-0000000001${String(i + 1).padStart(2, '0')}`,
+          contextId: SYSTEM_CONTEXT_ID,
+          component: '',
+          itemId: null,
+          modifierId: null,
+          updatedAt: '2026-10-01T00:00:00.000Z',
+          userName: `Người dùng ${i + 1}`,
+          userEmail: `nguoidung${i + 1}@example.com`,
+        }));
+  /** Danh sách người dùng động cho ca tải thêm (chỉ khi dùng pagedUsersTotal). */
+  const pagedUsers: Array<Record<string, unknown>> | null =
+    options.pagedUsersTotal === undefined
+      ? null
+      : Array.from({ length: options.pagedUsersTotal }, (_, i) => ({
+          id: `01900000-0000-7000-8000-0000000002${String(i + 1).padStart(2, '0')}`,
+          username: `nguoidung${i + 1}`,
+          email: `nguoidung${i + 1}@example.com`,
+          firstName: `Người ${i + 1}`,
+          lastName: 'Dùng',
+        }));
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
@@ -116,6 +150,15 @@ function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
         const query = new URLSearchParams(url.split('?')[1] ?? '');
         const page = Number(query.get('page') ?? 1);
         const pageSize = Number(query.get('pageSize') ?? 20);
+        if (pagedRows !== null) {
+          const start = (page - 1) * pageSize;
+          return respond({
+            assignments: pagedRows.slice(start, start + pageSize),
+            total: pagedRows.length,
+            page,
+            pageSize,
+          });
+        }
         return respond({
           assignments: [
             {
@@ -149,7 +192,19 @@ function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
           pageSize,
         });
       }
-      if (url.startsWith('/api/v1/users') && method === 'GET')
+      if (url.startsWith('/api/v1/users') && method === 'GET') {
+        if (pagedUsers !== null) {
+          const query = new URLSearchParams(url.split('?')[1] ?? '');
+          const page = Number(query.get('page') ?? 1);
+          const pageSize = Number(query.get('pageSize') ?? 20);
+          const search = (query.get('search') ?? '').toLowerCase();
+          const filtered =
+            search === ''
+              ? pagedUsers
+              : pagedUsers.filter((u) => `${u.username} ${u.email}`.toLowerCase().includes(search));
+          const start = (page - 1) * pageSize;
+          return respond({ users: filtered.slice(start, start + pageSize), total: filtered.length, page, pageSize });
+        }
         return respond({
           users: [
             {
@@ -165,6 +220,7 @@ function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
           page: 1,
           pageSize: 20,
         });
+      }
       if (url === '/api/v1/access/assignments' && method === 'POST') {
         if (options.assignErrorCode)
           return respond(
@@ -174,6 +230,10 @@ function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
         return respond({});
       }
       if (url.startsWith('/api/v1/access/assignments/') && method === 'DELETE') {
+        if (pagedRows !== null) {
+          const id = url.split('/').pop() ?? '';
+          pagedRows = pagedRows.filter((r) => r.id !== id);
+        }
         if (options.unassignErrorCode)
           return respond(
             { type: 'about:blank', title: 'Không gỡ được dòng gán', status: 400, code: options.unassignErrorCode },
@@ -643,5 +703,52 @@ describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
     await screen.findByText('Người dùng không còn tồn tại');
     const table = screen.getByRole('table');
     expect(within(table).getByText('Người dùng không còn tồn tại')).toBeInTheDocument();
+  });
+
+  it('gỡ dòng duy nhất của trang cuối thì bảng tự về trang hợp lệ cuối cùng thay vì kẹt ở trang rỗng', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, { pagedAssignmentsTotal: 21 });
+    renderPage();
+
+    await screen.findByText('Người dùng 1');
+    expect(screen.getByText('Trang 1 / 2')).toBeInTheDocument();
+    // Sang trang 2: chỉ còn dòng 21.
+    await userEvent.click(screen.getAllByRole('button', { name: 'Sau' })[0]);
+    await waitFor(() => expect(screen.getByText('Trang 2 / 2')).toBeInTheDocument());
+    expect(screen.getByText('Người dùng 21')).toBeInTheDocument();
+    // Gỡ dòng duy nhất của trang 2 rồi xác nhận.
+    await userEvent.click(screen.getByRole('button', { name: 'Gỡ gán' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Gỡ gán vai trò' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Gỡ gán' }));
+    // Tổng còn 20 dòng (1 trang): bảng tự về trang 1, không kẹt 'Trang 2 / 1' rỗng.
+    await waitFor(() => expect(screen.getByText('Trang 1 / 1')).toBeInTheDocument());
+    expect(screen.getByText('Người dùng 1')).toBeInTheDocument();
+    expect(screen.queryByText('Trang 2 / 1')).not.toBeInTheDocument();
+    expect(
+      calls.some(
+        (c) =>
+          c.url === '/api/v1/access/assignments/01900000-0000-7000-8000-000000000021' && c.method === 'DELETE',
+      ),
+    ).toBe(true);
+  });
+
+  it('bộ chọn người dùng tải thêm được khi kết quả khớp vượt quá 20 người', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, { pagedUsersTotal: 25 });
+    renderPage();
+
+    await screen.findByText('An Nguyễn');
+    await userEvent.click(screen.getByRole('button', { name: 'Gán vai trò' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Gán vai trò' });
+    // Đợt đầu chỉ tải 20 người: người thứ 21 chưa có, có nút tải thêm.
+    await within(dialog).findByRole('button', { name: /nguoidung1@/ });
+    expect(within(dialog).queryByRole('button', { name: /nguoidung21@/ })).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Tải thêm người dùng' })).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Tải thêm người dùng' }));
+    // Sau tải thêm, người thứ 21 chọn được.
+    await within(dialog).findByRole('button', { name: /nguoidung21@/ });
+    expect(
+      calls.some((c) => c.url.startsWith('/api/v1/users') && c.url.includes('pageSize=40')),
+    ).toBe(true);
   });
 });

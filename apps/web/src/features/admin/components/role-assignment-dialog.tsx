@@ -28,7 +28,10 @@ import { useCreateRoleAssignment } from '../queries/admin-roles';
  * Khi backend từ chối, hộp thoại GIỮ NGUYÊN kèm đúng lý do backend trả
  * về — chốt gói số chỗ của trung tâm và chốt tách vai theo ngữ cảnh là
  * hai trường hợp phân biệt bằng mã lỗi riêng; mã lạ thì dùng thông báo
- * chung, không hiện mã kỹ thuật và không báo thành công giả.
+ * chung, không hiện mã kỹ thuật và không báo thành công giả. Danh sách
+ * người dùng tải thêm từng đợt 20 (nút "Tải thêm người dùng" hiện khi
+ * còn người chưa tải) để từ khoá khớp trên 20 người vẫn chọn được
+ * người ở đợt sau, thay vì chặn ở 20 kết quả đầu như trước.
  *
  * @param props - Trạng thái mở, danh sách vai trò và cây context đã tải
  * ở trang, và hàm đóng hộp thoại.
@@ -72,6 +75,8 @@ function assignErrorMessage(error: unknown, t: (key: string) => string): string 
 export function RoleAssignmentDialog({ open, roles, contexts, onClose }: RoleAssignmentDialogProps) {
   const { t } = useTranslation('app');
   const [userSearch, setUserSearch] = useState('');
+  /** Số người tối đa tải về cho ô chọn; nút tải thêm tăng từng đợt 20. */
+  const [userPageSize, setUserPageSize] = useState(20);
   /** Người dùng đã chọn trong danh sách tìm kiếm; null khi chưa chọn. */
   const [selectedUser, setSelectedUser] = useState<Pick<UserProfile, 'id' | 'username' | 'email'> | null>(null);
   const [roleId, setRoleId] = useState('');
@@ -79,9 +84,9 @@ export function RoleAssignmentDialog({ open, roles, contexts, onClose }: RoleAss
   const [error, setError] = useState<string | null>(null);
   const createMutation = useCreateRoleAssignment();
 
-  /** Danh sách người dùng cho ô chọn: trang đầu, tìm phía server theo từ khoá. */
+  /** Danh sách người dùng cho ô chọn: tải từ đầu với cỡ trang hiện tại, tìm phía server theo từ khoá. */
   const usersQuery = useQuery({
-    ...adminUsersQueryOptions(1, 20, userSearch),
+    ...adminUsersQueryOptions(1, userPageSize, userSearch),
     placeholderData: keepPreviousData,
     enabled: open,
   });
@@ -152,6 +157,7 @@ export function RoleAssignmentDialog({ open, roles, contexts, onClose }: RoleAss
               onChange={(e) => {
                 setUserSearch(e.target.value);
                 setSelectedUser(null);
+                setUserPageSize(20);
               }}
             />
           </Field>
@@ -168,24 +174,36 @@ export function RoleAssignmentDialog({ open, roles, contexts, onClose }: RoleAss
           ) : users.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('assignNoUserFound')}</p>
           ) : (
-            <ul className="max-h-56 space-y-1 overflow-y-auto">
-              {users.map((u) => {
-                const selected = selectedUser?.id === u.id;
-                return (
-                  <li key={u.id}>
-                    <button
-                      type="button"
-                      aria-pressed={selected}
-                      className={`w-full rounded-md border p-2 text-left hover:bg-accent ${selected ? 'border-primary bg-accent' : ''}`}
-                      onClick={() => setSelectedUser({ id: u.id, username: u.username, email: u.email })}
-                    >
-                      <strong>{u.username}</strong>
-                      <span className="block text-sm text-muted-foreground">{u.email ?? '—'}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+            <>
+              <ul className="max-h-56 space-y-1 overflow-y-auto">
+                {users.map((u) => {
+                  const selected = selectedUser?.id === u.id;
+                  return (
+                    <li key={u.id}>
+                      <button
+                        type="button"
+                        aria-pressed={selected}
+                        className={`w-full rounded-md border p-2 text-left hover:bg-accent ${selected ? 'border-primary bg-accent' : ''}`}
+                        onClick={() => setSelectedUser({ id: u.id, username: u.username, email: u.email })}
+                      >
+                        <strong>{u.username}</strong>
+                        <span className="block text-sm text-muted-foreground">{u.email ?? '—'}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {users.length > 0 && users.length < (usersQuery.data?.total ?? 0) ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={usersQuery.isFetching}
+                  onClick={() => setUserPageSize((s) => s + 20)}
+                >
+                  {t('assignLoadMoreUsers')}
+                </Button>
+              ) : null}
+            </>
           )}
           <Field>
             <FieldLabel htmlFor="assign-dialog-role">{t('role')}</FieldLabel>

@@ -668,6 +668,7 @@ export const enResources = {
     assignUserSearch: 'Search users',
     assignUserSearchPlaceholder: 'Search by name or email…',
     assignNoUserFound: 'No users found.',
+    assignLoadMoreUsers: 'Load more users',
     assignUsersLoadFailed: 'Could not load the user list.',
     assignSlotLimitReached: 'The centre has reached its plan limit, so no more teaching roles can be assigned.',
     assignRoleContextConflict:

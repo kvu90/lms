@@ -31,6 +31,13 @@ import { RoleUnassignDialog, type UnassignTarget } from './role-unassign-dialog'
  *    GET /access/assignments với tham số tương ứng; tổng số dòng khớp
  *    do server trả về quyết định số trang. Bảng giữ keepPreviousData
  *    nên đổi lọc/trang không nháy rỗng mà chỉ hiện dòng "đang tải".
+ *    Trang hiện tại được kẹp theo tổng mới nhất ngay trong lúc render
+ *    (không dùng effect để tránh lỗi lint set-state-in-effect): sau
+ *    khi gỡ — hay bất kỳ thay đổi nào làm tổng giảm — trang cũ có thể
+ *    vượt quá trang cuối (ví dụ 21 dòng, cỡ trang 20, đang ở trang 2
+ *    thì gỡ dòng duy nhất còn 20 dòng, tức 1 trang); lần render sau
+ *    điều kiện đã sai nên dừng, và truy vấn tự tải lại trang hợp lệ
+ *    cuối cùng thay vì kẹt ở trang rỗng không có nút quay lại.
  *    API chưa có hợp đồng sắp xếp nên bảng không bật sắp xếp cột —
  *    sắp xếp một trang đơn lẻ sẽ gây hiểu nhầm là sắp xếp toàn cục.
  * 2. Mỗi dòng gán là một bộ ba người dùng × vai trò × ngữ cảnh: cùng
@@ -95,6 +102,19 @@ export function RoleAssignmentsSection({ roles, contexts }: RoleAssignmentsSecti
   });
   const data = assignmentsQuery.data;
   const pageCount = Math.ceil((data?.total ?? 0) / pagination.pageSize);
+
+  /**
+   * Kẹp trang hiện tại theo tổng mới nhất, thực hiện ngay trong lúc
+   * render theo mẫu "điều chỉnh state khi dữ liệu đổi" của React (không
+   * dùng effect): khi tổng giảm mà trang hiện tại vượt quá trang cuối
+   * thì đưa trang về trang cuối; lần render sau điều kiện đã sai nên
+   * dừng, và truy vấn với trang mới tự tải lại dữ liệu đúng trang. Đổi
+   * lọc/tìm/cỡ trang đã tự reset về trang 0 ở onChange nên đường kẹp
+   * này chủ yếu bao phủ đường gỡ và mọi thay đổi tổng từ bên ngoài.
+   */
+  if (data && pagination.pageIndex > Math.max(0, pageCount - 1)) {
+    setPagination((p) => ({ ...p, pageIndex: Math.max(0, pageCount - 1) }));
+  }
 
   /** Tên vai trò của dòng gán, phân giải từ danh sách vai của trang. */
   function roleNameOf(row: AssignmentListItem): string {
