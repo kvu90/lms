@@ -1,7 +1,17 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { CreateRole, ReplaceRoleCapabilities, UpdateRole } from '@lms/contracts';
+import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { AssignRole, CreateRole, ReplaceRoleCapabilities, UpdateRole } from '@lms/contracts';
 import { queryKeys as sharedQueryKeys } from '#lib/query-keys';
-import { createRole, deleteRole, replaceRoleCapabilities, updateRole } from '../api/admin-roles';
+import {
+  createAssignment,
+  createRole,
+  deleteAssignment,
+  deleteRole,
+  listAssignments,
+  replaceRoleCapabilities,
+  updateRole,
+  type ListAssignmentsParams,
+} from '../api/admin-roles';
+import { queryKeys } from './keys';
 
 /**
  * Tầng đột biến của bề mặt quản trị vai trò thuộc feature admin.
@@ -47,5 +57,51 @@ export function useDeleteRole() {
   return useMutation({
     mutationFn: (roleId: string) => deleteRole(roleId),
     onSuccess: () => client.invalidateQueries({ queryKey: sharedQueryKeys.access }),
+  });
+}
+
+/**
+ * Tuỳ chọn truy vấn trang dòng gán vai (đợt 3) — khoá mang đủ bộ lọc/
+ * tìm/phân trang nên bảng đổi tiêu chí nào cũng gọi lại server với
+ * tham số đó; trang gọi giữ keepPreviousData để đổi lọc/trang không
+ * nháy rỗng bảng.
+ */
+export function roleAssignmentsQueryOptions(params: ListAssignmentsParams) {
+  return queryOptions({
+    queryKey: queryKeys.roleAssignments(params),
+    queryFn: () => listAssignments(params),
+  });
+}
+
+/**
+ * Đột biến gán vai từ bảng (POST /access/assignments) — thành công thì
+ * làm mới cả bảng gán (gốc khoá của feature) và lưới thẻ vai (tiền tố
+ * `access` chứa số người giữ), nên bảng tải lại đúng trang và bộ lọc
+ * hiện hành, thẻ vai cập nhật số người giữ ngay.
+ */
+export function useCreateRoleAssignment() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AssignRole) => createAssignment(input),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: queryKeys.roleAssignmentsRoot });
+      void client.invalidateQueries({ queryKey: sharedQueryKeys.access });
+    },
+  });
+}
+
+/**
+ * Đột biến gỡ dòng gán từ bảng (DELETE /access/assignments/:id) — làm
+ * mới cùng hai gốc khoá như chiều gán để bảng và lưới thẻ cùng về
+ * trạng thái mới.
+ */
+export function useDeleteRoleAssignment() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (assignmentId: string) => deleteAssignment(assignmentId),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: queryKeys.roleAssignmentsRoot });
+      void client.invalidateQueries({ queryKey: sharedQueryKeys.access });
+    },
   });
 }

@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type { RoleListItem } from '@lms/contracts';
 import { Button } from '@lms/ui/components/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Card, CardContent } from '@lms/ui/components/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,29 +9,24 @@ import {
   DropdownMenuTrigger,
 } from '@lms/ui/components/dropdown-menu';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
-import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
-import { Input } from '@lms/ui/components/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
 import { Ellipsis } from 'lucide-react';
 import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '#components/page-shell';
 import '#config/i18n';
-import {
-  useAccessCapabilities,
-  useAccessContexts,
-  useAccessRoles,
-  useCreateAssignment,
-  useRoleCapabilities,
-} from '#lib/access';
+import { useAccessCapabilities, useAccessContexts, useAccessRoles, useRoleCapabilities } from '#lib/access';
+import { RoleAssignmentsSection } from '../components/role-assignments';
 import { RoleDeleteDialog } from '../components/role-delete-dialog';
 import { RoleMatrixDialog } from '../components/role-matrix-dialog';
 
 /**
  * Trang quản trị vai trò: lưới thẻ vai trò + hộp thoại ma trận (đợt 2)
- * và thẻ gán vai cho người dùng (giữ nguyên từ trước, thuộc đợt 3 khi
- * bảng người dùng theo vai trò được dựng).
+ * và khu vực bảng người dùng theo vai trò (đợt 3) thay thế form gán vai
+ * rời rạc cũ — bảng này là lối gán/gỡ vai duy nhất của trang, form cũ
+ * đã bị thay thế hoàn toàn vì hộp thoại gán từ bảng bao phủ đủ các
+ * trường của nó (người dùng, vai trò, ngữ cảnh mặc định hệ thống) kèm
+ * hiển thị đúng lý do của các chốt chặn gán mà form cũ không có.
  *
  * Luồng hiển thị:
  *
@@ -47,10 +42,13 @@ import { RoleMatrixDialog } from '../components/role-matrix-dialog';
  * 3. Ma trận của vai đang sửa là query theo vai được chọn, lọc theo
  *    ngữ cảnh trong hộp thoại — đổi ngữ cảnh không gọi lại API, chỉ
  *    đổi tập ghi đè đang sửa.
+ * 4. Khu vực bảng gán vai (component riêng) nhận danh sách vai và cây
+ *    context đã tải ở đây để phân giải tên vai trò, nhãn ngữ cảnh và
+ *    làm lựa chọn cho bộ lọc — bảng tự giữ trạng thái lọc/tìm/trang
+ *    và gọi API đợt 1 theo đúng tham số đó.
  */
 export function AdminRolesPage() {
   const { t } = useTranslation('app');
-  const [assign, setAssign] = useState({ userId: '', roleId: '', contextId: '' });
   /** Hộp thoại ma trận đang mở: chế độ tạo (role null) hoặc sửa một vai. */
   const [matrixDialog, setMatrixDialog] = useState<{
     mode: 'create' | 'edit';
@@ -64,7 +62,6 @@ export function AdminRolesPage() {
   const contextsQuery = useAccessContexts();
   const matrixRole = matrixDialog?.mode === 'edit' ? matrixDialog.role : null;
   const matrixQuery = useRoleCapabilities(matrixRole?.id ?? null);
-  const assignmentMutation = useCreateAssignment();
 
   const roles = rolesQuery.data ?? [];
   const capabilities = capabilitiesQuery.data ?? [];
@@ -72,22 +69,6 @@ export function AdminRolesPage() {
   const matrix = matrixQuery.data ?? [];
   const loading = rolesQuery.isPending || capabilitiesQuery.isPending || contextsQuery.isPending;
   const loadFailed = rolesQuery.isError || capabilitiesQuery.isError || contextsQuery.isError;
-
-  /** Mặc định context của form gán vai là context hệ thống (level 10), đặt một lần khi cây context về. */
-  const contextDefaulted = useRef(false);
-  useEffect(() => {
-    if (contextDefaulted.current || !contextsQuery.data) return;
-    contextDefaulted.current = true;
-    const system = contextsQuery.data.find((ctx) => ctx.contextLevel === 10);
-    if (system) setAssign((prev) => ({ ...prev, contextId: String(system.id) }));
-  }, [contextsQuery.data]);
-
-  function submitAssignment() {
-    assignmentMutation.mutate(
-      { userId: assign.userId, roleId: assign.roleId, contextId: assign.contextId },
-      { onSuccess: () => setAssign((prev) => ({ ...prev, userId: '' })) },
-    );
-  }
 
   return (
     <PageShell width="full">
@@ -174,72 +155,7 @@ export function AdminRolesPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('assignRoleTitle')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="assign-userid">{t('userId')}</FieldLabel>
-              <Input
-                id="assign-userid"
-                inputMode="numeric"
-                value={assign.userId}
-                onChange={(e) => setAssign({ ...assign, userId: e.target.value })}
-              />
-            </Field>
-            <Field>
-              <FieldLabel id="assign-role-label">{t('role')}</FieldLabel>
-              <Select
-                items={Object.fromEntries(roles.map((r) => [r.id, r.shortName]))}
-                value={assign.roleId === '' ? null : assign.roleId}
-                onValueChange={(v) => setAssign({ ...assign, roleId: v ?? '' })}
-              >
-                <SelectTrigger aria-labelledby="assign-role-label" className="w-full">
-                  <SelectValue placeholder={t('selectRole')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {roles.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>
-                      {r.shortName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field>
-              <FieldLabel id="assign-context-label">{t('context')}</FieldLabel>
-              <Select
-                items={Object.fromEntries(
-                  contexts.map((c) => [
-                    c.id,
-                    t('contextOption', { level: c.contextLevel, instance: c.instanceId, path: c.path }),
-                  ]),
-                )}
-                value={assign.contextId === '' ? null : assign.contextId}
-                onValueChange={(v) => setAssign({ ...assign, contextId: v ?? '' })}
-              >
-                <SelectTrigger aria-labelledby="assign-context-label" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {contexts.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {t('contextOption', { level: c.contextLevel, instance: c.instanceId, path: c.path })}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <div className="flex justify-end">
-              <Button type="button" onClick={() => submitAssignment()}>
-                {t('assignRole')}
-              </Button>
-            </div>
-          </FieldGroup>
-        </CardContent>
-      </Card>
+      <RoleAssignmentsSection roles={roles} contexts={contexts} />
 
       {/* Render có điều kiện: mỗi lần mở hộp thoại là một lượt làm việc mới với state khởi tạo sạch. */}
       {matrixDialog !== null ? (
