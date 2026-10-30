@@ -217,6 +217,24 @@ services:
       MIGRATION_DATABASE_URL: postgres://lms_migrator:${MIGRATOR_POSTGRES_PASSWORD:?Can dat MIGRATOR_POSTGRES_PASSWORD trong file .env}@postgres:5432/${POSTGRES_DB:-lms}
       RUNTIME_DATABASE_URL: postgres://lms_runtime:${RUNTIME_POSTGRES_PASSWORD:?Can dat RUNTIME_POSTGRES_PASSWORD trong file .env}@postgres:5432/${POSTGRES_DB:-lms}
       CONTROL_PLANE_DATABASE_URL: postgres://lms_control_plane:${CONTROL_PLANE_POSTGRES_PASSWORD:?Can dat CONTROL_PLANE_POSTGRES_PASSWORD trong file .env}@postgres:5432/lms_control_plane
+      # Công cụ vận hành đội kho (issue #586): các lệnh fleet:*
+      # chạy MỘT LẦN qua chính service này (cùng image api, đủ cả
+      # URL quản trị, URL migration và URL control plane ở trên):
+      #   docker compose run --rm migrate node dist/fleet-migration-runner.js
+      #   docker compose run --rm migrate node dist/fleet-backup.js
+      #   docker compose run --rm migrate node dist/fleet-restore-test.js
+      # Thư mục sao lưu đặt cố định vào volume riêng fleet-backups
+      # gắn ở dưới (vận hành thật thay bằng bind mount ra vùng lưu
+      # trữ ngoài máy cụm). Khoá mã hoá khai báo TRƠ như các bí mật
+      # tuỳ chọn ở x-api-env: chỉ truyền vào khi đã đặt trong file
+      # .env — và thiếu khoá thì công cụ từ chối chụp sao lưu
+      # (fail-closed, không có chế độ lưu thô).
+      FLEET_BACKUP_DIR: /app/data/fleet-backups
+      FLEET_BACKUP_ENCRYPTION_KEY:
+    volumes:
+      # Volume của thư mục sao lưu đội kho (xem ghi chú
+      # FLEET_BACKUP_DIR ở khối environment của service này).
+      - fleet-backups:/app/data/fleet-backups
     depends_on:
       postgres:
         condition: service_healthy
@@ -257,3 +275,4 @@ volumes:
   pgdata:
   redisdata:
   api-files:
+  fleet-backups:

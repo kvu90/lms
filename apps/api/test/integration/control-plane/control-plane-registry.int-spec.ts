@@ -391,21 +391,76 @@ describe('Control plane: sổ đăng ký không gian và registry phiên bản s
   });
 
   it('lượt ghi migration chồng lấn với lượt ghi trạng thái sao lưu không làm mất giá trị của nhau', async () => {
-    // Cùng kỹ thuật cổng như ca chồng lấn ngay trên: transaction
-    // thô giữ khoá dòng registry trong lúc hai lượt ghi của service
-    // cùng chạy. `recordMigrationRun` (sau bản sửa của issue #586)
-    // khoá dòng đăng ký của không gian TRƯỚC khi đọc và ghi đè
-    // registry — cùng thứ tự khoá với `updateSchemaRegistry` — nên
-    // hai lượt nối tiếp nhau và lượt sau đọc trạng thái tươi: phiên
-    // bản mới của lượt migration và trạng thái sao lưu mới cùng tồn
-    // tại. Thiếu khoá đó, cả hai cùng đọc một ảnh cũ rồi lần ghi sau
-    // ghi đè: hoặc phiên bản mới bị thay bằng giá trị null cũ, hoặc
-    // trạng thái sao lưu vừa ghi bị cuốn về giá trị trước đó.
+    // Bất biến được gác ở đây là THỨ TỰ KHOÁ THỐNG NHẤT trên dòng
+    // đăng ký của không gian: mọi thao tác ghi của control plane
+    // khoá dòng đăng ký (FOR UPDATE) TRƯỚC TIÊN, rồi mới chạm vào
+    // registry — nhờ vậy hai lượt ghi đồng thời nối tiếp nhau ở
+    // đúng một điểm và lượt sau luôn hợp nhất trên trạng thái
+    // tươi. `recordMigrationRun` (sau bản sửa của issue #586)
+    // tuân theo đúng thứ tự đó như `updateSchemaRegistry`.
+    //
+    // Kỹ thuật cổng hai pha, có chứng minh ở từng pha (nhận diện
+    // phiên bị cổng chặn qua `pg_blocking_pids`, không dùng
+    // khoảng chờ cố định): cổng giữ khoá FOR KEY SHARE trên dòng
+    // đăng ký — mức khoá nhẹ nhất vẫn xung đột với FOR UPDATE,
+    // nên bất kỳ lượt ghi nào tới câu khoá dòng đăng ký của mình
+    // đều phải dừng sau cổng.
+    // - Pha 1: cho lượt ghi sao lưu xuất phát trước và chờ tới
+    //   khi nó thật sự bị cổng chặn ở câu khoá dòng đăng ký.
+    // - Pha 2: cho `recordMigrationRun` xuất phát. Có khoá dòng
+    //   đăng ký, nó cũng bị cổng chặn ngay ở câu khoá của mình —
+    //   pha 2 thấy một phiên thứ hai bị cổng chặn. Thiếu khoá đó,
+    //   nó không có câu khoá nào để dừng: nó chèn lượt chạy, ghi
+    //   registry và commit XONG TOÀN BỘ trong lúc lượt sao lưu
+    //   vẫn còn bị cổng chặn — pha 2 không bao giờ thấy phiên
+    //   thứ hai và ca đỏ ngay tại khẳng định của pha.
+    // Mở cổng thì lượt sao lưu (đứng trước trong hàng đợi khoá)
+    // chạy trước, lượt migration nối tiếp sau và đọc trạng thái
+    // tươi: phiên bản mới và trạng thái sao lưu mới cùng tồn tại
+    // trong các khẳng định cuối ca.
+    //
+    // Vì sao cổng không đặt trên dòng registry như ca cũ: ca cũ
+    // cho hai lượt xuất phát cùng lúc sau một khoảng chờ cố định
+    // và đo thực tế cho thấy nó KHÔNG có sức phân biệt — câu chèn
+    // lượt chạy vào bảng con của `space_registry` tự nó đã lấy
+    // khoá KEY SHARE của khoá ngoại trên dòng cha, nên cặp ghi
+    // này tự nối tiếp nhau ở mọi thứ tự xuất phát dù
+    // `recordMigrationRun` có khoá tường minh hay không; gỡ dòng
+    // khoá ra ca cũ vẫn xanh. Cổng trên dòng cha + ép thứ tự
+    // xuất phát như trên là điểm duy nhất mà dòng khoá tường
+    // minh tạo ra khác biệt quan sát được.
     const gate = new Client({ connectionString: clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD) });
     await gate.connect();
+    const gatePid = (await gate.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0]!.pid;
+    const lockWaiters = async (): Promise<{ pid: number; blockers: number[] }[]> => {
+      const result = await gate.query<{ pid: number; blockers: number[] }>(
+        `SELECT pid, pg_blocking_pids(pid) AS blockers FROM pg_stat_activity
+          WHERE datname = current_database() AND wait_event_type = 'Lock' AND pid <> pg_backend_pid()`,
+      );
+      return result.rows;
+    };
+    const waitForBlocked = async (
+      ready: (rows: { pid: number; blockers: number[] }[]) => boolean,
+    ): Promise<{ pid: number; blockers: number[] }[]> => {
+      for (let attempt = 0; attempt < 100; attempt++) {
+        const rows = await lockWaiters();
+        if (ready(rows)) return rows;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      return [];
+    };
     try {
       await gate.query('BEGIN');
-      await gate.query('SELECT space_id FROM space_schema_registry WHERE space_id = $1 FOR UPDATE', [createdSpaceId]);
+      await gate.query('SELECT id FROM space_registry WHERE id = $1 FOR KEY SHARE', [createdSpaceId]);
+      const backupWrite = registry.updateSchemaRegistry(adminId, createdSpaceId, {
+        lastBackupStatus: 'failed',
+        lastBackupAt: '2026-10-30T12:00:00+07:00',
+      });
+      // Pha 1: lượt sao lưu đã tới câu khoá dòng đăng ký và đang
+      // bị chính cổng chặn.
+      const phase1 = await waitForBlocked((rows) => rows.some((row) => row.blockers.includes(gatePid)));
+      expect(phase1.some((row) => row.blockers.includes(gatePid))).toBe(true);
+      const backupPid = phase1.find((row) => row.blockers.includes(gatePid))!.pid;
       const runWrite = registry.recordMigrationRun(adminId, createdSpaceId, {
         runId: 'run-586-lock',
         fromVersion: null,
@@ -413,13 +468,23 @@ describe('Control plane: sổ đăng ký không gian và registry phiên bản s
         status: 'success',
         steps: [{ name: 'apply-v-lock', status: 'success' }],
       });
-      const backupWrite = registry.updateSchemaRegistry(adminId, createdSpaceId, {
-        lastBackupStatus: 'failed',
-        lastBackupAt: '2026-10-30T12:00:00+07:00',
-      });
-      // Khoảng chờ dư dả để cả hai lượt đều tới bước ghi và bị chặn
-      // ở khoá trước khi mở cổng.
-      await new Promise((resolve) => setTimeout(resolve, 750));
+      // Pha 2: lượt migration cũng phải bị chặn ở câu khoá dòng
+      // đăng ký của nó — bị cổng chặn trực tiếp, hoặc xếp hàng
+      // sau lượt sao lưu trong hàng đợi khoá của dòng (`pg_blocking_pids`
+      // của một phiên xếp hàng chỉ nêu phiên đứng ngay trước nó,
+      // không nhất thiết nêu cổng). Thiếu dòng khoá đó thì lượt
+      // migration chạy thẳng qua và commit xong, không phiên thứ
+      // hai nào xuất hiện trong hạn chờ.
+      const phase2 = await waitForBlocked((rows) =>
+        rows.some(
+          (row) => row.pid !== backupPid && (row.blockers.includes(gatePid) || row.blockers.includes(backupPid)),
+        ),
+      );
+      expect(
+        phase2.some(
+          (row) => row.pid !== backupPid && (row.blockers.includes(gatePid) || row.blockers.includes(backupPid)),
+        ),
+      ).toBe(true);
       await gate.query('COMMIT');
       await Promise.all([runWrite, backupWrite]);
     } finally {

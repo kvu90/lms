@@ -16,9 +16,14 @@
  *    lục của tệp dump; (b) kiểm tra khói ở mức dữ kiện — tài khoản
  *    quản trị gieo sẵn của kho (`FLEET_SMOKE_ADMIN_USERNAME`, mặc
  *    định `admin`; tắt bằng `FLEET_SMOKE_CHECK=off`) tồn tại và
- *    chưa bị xoá trong bản khôi phục. Kiểm tra khói ở mức HTTP
- *    (đăng nhập thật qua ứng dụng) là việc của nghiệm thu ứng dụng,
- *    không nằm trong công cụ vận hành này.
+ *    chưa bị xoá trong bản khôi phục. Kiểm tra khói đang BẬT mà
+ *    bản khôi phục THIẾU bảng `users` thì không có gì để đối
+ *    chiếu: lượt kiểm thử bị tính THẤT BẠI tường minh thay vì
+ *    lặng lẽ bỏ qua bước này — số bảng khớp mục lục không cứu
+ *    được một bản sao thiếu đúng bảng mà kiểm tra khói cần. Đường
+ *    tắt hợp lệ duy nhất là `FLEET_SMOKE_CHECK=off`. Kiểm tra
+ *    khói ở mức HTTP (đăng nhập thật qua ứng dụng) là việc của
+ *    nghiệm thu ứng dụng, không nằm trong công cụ vận hành này.
  * 4. Ghi kết quả vào registry của kho (trạng thái + thời điểm) và
  *    LUÔN xoá database tạm, kể cả khi khôi phục hay kiểm tra hỏng
  *    giữa chừng — database tạm còn sót là rò rỉ tài nguyên của cụm.
@@ -172,8 +177,17 @@ export async function runFleetRestoreTest(options: FleetRestoreTestOptions = {})
         // Kiểm tra khói ở mức dữ kiện trên tài khoản quản trị gieo
         // sẵn của kho: cột điều kiện chỉ gồm các cột thật sự có
         // trong bảng users của bản khôi phục (username luôn có; các
-        // cột đánh dấu xoá mềm tuỳ thế hệ schema).
-        if (tables.includes('users') && env.FLEET_SMOKE_CHECK !== 'off') {
+        // cột đánh dấu xoá mềm tuỳ thế hệ schema). Kiểm tra khói
+        // đang bật mà bản khôi phục không có bảng users thì THẤT
+        // BẠI tường minh — không có bảng đó thì không đối chiếu
+        // được gì, cho qua lặng lẽ là báo xanh giả.
+        if (env.FLEET_SMOKE_CHECK !== 'off') {
+          if (!tables.includes('users')) {
+            return await fail(
+              'restored backup has no users table; the smoke check cannot verify the seeded admin account',
+              { tempDatabase, tableCount: tables.length, totalRows },
+            );
+          }
           const columnsResult = await check.query<{ column_name: string }>(
             `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'users'`,
           );

@@ -169,6 +169,12 @@ export function buildRoleConnectStatements(database: string, migratorRole: strin
  *   không có dạng "mọi kiểu trong schema" nên dùng khối DO lặp qua
  *   danh mục kiểu): truy vấn có ép kiểu tường minh lên cột enum cần
  *   quyền này, thiếu là lỗi quyền khó hiểu ở đường dữ kiện.
+ * - Quyền mặc định trên KIỂU cho chính role migration (hạng mục
+ *   cứng hoá tuỳ chọn theo phân xử trên PR của issue này): kiểu
+ *   enum do migration tạo về sau tự mang quyền USAGE cho runtime,
+ *   thay vì phụ thuộc vào mặc định của PostgreSQL là cấp USAGE
+ *   trên kiểu mới cho PUBLIC — mặc định đó bị thu hồi thì runtime
+ *   vẫn dùng được kiểu của migration mới.
  */
 export function buildRuntimeGrantStatements(migratorRole: string, runtimeRole: string): string[] {
   const runtime = quoteIdentifier(runtimeRole);
@@ -181,5 +187,6 @@ export function buildRuntimeGrantStatements(migratorRole: string, runtimeRole: s
     `DO $$ DECLARE t record; BEGIN FOR t IN SELECT n.nspname AS schema_name, p.typname AS type_name FROM pg_type p JOIN pg_namespace n ON n.oid = p.typnamespace WHERE p.typcategory = 'E' AND n.nspname = 'public' LOOP EXECUTE format('GRANT USAGE ON TYPE %I.%I TO %I', t.schema_name, t.type_name, ${quoteLiteral(runtimeRole)}); END LOOP; END $$;`,
     `ALTER DEFAULT PRIVILEGES FOR ROLE ${migrator} IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${runtime}`,
     `ALTER DEFAULT PRIVILEGES FOR ROLE ${migrator} IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO ${runtime}`,
+    `ALTER DEFAULT PRIVILEGES FOR ROLE ${migrator} IN SCHEMA public GRANT USAGE ON TYPES TO ${runtime}`,
   ];
 }

@@ -17,7 +17,11 @@
  * chưa có bản sao lưu thành công nào trong cửa sổ
  * `FLEET_BACKUP_MAX_AGE_HOURS` (mặc định 26 giờ, nới hơn chu kỳ
  * ngày một chút để dao động lịch không báo động giả) thì bị liệt
- * kê và tiến trình thoát mã 1. Control plane được kiểm theo cửa sổ
+ * kê và tiến trình thoát mã 1. Mốc đối chiếu (`lastBackupAt` trong
+ * registry) chỉ tiến ở lượt THÀNH CÔNG — xem
+ * `FleetRegistryWriter.recordBackupOutcome` — nên kho chỉ có các
+ * lượt thất bại kéo dài vẫn bị bắt quá hạn thay vì được các lượt
+ * hỏng tự gia hạn cho mình. Control plane được kiểm theo cửa sổ
  * chặt hơn (`FLEET_CP_BACKUP_MAX_AGE_HOURS`, mặc định 13 giờ) dựa
  * trên tuổi tệp sao lưu mới nhất của nó, vì registry của control
  * plane nằm trong chính nó nên "lượt gần nhất" phải đọc từ đĩa.

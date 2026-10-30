@@ -87,6 +87,9 @@ describe('Cấp phát role runtime và role migration (helper thuần)', () => {
     expect(statements).toContain(
       `ALTER DEFAULT PRIVILEGES FOR ROLE "lms_migrator" IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO "lms_runtime"`,
     );
+    expect(statements).toContain(
+      `ALTER DEFAULT PRIVILEGES FOR ROLE "lms_migrator" IN SCHEMA public GRANT USAGE ON TYPES TO "lms_runtime"`,
+    );
     // Không câu nào cấp quyền tạo đối tượng hay quyền sở hữu cho runtime.
     for (const statement of statements) {
       expect(statement).not.toMatch(/GRANT CREATE|OWNER TO "lms_runtime"/);

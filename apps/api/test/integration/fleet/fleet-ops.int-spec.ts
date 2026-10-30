@@ -1,9 +1,11 @@
-import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Client, Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { checkFleetBackups, runFleetBackup } from '../../../src/fleet-backup';
-import { readDatabaseSchemaVersion } from '../../../src/fleet-common';
+import { backupFileName, dumpDatabaseToFile, readDatabaseSchemaVersion } from '../../../src/fleet-common';
 import { runFleetMigration } from '../../../src/fleet-migration-runner';
 import { runFleetRestoreTest } from '../../../src/fleet-restore-test';
 import { runRuntimeRolesSetup } from '../../../src/runtime-roles-setup';
@@ -165,6 +167,7 @@ describe('Đội kho: tách role, migration theo đợt, sao lưu, khôi phục 
     'DATABASE_ADMIN_URL',
     'FLEET_BACKUP_DIR',
     'FLEET_TEST_SPACE_URL',
+    'FLEET_BACKUP_ENCRYPTION_KEY',
   ];
 
   beforeAll(async () => {
@@ -176,6 +179,9 @@ describe('Đội kho: tách role, migration theo đợt, sao lưu, khôi phục 
     process.env.DATABASE_ADMIN_URL = clusterUrl('postgres');
     process.env.FLEET_BACKUP_DIR = BACKUP_DIR;
     process.env.FLEET_TEST_SPACE_URL = clusterUrl('postgres', RUNTIME_ROLE, RUNTIME_PASSWORD);
+    // Mã hoá sao lưu là bắt buộc (fail-closed): mọi đường chụp
+    // trong ca này phải có khoá, và tệp lưu trên đĩa là `.dump.enc`.
+    process.env.FLEET_BACKUP_ENCRYPTION_KEY = 'fleet-test-586-passphrase';
     mkdirSync(BACKUP_DIR, { recursive: true });
 
     const adminUrl = clusterUrl('postgres');
@@ -416,7 +422,7 @@ describe('Đội kho: tách role, migration theo đợt, sao lưu, khôi phục 
         expect(runs[0]!.status).toBe('success');
       }
       const brokenBackups = readdirSync(join(BACKUP_DIR, 'tt-b-loi-586'));
-      expect(brokenBackups.some((name) => name.startsWith('pre-migration-') && name.endsWith('.dump'))).toBe(true);
+      expect(brokenBackups.some((name) => name.startsWith('pre-migration-') && name.endsWith('.dump.enc'))).toBe(true);
     }, 300_000);
 
     it('chạy lại sau khi gỡ phá hoại chỉ xử lý kho chưa đạt đích, và sổ lệch sự thật được đồng bộ lại không bịa lượt chạy', async () => {
@@ -474,7 +480,7 @@ describe('Đội kho: tách role, migration theo đợt, sao lưu, khôi phục 
         expect(state.lastBackupStatus).toBe('success');
         expect(state.lastBackupAt).not.toBeNull();
         const files = readdirSync(join(BACKUP_DIR, space.slug));
-        const dump = files.find((name) => name.startsWith('scheduled-') && name.endsWith('.dump'));
+        const dump = files.find((name) => name.startsWith('scheduled-') && name.endsWith('.dump.enc'));
         expect(dump).toBeDefined();
         expect(files).toContain(`${dump}.sha256`);
       }
@@ -502,7 +508,7 @@ describe('Đội kho: tách role, migration theo đợt, sao lưu, khôi phục 
 
     it('bản sao lưu bị sửa bị kiểm thử khôi phục phát hiện qua đối chiếu băm và ghi nhận thất bại', async () => {
       const files = readdirSync(join(BACKUP_DIR, 'trang-chinh-586'))
-        .filter((name) => name.endsWith('.dump'))
+        .filter((name) => name.endsWith('.dump.enc'))
         .sort();
       const newest = files[files.length - 1]!;
       const path = join(BACKUP_DIR, 'trang-chinh-586', newest);
@@ -616,5 +622,324 @@ describe('Đội kho: tách role, migration theo đợt, sao lưu, khôi phục 
         await cpPool.end();
       }
     }, 120_000);
+  });
+
+  describe('hồi quy vòng sửa: cô lập lỗi theo kho, tập migration còn thiếu, sao lưu fail-closed và kiểm tra khói', () => {
+    // Bộ ca này dùng sổ control plane RIÊNG (`lms_test_cp_fx595`)
+    // và các kho riêng để không chạm vào trạng thái registry của
+    // các bộ ca trên; role dùng lại bộ role của ca chính (được tạo
+    // ở beforeAll ngoài cùng và dọn ở afterAll ngoài cùng). Bộ
+    // migration tổng hợp hai thư mục: một migration "cũ" và một
+    // migration "đích" — kho fx595-d được áp trước RIÊNG thư mục
+    // đích để dựng đúng hình kho có migration mới nhất mà thiếu
+    // migration cũ.
+    const FX_CP_DATABASE = 'lms_test_cp_fx595';
+    const FX_BACKUP_DIR = join(__dirname, 'fleet-fx595-artifacts');
+    const FX_MIGRATIONS_FULL = join(__dirname, 'fleet-fx595-migrations-full');
+    const FX_MIGRATIONS_TARGET_ONLY = join(__dirname, 'fleet-fx595-migrations-target-only');
+    const FX_OLDER_VERSION = '20260101000000_fx_older';
+    const FX_TARGET_VERSION = '20260202000000_fx_target';
+    const FX_ENCRYPTION_KEY = 'fleet-test-fx595-passphrase';
+    const FX_SPACES = [
+      { slug: 'fx595-nen-tang', kind: 'platform', database: 'lms_test_fx595_platform' },
+      { slug: 'fx595-a-canary', kind: 'center', database: 'lms_test_fx595_canary' },
+      { slug: 'fx595-b-chet', kind: 'center', database: 'lms_test_fx595_dead' },
+      { slug: 'fx595-c-tot', kind: 'center', database: 'lms_test_fx595_good' },
+      { slug: 'fx595-d-thieu-cu', kind: 'center', database: 'lms_test_fx595_stale' },
+    ] as const;
+    const FX_NOUSERS_SPACE = { slug: 'fx595-e-khong-users', kind: 'center', database: 'lms_test_fx595_nousers' } as const;
+
+    const fxEnv = (): NodeJS.ProcessEnv => ({
+      ...process.env,
+      CONTROL_PLANE_DATABASE_URL: clusterUrl(FX_CP_DATABASE, CP_ROLE, CP_PASSWORD),
+      FLEET_BACKUP_ENCRYPTION_KEY: FX_ENCRYPTION_KEY,
+    });
+
+    async function fxRegistryState(slug: string): Promise<{
+      currentVersion: string | null;
+      lastBackupStatus: string | null;
+      lastBackupAt: Date | null;
+      lastRestoreStatus: string | null;
+    }> {
+      return withClient(clusterUrl(FX_CP_DATABASE, CP_ROLE, CP_PASSWORD), async (client) => {
+        const result = await client.query<{
+          current_version: string | null;
+          last_backup_status: string | null;
+          last_backup_at: Date | null;
+          last_restore_status: string | null;
+        }>(
+          `SELECT r.current_version, r.last_backup_status, r.last_backup_at, r.last_restore_status
+             FROM space_schema_registry r JOIN space_registry s ON s.id = r.space_id
+            WHERE s.slug = $1`,
+          [slug],
+        );
+        const row = result.rows[0]!;
+        return {
+          currentVersion: row.current_version,
+          lastBackupStatus: row.last_backup_status,
+          lastBackupAt: row.last_backup_at,
+          lastRestoreStatus: row.last_restore_status,
+        };
+      });
+    }
+
+    async function fxMigrationRuns(slug: string): Promise<{ status: string }[]> {
+      return withClient(clusterUrl(FX_CP_DATABASE, CP_ROLE, CP_PASSWORD), async (client) => {
+        const result = await client.query<{ status: string }>(
+          `SELECT m.status FROM space_schema_migration_runs m
+             JOIN space_registry s ON s.id = m.space_id
+            WHERE s.slug = $1 ORDER BY m.started_at, m.id`,
+          [slug],
+        );
+        return result.rows;
+      });
+    }
+
+    async function fxRegisterSpace(space: { slug: string; kind: string; database: string }): Promise<void> {
+      await withClient(clusterUrl(FX_CP_DATABASE, CP_ROLE, CP_PASSWORD), async (client) => {
+        const inserted = await client.query<{ id: string }>(
+          `INSERT INTO space_registry (slug, name, kind, status, database_name, storage_mode, connection_role_ref, secret_ref)
+           VALUES ($1, $2, $3, 'active', $4, 'dedicated', $5, 'env:FLEET_TEST_SPACE_URL') RETURNING id`,
+          [space.slug, `Kho hoi quy ${space.slug}`, space.kind, space.database, MIGRATOR_ROLE],
+        );
+        await client.query('INSERT INTO space_schema_registry (space_id) VALUES ($1)', [inserted.rows[0]!.id]);
+      });
+    }
+
+    beforeAll(async () => {
+      mkdirSync(join(FX_MIGRATIONS_FULL, FX_OLDER_VERSION), { recursive: true });
+      mkdirSync(join(FX_MIGRATIONS_FULL, FX_TARGET_VERSION), { recursive: true });
+      mkdirSync(join(FX_MIGRATIONS_TARGET_ONLY, FX_TARGET_VERSION), { recursive: true });
+      writeFileSync(
+        join(FX_MIGRATIONS_FULL, FX_OLDER_VERSION, 'migration.sql'),
+        'CREATE TABLE "fx_older_probe" ("id" integer PRIMARY KEY);\n',
+      );
+      writeFileSync(
+        join(FX_MIGRATIONS_FULL, FX_TARGET_VERSION, 'migration.sql'),
+        'CREATE TABLE "fx_target_probe" ("id" integer PRIMARY KEY);\n',
+      );
+      writeFileSync(
+        join(FX_MIGRATIONS_TARGET_ONLY, FX_TARGET_VERSION, 'migration.sql'),
+        'CREATE TABLE "fx_target_probe" ("id" integer PRIMARY KEY);\n',
+      );
+      mkdirSync(FX_BACKUP_DIR, { recursive: true });
+
+      const adminUrl = clusterUrl('postgres');
+      await withClient(adminUrl, async (admin) => {
+        for (const database of [FX_CP_DATABASE, ...FX_SPACES.map((space) => space.database), FX_NOUSERS_SPACE.database]) {
+          await admin.query(
+            `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`,
+            [database],
+          );
+          await admin.query(`DROP DATABASE IF EXISTS ${quoted(database)}`);
+        }
+        await admin.query(`CREATE DATABASE ${quoted(FX_CP_DATABASE)} OWNER ${quoted(CP_ROLE)}`);
+        await admin.query(`REVOKE CONNECT ON DATABASE ${quoted(FX_CP_DATABASE)} FROM PUBLIC`);
+        await admin.query(`GRANT CONNECT ON DATABASE ${quoted(FX_CP_DATABASE)} TO ${quoted(CP_ROLE)}`);
+        // Kho chết fx595-b KHÔNG được tạo database: mọi kết nối tới
+        // nó phải hỏng ngay ở bước mở kết nối của bước thăm dò.
+        for (const space of FX_SPACES) {
+          if (space.slug === 'fx595-b-chet') continue;
+          await admin.query(`CREATE DATABASE ${quoted(space.database)} OWNER ${quoted(MIGRATOR_ROLE)}`);
+          await admin.query(`REVOKE CONNECT ON DATABASE ${quoted(space.database)} FROM PUBLIC`);
+          await admin.query(`GRANT CONNECT ON DATABASE ${quoted(space.database)} TO ${quoted(MIGRATOR_ROLE)}`);
+          await admin.query(`GRANT CONNECT ON DATABASE ${quoted(space.database)} TO ${quoted(RUNTIME_ROLE)}`);
+        }
+      });
+      await applyControlPlaneMigrations(clusterUrl(FX_CP_DATABASE, CP_ROLE, CP_PASSWORD));
+      for (const space of FX_SPACES) {
+        if (space.slug === 'fx595-b-chet') continue;
+        await applyUuidV7ShimIfNeeded(clusterUrl(space.database, MIGRATOR_ROLE, MIGRATOR_PASSWORD));
+      }
+      for (const space of FX_SPACES) {
+        await fxRegisterSpace(space);
+      }
+      // Dựng hình kho thiếu migration cũ: chỉ áp thư mục đích vào
+      // kho fx595-d — nhật ký của nó có migration mới nhất nhưng
+      // không có migration cũ.
+      const stalePool = new Pool({
+        connectionString: clusterUrl('lms_test_fx595_stale', MIGRATOR_ROLE, MIGRATOR_PASSWORD),
+      });
+      try {
+        await migrate(drizzle({ client: stalePool }), { migrationsFolder: FX_MIGRATIONS_TARGET_ONLY });
+      } finally {
+        await stalePool.end();
+      }
+    }, 180_000);
+
+    afterAll(async () => {
+      const adminUrl = clusterUrl('postgres');
+      await withClient(adminUrl, async (admin) => {
+        for (const database of [FX_CP_DATABASE, ...FX_SPACES.map((space) => space.database), FX_NOUSERS_SPACE.database]) {
+          await admin.query(
+            `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`,
+            [database],
+          );
+          await admin.query(`DROP DATABASE IF EXISTS ${quoted(database)}`);
+        }
+      }).catch(() => undefined);
+      rmSync(FX_BACKUP_DIR, { recursive: true, force: true });
+      rmSync(FX_MIGRATIONS_FULL, { recursive: true, force: true });
+      rmSync(FX_MIGRATIONS_TARGET_ONLY, { recursive: true, force: true });
+    }, 120_000);
+
+    it('kho không kết nối được bị ghi nhận failed và không chặn kho cùng đợt; kho có migration mới nhất nhưng thiếu migration cũ được áp đúng phần thiếu; chạy lại chỉ xử lý kho lỗi', async () => {
+      const summary = await runFleetMigration({
+        env: fxEnv(),
+        migrationsDir: FX_MIGRATIONS_FULL,
+        backupDir: FX_BACKUP_DIR,
+        waveSize: 3,
+        log: () => undefined,
+      });
+      const bySlug = new Map(summary.outcomes.map((outcome) => [outcome.slug, outcome.outcome]));
+      expect(summary.targetVersion).toBe(FX_TARGET_VERSION);
+      expect(bySlug.get('fx595-nen-tang')).toBe('migrated');
+      expect(bySlug.get('fx595-a-canary')).toBe('migrated');
+      // Kho chết hỏng ngay ở bước thăm dò (mở kết nối) nhưng vẫn có
+      // ghi nhận failed của chính nó trong registry...
+      expect(bySlug.get('fx595-b-chet')).toBe('failed');
+      // ...và hai kho CÙNG ĐỢT với nó vẫn hoàn tất bình thường.
+      expect(bySlug.get('fx595-c-tot')).toBe('migrated');
+      expect(bySlug.get('fx595-d-thieu-cu')).toBe('migrated');
+      expect(summary.failedCount).toBe(1);
+
+      const deadRuns = await fxMigrationRuns('fx595-b-chet');
+      expect(deadRuns).toHaveLength(1);
+      expect(deadRuns[0]!.status).toBe('failed');
+      expect((await fxRegistryState('fx595-b-chet')).currentVersion).toBeNull();
+
+      // Kho thiếu migration cũ: sau lượt chạy, bảng của migration
+      // cũ tồn tại trong kho, nhật ký đủ cả hai migration và sổ
+      // ghi đúng phiên bản đích.
+      const staleRuns = await fxMigrationRuns('fx595-d-thieu-cu');
+      expect(staleRuns).toHaveLength(1);
+      expect(staleRuns[0]!.status).toBe('success');
+      expect((await fxRegistryState('fx595-d-thieu-cu')).currentVersion).toBe(FX_TARGET_VERSION);
+      await withClient(clusterUrl('lms_test_fx595_stale', MIGRATOR_ROLE, MIGRATOR_PASSWORD), async (client) => {
+        const tables = await client.query<{ tablename: string }>(
+          `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('fx_older_probe', 'fx_target_probe') ORDER BY tablename`,
+        );
+        expect(tables.rows.map((row) => row.tablename)).toEqual(['fx_older_probe', 'fx_target_probe']);
+      });
+
+      // Chạy lại: kho đã đạt đích bị bỏ qua hết, chỉ kho lỗi bị xử
+      // lý lại và nhận thêm đúng một ghi nhận failed nữa.
+      const rerun = await runFleetMigration({
+        env: fxEnv(),
+        migrationsDir: FX_MIGRATIONS_FULL,
+        backupDir: FX_BACKUP_DIR,
+        waveSize: 3,
+        log: () => undefined,
+      });
+      const rerunBySlug = new Map(rerun.outcomes.map((outcome) => [outcome.slug, outcome.outcome]));
+      expect(rerunBySlug.get('fx595-b-chet')).toBe('failed');
+      expect(rerunBySlug.get('fx595-c-tot')).toBe('skipped');
+      expect(rerunBySlug.get('fx595-d-thieu-cu')).toBe('skipped');
+      expect(await fxMigrationRuns('fx595-b-chet')).toHaveLength(2);
+      expect(await fxMigrationRuns('fx595-c-tot')).toHaveLength(1);
+      expect(await fxMigrationRuns('fx595-d-thieu-cu')).toHaveLength(1);
+    }, 300_000);
+
+    it('kho chỉ có các lượt sao lưu thất bại vẫn bị chế độ kiểm liệt kê quá hạn, vì mốc sao lưu thành công không bị lượt hỏng đẩy lên', async () => {
+      const backup = await runFleetBackup({ env: fxEnv(), backupDir: FX_BACKUP_DIR, log: () => undefined });
+      const deadResult = backup.results.find((result) => result.slug === 'fx595-b-chet');
+      expect(deadResult?.status).toBe('failed');
+      expect(backup.results.find((result) => result.slug === 'fx595-c-tot')?.status).toBe('success');
+
+      const deadState = await fxRegistryState('fx595-b-chet');
+      expect(deadState.lastBackupStatus).toBe('failed');
+      // Mốc của cổng kiểm vẫn là null: kho này chưa từng sao lưu
+      // thành công, lượt hỏng vừa rồi không được tự gia hạn cho nó.
+      expect(deadState.lastBackupAt).toBeNull();
+
+      const check = await checkFleetBackups({ env: fxEnv(), backupDir: FX_BACKUP_DIR });
+      expect(check.overdue.map((item) => item.slug)).toEqual(['fx595-b-chet']);
+    }, 300_000);
+
+    it('chụp sao lưu thiếu khoá mã hoá bị từ chối trước khi dump và không sinh tệp nào trên đĩa', async () => {
+      const dir = join(FX_BACKUP_DIR, 'direct-nokey');
+      await expect(
+        dumpDatabaseToFile({
+          url: clusterUrl('lms_test_fx595_good', MIGRATOR_ROLE, MIGRATOR_PASSWORD),
+          dir,
+          kind: 'scheduled',
+          runId: 'fx595-nokey',
+          at: new Date(),
+          env: fxEnv(),
+        }),
+      ).rejects.toThrow(/FLEET_BACKUP_ENCRYPTION_KEY/);
+      expect(existsSync(dir) ? readdirSync(dir) : []).toEqual([]);
+    }, 60_000);
+
+    it('lỗi ở bước ghi tệp mã hoá khiến tệp thô bị xoá sạch khỏi đĩa', async () => {
+      const dir = join(FX_BACKUP_DIR, 'direct-encfail');
+      const at = new Date();
+      const runId = 'fx595-encfail';
+      // Ép lỗi ở đúng bước ghi tệp mã hoá: chiếm trước đường dẫn
+      // của tệp .enc bằng một THƯ MỤC cùng tên.
+      const encName = backupFileName('scheduled', runId, at, true);
+      mkdirSync(join(dir, encName), { recursive: true });
+      await expect(
+        dumpDatabaseToFile({
+          url: clusterUrl('lms_test_fx595_good', MIGRATOR_ROLE, MIGRATOR_PASSWORD),
+          dir,
+          kind: 'scheduled',
+          runId,
+          at,
+          encryptionKey: FX_ENCRYPTION_KEY,
+          env: fxEnv(),
+        }),
+      ).rejects.toThrow();
+      // Trên đĩa chỉ còn thư mục chiếm chỗ; tệp thô của pg_dump
+      // không được phép ở lại sau bất kỳ đường lỗi nào.
+      expect(readdirSync(dir)).toEqual([encName]);
+    }, 60_000);
+
+    it('bản khôi phục thiếu bảng users khiến kiểm thử khôi phục thất bại tường minh dù số bảng khớp mục lục, và chỉ tắt được bằng FLEET_SMOKE_CHECK=off', async () => {
+      const adminUrl = clusterUrl('postgres');
+      await withClient(adminUrl, async (admin) => {
+        await admin.query(`CREATE DATABASE ${quoted(FX_NOUSERS_SPACE.database)} OWNER ${quoted(MIGRATOR_ROLE)}`);
+        await admin.query(`REVOKE CONNECT ON DATABASE ${quoted(FX_NOUSERS_SPACE.database)} FROM PUBLIC`);
+        await admin.query(`GRANT CONNECT ON DATABASE ${quoted(FX_NOUSERS_SPACE.database)} TO ${quoted(MIGRATOR_ROLE)}`);
+        await admin.query(`GRANT CONNECT ON DATABASE ${quoted(FX_NOUSERS_SPACE.database)} TO ${quoted(RUNTIME_ROLE)}`);
+      });
+      await applyUuidV7ShimIfNeeded(clusterUrl(FX_NOUSERS_SPACE.database, MIGRATOR_ROLE, MIGRATOR_PASSWORD));
+      // Kho có bảng nghiệp vụ thật nhưng TUYỆT ĐỐI không có bảng
+      // users — đúng hình bản sao mà kiểm tra khói không đối
+      // chiếu được gì.
+      await withClient(clusterUrl(FX_NOUSERS_SPACE.database, MIGRATOR_ROLE, MIGRATOR_PASSWORD), async (client) => {
+        await client.query('CREATE TABLE fx_business_probe (id integer PRIMARY KEY, note text NOT NULL)');
+        await client.query(`INSERT INTO fx_business_probe (id, note) VALUES (1, 'du kien that')`);
+      });
+      await fxRegisterSpace(FX_NOUSERS_SPACE);
+      await dumpDatabaseToFile({
+        url: clusterUrl(FX_NOUSERS_SPACE.database),
+        dir: join(FX_BACKUP_DIR, FX_NOUSERS_SPACE.slug),
+        kind: 'scheduled',
+        runId: 'fx595-nousers',
+        at: new Date(),
+        encryptionKey: FX_ENCRYPTION_KEY,
+        env: fxEnv(),
+      });
+
+      const result = await runFleetRestoreTest({
+        env: fxEnv(),
+        backupDir: FX_BACKUP_DIR,
+        spaceSlug: FX_NOUSERS_SPACE.slug,
+        log: () => undefined,
+      });
+      expect(result.status).toBe('failed');
+      expect(result.detail).toMatch(/users/);
+      expect((await fxRegistryState(FX_NOUSERS_SPACE.slug)).lastRestoreStatus).toBe('failed');
+
+      // Đường tắt hợp lệ duy nhất: tắt tường minh kiểm tra khói.
+      const bypassed = await runFleetRestoreTest({
+        env: { ...fxEnv(), FLEET_SMOKE_CHECK: 'off' },
+        backupDir: FX_BACKUP_DIR,
+        spaceSlug: FX_NOUSERS_SPACE.slug,
+        log: () => undefined,
+      });
+      expect(bypassed.status).toBe('success');
+    }, 300_000);
   });
 });

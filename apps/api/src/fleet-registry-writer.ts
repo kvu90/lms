@@ -145,9 +145,23 @@ export class FleetRegistryWriter {
     });
   }
 
-  /** Ghi kết quả lượt sao lưu gần nhất của một kho, giữ nguyên mọi trường còn lại của registry. */
+  /**
+   * Ghi kết quả lượt sao lưu gần nhất của một kho, giữ nguyên mọi
+   * trường còn lại của registry. Trạng thái gần nhất LUÔN được ghi
+   * (để đọc được lượt vừa rồi thành hay bại), nhưng mốc
+   * `lastBackupAt` CHỈ tiến khi lượt thành công: mốc này là căn cứ
+   * duy nhất của cổng kiểm quá hạn (`checkFleetBackups`), nên một
+   * lượt hỏng mà cũng đẩy mốc thì kho hỏng triền miên sẽ trông như
+   * vừa sao lưu xong và cổng kiểm im lặng — báo xanh giả. Kho chưa
+   * từng thành công giữ mốc null và bị cổng kiểm liệt kê quá hạn
+   * đúng như sự thật của nó.
+   */
   async recordBackupOutcome(spaceId: string, status: 'success' | 'failed', at: Date): Promise<void> {
-    await this.mergeRegistry(spaceId, { lastBackupStatus: status, lastBackupAt: at });
+    if (status === 'success') {
+      await this.mergeRegistry(spaceId, { lastBackupStatus: status, lastBackupAt: at });
+      return;
+    }
+    await this.mergeRegistry(spaceId, { lastBackupStatus: status });
   }
 
   /** Ghi kết quả lượt kiểm thử khôi phục gần nhất của một kho, giữ nguyên mọi trường còn lại của registry. */

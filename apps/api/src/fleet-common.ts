@@ -20,11 +20,14 @@
  *   luôn chạm kho bằng role migration (chủ sở hữu đối tượng), không
  *   bao giờ bằng role runtime chỉ có quyền dữ liệu, kể cả khi URL
  *   gốc trong sổ là URL runtime.
- * - Tệp sao lưu được mã hoá AES-256-GCM khi có khoá cấu hình và
- *   luôn đi kèm tệp băm SHA-256 của chính tệp đã lưu: kiểm thử khôi
- *   phục đối chiếu băm TRƯỚC khi giải mã/khôi phục, nên một bản sao
- *   bị hỏng hay bị sửa đều bị phát hiện ở cổng đó thay vì âm thầm
- *   khôi phục ra dữ kiện sai.
+ * - Tệp sao lưu LUÔN được mã hoá AES-256-GCM và luôn đi kèm tệp
+ *   băm SHA-256 của chính tệp đã lưu: mã hoá là bắt buộc
+ *   (fail-closed) — thiếu khoá mã hoá thì mọi đường chụp sao lưu
+ *   từ chối chạy trước khi dump, không tồn tại chế độ lưu bản thô,
+ *   và mọi đường lỗi sau khi dump xong đều xoá tệp thô khỏi đĩa.
+ *   Kiểm thử khôi phục đối chiếu băm TRƯỚC khi giải mã/khôi phục,
+ *   nên một bản sao bị hỏng hay bị sửa đều bị phát hiện ở cổng đó
+ *   thay vì âm thầm khôi phục ra dữ kiện sai.
  * - Bản sao lưu logic chạy qua KẾT NỐI QUẢN TRỊ của cụm khi kết nối
  *   đó được cấu hình (xem `resolveDumpConnectionUrl`): schema
  *   nghiệp vụ áp `FORCE ROW LEVEL SECURITY` lên cả chủ sở hữu
@@ -336,6 +339,28 @@ export async function readDatabaseSchemaVersion(client: Client): Promise<string 
   }
 }
 
+/**
+ * Đọc TOÀN TẬP tên migration đã áp trong một database từ nhật ký
+ * của chính nó. Đây là căn cứ để runner quyết định một kho còn
+ * thiếu migration nào: chỉ nhìn migration MỚI NHẤT (như
+ * `readDatabaseSchemaVersion`) sẽ bỏ sót kho đã có migration mới
+ * nhất nhưng THIẾU một migration cũ ở giữa — kho như vậy trông
+ * như đã đạt đích mà thật ra chưa từng áp đủ bộ. Database chưa có
+ * bảng nhật ký thì tập đã áp là rỗng.
+ */
+export async function readDatabaseAppliedMigrations(client: Client): Promise<string[]> {
+  try {
+    const result = await client.query<{ name: string | null }>(
+      'SELECT name FROM drizzle.__drizzle_migrations',
+    );
+    return result.rows.map((row) => row.name).filter((name): name is string => name !== null);
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    if (code === '42P01' || code === '3F000') return [];
+    throw error;
+  }
+}
+
 /** Đọc một số nguyên dương từ chuỗi cấu hình; rỗng/không hợp lệ thì dùng giá trị dự phòng được truyền vào. */
 export function parsePositiveInt(raw: string | undefined, fallback: number): number {
   if (!raw) return fallback;
@@ -348,15 +373,24 @@ export type StoredBackup = { path: string; encrypted: boolean; sha256: string };
 
 /**
  * Chụp một bản sao lưu logic (`pg_dump` định dạng custom) của
- * database tại `url` vào thư mục của kho: ghi tệp `.dump`, mã hoá
- * thành `.dump.enc` và xoá bản thô khi có khoá cấu hình, rồi ghi
- * tệp băm `.sha256` của CHÍNH tệp cuối cùng đã lưu. Tệp sao lưu nằm
- * NGOÀI máy cụm khi thư mục sao lưu trỏ ra vùng lưu trữ gắn ngoài
- * (cấu hình ở tầng triển khai); helper này chỉ chịu trách nhiệm
- * khuôn tệp và tính toàn vẹn của nó.
- * @throws Error khi `pg_dump` thất bại — caller quyết định ghi nhận
- * thất bại này là chặn bước tiếp theo (bản chốt trước migration)
- * hay chỉ là một lượt sao lưu hỏng.
+ * database tại `url` vào thư mục của kho: ghi tệp `.dump` tạm, mã
+ * hoá thành `.dump.enc`, xoá bản thô, rồi ghi tệp băm `.sha256`
+ * của CHÍNH tệp cuối cùng đã lưu. Tệp sao lưu nằm NGOÀI máy cụm
+ * khi thư mục sao lưu trỏ ra vùng lưu trữ gắn ngoài (cấu hình ở
+ * tầng triển khai); helper này chỉ chịu trách nhiệm khuôn tệp và
+ * tính toàn vẹn của nó.
+ *
+ * Mã hoá là BẮT BUỘC (fail-closed): thiếu khoá mã hoá thì hàm ném
+ * lỗi TRƯỚC khi dump bất cứ thứ gì — một bản sao lưu ở dạng thô
+ * không bao giờ là sản phẩm của đường này. Sau khi dump xong, tệp
+ * thô chỉ tồn tại trong khoảnh khắc chuyển đổi: khối `finally`
+ * xoá nó ở MỌI đường ra (thành công lẫn mọi lỗi ở bước ghi tệp mã
+ * hoá hay tệp băm), và tệp mã hoá dở cũng bị xoá khi bước ghi của
+ * nó hỏng, để trên đĩa không còn gì trông giống một bản sao lưu
+ * dùng được.
+ * @throws Error khi thiếu khoá mã hoá hoặc `pg_dump` thất bại —
+ * caller quyết định ghi nhận thất bại này là chặn bước tiếp theo
+ * (bản chốt trước migration) hay chỉ là một lượt sao lưu hỏng.
  */
 export async function dumpDatabaseToFile(options: {
   url: string;
@@ -368,6 +402,11 @@ export async function dumpDatabaseToFile(options: {
   env?: NodeJS.ProcessEnv;
 }): Promise<StoredBackup> {
   const env = options.env ?? process.env;
+  if (!options.encryptionKey) {
+    throw new Error(
+      'FLEET_BACKUP_ENCRYPTION_KEY is required: fleet backups are always encrypted, plaintext backups are not supported',
+    );
+  }
   mkdirSync(options.dir, { recursive: true });
   const plainPath = join(options.dir, backupFileName(options.kind, options.runId, options.at, false));
   try {
@@ -380,16 +419,25 @@ export async function dumpDatabaseToFile(options: {
     if (existsSync(plainPath)) unlinkSync(plainPath);
     throw error;
   }
-  let finalPath = plainPath;
-  if (options.encryptionKey) {
+  const finalPath = join(options.dir, backupFileName(options.kind, options.runId, options.at, true));
+  try {
     const encrypted = encryptBackup(readFileSync(plainPath), options.encryptionKey);
-    finalPath = join(options.dir, backupFileName(options.kind, options.runId, options.at, true));
     writeFileSync(finalPath, encrypted);
-    unlinkSync(plainPath);
+    const digest = sha256Hex(readFileSync(finalPath));
+    writeFileSync(`${finalPath}.sha256`, `${digest}\n`);
+    return { path: finalPath, encrypted: true, sha256: digest };
+  } catch (error) {
+    // Bước ghi tệp mã hoá/băm hỏng giữa chừng: xoá cả tệp mã hoá
+    // dở — thiếu tệp băm đi kèm thì nó vốn không dùng được, giữ
+    // lại chỉ khiến thư mục sao lưu mang một bản trông như hoàn
+    // chỉnh.
+    if (existsSync(finalPath)) unlinkSync(finalPath);
+    throw error;
+  } finally {
+    // Tệp thô không bao giờ được ở lại trên đĩa sau khi dump đã
+    // xong, ở mọi đường ra kể cả đường thành công ở trên.
+    if (existsSync(plainPath)) unlinkSync(plainPath);
   }
-  const digest = sha256Hex(readFileSync(finalPath));
-  writeFileSync(`${finalPath}.sha256`, `${digest}\n`);
-  return { path: finalPath, encrypted: finalPath !== plainPath, sha256: digest };
 }
 
 /**

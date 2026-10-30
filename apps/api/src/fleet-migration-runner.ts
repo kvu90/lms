@@ -12,21 +12,35 @@
  *    2). Một kho hỏng KHÔNG chặn các kho khác trong cùng đợt, nhưng
  *    đợt có kho hỏng thì các đợt SAU không chạy — lỗi ở canary phải
  *    dừng đội kho lại cho người vận hành xem, không lan tiếp.
- * 3. Với mỗi kho: đọc phiên bản THẬT trong database của kho (nhật
- *    ký `drizzle.__drizzle_migrations` là nguồn sự thật). Đã ở
- *    phiên bản đích thì bỏ qua hẳn — không chụp sao lưu, không ghi
- *    lượt chạy; chỉ khi sổ lệch sự thật mới đồng bộ lại sổ (không
- *    bịa lượt chạy). Chưa đạt đích thì: chụp BẢN SAO LƯU CHỐT gắn
- *    mã lượt chạy (điểm khôi phục của riêng kho đó — chụp hỏng thì
- *    kho bị đánh dấu hỏng và KHÔNG áp migration), áp migration bằng
- *    bộ máy Drizzle, đọc lại phiên bản thật để đối chiếu, rồi ghi
- *    kết quả (phiên bản đầu/đích, từng bước, lỗi) vào registry.
+ * 3. Với mỗi kho: đối chiếu TOÀN TẬP tên migration đã áp trong
+ *    database của kho (nhật ký `drizzle.__drizzle_migrations` là
+ *    nguồn sự thật) với tập thư mục migration cục bộ. Tập còn
+ *    thiếu RỖNG thì kho đã đạt đích: bỏ qua hẳn — không chụp sao
+ *    lưu, không ghi lượt chạy; chỉ khi sổ lệch sự thật mới đồng bộ
+ *    lại sổ (không bịa lượt chạy). Căn cứ là toàn tập chứ không
+ *    phải migration mới nhất: một kho đã có migration mới nhất
+ *    nhưng thiếu một migration cũ ở giữa vẫn còn thiếu và phải
+ *    được áp đúng phần thiếu đó (bộ máy Drizzle áp theo hiệu tập
+ *    tên). Còn thiếu thì: chụp BẢN SAO LƯU CHỐT gắn mã lượt chạy
+ *    (điểm khôi phục của riêng kho đó — chụp hỏng thì kho bị đánh
+ *    dấu hỏng và KHÔNG áp migration), áp migration bằng bộ máy
+ *    Drizzle, đọc lại toàn tập đã áp để đối chiếu, rồi ghi kết
+ *    quả (phiên bản đầu/đích, từng bước, lỗi) vào registry.
  *    Migration hỏng KHÔNG tự khôi phục từ bản chốt: khôi phục là
  *    một hành động vận hành riêng có ghi nhận (xem
  *    `fleet-restore-test.ts` và quy trình vận hành) — tự động khôi
  *    phục có thể xoá mất dữ kiện vừa ghi hợp lệ sau điểm chụp.
  * 4. Chạy lại một lượt chỉ xử lý các kho chưa đạt đích: kho đã đạt
  *    đích bị bỏ qua ở bước 3 nên không sinh lượt chạy trùng.
+ *
+ * Cô lập lỗi nằm ở ranh giới MỘT kho: mọi lỗi phát sinh trong lúc
+ * xử lý một kho — mở kết nối, đọc phiên bản ở bước thăm dò, chụp
+ * bản chốt, áp migration, và cả kết nối/đọc ở bước đối chiếu sau
+ * khi áp — đều quy về kết quả `failed` của chính kho đó và được
+ * ghi vào registry, không làm sập cả lượt chạy. Chỉ lỗi cấu hình
+ * của chính công cụ (thiếu thư mục sao lưu, registry chưa cấu
+ * hình, bộ migration rỗng) mới dừng cả lượt, và dừng TRƯỚC khi
+ * bất kỳ kho nào bị chạm tới.
  *
  * Mức tự động hoá là LỰA CHỌN KỸ THUẬT của đội thi công: runner là
  * CLI do người vận hành/lịch của hệ triển khai gọi tường minh và
@@ -45,6 +59,7 @@ import {
   newFleetRunId,
   orderSpacesIntoWaves,
   parsePositiveInt,
+  readDatabaseAppliedMigrations,
   readDatabaseSchemaVersion,
   resolveDumpConnectionUrl,
   resolveSpaceConnectionUrl,
@@ -85,12 +100,21 @@ function errorDetail(error: unknown): string {
   return message.slice(0, 500);
 }
 
-/** Áp migration cho MỘT kho theo đúng trình tự chốt sao lưu → áp → đối chiếu → ghi registry. */
+/**
+ * Áp migration cho MỘT kho theo đúng trình tự thăm dò → chốt sao
+ * lưu → áp → đối chiếu → ghi registry. Toàn bộ phần xử lý của kho
+ * nằm trong một khối bắt lỗi duy nhất (xem bất biến cô lập lỗi ở
+ * đầu file): lỗi ở BẤT KỲ bước nào của kho này — kể cả suy ra URL,
+ * mở kết nối hay đọc phiên bản ở bước thăm dò và bước đối chiếu —
+ * đều kết thúc bằng ghi nhận `failed` cho chính kho đó qua `fail`,
+ * không thoát ra làm sập lượt chạy.
+ */
 async function migrateSpace(
   space: FleetSpace,
   context: {
     env: NodeJS.ProcessEnv;
     migrationsDir: string;
+    migrationFolders: string[];
     backupDir: string;
     runId: string;
     targetVersion: string;
@@ -99,27 +123,8 @@ async function migrateSpace(
   },
 ): Promise<FleetMigrationSpaceOutcome> {
   const { env, writer, log } = context;
-  const url = resolveSpaceConnectionUrl(space, env);
-  const probe = new Client({ connectionString: url });
-  await probe.connect();
-  let fromVersion: string | null;
-  try {
-    fromVersion = await readDatabaseSchemaVersion(probe);
-  } finally {
-    await probe.end();
-  }
-
-  if (fromVersion === context.targetVersion) {
-    if (space.registryVersion !== context.targetVersion) {
-      await writer.syncVersion(space.id, context.targetVersion);
-      log(`[${space.slug}] already at ${context.targetVersion} in its database; registry reconciled`);
-      return { slug: space.slug, outcome: 'reconciled' };
-    }
-    log(`[${space.slug}] already at ${context.targetVersion}; skipped`);
-    return { slug: space.slug, outcome: 'skipped' };
-  }
-
   const steps: SchemaMigrationStep[] = [];
+  let fromVersion: string | null = null;
   const fail = async (detail: string): Promise<FleetMigrationSpaceOutcome> => {
     await writer.recordMigrationOutcome(space.id, {
       runId: context.runId,
@@ -132,67 +137,104 @@ async function migrateSpace(
     return { slug: space.slug, outcome: 'failed', detail };
   };
 
-  // Điểm khôi phục riêng của kho: bản chốt gắn mã lượt chạy. Chụp
-  // hỏng thì dừng kho này tại đây — không áp migration khi không
-  // có điểm quay lui. Bản chốt chụp qua kết nối quản trị của cụm
-  // khi được cấu hình (xem `resolveDumpConnectionUrl`): schema
-  // nghiệp vụ áp FORCE ROW LEVEL SECURITY cả với chủ sở hữu nên
-  // role migration tự nó không xuất được bản sao đầy đủ.
   try {
-    const stored = await dumpDatabaseToFile({
-      url: resolveDumpConnectionUrl(space, env),
-      dir: join(context.backupDir, space.slug),
-      kind: 'pre-migration',
+    const url = resolveSpaceConnectionUrl(space, env);
+
+    // Bước thăm dò: đọc TOÀN TẬP migration đã áp trong kho (căn cứ
+    // quyết định còn thiếu gì) và phiên bản mới nhất (để ghi
+    // fromVersion cho nhật ký lượt chạy).
+    const probe = new Client({ connectionString: url });
+    let applied: string[];
+    try {
+      await probe.connect();
+      applied = await readDatabaseAppliedMigrations(probe);
+      fromVersion = await readDatabaseSchemaVersion(probe);
+    } finally {
+      await probe.end().catch(() => undefined);
+    }
+    const missing = context.migrationFolders.filter((folder) => !applied.includes(folder));
+
+    if (missing.length === 0) {
+      if (space.registryVersion !== context.targetVersion) {
+        await writer.syncVersion(space.id, context.targetVersion);
+        log(`[${space.slug}] already at ${context.targetVersion} in its database; registry reconciled`);
+        return { slug: space.slug, outcome: 'reconciled' };
+      }
+      log(`[${space.slug}] already at ${context.targetVersion}; skipped`);
+      return { slug: space.slug, outcome: 'skipped' };
+    }
+
+    // Điểm khôi phục riêng của kho: bản chốt gắn mã lượt chạy. Chụp
+    // hỏng thì dừng kho này tại đây — không áp migration khi không
+    // có điểm quay lui. Bản chốt chụp qua kết nối quản trị của cụm
+    // khi được cấu hình (xem `resolveDumpConnectionUrl`): schema
+    // nghiệp vụ áp FORCE ROW LEVEL SECURITY cả với chủ sở hữu nên
+    // role migration tự nó không xuất được bản sao đầy đủ.
+    try {
+      const stored = await dumpDatabaseToFile({
+        url: resolveDumpConnectionUrl(space, env),
+        dir: join(context.backupDir, space.slug),
+        kind: 'pre-migration',
+        runId: context.runId,
+        at: new Date(),
+        encryptionKey: env.FLEET_BACKUP_ENCRYPTION_KEY || undefined,
+        env,
+      });
+      steps.push({ name: 'pre-migration-backup', status: 'success', detail: basename(stored.path) });
+    } catch (error) {
+      const detail = errorDetail(error);
+      steps.push({ name: 'pre-migration-backup', status: 'failed', detail });
+      return fail(`pre-migration backup failed: ${detail}`);
+    }
+
+    const pool = new Pool({ connectionString: url });
+    try {
+      const db = drizzle({ client: pool });
+      await migrate(db, { migrationsFolder: context.migrationsDir });
+      steps.push({ name: 'apply-migrations', status: 'success' });
+    } catch (error) {
+      const detail = errorDetail(error);
+      steps.push({ name: 'apply-migrations', status: 'failed', detail });
+      return fail(`migration failed: ${detail}`);
+    } finally {
+      await pool.end();
+    }
+
+    // Đối chiếu lại bằng sự thật trong database của kho, không tin
+    // mỗi việc bộ máy migration không ném lỗi: toàn tập đã áp phải
+    // phủ đủ bộ cục bộ và phiên bản mới nhất phải là đích.
+    const verify = new Client({ connectionString: url });
+    let stillMissing: string[];
+    let reached: string | null;
+    try {
+      await verify.connect();
+      const appliedAfter = await readDatabaseAppliedMigrations(verify);
+      stillMissing = context.migrationFolders.filter((folder) => !appliedAfter.includes(folder));
+      reached = await readDatabaseSchemaVersion(verify);
+    } finally {
+      await verify.end().catch(() => undefined);
+    }
+    if (stillMissing.length > 0 || reached !== context.targetVersion) {
+      const detail =
+        stillMissing.length > 0
+          ? `migration(s) still missing after apply: ${stillMissing.join(', ')}`
+          : `expected version ${context.targetVersion} after migration, database reports ${reached ?? 'none'}`;
+      steps.push({ name: 'verify-version', status: 'failed', detail });
+      return fail(detail);
+    }
+    steps.push({ name: 'verify-version', status: 'success' });
+    await writer.recordMigrationOutcome(space.id, {
       runId: context.runId,
-      at: new Date(),
-      encryptionKey: env.FLEET_BACKUP_ENCRYPTION_KEY || undefined,
-      env,
+      fromVersion,
+      toVersion: context.targetVersion,
+      status: 'success',
+      steps,
     });
-    steps.push({ name: 'pre-migration-backup', status: 'success', detail: basename(stored.path) });
+    log(`[${space.slug}] migrated ${fromVersion ?? 'none'} -> ${context.targetVersion}`);
+    return { slug: space.slug, outcome: 'migrated' };
   } catch (error) {
-    const detail = errorDetail(error);
-    steps.push({ name: 'pre-migration-backup', status: 'failed', detail });
-    return fail(`pre-migration backup failed: ${detail}`);
+    return fail(errorDetail(error));
   }
-
-  const pool = new Pool({ connectionString: url });
-  try {
-    const db = drizzle({ client: pool });
-    await migrate(db, { migrationsFolder: context.migrationsDir });
-    steps.push({ name: 'apply-migrations', status: 'success' });
-  } catch (error) {
-    const detail = errorDetail(error);
-    steps.push({ name: 'apply-migrations', status: 'failed', detail });
-    return fail(`migration failed: ${detail}`);
-  } finally {
-    await pool.end();
-  }
-
-  // Đối chiếu lại bằng sự thật trong database của kho, không tin
-  // mỗi việc bộ máy migration không ném lỗi.
-  const verify = new Client({ connectionString: url });
-  await verify.connect();
-  let reached: string | null;
-  try {
-    reached = await readDatabaseSchemaVersion(verify);
-  } finally {
-    await verify.end();
-  }
-  if (reached !== context.targetVersion) {
-    const detail = `expected version ${context.targetVersion} after migration, database reports ${reached ?? 'none'}`;
-    steps.push({ name: 'verify-version', status: 'failed', detail });
-    return fail(detail);
-  }
-  steps.push({ name: 'verify-version', status: 'success' });
-  await writer.recordMigrationOutcome(space.id, {
-    runId: context.runId,
-    fromVersion,
-    toVersion: context.targetVersion,
-    status: 'success',
-    steps,
-  });
-  log(`[${space.slug}] migrated ${fromVersion ?? 'none'} -> ${context.targetVersion}`);
-  return { slug: space.slug, outcome: 'migrated' };
 }
 
 /**
@@ -225,6 +267,7 @@ export async function runFleetMigration(options: FleetMigrationOptions = {}): Pr
         const outcome = await migrateSpace(space, {
           env,
           migrationsDir,
+          migrationFolders: folders,
           backupDir,
           runId,
           targetVersion,
