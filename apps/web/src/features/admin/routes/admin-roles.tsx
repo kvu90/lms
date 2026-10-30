@@ -13,7 +13,7 @@ import { Ellipsis } from 'lucide-react';
 import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
-import { PageHeader, PageShell } from '#components/page-shell';
+import { PageShell } from '#components/page-shell';
 import '#config/i18n';
 import { useAccessCapabilities, useAccessContexts, useAccessRoles, useRoleCapabilities } from '#lib/access';
 import { RoleAssignmentsSection } from '../components/role-assignments';
@@ -31,10 +31,14 @@ import { RoleMatrixDialog } from '../components/role-matrix-dialog';
  * Luồng hiển thị:
  *
  * 1. Ba query TanStack dùng chung (lib/access.ts): danh sách vai kèm
- *    tổng hợp đợt 1, danh mục capability, cây context. Lưới thẻ dựng
- *    từ ĐÚNG MỘT lần gọi danh sách — mỗi thẻ hiện tên vai, số người
- *    giữ phân biệt, dải tổng hợp theo nhóm read/write và tổng số
- *    resource vai chạm tới; thẻ cuối là lối vào tạo vai trò duy nhất.
+ *    tổng hợp đợt 1, danh mục capability, cây context. Trang vào thẳng
+ *    lưới thẻ, không có khối tiêu đề riêng phía trên lưới. Lưới thẻ
+ *    dựng từ ĐÚNG MỘT lần gọi danh sách — mỗi thẻ hiện tên vai, số
+ *    người giữ phân biệt và một dải số nền xám gồm đúng ba con số thật
+ *    (Đọc / Ghi / Tổng số resource vai chạm tới, số lớn với nhãn nằm
+ *    dưới số); thẻ cuối của lưới là một thẻ đầy đủ cùng kích thước
+ *    gồm tiêu đề, mô tả ngắn và nút mở hộp thoại tạo vai trò — lối
+ *    vào tạo vai trò duy nhất của trang.
  * 2. Menu ba chấm trên mỗi thẻ chỉ có hai mục: Sửa vai trò (mở hộp
  *    thoại ma trận ở chế độ sửa) và Xoá vai trò (mở hộp thoại xác nhận
  *    xoá). Hộp thoại thêm/sửa dùng chung cho tạo và sửa, lưu qua
@@ -72,7 +76,6 @@ export function AdminRolesPage() {
 
   return (
     <PageShell width="full">
-      <PageHeader title={t('rolesTitle')} description={t('rolesDescription')} />
       {loadFailed ? (
         <>
           <ErrorAlert variant="destructive">{t('rolesLoadFailed')}</ErrorAlert>
@@ -102,10 +105,7 @@ export function AdminRolesPage() {
                   <Card key={r.id}>
                     <CardContent className="space-y-2">
                       <div className="flex items-start justify-between gap-2">
-                        <span>
-                          <strong>{r.name}</strong> <code>{r.shortName}</code>
-                          {r.archetype ? ` ${t('archetypeSuffix', { archetype: r.archetype })}` : ''}
-                        </span>
+                        <strong>{r.name}</strong>
                         <DropdownMenu>
                           <DropdownMenuTrigger
                             render={
@@ -127,21 +127,45 @@ export function AdminRolesPage() {
                       <p className="text-sm text-muted-foreground">
                         {t('roleUsersCount', { count: r.userCount ?? 0 })}
                       </p>
-                      <p className="text-sm">
-                        {t('roleReadOverrides', { count: r.readOverrideCount ?? 0 })} ·{' '}
-                        {t('roleWriteOverrides', { count: r.writeOverrideCount ?? 0 })}
-                      </p>
-                      <p className="text-sm">{t('roleTotalResources', { count: r.resourceCount ?? 0 })}</p>
+                      {/* Dải số của thẻ: đúng ba con số thật của hệ (ghi
+                          đè Đọc, ghi đè Ghi, tổng resource) — hệ không có
+                          khái niệm quyền Create/Delete tách riêng nên
+                          không bày thêm con số như các mẫu quản trị
+                          chung. */}
+                      <div className="flex divide-x rounded-lg bg-muted text-center">
+                        <div className="flex-1 px-2 py-3">
+                          <div className="text-xl font-semibold">{r.readOverrideCount ?? 0}</div>
+                          <div className="text-xs text-muted-foreground">{t('roleReadLabel')}</div>
+                        </div>
+                        <div className="flex-1 px-2 py-3">
+                          <div className="text-xl font-semibold">{r.writeOverrideCount ?? 0}</div>
+                          <div className="text-xs text-muted-foreground">{t('roleWriteLabel')}</div>
+                        </div>
+                        <div className="flex-1 px-2 py-3">
+                          <div className="text-xl font-semibold">{r.resourceCount ?? 0}</div>
+                          <div className="text-xs text-muted-foreground">{t('roleTotalLabel')}</div>
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
-                <button
-                  type="button"
-                  className="rounded-xl border border-dashed p-6 text-left hover:bg-accent"
-                  onClick={() => setMatrixDialog({ mode: 'create', role: null })}
-                >
-                  {t('addRoleCard')}
-                </button>
+                {/* Thẻ thêm vai trò: một thẻ đầy đủ trong lưới (tiêu đề,
+                    mô tả ngắn, nút nằm trong thẻ) thay cho dải nét đứt
+                    trước đây, để lối vào tạo vai trò ngang hàng thị giác
+                    với các thẻ vai trò. */}
+                <Card>
+                  <CardContent className="flex h-full flex-col items-start gap-2">
+                    <strong>{t('addRoleCard')}</strong>
+                    <p className="text-sm text-muted-foreground">{t('addRoleCardDescription')}</p>
+                    <Button
+                      type="button"
+                      className="mt-auto"
+                      onClick={() => setMatrixDialog({ mode: 'create', role: null })}
+                    >
+                      {t('addRoleCard')}
+                    </Button>
+                  </CardContent>
+                </Card>
               </div>
               {roles.length === 0 ? (
                 <Empty className="p-6">
