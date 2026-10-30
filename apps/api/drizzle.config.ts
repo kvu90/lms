@@ -6,7 +6,12 @@ import { defineConfig } from 'drizzle-kit';
 // ssl.rejectUnauthorized = false (require nay bị đối xử như
 // verify-full và sẽ hỏng với CA riêng của nhà cung cấp). Khớp cấu
 // hình kết nối lúc chạy của API và worker (databaseConnectionFromEnv).
-const databaseUrl = process.env.DATABASE_URL!;
+//
+// URL áp migration ưu tiên `MIGRATION_DATABASE_URL` (issue #586 —
+// mô hình role đã tách: bước migrate chạy bằng role migration, chủ
+// sở hữu đối tượng của kho); chưa cấu hình biến đó thì dùng
+// `DATABASE_URL` như trước.
+const databaseUrl = (process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL)!;
 const migrateUrl =
   process.env.DATABASE_SSL === 'true' && !databaseUrl.includes('sslmode=')
     ? `${databaseUrl}${databaseUrl.includes('?') ? '&' : '?'}sslmode=no-verify`

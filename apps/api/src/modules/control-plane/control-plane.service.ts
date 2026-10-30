@@ -16,6 +16,7 @@ import type {
   UpdateSpaceSchemaRegistry,
 } from '@lms/contracts';
 import type { SpaceRegistryRow } from '@lms/db/control-plane';
+import { emitSpaceRegistryChanged } from '../../db/routing/space-routing-events';
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ControlPlaneConnection } from './control-plane.connection';
@@ -150,6 +151,10 @@ export class ControlPlaneRegistryService {
       await this.repo.insertHistory({ spaceId: row.id, actorId, action: 'create', before: null, after: this.snapshot(row) }, tx);
       return row;
     });
+    // Sổ vừa có dòng mới: báo khung định tuyến (issue #581) vô hiệu
+    // hoá đệm của slug này — phát SAU khi transaction đã commit để
+    // bên nghe đọc lại được giá trị mới.
+    emitSpaceRegistryChanged(created.slug);
     return this.toRegistration(created);
   }
 
@@ -175,6 +180,9 @@ export class ControlPlaneRegistryService {
       );
       return row;
     });
+    // Cập nhật có thể đổi đích định tuyến (database/role/chế độ
+    // kho): vô hiệu hoá đệm của slug sau khi đã commit.
+    emitSpaceRegistryChanged(updated.slug);
     return this.toRegistration(updated);
   }
 
@@ -189,6 +197,7 @@ export class ControlPlaneRegistryService {
    */
   async changeStatus(actorId: string, id: string, dto: ChangeSpaceStatus): Promise<SpaceRegistration> {
     await this.assertPlatformManager(actorId);
+    let changedSlug: string | undefined;
     const updated = await this.repo.transaction(async (tx) => {
       const existing = await this.repo.findSpaceByIdForUpdate(id, tx);
       if (!existing) {
@@ -200,8 +209,13 @@ export class ControlPlaneRegistryService {
         { spaceId: id, actorId, action: 'status_change', before: this.snapshot(existing), after: this.snapshot(row) },
         tx,
       );
+      changedSlug = row.slug;
       return row;
     });
+    // Chỉ phát sự kiện khi trạng thái thật sự đổi (đổi về chính
+    // trạng thái hiện tại là thao tác rỗng — sổ không đổi, đệm định
+    // tuyến không cần vô hiệu hoá).
+    if (changedSlug) emitSpaceRegistryChanged(changedSlug);
     return this.toRegistration(updated);
   }
 
@@ -297,6 +311,9 @@ export class ControlPlaneRegistryService {
       }
       return saved;
     });
+    // Trạng thái/phiên bản của kho vừa đổi trên sổ: vô hiệu hoá đệm
+    // định tuyến của slug sau khi đã commit.
+    emitSpaceRegistryChanged(space.slug);
     return {
       spaceId: row.spaceId,
       currentVersion: row.currentVersion,
@@ -314,6 +331,15 @@ export class ControlPlaneRegistryService {
    * bản schema + trường phiên bản trên dòng đăng ký) trong cùng
    * transaction — phiên bản hiện tại chỉ tiến khi lượt chạy thành
    * công, lượt hỏng không đổi phiên bản đích.
+   *
+   * Transaction khoá dòng đăng ký của không gian TRƯỚC khi đọc và
+   * ghi đè registry phiên bản (issue #586, ghi chú từ phán quyết
+   * PR #589): cùng thứ tự khoá với `updateSchemaRegistry`, nên một
+   * lượt ghi migration và một lượt ghi trạng thái sao lưu/khôi phục
+   * đồng thời của cùng không gian nối tiếp nhau thay vì cùng đọc một
+   * ảnh cũ của registry rồi lần ghi sau ghi đè mất trường của lần
+   * ghi trước (phiên bản mới bị thay bằng ảnh cũ, hoặc trạng thái
+   * sao lưu vừa báo bị cuốn về giá trị trước đó).
    */
   async recordMigrationRun(actorId: string, spaceId: string, dto: RecordSpaceSchemaMigrationRun): Promise<SpaceSchemaMigrationRun> {
     await this.assertPlatformManager(actorId);
@@ -321,7 +347,13 @@ export class ControlPlaneRegistryService {
     if (!space) {
       throw new NotFoundException({ message: `Space registration ${spaceId} not found`, code: 'control_plane.space_not_found' });
     }
+    let versionChanged = false;
     const run = await this.repo.transaction(async (tx) => {
+      // Khoá dòng đăng ký trước (nối tiếp các thao tác ghi của
+      // không gian), rồi mới chèn lượt chạy và đọc trạng thái
+      // registry để hợp nhất — thứ tự khoá thống nhất với
+      // `updateSchemaRegistry`.
+      await this.repo.findSpaceByIdForUpdate(spaceId, tx);
       const saved = await this.repo.insertMigrationRun(
         {
           spaceId,
@@ -335,6 +367,7 @@ export class ControlPlaneRegistryService {
         tx,
       );
       if (dto.status === 'success' && dto.toVersion) {
+        versionChanged = true;
         const existing = await this.repo.findSchemaRegistry(spaceId, tx);
         await this.repo.upsertSchemaRegistry(
           {
@@ -351,6 +384,9 @@ export class ControlPlaneRegistryService {
       }
       return saved;
     });
+    // Lượt migration thành công đã nâng phiên bản trên dòng đăng
+    // ký: vô hiệu hoá đệm định tuyến của slug sau khi đã commit.
+    if (versionChanged) emitSpaceRegistryChanged(space.slug);
     return {
       id: run.id,
       spaceId: run.spaceId,
@@ -417,6 +453,10 @@ export class ControlPlaneRegistryService {
       if (inserted) created += 1;
       await this.repo.ensureSchemaRegistry(row.id, SHARED_DATABASE_SCHEMA_VERSION);
     }
+    // Dòng đăng ký có thể vừa được tạo ở lượt gieo này: báo khung
+    // định tuyến vô hiệu hoá đệm của các slug vừa gieo để lần phân
+    // giải sau đọc đúng dòng hiện có trên sổ.
+    for (const space of spaces) emitSpaceRegistryChanged(space.slug);
     if (created > 0) this.logger.log(`Seeded ${created} existing space registration(s) into the control plane registry`);
     return created;
   }
