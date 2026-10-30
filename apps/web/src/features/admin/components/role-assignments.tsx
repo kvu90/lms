@@ -4,7 +4,7 @@ import type { PaginationState } from '@tanstack/react-table';
 import type { AssignmentListItem, RoleListItem } from '@lms/contracts';
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Button } from '@lms/ui/components/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Field, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { PageSkeleton } from '#components/page-skeleton';
@@ -40,6 +40,12 @@ import { RoleUnassignDialog, type UnassignTarget } from './role-unassign-dialog'
  *    cuối cùng thay vì kẹt ở trang rỗng không có nút quay lại.
  *    API chưa có hợp đồng sắp xếp nên bảng không bật sắp xếp cột —
  *    sắp xếp một trang đơn lẻ sẽ gây hiểu nhầm là sắp xếp toàn cục.
+ *    Trình bày của khu vực: tiêu đề bảng có một dòng mô tả phụ; thanh
+ *    lọc là MỘT hàng thanh công cụ (mỗi điều khiển co theo nội dung,
+ *    ô tìm kiếm mang bề rộng cố định) thay vì các trường full-width
+ *    xếp dọc; chân bảng dùng biến thể khoảng dòng của DataTable —
+ *    dòng "Hiển thị X–Y trong Z dòng" kèm cụm nút chuyển trang và nút
+ *    số trang luôn hiển thị kể cả khi chỉ có một trang.
  * 2. Mỗi dòng gán là một bộ ba người dùng × vai trò × ngữ cảnh: cùng
  *    vai trò ở nhiều ngữ cảnh thành nhiều dòng. Tên vai trò và nhãn
  *    ngữ cảnh phân giải từ danh sách vai/cây context trang đã tải;
@@ -193,10 +199,15 @@ export function RoleAssignmentsSection({ roles, contexts }: RoleAssignmentsSecti
     <Card>
       <CardHeader>
         <CardTitle>{t('assignmentTableTitle')}</CardTitle>
+        <CardDescription>{t('assignmentTableDescription')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Thanh công cụ một hàng: Field mặc định full-width cho form
+            dọc, ở đây mỗi trường phải co lại (ô tìm kiếm bề rộng cố
+            định, các ô chọn theo nội dung) để cả hàng nằm trên một
+            dòng, chỉ xuống dòng khi bề ngang thật sự không đủ. */}
         <div className="flex flex-wrap items-end gap-2">
-          <Field>
+          <Field className="w-72 max-w-full">
             <FieldLabel htmlFor="assignment-search">{t('assignmentSearch')}</FieldLabel>
             <Input
               id="assignment-search"
@@ -208,7 +219,7 @@ export function RoleAssignmentsSection({ roles, contexts }: RoleAssignmentsSecti
               }}
             />
           </Field>
-          <Field>
+          <Field className="w-auto">
             <FieldLabel htmlFor="assignment-role-filter">{t('assignmentFilterRole')}</FieldLabel>
             <select
               id="assignment-role-filter"
@@ -227,7 +238,7 @@ export function RoleAssignmentsSection({ roles, contexts }: RoleAssignmentsSecti
               ))}
             </select>
           </Field>
-          <Field>
+          <Field className="w-auto">
             <FieldLabel htmlFor="assignment-context-filter">{t('assignmentFilterContext')}</FieldLabel>
             <select
               id="assignment-context-filter"
@@ -246,7 +257,7 @@ export function RoleAssignmentsSection({ roles, contexts }: RoleAssignmentsSecti
               ))}
             </select>
           </Field>
-          <Field>
+          <Field className="w-auto">
             <FieldLabel htmlFor="assignment-pagesize">{t('assignmentPageSize')}</FieldLabel>
             <select
               id="assignment-pagesize"
@@ -295,7 +306,9 @@ export function RoleAssignmentsSection({ roles, contexts }: RoleAssignmentsSecti
               next: t('dashboard:tableNext'),
               empty: t('assignmentEmpty'),
               pageInfo: (page, pages) => t('dashboard:tablePageInfo', { page, pages }),
+              rangeInfo: (from, to, total) => t('assignmentShowing', { from, to, total }),
             }}
+            totalRows={data?.total ?? 0}
             getRowId={(row) => row.id}
             manualPagination
             pageCount={pageCount}

@@ -85,6 +85,34 @@ export interface DataTableLabels {
   pageInfo: (page: number, pages: number) => string;
   /** Placeholder của ô lọc toàn bảng; bỏ qua thì không hiện ô lọc (ví dụ bảng lọc phía server). */
   filterPlaceholder?: string;
+  /**
+   * Dòng chữ khoảng dòng đang hiển thị ở chân bảng (ví dụ "Hiển thị
+   * 1–20 trong 57 dòng"). Khi được truyền, chân bảng chuyển sang biến
+   * thể khoảng dòng: dòng chữ này thay cho pageInfo và cụm nút chuyển
+   * trang LUÔN hiển thị (kể cả khi chỉ có một trang) kèm các nút số
+   * trang. Bỏ qua thì chân bảng giữ biến thể mặc định (pageInfo + cụm
+   * nút chỉ hiện khi có từ hai trang).
+   */
+  rangeInfo?: (from: number, to: number, total: number) => string;
+}
+
+/**
+ * Danh sách nút số trang của cụm phân trang biến thể khoảng dòng:
+ * tối đa 7 trang thì liệt kê hết; nhiều hơn thì giữ trang đầu, trang
+ * cuối và ba trang quanh trang hiện tại, các khoảng nhảy thay bằng
+ * dấu 'ellipsis' để cụm nút không tràn khi số trang lớn.
+ */
+function pageNumberList(pageCount: number, current: number): (number | 'ellipsis')[] {
+  if (pageCount <= 7) return Array.from({ length: pageCount }, (_, i) => i);
+  const kept = [...new Set([0, pageCount - 1, current - 1, current, current + 1])]
+    .filter((page) => page >= 0 && page < pageCount)
+    .sort((a, b) => a - b);
+  const list: (number | 'ellipsis')[] = [];
+  kept.forEach((page, index) => {
+    if (index > 0 && page - kept[index - 1]! > 1) list.push('ellipsis');
+    list.push(page);
+  });
+  return list;
 }
 
 /**
@@ -99,6 +127,10 @@ export interface DataTableLabels {
  * thì bật manualPagination và giữ trạng thái trang ở trang gọi (bảng
  * không tự cắt trang). Dữ liệu và cột do trang gọi cung cấp — luôn là
  * dữ liệu thật của vai trò tương ứng; component không biết nghiệp vụ.
+ * Chân bảng có hai biến thể do nhãn của trang gọi chọn: mặc định hiện
+ * "Trang X / Y" và chỉ bày cụm nút khi có từ hai trang; khi trang gọi
+ * truyền nhãn rangeInfo thì hiện khoảng dòng đang hiển thị kèm cụm nút
+ * luôn bày (có thêm nút số trang) như các bảng quản trị mẫu.
  *
  * Chi tiết kiểu: TanStack v9 chỉ suy luận chặt khi mảng cột được bọc qua
  * `columnHelper.columns(...)` với kiểu hàng cụ thể, nên phần nội bộ làm
@@ -118,6 +150,7 @@ export function DataTable<T extends Record<string, any>>({
   pagination: paginationProp,
   onPaginationChange,
   rowTestId,
+  totalRows,
 }: {
   title?: string;
   data: T[];
@@ -125,6 +158,13 @@ export function DataTable<T extends Record<string, any>>({
   labels: DataTableLabels;
   getRowId: (row: T) => string;
   pageSize?: number;
+  /**
+   * Tổng số dòng khớp toàn cục cho dòng chữ khoảng dòng ở chân bảng
+   * (chỉ dùng khi labels.rangeInfo được truyền): bắt buộc truyền ở chế
+   * độ manualPagination vì bảng chỉ thấy đúng một trang; ở chế độ client
+   * mà bỏ qua thì bảng tự lấy tổng sau lọc từ row model.
+   */
+  totalRows?: number;
   /**
    * Phân trang phía server: dữ liệu truyền vào đã là đúng một trang,
    * bảng chỉ giữ trạng thái trang và báo lên trang gọi qua
@@ -210,6 +250,18 @@ export function DataTable<T extends Record<string, any>>({
     onSortingChange: setSorting,
     onPaginationChange: handlePaginationChange,
   });
+
+  /**
+   * Số liệu khoảng dòng cho biến thể chân bảng rangeInfo: tổng toàn
+   * cục do trang gọi truyền (phân trang phía server) hoặc lấy từ row
+   * model sau lọc (phân trang phía client); khoảng đang hiển thị suy
+   * từ vị trí trang và số hàng thật trên trang hiện tại, tổng bằng 0
+   * thì khoảng bắt đầu cũng là 0.
+   */
+  const currentPageIndex = table.state.pagination.pageIndex;
+  const totalForRange = totalRows ?? table.getFilteredRowModel().rows.length;
+  const rangeFrom = totalForRange === 0 ? 0 : currentPageIndex * table.state.pagination.pageSize + 1;
+  const rangeTo = currentPageIndex * table.state.pagination.pageSize + table.getRowModel().rows.length;
 
   return (
     <div className="flex w-full flex-col gap-4 px-4 lg:px-6">
@@ -306,12 +358,18 @@ export function DataTable<T extends Record<string, any>>({
       </div>
       <div className="flex items-center justify-between">
         <div className="text-sm font-medium">
-          {labels.pageInfo(table.state.pagination.pageIndex + 1, Math.max(table.getPageCount(), 1))}
+          {labels.rangeInfo
+            ? labels.rangeInfo(rangeFrom, rangeTo, totalForRange)
+            : labels.pageInfo(table.state.pagination.pageIndex + 1, Math.max(table.getPageCount(), 1))}
         </div>
-        {/* Cụm nút chuyển trang chỉ hiện khi có từ hai trang: bảng một
-            trang mà vẫn bày bốn nút vô hiệu (đầu/trước/sau/cuối) chỉ gây
-            nhiễu — đúng cách rút gọn của mẫu data-table chuẩn. */}
-        {table.getPageCount() > 1 ? (
+        {/* Cụm nút chuyển trang: biến thể mặc định chỉ hiện khi có từ
+            hai trang — bảng một trang mà vẫn bày bốn nút vô hiệu
+            (đầu/trước/sau/cuối) chỉ gây nhiễu, đúng cách rút gọn của
+            mẫu data-table chuẩn. Biến thể khoảng dòng (rangeInfo) thì
+            LUÔN hiện kèm nút số trang như các bảng quản trị mẫu: một
+            trang vẫn bày cụm nút ở trạng thái tắt để bố cục chân bảng
+            ổn định. */}
+        {labels.rangeInfo || table.getPageCount() > 1 ? (
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -333,6 +391,26 @@ export function DataTable<T extends Record<string, any>>({
               <span className="sr-only">{labels.previous}</span>
               <IconChevronLeft />
             </Button>
+            {labels.rangeInfo
+              ? pageNumberList(Math.max(table.getPageCount(), 1), currentPageIndex).map((item, index) =>
+                  item === 'ellipsis' ? (
+                    <span key={`ellipsis-${index}`} className="px-1 text-sm text-muted-foreground">
+                      …
+                    </span>
+                  ) : (
+                    <Button
+                      key={item}
+                      variant={item === currentPageIndex ? 'default' : 'outline'}
+                      className="size-8"
+                      size="icon"
+                      aria-current={item === currentPageIndex ? 'page' : undefined}
+                      onClick={() => table.setPageIndex(item)}
+                    >
+                      {item + 1}
+                    </Button>
+                  ),
+                )
+              : null}
             <Button
               variant="outline"
               className="size-8"

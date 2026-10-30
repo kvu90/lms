@@ -3,6 +3,7 @@ import { CAP, type Capability, type RoleListItem } from '@lms/contracts';
 import { Button } from '@lms/ui/components/button';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
+import { X } from 'lucide-react';
 import { ErrorAlert } from '#components/error-alert';
 import type { ContextRow, RoleCapabilityRow } from '#lib/access';
 import { useTranslation } from 'react-i18next';
@@ -19,7 +20,11 @@ import { groupCapabilitiesByResource, verbOfCapability, type RoleMatrixDraft } f
  *    tạo); `shortName` chỉ hiện khi tạo, bắt buộc và duy nhất, khi sửa
  *    thì khoá không cho đổi; ngữ cảnh mặc định là ngữ cảnh hệ thống
  *    (cấp 10). Trang chứa render hộp thoại có điều kiện nên mỗi lần mở
- *    là một lượt làm việc mới với state khởi tạo sạch.
+ *    là một lượt làm việc mới với state khởi tạo sạch. Đầu hộp thoại
+ *    gồm tiêu đề, một dòng mô tả phụ theo chế độ (tạo/sửa) và nút đóng
+ *    × ở góc trên; hành động huỷ chỉ có đúng một nút ở hàng nút dưới
+ *    cùng — đóng bằng ×, bằng Huỷ hay bằng Escape đều đi qua cùng một
+ *    hàm đóng và cùng bị chặn trong lúc đang lưu.
  * 2. Ma trận trình bày các ghi đè ĐÃ LƯU tại ngữ cảnh đang chọn, gom
  *    theo resource, mỗi ô là một điều khiển bốn trạng thái (ALLOW /
  *    INHERIT / PREVENT / PROHIBIT) trên năng lực thật — không dựng bốn
@@ -216,6 +221,8 @@ export function RoleMatrixDialog({
   }
 
   const title = mode === 'create' ? t('roleDialogCreateTitle') : t('roleDialogEditTitle');
+  /** Dòng mô tả phụ dưới tiêu đề, đổi theo chế độ tạo/sửa như mẫu hộp thoại quản trị chuẩn. */
+  const subtitle = mode === 'create' ? t('roleDialogCreateDescription') : t('roleDialogEditDescription');
   /**
    * Chế độ sửa chỉ lưu được khi ma trận đã tải thành công: đang tải
    * hoặc tải lỗi mà vẫn cho lưu thì PUT thay toàn bộ mang tập gần
@@ -242,9 +249,19 @@ export function RoleMatrixDialog({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-4">
-          <h2 className="text-lg font-semibold">{title}</h2>
-          <Button type="button" variant="outline" size="sm" disabled={saving} onClick={onClose}>
-            {t('cancel')}
+          <div>
+            <h2 className="text-lg font-semibold">{title}</h2>
+            <p className="text-sm text-muted-foreground">{subtitle}</p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t('closeDialog')}
+            disabled={saving}
+            onClick={onClose}
+          >
+            <X aria-hidden />
           </Button>
         </div>
 
