@@ -6,6 +6,8 @@ import { DrizzleModule } from '@nestjs/drizzle';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { databaseConnectionFromEnv, redisConnectionFromUrl, validateEnv } from './config/env';
 import { relations } from './db/relations';
+import { SpaceDatabaseService } from './db/routing/space-database.service';
+import { SpaceRoutingModule } from './db/routing/space-routing.module';
 import { TenantAwarePool } from './db/tenant-pool';
 import { CacheInfraModule } from './infra/cache/cache-infra.module';
 import { EventsModule } from './infra/events/events.module';
@@ -73,9 +75,9 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     I18nFoundationModule,
     DrizzleModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
+      imports: [ConfigModule, SpaceRoutingModule],
+      inject: [ConfigService, SpaceDatabaseService],
+      useFactory: (config: ConfigService, spaceDatabase: SpaceDatabaseService) => {
         const connection = databaseConnectionFromEnv(
           config.getOrThrow<string>('DATABASE_URL'),
           config.get<boolean>('DATABASE_SSL') ?? false,
@@ -83,6 +85,15 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
         const pool = new TenantAwarePool(
           typeof connection === 'string' ? { connectionString: connection } : connection,
         );
+        const sharedDb = drizzle({ client: pool, relations });
+        // Khung định tuyến theo trung tâm (issue #581): handle kho
+        // chung vừa dựng được gắn vào khung làm đích mặc định, và
+        // handle mà mọi điểm inject nhận là handle ĐỊNH TUYẾN của
+        // khung — uỷ thác về kho chung cho mọi ngữ cảnh chưa mang
+        // trung tâm ở kho riêng (toàn bộ đường hiện hành), và về
+        // kho của trung tâm khi ngữ cảnh đã được chuẩn bị theo
+        // trung tâm đó. Các điểm inject vì vậy không đổi cách gọi.
+        spaceDatabase.bindSharedDatabase(sharedDb);
         return {
           // TENANT-1 (#196): pool tự dựng có gắn GUC tenant theo ngữ
           // cảnh ALS ở mọi checkout. Kiểu options của @nestjs/drizzle
@@ -91,7 +102,7 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
           // drizzle() với chính pool này, hành vi tương đương đường
           // `client` mà runtime của module vốn chuyển thẳng vào
           // drizzle(config).
-          db: drizzle({ client: pool, relations }),
+          db: spaceDatabase.routedDatabase,
         };
       },
     }),
@@ -182,6 +193,7 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
     EventLogModule,
     ContentBankModule,
     ControlPlaneModule,
+    SpaceRoutingModule,
     PrivacyModule,
     SiteConfigModule,
     TenantsModule,

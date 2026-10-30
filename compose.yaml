@@ -129,6 +129,11 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Can dat POSTGRES_PASSWORD trong file .env}@postgres:5432/${POSTGRES_DB:-lms}
+      # Khung định tuyến theo trung tâm phía worker (issue #581) đọc
+      # sổ đăng ký ở control plane qua đúng biến này như api — thiếu
+      # nó thì mọi đường mở phiên theo trung tâm của worker ném lỗi
+      # chưa cấu hình trong triển khai mặc định.
+      CONTROL_PLANE_DATABASE_URL: postgres://lms_control_plane:${CONTROL_PLANE_POSTGRES_PASSWORD:?Can dat CONTROL_PLANE_POSTGRES_PASSWORD trong file .env}@postgres:5432/lms_control_plane
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:?Can dat JWT_SECRET trong file .env}
       FILE_STORAGE_DIR: /app/data/files
