@@ -10,12 +10,13 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@lms/ui/components/dropdown-menu';
 import { Input } from '@lms/ui/components/input';
+import { Skeleton } from '@lms/ui/components/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@lms/ui/components/tabs';
 import { cn } from '@lms/ui/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { CreateGroupSheet } from './create-group-sheet';
 import { GroupTreeNav } from './group-tree-nav';
-import { NewMessageSheet } from './new-message-sheet';
+import { NewMessageDialog } from './new-message-dialog';
 import type {
   ContactRequestView,
   ConversationGroupTreeView,
@@ -46,8 +47,10 @@ import { CHAT_MENU_CONTENT_CLASS, CHAT_MENU_ITEM_CLASS, initialsOf, relativeTime
  *   Nhóm tự do do server dựng sẵn ({@link GroupTreeNav}); bấm một
  *   nút là mở ngay chat của nút đó ở khung phải. Tab mang huy hiệu
  *   tổng số chưa đọc của cả cây.
- * - Nút **Tin nhắn mới** cạnh tiêu đề mở sheet cùng tên ({@link
- *   NewMessageSheet}): nơi tab Danh bạ cũ bị hạ xuống — lời mời kết
+ * - Nút **Tin nhắn mới** cạnh tiêu đề mở hộp thoại cùng tên
+ *   ({@link NewMessageDialog} — hộp thoại nằm giữa màn hình như
+ *   bản demo từ issue #591, thay ngăn kéo trượt bên phải trước
+ *   đây): nơi tab Danh bạ cũ bị hạ xuống — lời mời kết
  *   bạn (kèm huy hiệu số lượng trên chính nút này), chọn người từ
  *   liên hệ/roster lớp/khoá, và mục liên hệ đã chặn.
  * - Tiêu đề khung trái kèm avatar của chính người xem — ánh xạ nút
@@ -124,6 +127,13 @@ interface ConversationSidebarProps {
   pickerRosterCursor: string | null;
   /** Tải trang roster tiếp theo cho bộ chọn. */
   onLoadMorePicker: () => void;
+  /**
+   * Danh sách hội thoại đang nạp lần đầu (issue #591): khung
+   * trái hiện khung đang tải (skeleton) đúng hình dạng trang
+   * thay cho trạng thái rỗng giả; rỗng thật chỉ hiện sau khi
+   * nạp xong và xác nhận không có dữ kiện.
+   */
+  loading?: boolean;
 }
 
 type ConversationFilterChip = 'all' | 'unread';
@@ -131,8 +141,8 @@ type ConversationFilterChip = 'all' | 'unread';
 /**
  * Trình bày khung trái Tin nhắn: tiêu đề + avatar người xem + nút
  * Tin nhắn mới, hai tab Trò chuyện / Nhóm (trong tab Trò chuyện là
- * các mục thu gọn Ghim / Gần đây / Đã lưu trữ), và hai sheet (Tin
- * nhắn mới, Tạo nhóm).
+ * các mục thu gọn Ghim / Gần đây / Đã lưu trữ), hộp thoại Tin
+ * nhắn mới và sheet Tạo nhóm.
  *
  * @param props - Dữ kiện và sự kiện do trang Tin nhắn đưa xuống.
  * @returns Khung trái hoàn chỉnh của màn master–detail.
@@ -145,7 +155,7 @@ export function ConversationSidebar({
   contacts, contactMessage, incomingRequests, outgoingRequests, blocked, blockMessage,
   onMessageContact, onSendContactRequest, onRespondContactRequest, onUnblockContact,
   pickerContext, onSelectPickerContext, pickerClasses, pickerCourses, pickerMembers,
-  pickerRosterError, pickerRosterCursor, onLoadMorePicker,
+  pickerRosterError, pickerRosterCursor, onLoadMorePicker, loading,
 }: ConversationSidebarProps) {
   const { t } = useTranslation('app');
   const open = onOpenConversation;
@@ -336,6 +346,19 @@ export function ConversationSidebar({
     { key: 'all', label: t('messagesFilterAll'), count: allCount },
     { key: 'unread', label: t('messagesFilterUnread'), count: unreadCountTotal },
   ];
+  /**
+   * Bản đồ hội thoại theo id cho cây nhóm (issue #591): dòng
+   * nhóm trong tab Nhóm tra hội thoại tương ứng ở đây để hiện
+   * xem trước tin cuối + ngày + biểu tượng tắt tiếng như các
+   * hàng còn lại.
+   */
+  const conversationsById = new Map(conversations.map((c) => [c.id, c]));
+  /**
+   * Đang nạp lần đầu và chưa có dữ kiện nào trong cache: khung
+   * trái hiện skeleton thay cho mọi trạng thái rỗng (issue
+   * #591 — cấm trạng thái rỗng giả lúc tải).
+   */
+  const initialLoading = Boolean(loading) && conversations.length === 0 && !error;
 
   /**
    * Một mục thu gọn trong tab Trò chuyện (issue #564): tiêu đề
@@ -440,10 +463,47 @@ export function ConversationSidebar({
                   <span aria-hidden>{count}</span>
                 </Button>
               ))}
+              {/*
+                Chip Yêu thích (issue #591): tab Yêu thích riêng
+                của bản demo là điểm CHƯA có phán quyết về chức
+                năng và chưa có dữ kiện yêu thích nào — ở đợt này
+                chỉ dựng đúng HÌNH DẠNG chip trong hàng lọc, ở
+                trạng thái vô hiệu (không lọc gì, không phát sinh
+                tác dụng giả); chức năng chờ phán quyết ở đợt
+                backend.
+              */}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-full"
+                disabled
+              >
+                {t('messagesFilterFavourites')}
+              </Button>
             </div>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-1 py-2">
-            {visibleConversations.length === 0 ? (
+            {initialLoading ? (
+              /*
+                Khung đang tải lần đầu (issue #591): các dòng
+                skeleton giữ đúng hình dạng hàng hội thoại
+                (avatar tròn + hai dòng chữ) để trang không nhảy
+                hình khi dữ kiện về; trạng thái rỗng chỉ được
+                hiện ở nhánh dưới, sau khi nạp xong.
+              */
+              <div data-testid="conversations-loading" className="space-y-3 px-2" aria-label={t('conversationsLoading')}>
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <Skeleton className="size-10 shrink-0 rounded-full" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <Skeleton className="h-3.5 w-2/3" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : visibleConversations.length === 0 ? (
               <p className="px-2 text-sm text-muted-foreground">
                 {filterNeedle
                   ? t('conversationSearchNoResults')
@@ -469,7 +529,7 @@ export function ConversationSidebar({
                 ) : null}
               </div>
             )}
-            {renderSection(
+            {initialLoading ? null : renderSection(
               t('archivedConversationsTitle'),
               visibleArchived.length,
               archivedOpen,
@@ -510,11 +570,15 @@ export function ConversationSidebar({
               onOpenGroupConversation={onOpenGroupConversation}
               canCreateFreeGroup={canCreateFreeGroup}
               onCreateFreeGroup={() => setCreateGroupOpen(true)}
+              conversationsById={conversationsById}
+              myId={myId}
+              nameOf={nameOf}
+              loading={initialLoading}
             />
           </div>
         </TabsContent>
       </Tabs>
-      <NewMessageSheet
+      <NewMessageDialog
         open={newMessageOpen}
         onOpenChange={setNewMessageOpen}
         incomingRequests={incomingRequests}

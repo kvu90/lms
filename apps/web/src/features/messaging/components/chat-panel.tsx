@@ -1,5 +1,9 @@
 import { useEffect, useState, type Dispatch, type FormEvent, type ReactNode, type RefObject, type SetStateAction } from 'react';
-import { ArrowLeft, Ellipsis, Eraser, MessageCircle, Reply, Search, Smile, Trash, Undo2, X } from 'lucide-react';
+import {
+  ArrowLeft, Ban, Bell, BellOff, Bold, Check, CheckCheck, Ellipsis, Eraser, Flag,
+  Link2, MessageCircle, MessagesSquare, Paperclip, Pin, PinOff, Reply, Search,
+  SendHorizontal, Smile, SmilePlus, Trash, Undo2, X,
+} from 'lucide-react';
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Bubble, BubbleContent } from '@lms/ui/components/bubble';
 import { Button } from '@lms/ui/components/button';
@@ -11,6 +15,8 @@ import {
   Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle,
 } from '@lms/ui/components/empty';
 import { Input } from '@lms/ui/components/input';
+import { Skeleton } from '@lms/ui/components/skeleton';
+import { Tabs, TabsList, TabsTrigger } from '@lms/ui/components/tabs';
 import { Textarea } from '@lms/ui/components/textarea';
 import {
   Message, MessageAvatar, MessageContent, MessageFooter, MessageHeader,
@@ -20,12 +26,33 @@ import {
   MessageScrollerProvider, MessageScrollerViewport, useMessageScroller,
 } from '@lms/ui/components/message-scroller';
 import { useTranslation } from 'react-i18next';
-import { MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT } from '@lms/contracts';
 
-import { formatDate, formatDateTime } from '#utils/date-format';
-import type { ConversationView, MessageQuoteView, MessageSearchResultView, MessageView, ScrollerHandle } from '../types/types';
+import { formatDate, formatTime } from '#utils/date-format';
+import { getPersonProfile, getSharedFiles, QUICK_REPLY_SHAPE_SAMPLES } from '../api/person-profile-adapter';
+import type { ConversationStatePatch, ConversationView, MessageQuoteView, MessageSearchResultView, MessageView, PersonSummary, ScrollerHandle } from '../types/types';
 import { MemberActionMenu, MemberPanel, MemberProfileSheet, useMemberProfile, type MemberPanelBundle } from './member-panel';
-import { CHAT_MENU_CONTENT_CLASS, CHAT_MENU_ITEM_CLASS, countMessageCharacters, initialsOf, quoteExcerptOfText } from '../utils/utils';
+import { CHAT_MENU_CONTENT_CLASS, CHAT_MENU_ITEM_CLASS, initialsOf, quoteExcerptOfText } from '../utils/utils';
+
+/**
+ * Lưới emoji của bộ chọn ở ô soạn (issue #591): popover dạng
+ * lưới 5 cột × 4 hàng như bản demo, thay danh sách dọc hẹp 6
+ * biểu tượng trước đây. Chọn emoji vẫn chèn ký tự vào ô soạn
+ * như hành vi hiện có; không thêm thư viện picker.
+ */
+const EMOJI_GRID_OPTIONS = [
+  '👍', '❤️', '😂', '😀', '😍',
+  '🎉', '👏', '🙏', '🔥', '😮',
+  '😢', '🤔', '👌', '🙌', '💯',
+  '✨', '😴', '🤗', '😎', '🙂',
+];
+
+/**
+ * Bộ cảm xúc của bộ chọn reactions trên tin — CHỈ HÌNH DẠNG
+ * (issue #591, xem khối render ở toolbar nổi của bong bóng):
+ * reactions chưa có phán quyết chức năng nên lưới này chỉ để
+ * trình bày, các mục đều vô hiệu.
+ */
+const REACTION_SHAPE_EMOJIS = ['❤️', '😂', '😮', '😢', '👍'];
 
 /**
  * Cầu nối tới handle cuộn của MessageScroller: hook chỉ gọi được
@@ -69,7 +96,25 @@ interface ChatPanelProps {
   canRecall: (message: MessageView) => boolean;
   onRecallMessage: (message: MessageView) => void;
   onHardDeleteMessage: (message: MessageView) => void;
-  seenByAllOthers: boolean;
+  /**
+   * Đặt một cờ trạng thái cá nhân (ghim / tắt tiếng) cho hội
+   * thoại đang mở (issue #591): hành động tắt/bật thông báo và
+   * ghim/bỏ ghim ở đầu khung và panel thông tin đi qua đây —
+   * cùng một đường đổi trạng thái với menu trên hàng danh sách.
+   */
+  onUpdateConversationState: (conversation: ConversationView, patch: ConversationStatePatch) => void;
+  /**
+   * Bản đồ tóm tắt người dùng của trang (issue #591): panel
+   * thông tin lấy tên đăng nhập thật của đối tác qua đây để
+   * adapter hồ sơ dựng đúng trường đã có nguồn.
+   */
+  people: Record<string, PersonSummary>;
+  /**
+   * Trang đang nạp dữ kiện lần đầu (issue #591): khi chưa có
+   * hội thoại đang mở thì hiện khung đang tải đúng hình dạng
+   * thay cho trạng thái trống.
+   */
+  loading?: boolean;
   typingNames: string[];
   draft: string;
   setDrafts: Dispatch<SetStateAction<Record<string, string>>>;
@@ -110,7 +155,7 @@ export function ChatPanel({
   active, myId, onlineUsers, readMarkers, onBack, blocked, onUnblockContact, onBlockContact, onReportConversation,
   onToggleChat, reportMessage, actionMessage, hasMoreBefore, onLoadOlder, selectedForBulk,
   setSelectedForBulk, onBulkRemove, visibleMessages, nameOf, onRetrySend, onDeleteMessage,
-  canRecall, onRecallMessage, onHardDeleteMessage, seenByAllOthers, typingNames, draft,
+  canRecall, onRecallMessage, onHardDeleteMessage, onUpdateConversationState, people, loading, typingNames, draft,
   setDrafts, onNoteTyping, onSend, sendError, sendInFlight,
   replyTarget, onStartReply, onCancelReply, onJumpToQuote, highlightedMessageId, scrollerRef,
   messageSearch, onSearchMessages, onClearMessageSearch, onJumpToSearchResult, memberPanel,
@@ -143,6 +188,31 @@ export function ChatPanel({
   }, [active?.id]);
 
   if (!active) {
+    // Đang nạp lần đầu (issue #591): khung phải hiện skeleton
+    // đúng hình dạng (đầu khung + vài bong bóng) — không hiện
+    // trạng thái trống giả rồi mới đầy dữ kiện; trạng thái
+    // trống thật chỉ hiện khi đã nạp xong.
+    if (loading) {
+      return (
+        <div data-testid="thread-loading" className="flex min-h-0 flex-1 flex-col" aria-label={t('conversationsLoading')}>
+          <div className="flex items-center gap-3 border-b px-3 py-2">
+            <Skeleton className="size-10 shrink-0 rounded-full" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+          </div>
+          <div className="flex-1 space-y-4 p-4">
+            <Skeleton className="h-10 w-1/2 rounded-xl" />
+            <Skeleton className="ml-auto h-10 w-2/5 rounded-xl" />
+            <Skeleton className="h-10 w-3/5 rounded-xl" />
+          </div>
+          <div className="border-t px-3 py-2">
+            <Skeleton className="h-9 w-full rounded-md" />
+          </div>
+        </div>
+      );
+    }
     return (
       <Empty>
         <EmptyHeader>
@@ -235,12 +305,27 @@ export function ChatPanel({
     }
     : null;
   /**
-   * Id tin CUỐI CÙNG trong danh sách đang xem — căn cứ cho quy tắc
-   * "dòng thời gian chỉ hiện ở tin nhắn cuối" (cùng quyết 23:16 ở
-   * trên): footer giờ chỉ render ở tin này; tin khác chỉ còn footer
-   * khi mang ghi chú trạng thái gắn riêng của chính nó.
+   * Mốc đã xem ở mức hội thoại (issue #591): seq lớn nhất mà
+   * MỌI phía còn lại đều đã đọc qua — suy từ `memberReadMarkers`
+   * (mốc đọc theo seq của từng thành viên): lấy mốc nhỏ nhất
+   * trong các phía còn lại. Hai bề mặt dùng cùng mốc này:
+   * (1) dấu đã xem trên bong bóng của chính người gửi — tin
+   * của mình có seq không vượt mốc này thì mang dấu đã xem,
+   * còn lại mang dấu đã gửi; (2) dòng "Đã xem" ở mức hội
+   * thoại — dòng này gắn NGAY DƯỚI tin của mình cuối cùng
+   * không vượt mốc (tin đã xem cuối cùng mà nó nói tới),
+   * không trôi xuống đáy luồng khi đã có tin mới hơn chưa
+   * được xem tới sau đó.
    */
-  const lastVisibleMessageId = visibleMessages[visibleMessages.length - 1]?.id;
+  const seenThroughSeq = others.length > 0
+    ? Math.min(...others.map((memberId) => readMarkers[memberId] ?? 0))
+    : 0;
+  /** Id của tin đã xem cuối cùng — dòng "Đã xem" render ngay dưới tin này; null khi chưa tin nào của mình được xem. */
+  const seenLineAfterId = seenThroughSeq > 0
+    ? [...visibleMessages].reverse().find(
+      (m) => m.userIdFrom === myId && !m.localStatus && m.seq > 0 && m.seq <= seenThroughSeq,
+    )?.id ?? null
+    : null;
 
   const dayKeyOf = (iso: string) => {
     const d = new Date(iso);
@@ -253,7 +338,7 @@ export function ChatPanel({
     if (diffDays === 1) return t('messagesYesterday');
     return formatDate(iso);
   };
-  /** Luồng tin kèm ngăn cách theo ngày (chuẩn app nhắn tin): pill ngày chèn trước tin đầu tiên của mỗi ngày. */
+  /** Luồng tin kèm ngăn cách theo ngày: dải ngày là DÒNG CHỮ THƯỜNG ở giữa luồng như bản demo (issue #591), chèn trước tin đầu tiên của mỗi ngày — không dùng dạng viên như trước. */
   const threadItems: ReactNode[] = [];
   let lastDayKey = '';
   for (const m of visibleMessages) {
@@ -262,13 +347,13 @@ export function ChatPanel({
       lastDayKey = dayKey;
       threadItems.push(
         <div key={`day-${dayKey}`} className="flex justify-center">
-          <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">{dayLabelOf(m.createdAt)}</span>
+          <span className="text-xs text-muted-foreground">{dayLabelOf(m.createdAt)}</span>
         </div>,
       );
     }
     const mine = m.userIdFrom === myId;
-    /** Tin này có phải tin cuối đang xem — quyết định hiện dòng thời gian (xem `lastVisibleMessageId`). */
-    const isLastMessage = m.id === lastVisibleMessageId;
+    /** Tin của mình đã được mọi phía còn lại xem qua chưa (theo mốc `seenThroughSeq`) — quyết định dấu đã xem trong bong bóng. */
+    const seenByOthers = mine && !m.localStatus && m.seq > 0 && m.seq <= seenThroughSeq;
     /**
      * Ghi chú trạng thái GẮN RIÊNG tin này (đã xoá/đã thu hồi bởi
      * ai, đang gửi/gửi lỗi): luôn ở tại tin đó bất kể vị trí — chỉ
@@ -327,20 +412,48 @@ export function ChatPanel({
               align={mine ? 'end' : 'start'}
               className={m.id === highlightedMessageId ? 'rounded-lg ring-2 ring-primary ring-offset-1' : undefined}
             >
-              {m.replyTo ? (
-                <button
-                  type="button"
-                  data-testid={`quote-block-${m.id}`}
-                  className="mx-1 mt-1 max-w-full cursor-pointer rounded-md border-l-4 border-primary/60 bg-background/60 px-2 py-1 text-left"
-                  onClick={() => onJumpToQuote(m.replyTo!)}
+              {/*
+                Nội dung bong bóng (issue #591): khối trích dẫn
+                nằm TRONG bong bóng như bản demo (trước đây nằm
+                phía trên bong bóng), nội dung tin ở giữa, và
+                mốc GIỜ của chính tin này ở góc dưới của bong
+                bóng — mọi bong bóng đều mang giờ của nó, kèm
+                dấu đã xem / đã gửi trên bong bóng của chính
+                người gửi. Bấm khối trích dẫn vẫn nhảy tới tin
+                gốc như trước.
+              */}
+              <BubbleContent>
+                {m.replyTo ? (
+                  <button
+                    type="button"
+                    data-testid={`quote-block-${m.id}`}
+                    className="mb-1 block w-full max-w-full cursor-pointer rounded-md border-l-4 border-primary/60 bg-background/60 px-2 py-1 text-left"
+                    onClick={() => onJumpToQuote(m.replyTo!)}
+                  >
+                    <span className="block text-xs font-medium">{nameOf(m.replyTo.userIdFrom)}</span>
+                    <span className="block truncate text-xs opacity-80">
+                      {m.replyTo.unavailable ? t('quotedMessageUnavailable') : m.replyTo.excerpt}
+                    </span>
+                  </button>
+                ) : null}
+                <span className="block">{m.recalledAt ? t('messageRecalled') : m.fullMessage}</span>
+                <span
+                  data-testid={`message-time-${m.id}`}
+                  className="mt-1 flex items-center justify-end gap-1 text-[11px] leading-none opacity-70"
                 >
-                  <span className="block text-xs font-medium">{nameOf(m.replyTo.userIdFrom)}</span>
-                  <span className="block truncate text-xs opacity-80">
-                    {m.replyTo.unavailable ? t('quotedMessageUnavailable') : m.replyTo.excerpt}
-                  </span>
-                </button>
-              ) : null}
-              <BubbleContent>{m.recalledAt ? t('messageRecalled') : m.fullMessage}</BubbleContent>
+                  {formatTime(m.createdAt)}
+                  {mine && !m.localStatus && m.seq > 0 ? (
+                    seenByOthers ? (
+                      <>
+                        <CheckCheck className="size-3.5" aria-hidden />
+                        <span className="sr-only">{t('seenByMembers')}</span>
+                      </>
+                    ) : (
+                      <Check className="size-3.5" aria-hidden />
+                    )
+                  ) : null}
+                </span>
+              </BubbleContent>
               {/*
                 Toolbar hành động NỔI (quyết định 23:16 ngày
                 26/10/2026, sổ quyết định mục D — theo cách
@@ -378,6 +491,39 @@ export function ChatPanel({
                     <Reply aria-hidden />
                   </Button>
                 ) : null}
+                {showReplyAction ? (
+                  /*
+                    Bộ chọn cảm xúc (reactions) — CHỈ HÌNH DẠNG
+                    (issue #591): reactions là điểm chưa có phán
+                    quyết về chức năng và chưa có dữ kiện ở mọi
+                    tầng, nên nút và lưới cảm xúc chỉ hiện đúng
+                    hình dạng của demo ở trạng thái vô hiệu —
+                    không ghi cảm xúc nào, không phát sinh tác
+                    dụng giả.
+                  */
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={t('reactionPickerLabel')}
+                          data-testid={`message-reaction-${m.id}`}
+                        />
+                      }
+                    >
+                      <SmilePlus aria-hidden />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align={mine ? 'end' : 'start'} sideOffset={4} className="grid w-56 grid-cols-5 gap-1 p-2">
+                      {REACTION_SHAPE_EMOJIS.map((emoji) => (
+                        <DropdownMenuItem key={emoji} disabled className="flex items-center justify-center text-lg">
+                          {emoji}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : null}
                 {showMoreMenu ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger
@@ -395,6 +541,18 @@ export function ChatPanel({
                     </DropdownMenuTrigger>
                     {/* Bề rộng + không xuống dòng theo hằng ở utils: mặc định của @lms/ui ghim bề rộng theo nút ⋯ hẹp làm nhãn bẻ nhiều dòng. */}
                     <DropdownMenuContent align={mine ? 'end' : 'start'} sideOffset={4} className={CHAT_MENU_CONTENT_CLASS}>
+                      {/*
+                        Mục Thảo luận (thread) — CHỈ HÌNH DẠNG
+                        (issue #591): thread là điểm chưa có phán
+                        quyết về chức năng, hệ chỉ có trích dẫn
+                        một cấp — mục này hiện đúng hình dạng của
+                        demo ở trạng thái vô hiệu, không mở bề
+                        mặt thread nào.
+                      */}
+                      <DropdownMenuItem disabled className={CHAT_MENU_ITEM_CLASS}>
+                        <MessagesSquare aria-hidden />
+                        {t('threadAction')}
+                      </DropdownMenuItem>
                       {showRecallAction ? (
                         <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => void recallMessage(m)}>
                           <Undo2 aria-hidden />
@@ -434,16 +592,17 @@ export function ChatPanel({
               ) : null}
             </Bubble>
             {/*
-              Footer dòng tin: phần GIỜ chỉ ở tin cuối đang xem
-              (quyết 23:16 — danh sách dài không còn lặp giờ dưới
-              từng tin); các ghi chú trạng thái gắn riêng tin này
-              thì render bất kể vị trí. Tin không phải tin cuối và
-              không có ghi chú trạng thái thì KHÔNG render footer
-              — tránh để lại một dòng trống trong luồng.
+              Footer dòng tin (issue #591): GIỜ của tin đã
+              chuyển vào trong bong bóng (mọi bong bóng đều
+              mang giờ của chính nó như bản demo) nên footer
+              chỉ còn các ghi chú trạng thái gắn riêng tin này
+              (đã xoá / đã thu hồi / đang gửi / gửi lỗi), render
+              bất kể vị trí; tin không có ghi chú trạng thái
+              thì KHÔNG render footer — tránh để lại một dòng
+              trống trong luồng.
             */}
-            {isLastMessage || hasOwnStatusNote ? (
+            {hasOwnStatusNote ? (
               <MessageFooter className="flex-wrap gap-2">
-                {isLastMessage ? <span>{formatDateTime(m.createdAt)}</span> : null}
               {m.deletedAt ? (
                 <span className="italic">
                   {t('messageDeletedBy', { userId: m.deletedBy ? nameOf(m.deletedBy) : '' })}
@@ -469,19 +628,45 @@ export function ChatPanel({
         </Message>
       </MessageScrollerItem>,
     );
+    // Dòng "Đã xem" ở mức hội thoại (issue #591): gắn NGAY
+    // DƯỚI tin đã xem cuối cùng mà nó nói tới (xem
+    // `seenLineAfterId`) — không còn nằm ở cuối luồng như
+    // trước, để không gây hiểu nhầm rằng tin mới hơn ở phía
+    // dưới nó cũng đã được xem.
+    if (m.id === seenLineAfterId) {
+      threadItems.push(
+        <div key={`seen-${m.id}`} className="flex justify-end px-3">
+          <p data-testid="seen-status" className="text-xs text-muted-foreground">{t('seenByMembers')}</p>
+        </div>,
+      );
+    }
   }
 
   /**
-   * Cột thứ ba của khung chat (issue #564, theo mẫu demo): panel
-   * thông tin đối tác mở theo yêu cầu, không chèn ép cột chính.
-   * Nhóm dùng nguyên MemberPanel hiện có; chat 1–1 dùng panel nhẹ
-   * chỉ hiển thị dữ kiện đã có (tên, trạng thái trực tuyến, dòng
-   * đã chặn) — không nhân đôi nút chặn/báo cáo vốn đã nằm ở hàng
-   * hành động của header, để tránh trùng tên truy cập.
+   * Cột thứ ba của khung chat (issue #564; dựng lại theo hình
+   * dạng hồ sơ của bản demo ở issue #591): panel thông tin mở
+   * theo yêu cầu, không chèn ép cột chính. Nhóm dùng nguyên
+   * MemberPanel hiện có; chat 1–1 dùng panel HỒ SƠ NGƯỜI theo
+   * đúng hình dạng demo — các trường hồ sơ backend chưa có đi
+   * qua lớp adapter dữ kiện (xem `person-profile-adapter.ts`)
+   * và hiện dấu gạch ngang ở đúng vị trí, thân PR ghi rõ
+   * trường nào chờ đợt backend #592.
    */
   const showInfoAside = infoOpen && ((isGroup && memberPanelBundle !== null) || (!isGroup && otherId !== undefined));
-  /** Tập ký tự emoji văn bản cho nút chèn emoji ở composer (issue #564): không thêm thư viện picker. */
-  const emojiOptions = ['👍', '❤️', '😂', '🎉', '👏', '🙏'];
+  /**
+   * Hồ sơ hiển thị của đối tác 1–1 qua lớp adapter (issue
+   * #591): tên + tên đăng nhập là dữ kiện thật từ trang; các
+   * trường hồ sơ mở rộng chờ đợt backend thay nguồn.
+   */
+  const partnerProfile = !isGroup && otherId
+    ? getPersonProfile({
+      userId: otherId,
+      displayName: nameOf(otherId),
+      username: people[otherId]?.username ?? '',
+    })
+    : null;
+  /** Các tệp đã chia sẻ của hội thoại đang mở qua adapter — nguồn hiện tại rỗng (đính kèm chưa có phán quyết chức năng). */
+  const sharedFiles = getSharedFiles(active.id);
 
   return (
     <div className="relative flex min-h-0 flex-1">
@@ -519,7 +704,21 @@ export function ChatPanel({
           ) : null}
         </button>
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">{title}</p>
+          <p className="flex items-center gap-1.5">
+            <span className="truncate font-medium">{title}</span>
+            {/*
+              Biểu tượng tắt thông báo ở đầu khung (issue
+              #591): hội thoại đã tắt tiếng — gồm cả nhóm —
+              hiện biểu tượng BellOff cạnh tiêu đề, khớp biểu
+              tượng ở hàng danh sách.
+            */}
+            {active.muted ? (
+              <>
+                <BellOff data-testid="header-muted-icon" className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                <span className="sr-only">{t('muteConversation')}</span>
+              </>
+            ) : null}
+          </p>
           {subtitle ? <p className="truncate text-xs text-muted-foreground">{subtitle}</p> : null}
         </div>
         <Button
@@ -532,55 +731,88 @@ export function ChatPanel({
         >
           <Search aria-hidden />
         </Button>
-      </div>
-      <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
         {/*
-          Đoạn theo TỪNG NGƯỜI chỉ dành cho chat 1–1 (quyết Lão
-          gia 23:16 ngày 26/10/2026, sổ quyết định mục D — sửa
-          bug đã kiểm chứng): bản cũ map qua MỌI thành viên khác
-          và render một nút "Chặn liên lạc" không kèm tên cho mỗi
-          người, nên chat nhóm 4 người hiện 3 nút giống hệt nhau.
-          Nay: 1–1 chỉ ĐÚNG MỘT nút chặn/bỏ chặn KÈM TÊN người
-          đối thoại; chat nhóm bỏ hẳn đoạn này khỏi header —
-          chặn/bỏ chặn từng thành viên đi qua menu hành động
-          của thành viên (panel thông tin + menu trên avatar
-          dòng tin), chấm trực tuyến của từng thành viên ở nhóm
-          cũng xem tại panel đó.
+          Menu hành động của đầu khung (issue #591): đầu khung
+          chỉ còn ĐÚNG MỘT HÀNG như bản demo — mọi hành động
+          phụ trước đây nằm ở hàng nút thứ hai (chặn liên lạc,
+          báo cáo, tắt/bật chat, tắt tiếng) nay vào menu này,
+          theo cùng một luật ở mọi hội thoại:
+          - Tắt/Bật tiếng: mọi hội thoại (trạng thái đã có dữ
+            kiện ở backend, đổi qua cùng đường trạng thái với
+            menu trên hàng danh sách).
+          - Chặn/Bỏ chặn: chỉ chat 1–1, đúng một mục KÈM TÊN
+            đối tác (giữ luật đã chốt: chặn ở nhóm đi qua menu
+            hành động của từng thành viên, không nằm ở header).
+          - Báo cáo cuộc trò chuyện: mọi hội thoại.
+          - Tắt/Bật chat: chỉ khi người xem có thẩm quyền
+            quản lý hội thoại.
+          Trạng thái trực tuyến chỉ hiện một lần ở dòng phụ
+          dưới tên — không lặp thành viên riêng trong menu.
         */}
-        {!isGroup && otherId ? (
-          <span className="flex items-center gap-2">
-            {otherOnline ? (
-              <span className="text-xs text-muted-foreground">● {t('onlineNow')}</span>
-            ) : null}
-            {blocked.includes(otherId) ? (
-              <span className="flex items-center gap-2 text-sm">
-                {nameOf(otherId)} {t('blockedSuffix')}
-                <Button type="button" variant="outline" onClick={() => void unblockContact(otherId)}>
-                  {t('unblockContact')} {nameOf(otherId)}
-                </Button>
-              </span>
-            ) : (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
               <Button
                 type="button"
-                variant="outline"
-                onClick={() => void blockContact(otherId)}
-              >
-                {t('blockContact')} {nameOf(otherId)}
-              </Button>
-            )}
-          </span>
-        ) : null}
-        <Button type="button" variant="outline" onClick={() => void reportActiveConversation()}>
-          {t('reportConversation')}
-        </Button>
-        {active.canManage ? (
-          <Button type="button" variant="outline" onClick={() => void toggleActiveChat()}>
-            {(active.enabled ?? true) ? t('disableChat') : t('enableChat')}
-          </Button>
-        ) : null}
-        {reportMessage ? <p role="status">{reportMessage}</p> : null}
-        {actionMessage ? <p role="alert">{actionMessage}</p> : null}
+                variant="ghost"
+                size="icon"
+                aria-label={t('conversationActionsLabel')}
+                data-testid="header-actions"
+              />
+            }
+          >
+            <Ellipsis aria-hidden />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" sideOffset={4} className={CHAT_MENU_CONTENT_CLASS}>
+            <DropdownMenuItem
+              className={CHAT_MENU_ITEM_CLASS}
+              onClick={() => onUpdateConversationState(active, { muted: !active.muted })}
+            >
+              {active.muted ? <Bell aria-hidden /> : <BellOff aria-hidden />}
+              {active.muted ? t('unmuteConversation') : t('muteConversation')}
+            </DropdownMenuItem>
+            {!isGroup && otherId ? (
+              blocked.includes(otherId) ? (
+                <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => void unblockContact(otherId)}>
+                  <Ban aria-hidden />
+                  {t('unblockContact')} {nameOf(otherId)}
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => void blockContact(otherId)}>
+                  <Ban aria-hidden />
+                  {t('blockContact')} {nameOf(otherId)}
+                </DropdownMenuItem>
+              )
+            ) : null}
+            <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => void reportActiveConversation()}>
+              <Flag aria-hidden />
+              {t('reportConversation')}
+            </DropdownMenuItem>
+            {active.canManage ? (
+              <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => void toggleActiveChat()}>
+                {(active.enabled ?? true) ? t('disableChat') : t('enableChat')}
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+      {/*
+        Dòng thông tin trạng thái dưới đầu khung (không phải
+        hàng hành động): đối tác đã bị chặn thì ghi rõ kèm tên;
+        thông báo kết quả báo cáo / hành động hiện ở đây như
+        trước.
+      */}
+      {(!isGroup && otherId && blocked.includes(otherId)) || reportMessage || actionMessage ? (
+        <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
+          {!isGroup && otherId && blocked.includes(otherId) ? (
+            <p className="text-sm">
+              {nameOf(otherId)} {t('blockedSuffix')}
+            </p>
+          ) : null}
+          {reportMessage ? <p role="status">{reportMessage}</p> : null}
+          {actionMessage ? <p role="alert">{actionMessage}</p> : null}
+        </div>
+      ) : null}
       <MemberProfileSheet
         entry={memberProfile.entry}
         contextName={memberPanel?.context.name ?? title}
@@ -673,9 +905,6 @@ export function ChatPanel({
         </MessageScroller>
       </MessageScrollerProvider>
       <div className="space-y-2 border-t px-3 py-2">
-        {seenByAllOthers ? (
-          <p data-testid="seen-status" className="text-xs text-muted-foreground">{t('seenByMembers')}</p>
-        ) : null}
         {typingNames.map((userId) => (
           <p key={userId} data-testid="typing-indicator" className="text-xs text-muted-foreground">
             {t('typingIndicator', { userId: nameOf(userId) })}
@@ -708,7 +937,47 @@ export function ChatPanel({
                 </Button>
               </div>
             ) : null}
-            <form onSubmit={(e) => void send(e)} className="flex gap-2">
+            {/*
+              Ô soạn theo bản demo (issue #591):
+              - Tab Trả lời / Ghi chú nội bộ ở trên cùng: tab
+                Ghi chú nội bộ là điểm CHƯA có phán quyết chức
+                năng — chỉ dựng hình dạng, ở trạng thái vô hiệu.
+              - Chip trả lời nhanh phía trên ô nhập: CHỈ HÌNH
+                DẠNG từ lớp adapter, vô hiệu, không chèn nội
+                dung nào (điểm chưa có phán quyết).
+              - Hàng nhập gọn một dòng (tự giãn khi nhiều
+                dòng): nút đính kèm + nút định dạng đậm + nút
+                chèn liên kết là hình dạng vô hiệu (điểm chưa
+                có phán quyết); nút emoji mở popover LƯỚI;
+                nút Gửi là nút BIỂU TƯỢNG, vẫn vô hiệu khi
+                nháp trống; KHÔNG còn bộ đếm ký tự và khung
+                nhập phình to như trước (trần ký tự vẫn được
+                cổng gửi chặn như cũ, lỗi hiện ở dòng báo lỗi
+                dưới ô soạn).
+            */}
+            <Tabs value="reply">
+              <TabsList>
+                <TabsTrigger value="reply">{t('replyTabLabel')}</TabsTrigger>
+                <TabsTrigger value="internal-note" disabled>{t('internalNoteTabLabel')}</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <div className="flex flex-wrap gap-1.5">
+              {QUICK_REPLY_SHAPE_SAMPLES.map((sample) => (
+                <Button key={sample} type="button" size="sm" variant="outline" className="rounded-full" disabled>
+                  {sample}
+                </Button>
+              ))}
+            </div>
+            <form onSubmit={(e) => void send(e)} className="flex items-end gap-1.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={t('attachFileLabel')}
+                disabled
+              >
+                <Paperclip aria-hidden />
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
@@ -722,11 +991,11 @@ export function ChatPanel({
                 >
                   <Smile aria-hidden />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" sideOffset={4} className={CHAT_MENU_CONTENT_CLASS}>
-                  {emojiOptions.map((emoji) => (
+                <DropdownMenuContent align="start" sideOffset={4} className="grid w-72 grid-cols-5 gap-1 p-2">
+                  {EMOJI_GRID_OPTIONS.map((emoji) => (
                     <DropdownMenuItem
                       key={emoji}
-                      className={CHAT_MENU_ITEM_CLASS}
+                      className="flex items-center justify-center text-lg"
                       onClick={() => { setDrafts((prev) => ({ ...prev, [active.id]: `${prev[active.id] ?? ''}${emoji}` })); noteTyping(); }}
                     >
                       {emoji}
@@ -734,8 +1003,28 @@ export function ChatPanel({
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={t('boldLabel')}
+                disabled
+              >
+                <Bold aria-hidden />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={t('insertLinkLabel')}
+                disabled
+              >
+                <Link2 aria-hidden />
+              </Button>
               <Textarea
                 aria-label={t('messageText')}
+                rows={1}
+                className="max-h-40 min-h-9 flex-1 resize-none"
                 value={draft}
                 onChange={(e) => {
                   // Nháp ghi theo conversation đang mở (lát M1,
@@ -756,23 +1045,18 @@ export function ChatPanel({
                   }
                 }}
               />
-              <Button type="submit" disabled={sendInFlight || !draft.trim()}>{t('send')}</Button>
-            </form>
-            <div className="flex items-center justify-between gap-2">
-              {sendError ? (
-                <p role="alert" className="text-sm text-destructive">{sendError}</p>
-              ) : (
-                <span />
-              )}
-              <p
-                data-testid="message-char-count"
-                className={countMessageCharacters(draft) > MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT
-                  ? 'text-xs text-destructive'
-                  : 'text-xs text-muted-foreground'}
+              <Button
+                type="submit"
+                size="icon"
+                aria-label={t('send')}
+                disabled={sendInFlight || !draft.trim()}
               >
-                {countMessageCharacters(draft)}/{MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT}
-              </p>
-            </div>
+                <SendHorizontal aria-hidden />
+              </Button>
+            </form>
+            {sendError ? (
+              <p role="alert" className="text-sm text-destructive">{sendError}</p>
+            ) : null}
           </>
         )}
       </div>
@@ -795,41 +1079,196 @@ export function ChatPanel({
             </Button>
           </div>
           {isGroup && memberPanelBundle ? (
-            <MemberPanel
-              conversation={active}
-              bundle={memberPanelBundle}
-              myId={myId}
-              onlineUsers={onlineUsers}
-              readMarkers={readMarkers}
-              newestSeq={newestSeq}
-              onViewProfile={memberProfile.open}
-            />
-          ) : null}
-          {!isGroup && otherId ? (
-            <div data-testid="partner-panel" className="space-y-2 px-3 py-3">
-              <div className="flex items-center gap-3">
-                <Avatar>
-                  <AvatarFallback>{initialsOf(avatarLabel)}</AvatarFallback>
-                </Avatar>
-                <p className="min-w-0 flex-1 truncate font-medium">{title}</p>
-              </div>
+            <>
               {/*
-                Dòng trạng thái ở panel dùng cùng luật ba trạng
-                thái với đầu khung: chỉ hiện khi đã có sự kiện
-                hiện diện xác nhận; chưa biết thì không hiện
-                dòng nào, tránh khẳng định "Ngoại tuyến" khi
-                client chưa có dữ kiện.
+                Hàng hành động của panel nhóm (issue #591):
+                Tắt/Bật tiếng và Ghim/Bỏ ghim là hành động
+                THẬT trên trạng thái cá nhân của hội thoại —
+                cùng đường đổi trạng thái với menu đầu khung —
+                để trạng thái tắt tiếng hiện và đổi được nhất
+                quán ở mọi bề mặt của nhóm.
               */}
-              {otherPresence !== undefined ? (
-                <p className="text-sm text-muted-foreground">
-                  {otherPresence ? t('onlineNow') : t('messagesOfflineNow')}
-                </p>
-              ) : null}
-              {blocked.includes(otherId) ? (
-                <p className="text-sm">
-                  {nameOf(otherId)} {t('blockedSuffix')}
-                </p>
-              ) : null}
+              <div className="flex gap-2 border-b px-3 py-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onUpdateConversationState(active, { muted: !active.muted })}
+                >
+                  {active.muted ? <Bell aria-hidden /> : <BellOff aria-hidden />}
+                  {active.muted ? t('unmuteConversation') : t('muteConversation')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onUpdateConversationState(active, { pinned: !active.pinnedAt })}
+                >
+                  {active.pinnedAt ? <PinOff aria-hidden /> : <Pin aria-hidden />}
+                  {active.pinnedAt ? t('unpinConversation') : t('pinConversation')}
+                </Button>
+              </div>
+              <MemberPanel
+                conversation={active}
+                bundle={memberPanelBundle}
+                myId={myId}
+                onlineUsers={onlineUsers}
+                readMarkers={readMarkers}
+                newestSeq={newestSeq}
+                onViewProfile={memberProfile.open}
+              />
+            </>
+          ) : null}
+          {!isGroup && otherId && partnerProfile ? (
+            /*
+              Panel HỒ SƠ NGƯỜI của chat 1–1 (issue #591) —
+              đúng hình dạng demo: avatar + tên + dòng vai
+              trò, khối trường hồ sơ, các thẻ, hàng hành động
+              Tắt thông báo / Bỏ ghim / Chặn / Xoá, và khối
+              tệp đã chia sẻ. Dữ kiện đi qua lớp adapter
+              (`partnerProfile`): trường nào backend chưa có
+              thì hiện dấu "—" ở đúng vị trí của nó (không
+              bịa giá trị), chờ đợt backend #592 thay nguồn.
+              Ba hành động đầu là hành động thật (đổi trạng
+              thái cá nhân của hội thoại / chặn liên lạc);
+              hành động Xoá cuộc trò chuyện chưa có đường dữ
+              kiện phía client nên chỉ dựng hình dạng ở
+              trạng thái vô hiệu.
+            */
+            <div data-testid="partner-panel" className="space-y-4 px-3 py-3">
+              <div className="flex flex-col items-center gap-2 text-center">
+                <span className="relative shrink-0">
+                  <Avatar className="size-16">
+                    <AvatarFallback className="text-lg">{initialsOf(avatarLabel)}</AvatarFallback>
+                  </Avatar>
+                  {otherOnline ? (
+                    <span className="absolute right-0 bottom-0 size-3 rounded-full bg-emerald-500 ring-2 ring-background" />
+                  ) : null}
+                </span>
+                <div className="min-w-0">
+                  <p className="font-semibold break-words">{title}</p>
+                  {partnerProfile.roleLine ? (
+                    <p className="text-sm text-muted-foreground">{partnerProfile.roleLine}</p>
+                  ) : null}
+                  {/*
+                    Dòng trạng thái ở panel dùng cùng luật ba
+                    trạng thái với đầu khung: chỉ hiện khi đã
+                    có sự kiện hiện diện xác nhận; chưa biết
+                    thì không hiện dòng nào.
+                  */}
+                  {otherPresence !== undefined ? (
+                    <p className="text-sm text-muted-foreground">
+                      {otherPresence ? t('onlineNow') : t('messagesOfflineNow')}
+                    </p>
+                  ) : null}
+                  {blocked.includes(otherId) ? (
+                    <p className="text-sm">
+                      {nameOf(otherId)} {t('blockedSuffix')}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              <div className="flex justify-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="flex-col gap-1 py-2"
+                  onClick={() => onUpdateConversationState(active, { muted: !active.muted })}
+                >
+                  {active.muted ? <Bell aria-hidden /> : <BellOff aria-hidden />}
+                  {active.muted ? t('unmuteConversation') : t('muteConversation')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="flex-col gap-1 py-2"
+                  onClick={() => onUpdateConversationState(active, { pinned: !active.pinnedAt })}
+                >
+                  {active.pinnedAt ? <PinOff aria-hidden /> : <Pin aria-hidden />}
+                  {active.pinnedAt ? t('unpinConversation') : t('pinConversation')}
+                </Button>
+                {blocked.includes(otherId) ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="flex-col gap-1 py-2"
+                    onClick={() => void unblockContact(otherId)}
+                  >
+                    <Ban aria-hidden />
+                    {t('unblockContact')}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="flex-col gap-1 py-2"
+                    onClick={() => void blockContact(otherId)}
+                  >
+                    <Ban aria-hidden />
+                    {t('blockContact')}
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="flex-col gap-1 py-2"
+                  disabled
+                >
+                  <Trash aria-hidden />
+                  {t('deleteConversation')}
+                </Button>
+              </div>
+              <dl className="space-y-2 text-sm">
+                {partnerProfile.bio ? (
+                  <div>
+                    <dt className="text-muted-foreground">{t('profileBio')}</dt>
+                    <dd className="break-words">{partnerProfile.bio}</dd>
+                  </div>
+                ) : (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">{t('profileBio')}</dt>
+                    <dd className="text-muted-foreground">—</dd>
+                  </div>
+                )}
+                {([
+                  ['profileEmail', partnerProfile.email],
+                  ['profilePhone', partnerProfile.phone],
+                  ['profileWebsite', partnerProfile.website],
+                  ['profileCompany', partnerProfile.company],
+                  ['profileCountry', partnerProfile.country],
+                  ['profileTimezone', partnerProfile.timezone],
+                  ['profileLocation', partnerProfile.location],
+                  ['profileAvailability', partnerProfile.availability],
+                ] as const).map(([key, value]) => (
+                  <div key={key} className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">{t(key)}</dt>
+                    <dd className="min-w-0 font-medium break-words">{value ?? '—'}</dd>
+                  </div>
+                ))}
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">{t('profileTags')}</dt>
+                  <dd className="font-medium">
+                    {partnerProfile.tags.length > 0 ? partnerProfile.tags.join(', ') : '—'}
+                  </dd>
+                </div>
+              </dl>
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">{t('sharedFilesTitle')}</h4>
+                {sharedFiles.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t('sharedFilesEmpty')}</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {sharedFiles.map((file) => (
+                      <li key={file.id} className="rounded-md border px-2 py-1.5 text-sm">{file.name}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
           ) : null}
         </aside>

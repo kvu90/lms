@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { BellOff, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
+import { Skeleton } from '@lms/ui/components/skeleton';
 import { cn } from '@lms/ui/lib/utils';
 import { useTranslation } from 'react-i18next';
 import type {
@@ -10,8 +11,9 @@ import type {
   ConversationTreeClassView,
   ConversationTreeCourseView,
   ConversationTreeRoleView,
+  ConversationView,
 } from '../types/types';
-import { initialsOf } from '../utils/utils';
+import { initialsOf, relativeTime } from '../utils/utils';
 
 /**
  * CÂY NHÓM của tab Nhóm — khung trái màn Tin nhắn (lát MSG-T3,
@@ -71,6 +73,27 @@ interface GroupTreeNavProps {
   canCreateFreeGroup: boolean;
   /** Mở sheet tạo nhóm tự do. */
   onCreateFreeGroup: () => void;
+  /**
+   * Bản đồ hội thoại theo id từ danh sách hội thoại của trang
+   * (issue #591): dòng của nút nào có hội thoại tương ứng thì
+   * hiện xem trước tin cuối + ngày + biểu tượng tắt tiếng như
+   * các hàng hội thoại còn lại, thay cho phụ đề vai trò.
+   */
+  conversationsById?: ReadonlyMap<string, ConversationView>;
+  /** Id của chính người xem — căn cứ tiền tố "Bạn:" của xem trước tin cuối. */
+  myId?: string;
+  /**
+   * Tra tên hiển thị của một user (issue #591): xem trước tin
+   * cuối ở dòng nhóm mang tiền tố tên người gửi như bản demo
+   * (tin của chính người xem thì tiền tố là "Bạn:").
+   */
+  nameOf?: (userId: string) => string;
+  /**
+   * Cây đang nạp lần đầu (issue #591): hiện khung đang tải thay
+   * cho câu "chưa thuộc lớp/khoá/nhóm nào" — trạng thái rỗng giả
+   * lúc tải bị cấm, rỗng thật chỉ hiện sau khi nạp xong.
+   */
+  loading?: boolean;
 }
 
 /**
@@ -100,6 +123,7 @@ function TreeUnreadBadge({ count }: { count: number }) {
 export function GroupTreeNav({
   tree, filter, activeConversationId, onOpenConversationById, onOpenClassChat,
   onOpenCourseChat, onOpenGroupConversation, canCreateFreeGroup, onCreateFreeGroup,
+  conversationsById, myId, nameOf, loading,
 }: GroupTreeNavProps) {
   const { t } = useTranslation('app');
   const [expandedClasses, setExpandedClasses] = useState<ReadonlySet<string>>(new Set());
@@ -125,6 +149,21 @@ export function GroupTreeNav({
   }, [tree, activeConversationId]);
 
   if (!tree) {
+    // Đang nạp lần đầu thì hiện khung đang tải đúng hình dạng
+    // dòng cây (issue #591) — không hiện câu rỗng giả rồi mới
+    // đầy dữ kiện như trước.
+    if (loading) {
+      return (
+        <div data-testid="group-tree-loading" className="space-y-2 px-2" aria-label={t('conversationsLoading')}>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex items-center gap-2.5">
+              <Skeleton className="size-8 rounded-full" />
+              <Skeleton className="h-4 flex-1" />
+            </div>
+          ))}
+        </div>
+      );
+    }
     return <p className="px-2 text-sm text-muted-foreground">{t('groupTreeEmpty')}</p>;
   }
 
@@ -171,7 +210,19 @@ export function GroupTreeNav({
     </Button>
   );
 
-  /** Một dòng nút của cây: avatar chữ + tên + nhãn vai + huy hiệu chưa đọc; bấm là mở chat của nút. */
+  /**
+   * Một dòng nút của cây: avatar chữ + tên + dòng phụ + huy hiệu
+   * chưa đọc; bấm là mở chat của nút.
+   *
+   * Dòng phụ (issue #591): nút nào đã có hội thoại tương ứng
+   * trong danh sách của trang và hội thoại đó có tin cuối thì
+   * hiện XEM TRƯỚC TIN CUỐI kèm tiền tố người gửi (tin của mình
+   * mang tiền tố "Bạn:") như các hàng hội thoại còn lại và như
+   * bản demo, kèm ngày ở cuối dòng tên và biểu tượng tắt tiếng
+   * khi hội thoại đã tắt tiếng; nút chưa có hội thoại hoặc chưa
+   * có tin nào thì giữ phụ đề vai trò như trước (chưa có dữ
+   * kiện xem trước để hiện, không bịa).
+   */
   const nodeRow = (
     key: string,
     label: string,
@@ -179,24 +230,50 @@ export function GroupTreeNav({
     unread: number,
     isActive: boolean,
     onOpen: () => void,
-  ) => (
-    <button
-      key={key}
-      type="button"
-      aria-current={isActive || undefined}
-      className={cn('flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2 py-2 text-left hover:bg-muted', isActive && 'bg-muted')}
-      onClick={onOpen}
-    >
-      <Avatar className="size-8">
-        <AvatarFallback>{initialsOf(label)}</AvatarFallback>
-      </Avatar>
-      <span className="min-w-0 flex-1">
-        <span className={cn('block truncate text-sm', unread > 0 && 'font-semibold')}>{label}</span>
-        <span className="block text-xs text-muted-foreground">{roleLabel(role)}</span>
-      </span>
-      <TreeUnreadBadge count={unread} />
-    </button>
-  );
+    conversationId?: string | null,
+  ) => {
+    const conversation = conversationId ? conversationsById?.get(conversationId) : undefined;
+    const lastMessage = conversation?.lastMessage ?? null;
+    return (
+      <button
+        key={key}
+        type="button"
+        aria-current={isActive || undefined}
+        className={cn('flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2 py-2 text-left hover:bg-muted', isActive && 'bg-muted')}
+        onClick={onOpen}
+      >
+        <Avatar className="size-8">
+          <AvatarFallback>{initialsOf(label)}</AvatarFallback>
+        </Avatar>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-baseline gap-2">
+            <span className={cn('min-w-0 flex-1 truncate text-sm', unread > 0 && 'font-semibold')}>{label}</span>
+            {lastMessage ? (
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {relativeTime(lastMessage.createdAt, t)}
+              </span>
+            ) : null}
+          </span>
+          {lastMessage ? (
+            <span className="mt-0.5 flex items-center gap-1.5">
+              <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                {lastMessage.userIdFrom === myId
+                  ? `${t('lastMessageOwnPrefix')} `
+                  : `${nameOf?.(lastMessage.userIdFrom) ?? lastMessage.userIdFrom}: `}
+                {lastMessage.fullMessage}
+              </span>
+              {conversation?.muted ? (
+                <BellOff data-testid={`conversation-muted-${conversation.id}`} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              ) : null}
+            </span>
+          ) : (
+            <span className="block text-xs text-muted-foreground">{roleLabel(role)}</span>
+          )}
+        </span>
+        <TreeUnreadBadge count={unread} />
+      </button>
+    );
+  };
 
   /** Nút KHOÁ kèm các nhóm con của nó (nhóm con bấm là mở đúng conversation của nhóm). */
   const renderCourse = (course: ConversationTreeCourseView) => {
@@ -221,6 +298,7 @@ export function GroupTreeNav({
             course.unread,
             course.conversationId !== null && course.conversationId === activeConversationId,
             () => onOpenCourseChat(course.courseId),
+            course.conversationId,
           )}
         </div>
         {expanded ? (
@@ -232,6 +310,7 @@ export function GroupTreeNav({
               g.unread,
               g.conversationId !== null && g.conversationId === activeConversationId,
               () => (g.conversationId ? onOpenConversationById(g.conversationId) : onOpenGroupConversation(g.groupId)),
+              g.conversationId,
             ))}
           </div>
         ) : null}
@@ -263,6 +342,7 @@ export function GroupTreeNav({
                 cls.unread,
                 cls.conversationId !== null && cls.conversationId === activeConversationId,
                 () => onOpenClassChat(cls.classId),
+                cls.conversationId,
               )}
             </div>
             {expanded ? (
@@ -298,6 +378,7 @@ export function GroupTreeNav({
           g.unread,
           g.conversationId === activeConversationId,
           () => onOpenConversationById(g.conversationId),
+          g.conversationId,
         ))}
         {freeGroups.length === 0 ? (
           <p className="px-2 text-sm text-muted-foreground">{t('freeGroupsEmpty')}</p>

@@ -268,6 +268,7 @@ export function MessagesPage() {
             pickerRosterError={contacts.pickerError}
             pickerRosterCursor={contacts.pickerCursor}
             onLoadMorePicker={() => void contacts.loadMorePicker()}
+            loading={!list.listLoaded && !list.error}
           />
         </div>
         <div className={activeHook.active ? 'flex min-h-0 flex-1 flex-col' : 'hidden min-h-0 flex-1 flex-col md:flex'}>
@@ -296,7 +297,9 @@ export function MessagesPage() {
             canRecall={moderation.canRecall}
             onRecallMessage={moderation.recallMessage}
             onHardDeleteMessage={moderation.hardDeleteMessage}
-            seenByAllOthers={activeHook.seenByAllOthers}
+            onUpdateConversationState={list.updateConversationState}
+            people={list.people}
+            loading={!list.listLoaded && !list.error}
             typingNames={activeHook.typingNames}
             draft={composer.draft}
             setDrafts={composer.setDrafts}

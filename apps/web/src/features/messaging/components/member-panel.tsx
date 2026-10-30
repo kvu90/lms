@@ -432,8 +432,15 @@ export function MemberPanel({
               <span className="absolute right-0 bottom-0 size-2.5 rounded-full bg-emerald-500 ring-2 ring-background" />
             ) : null}
           </span>
-          <span className="min-w-0 flex-1 truncate text-sm">
-            {entry.displayName} <span className="text-muted-foreground">@{entry.username}</span>
+          {/*
+            Tên thành viên KHÔNG cắt ngắn (issue #591): tên và
+            tên đăng nhập xếp hai dòng trong cột linh hoạt để
+            tên dài hiện trọn trong panel 320px thay vì bị
+            truncate thành "Lan Anh N…" như trước.
+          */}
+          <span className="min-w-0 flex-1 text-sm">
+            <span className="block break-words">{entry.displayName}</span>
+            <span className="block text-xs text-muted-foreground">@{entry.username}</span>
           </span>
         </MemberActionMenu>
         {entry.isCreator ? <Badge variant="outline">{t('memberCreatorBadge')}</Badge> : null}
@@ -446,8 +453,13 @@ export function MemberPanel({
   };
 
   return (
-    <div className="space-y-3 border-b px-3 py-2" data-testid="member-panel">
-      <h3 className="text-sm font-medium">{t('conversationInfoTitle')}</h3>
+    /*
+      Panel nằm trong cột thứ ba của khung chat (issue #591):
+      tiêu đề "Thông tin cuộc trò chuyện" chỉ hiện MỘT lần ở
+      đầu cột do khung chat dựng — panel này không lặp lại
+      tiêu đề như trước (bản cũ hiện tiêu đề hai lần).
+    */
+    <div className="space-y-3 px-3 py-2" data-testid="member-panel">
       <dl className="space-y-1 text-sm">
         <div className="flex justify-between gap-3">
           <dt className="text-muted-foreground">{t('memberInfoName')}</dt>
