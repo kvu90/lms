@@ -7,7 +7,26 @@ import { userPreferences, users } from '../../db/schema';
 
 export type UserRow = typeof users.$inferSelect;
 
-/** Bộ lọc danh sách người dùng: nhóm trạng thái và hợp đồng sắp xếp theo hợp đồng truy vấn ở `@lms/contracts`. */
+/**
+ * Bộ lọc danh sách người dùng cho `search()` — nhóm trạng thái và hợp đồng
+ * sắp xếp, nhận giá trị theo hợp đồng truy vấn ở `@lms/contracts`. Mọi
+ * trường đều tuỳ chọn; bỏ trống trường nào thì `search()` áp dụng hành vi
+ * mặc định của trường đó như mô tả từng trường dưới đây.
+ *
+ * - `status`: nhóm trạng thái tài khoản cần lấy, suy ra từ hai cờ `deleted`
+ *   và `suspended` của bản ghi người dùng. Không truyền thì chỉ lấy tài
+ *   khoản chưa xoá (gồm cả tài khoản đang bị đình chỉ); `active` lấy tài
+ *   khoản chưa xoá và không bị đình chỉ; `suspended` lấy tài khoản chưa xoá
+ *   đang bị đình chỉ; `deleted` chỉ lấy tài khoản đã xoá mềm.
+ * - `sortBy`: trường sắp xếp chính — `name` sắp theo `firstName` rồi
+ *   `lastName`, `createdAt` theo thời điểm tạo tài khoản, `lastLogin` theo
+ *   lần đăng nhập gần nhất. Không truyền thì giữ thứ tự mặc định theo `id`
+ *   tăng dần; khi có truyền, `search()` luôn neo thêm `id` tăng dần ở cuối
+ *   để thứ tự ổn định giữa các trang.
+ * - `sortDirection`: chiều áp cho trường `sortBy` — `desc` là giảm dần, các
+ *   trường hợp còn lại (kể cả không truyền) là tăng dần. Chỉ có tác dụng khi
+ *   có `sortBy`; neo `id` ở cuối luôn tăng dần bất kể chiều này.
+ */
 export interface UserListFilter {
   status?: UserListStatus;
   sortBy?: UserListSortBy;
