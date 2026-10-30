@@ -5,7 +5,7 @@
  * khoá của mình ở tầng queries/; khoá dùng chung nhiều feature ở lại
  * src/lib/query-keys.ts. Cấu trúc phân cấp: thực thể → định danh → tham số.
  */
-import type { ListAssignmentsParams } from '../api/admin-roles';
+import type { ListUsersWithAssignmentsParams } from '../api/admin-roles';
 import type { ListAdminUsersParams } from '../api/admin-users';
 
 export const queryKeys = {
@@ -65,21 +65,28 @@ export const queryKeys = {
    */
   userAssignments: (userId: string) => ['admin', 'role-assignments', 'by-user', userId] as const,
   /**
-   * Khoá trang dòng gán vai theo đúng bộ lọc/tìm/phân trang đang hiển
-   * thị — mỗi tổ hợp tham số là một trang cache riêng, đổi lọc/tìm/
-   * trang là đổi khoá và gọi lại server với tham số tương ứng.
+   * Khoá trang người dùng kèm gán vai theo đúng bộ lọc/tìm/phân trang
+   * đang hiển thị — mỗi tổ hợp tham số là một trang cache riêng, đổi
+   * lọc/tìm/trang là đổi khoá và gọi lại server với tham số tương ứng.
+   * Nằm dưới gốc bảng gán nên gán/gỡ vai làm mới cả bảng này.
    */
-  roleAssignments: (params: ListAssignmentsParams) =>
+  usersWithAssignments: (params: ListUsersWithAssignmentsParams) =>
     [
       'admin',
       'role-assignments',
-      params.userId ?? '',
+      'users',
       params.roleId ?? '',
-      params.contextId ?? '',
+      params.status ?? '',
       params.search ?? '',
       params.page,
       params.pageSize,
     ] as const,
+  /**
+   * Khoá lượt tra đúng một người dùng kèm gán vai cho chế độ lọc theo
+   * người dùng của bảng (tham số `userId` trên URL) — cũng nằm dưới
+   * gốc bảng gán để gán/gỡ vai làm mới cả chế độ này.
+   */
+  userWithAssignmentsById: (userId: string) => ['admin', 'role-assignments', 'users', 'by-id', userId] as const,
   adminUserDetail: (userId: string) => ['admin', 'users', 'detail', userId] as const,
   tenantsRoot: ['admin', 'tenants'] as const,
   tenants: ['admin', 'tenants', 'list'] as const,

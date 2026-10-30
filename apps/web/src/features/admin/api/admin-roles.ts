@@ -5,6 +5,8 @@ import type {
   ReplaceRoleCapabilities,
   Role,
   UpdateRole,
+  UserListStatus,
+  UserWithAssignmentsListResponse,
 } from '@lms/contracts';
 import { apiJson } from '#lib/api';
 
@@ -107,6 +109,77 @@ export function listAssignments(params: ListAssignmentsParams) {
   query.set('page', String(params.page));
   query.set('pageSize', String(params.pageSize));
   return apiJson<AssignmentListResponse>(`/api/v1/access/assignments?${query.toString()}`);
+}
+
+/**
+ * Tham số liệt kê người dùng kèm gán vai của bảng trang vai trò — mọi
+ * lọc, tìm và phân trang của bảng đều đi qua các tham số server này,
+ * không lọc phía client trên tập đã tải toàn bộ. Đơn vị phân trang ở
+ * đây là NGƯỜI DÙNG (mỗi người đúng một dòng), khác danh sách gán vai
+ * phân trang theo từng dòng gán; `total` vì thế đếm người dùng khớp
+ * bộ lọc. Bộ lọc/lượt tìm rỗng được bỏ khỏi chuỗi truy vấn để backend
+ * hiểu là không lọc theo tiêu chí đó.
+ */
+export interface ListUsersWithAssignmentsParams {
+  /** Chỉ giữ người dùng có ít nhất một dòng gán với vai này; mảng gán trả về vẫn đủ mọi vai của người đó. */
+  roleId?: string;
+  /** Nhóm trạng thái tài khoản (`active`/`suspended`/`deleted`); bỏ qua thì chỉ lấy tài khoản chưa xoá. */
+  status?: UserListStatus;
+  /** Từ khoá khớp tên, email, tên đăng nhập hoặc họ tên đầy đủ; bỏ qua khi rỗng. */
+  search?: string;
+  /** Số trang (bắt đầu từ 1). */
+  page: number;
+  /** Số người mỗi trang. */
+  pageSize: number;
+}
+
+/**
+ * Liệt kê người dùng kèm toàn bộ gán vai đã phân trang phía server
+ * (GET /access/users-with-assignments) — nguồn dữ kiện duy nhất của
+ * bảng người dùng trên trang vai trò; mỗi người mang đủ dòng gán của
+ * mình kèm tên vai và cấp ngữ cảnh nên bảng không cần gọi thêm.
+ *
+ * @param params - Bộ lọc, từ khoá và phân trang của trang hiện tại.
+ * @returns Trang người dùng kèm gán vai và tổng số người dùng khớp.
+ */
+export function listUsersWithAssignments(params: ListUsersWithAssignmentsParams) {
+  const query = new URLSearchParams();
+  if (params.roleId) query.set('roleId', params.roleId);
+  if (params.status) query.set('status', params.status);
+  if (params.search) query.set('search', params.search);
+  query.set('page', String(params.page));
+  query.set('pageSize', String(params.pageSize));
+  return apiJson<UserWithAssignmentsListResponse>(`/api/v1/access/users-with-assignments?${query.toString()}`);
+}
+
+/**
+ * Tìm đúng một người dùng kèm gán vai qua endpoint gộp — phục vụ chế
+ * độ lọc theo người dùng của bảng trang vai trò khi URL mang tham số
+ * `userId` (đường liên kết từ cột Vai trò của trang danh sách người
+ * dùng). Endpoint gộp không có tham số lọc theo định danh người dùng
+ * nên lượt này quét lần lượt các trang ở cỡ trần 100 cho tới khi gặp
+ * người cần tìm hoặc hết tổng server công bố; chỉ đọc từ đúng endpoint
+ * gộp này, không ghép danh sách người dùng và danh sách gán riêng lẻ.
+ * Quy mô quản trị nền tảng nhỏ (hàng chục người dùng) nên lượt quét
+ * này chỉ là vài lần gọi trong trường hợp xấu nhất.
+ *
+ * @param userId - Định danh người dùng cần tìm.
+ * @returns Dòng người dùng kèm gán vai, hoặc null khi không tìm thấy trong toàn bộ danh sách.
+ */
+export async function fetchUserWithAssignmentsById(userId: string) {
+  let page = 1;
+  let total = Number.POSITIVE_INFINITY;
+  let fetched = 0;
+  while (fetched < total) {
+    const result = await listUsersWithAssignments({ page, pageSize: 100 });
+    const found = result.users.find((user) => user.id === userId);
+    if (found) return found;
+    fetched += result.users.length;
+    total = result.total;
+    if (result.users.length === 0) break;
+    page += 1;
+  }
+  return null;
 }
 
 /** Cỡ trang của lượt quét toàn bộ tập người giữ vai — khớp trần phía server của danh sách gán vai. */

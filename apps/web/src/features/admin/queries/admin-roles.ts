@@ -7,10 +7,12 @@ import {
   deleteAssignment,
   deleteRole,
   fetchRoleHolderUserIds,
+  fetchUserWithAssignmentsById,
   listAssignments,
+  listUsersWithAssignments,
   replaceRoleCapabilities,
   updateRole,
-  type ListAssignmentsParams,
+  type ListUsersWithAssignmentsParams,
 } from '../api/admin-roles';
 import { queryKeys } from './keys';
 
@@ -62,15 +64,28 @@ export function useDeleteRole() {
 }
 
 /**
- * Tuỳ chọn truy vấn trang dòng gán vai (đợt 3) — khoá mang đủ bộ lọc/
- * tìm/phân trang nên bảng đổi tiêu chí nào cũng gọi lại server với
- * tham số đó; trang gọi giữ keepPreviousData để đổi lọc/trang không
- * nháy rỗng bảng.
+ * Tuỳ chọn truy vấn trang người dùng kèm gán vai (issue #569) — khoá
+ * mang đủ bộ lọc/tìm/phân trang nên bảng đổi tiêu chí nào cũng gọi
+ * lại server với tham số đó; trang gọi giữ keepPreviousData để đổi
+ * lọc/trang không nháy rỗng bảng. Đơn vị phân trang là người dùng.
  */
-export function roleAssignmentsQueryOptions(params: ListAssignmentsParams) {
+export function usersWithAssignmentsQueryOptions(params: ListUsersWithAssignmentsParams) {
   return queryOptions({
-    queryKey: queryKeys.roleAssignments(params),
-    queryFn: () => listAssignments(params),
+    queryKey: queryKeys.usersWithAssignments(params),
+    queryFn: () => listUsersWithAssignments(params),
+  });
+}
+
+/**
+ * Tuỳ chọn truy vấn đúng một người dùng kèm gán vai cho chế độ lọc
+ * theo người dùng của bảng (tham số `userId` trên URL) — lượt tra quét
+ * các trang của endpoint gộp ở tầng `api/` vì endpoint không có tham
+ * số lọc theo định danh người dùng.
+ */
+export function userWithAssignmentsByIdQueryOptions(userId: string) {
+  return queryOptions({
+    queryKey: queryKeys.userWithAssignmentsById(userId),
+    queryFn: () => fetchUserWithAssignmentsById(userId),
   });
 }
 
