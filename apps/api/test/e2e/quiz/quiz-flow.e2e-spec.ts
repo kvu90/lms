@@ -22,7 +22,7 @@ import { getGradebook } from '../../support/assessment-helpers';
  *  - essay không tự chấm: lượt ở trạng thái chờ chấm tay cho tới khi
  *    giáo viên cho điểm qua bước chấm của engine.
  */
-describe('Quiz activity (mod_quiz)', () => {
+describe('Hoạt động quiz (mod_quiz)', () => {
   // Response TF-A đúng/sai toàn phần (4 ý) dùng khắp spec.
   const TF_ALL_TRUE = JSON.stringify({ s1: true, s2: true, s3: true, s4: true });
   const TF_ALL_FALSE = JSON.stringify({ s1: false, s2: false, s3: false, s4: false });
@@ -205,7 +205,7 @@ describe('Quiz activity (mod_quiz)', () => {
     return found?.grade?.finalGrade ?? null;
   }
 
-  it('full round: slot marks rule, random slot, essay manual grading changes the recorded grade', async () => {
+  it('vòng đầy đủ: quy tắc điểm slot, slot ngẫu nhiên, chấm thủ công essay đổi điểm đã ghi', async () => {
     const ctx = await setup();
     const quizRes = await createQuiz(ctx.teacher, ctx.course.id, {
       sectionId: ctx.sectionId, name: 'Quiz 1', grade: 10, gradeMethod: 'highest',
@@ -304,7 +304,7 @@ describe('Quiz activity (mod_quiz)', () => {
     expect(types).toContain('exam_attempt_regraded');
   });
 
-  it('question stats: most-wrong question first with the students who missed it; preview and in-progress attempts excluded', async () => {
+  it('thống kê câu hỏi: câu sai nhiều nhất trước kèm học viên làm sai nó; lượt xem trước và đang dở bị loại', async () => {
     const ctx = await setup();
     // Học sinh thứ hai trong cùng khoá, tên riêng để khẳng định displayName.
     const instance = await createEnrolInstance(app, admin, ctx.course.id);
@@ -383,7 +383,7 @@ describe('Quiz activity (mod_quiz)', () => {
     expect(stats[2]!.wrongStudents.map((w) => w.userId)).toEqual([studentB.id]);
   });
 
-  it('grade method highest across attempts, attempts limit enforced, attempts of others are private', async () => {
+  it('phương thức điểm cao nhất qua các lượt, giới hạn lượt được áp đặt, lượt của người khác riêng tư', async () => {
     const ctx = await setup();
     const quizRes = await createQuiz(ctx.teacher, ctx.course.id, {
       sectionId: ctx.sectionId, name: 'Quiz 2', grade: 10, gradeMethod: 'highest', attemptsAllowed: 2,
@@ -428,7 +428,7 @@ describe('Quiz activity (mod_quiz)', () => {
     expect(peek.status).toBe(403);
   });
 
-  it('time window blocks attempts outside open/close; time limit closes the attempt server-side on interaction', async () => {
+  it('cửa sổ thời gian chặn lượt ngoài open/close; giới hạn thời gian đóng lượt phía server khi tương tác', async () => {
     const ctx = await setup();
     const future = new Date(Date.now() + 3600_000).toISOString();
     const past = new Date(Date.now() - 3600_000).toISOString();
@@ -471,7 +471,7 @@ describe('Quiz activity (mod_quiz)', () => {
     expect(after.attempt.state).toBe('finished');
   });
 
-  it('teacher preview does not consume attempts nor write grades; students cannot preview', async () => {
+  it('xem trước của giáo viên không tiêu lượt cũng không ghi điểm; học viên không thể xem trước', async () => {
     const ctx = await setup();
     const quizRes = await createQuiz(ctx.teacher, ctx.course.id, {
       sectionId: ctx.sectionId, name: 'Preview quiz', grade: 10, attemptsAllowed: 1,
@@ -500,7 +500,7 @@ describe('Quiz activity (mod_quiz)', () => {
     expect(infoStudent.body.canAttempt).toBe(true);
   });
 
-  it('slot management on the exam: edit mark, swap order, remove renumbers and totals follow the pinned version', async () => {
+  it('quản lý slot trên đề: sửa điểm, đổi thứ tự, xoá đánh lại số và tổng theo phiên bản đã ghim', async () => {
     const ctx = await setup();
     const quizRes = await createQuiz(ctx.teacher, ctx.course.id, { sectionId: ctx.sectionId, name: 'Slots quiz' });
     const examId = quizRes.body.id as string;
@@ -556,7 +556,7 @@ describe('Quiz activity (mod_quiz)', () => {
     expect(deniedPin.status).toBe(403);
   });
 
-  it('regression F1: preview and real attempts share ONE numbering sequence — no collision, no orphan usage', async () => {
+  it('hồi quy F1: xem trước và lượt thật chia sẻ MỘT dãy đánh số — không xung đột, không usage mồ côi', async () => {
     const ctx = await setup();
     // Một người có cả hai quyền: giáo viên đã có editingteacher (preview);
     // gán thêm role student tại context khoá để có quiz:attempt.
@@ -610,7 +610,7 @@ describe('Quiz activity (mod_quiz)', () => {
     await expectNoOrphanUsage(quizB);
   });
 
-  it('regression F2: an answer submitted after timeClose is not saved — the attempt is closed server-side', async () => {
+  it('hồi quy F2: đáp án nộp sau timeClose không được lưu — lượt làm đóng phía server', async () => {
     const ctx = await setup();
     const quizRes = await createQuiz(ctx.teacher, ctx.course.id, {
       sectionId: ctx.sectionId, name: 'Closing quiz', grade: 10,
@@ -652,7 +652,7 @@ describe('Quiz activity (mod_quiz)', () => {
     expect(await gradeOfQuizItem(ctx.course.id, quiz.cmId, ctx.student.id)).toBe(5);
   });
 
-  it('regression F3: a locked grade item must not fail the student submission', async () => {
+  it('hồi quy F3: mục điểm bị khoá không được làm lỗi bài nộp của học viên', async () => {
     const ctx = await setup();
     const quizRes = await createQuiz(ctx.teacher, ctx.course.id, {
       sectionId: ctx.sectionId, name: 'Locked item quiz', grade: 10,

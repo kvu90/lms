@@ -40,7 +40,7 @@ const TENANT_PLAN_DEFAULT_PRICE = 6000000;
 const TEACHER_PLAN_DEFAULT_PRICE = 990000;
 const DAY_MS = 86_400_000;
 
-describe('Coupons + plan slot limits (issue #189, remaining slice 2)', () => {
+describe('Coupon + giới hạn slot gói (issue #189, lát còn lại 2)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;

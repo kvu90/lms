@@ -30,7 +30,7 @@ const TENANT_PLAN_DEFAULT_PRICE = 6000000;
 const TEACHER_PLAN_DEFAULT_PRICE = 990000;
 const DAY_MS = 86_400_000;
 
-describe('Plan purchases: tenant_plan + teacher_plan over the VietQR pipeline (issue #189, slice 2)', () => {
+describe('Mua gói: tenant_plan + teacher_plan qua pipeline VietQR (issue #189, lát 2)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;

@@ -22,7 +22,7 @@ import { createCategory, createCourse, createEnrolInstance, enrolUser } from '..
  * worker cùng consumer thông báo sự kiện (issue con #520 của #491):
  * `apps/worker/test/integration/notifications/notification-events-delivery.int-spec.ts`.
  */
-describe('Notification course overrides (NB-4, issue #174)', () => {
+describe('Ghi đè thông báo theo khoá (NB-4, issue #174)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;
@@ -62,7 +62,7 @@ describe('Notification course overrides (NB-4, issue #174)', () => {
     return { courseA, courseB, student, token };
   }
 
-  it('GET lists my courses as all by default; PUT mute persists the notif.course.<id> preference; foreign course 404; bad mode 400', async () => {
+  it('GET liệt kê khoá học của tôi dạng all mặc định; PUT mute lưu tuỳ chọn notif.course.<id>; khoá lạ 404; mode sai 400', async () => {
     const { courseA, courseB, student, token } = await setupStudentInTwoCourses();
 
     const initial = await overridesOf(token);

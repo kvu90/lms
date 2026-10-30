@@ -30,7 +30,7 @@ import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWO
 interface DocLike { content: { content?: { text?: string }[] }[] }
 const docText = (doc: DocLike) => (doc.content ?? []).map((p) => (p.content ?? []).map((t) => t.text ?? '').join('')).join('\n');
 
-describe('Question types & stimulus', () => {
+describe('Dạng câu hỏi và ngữ liệu', () => {
   let app: INestApplication;
   let admin: string;
   let studentToken: string;
@@ -109,7 +109,7 @@ describe('Question types & stimulus', () => {
     return finished.body.attempts[0];
   }
 
-  it('stimulus lifecycle: create → attach → immutable once referenced; free stimulus stays editable and deletable', async () => {
+  it('vòng đời ngữ liệu: tạo → gắn → bất biến khi đã tham chiếu; ngữ liệu tự do vẫn sửa và xoá được', async () => {
     const categoryId = await createCategory('Stimulus cat');
     const stimRes = await http(app).post('/api/v1/stimuli').set('Authorization', `Bearer ${admin}`)
       .send({ categoryId, content: 'Đọc đoạn văn sau và trả lời các câu hỏi.' });
@@ -149,7 +149,7 @@ describe('Question types & stimulus', () => {
     expect(gone.status).toBe(404);
   });
 
-  it('stimulus sharing is scoped to its category: attaching across categories is refused', async () => {
+  it('chia sẻ ngữ liệu theo phạm vi danh mục của nó: gắn xuyên danh mục bị từ chối', async () => {
     const catA = await createCategory('Stimulus scope A');
     const catB = await createCategory('Stimulus scope B');
     const stim = await http(app).post('/api/v1/stimuli').set('Authorization', `Bearer ${admin}`)
@@ -165,7 +165,7 @@ describe('Question types & stimulus', () => {
     expect(forbidden.status).toBe(403);
   });
 
-  it('a stimulus cluster: several TF-A questions share one stimulus and grade independently', async () => {
+  it('cụm ngữ liệu: nhiều câu TF-A chia sẻ một ngữ liệu và chấm độc lập', async () => {
     const categoryId = await createCategory('Cluster cat');
     const stim = await http(app).post('/api/v1/stimuli').set('Authorization', `Bearer ${admin}`)
       .send({ categoryId, content: 'Trời mưa to. Đường phố ngập nước. Mọi người ở trong nhà.' });
@@ -333,7 +333,7 @@ describe('Question types & stimulus', () => {
     expect(await runAttempt(qid, 'Paris')).toMatchObject({ state: 'gradedright', fraction: 1 });
   });
 
-  it('essay: options carry grader info and response template; attempts land in needsgrading with no auto fraction', async () => {
+  it('essay: tuỳ chọn mang thông tin người chấm và mẫu trả lời; lượt làm rơi vào needsgrading không có fraction tự động', async () => {
     const categoryId = await createCategory('Essay cat');
     const q = await createQuestion({
       categoryId, qtype: 'essay', questionText: 'Phân tích nguyên nhân ô nhiễm không khí đô thị.',
@@ -365,7 +365,7 @@ describe('Question types & stimulus', () => {
     expect(attempt.fraction).toBeNull();
   });
 
-  it('essay validation: answers are refused and inverted word limits are refused', async () => {
+  it('kiểm chứng essay: đáp án bị từ chối và giới hạn từ đảo ngược bị từ chối', async () => {
     const categoryId = await createCategory('Essay validation cat');
     const withAnswers = await createQuestion({
       categoryId, qtype: 'essay', questionText: '?',
@@ -379,7 +379,7 @@ describe('Question types & stimulus', () => {
     expect(inverted.status).toBe(400);
   });
 
-  it('rich text questionText: a Tiptap document round-trips; documents outside the text slice are refused', async () => {
+  it('questionText rich text: tài liệu Tiptap đi khứ hồi; tài liệu ngoài lát text bị từ chối', async () => {
     const categoryId = await createCategory('Rich text cat');
     const doc = {
       type: 'doc',
@@ -422,7 +422,7 @@ describe('Question types & stimulus', () => {
     expect(withHeading.status).toBe(400);
   });
 
-  it('editing without answers clones the previous version content into the new version with fresh rows', async () => {
+  it('sửa không kèm đáp án nhân bản nội dung phiên bản trước vào phiên bản mới với dòng mới', async () => {
     const categoryId = await createCategory('Clone cat');
     const q = await createQuestion({
       categoryId, qtype: 'multichoice', questionText: 'Phiên bản 1',

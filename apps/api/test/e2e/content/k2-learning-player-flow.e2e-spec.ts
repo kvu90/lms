@@ -15,7 +15,7 @@ import { createCategory, createCourse, createEnrolInstance, createSection, enrol
  *  - B5: mẫu cấu trúc bài học theo khung CV 5512.
  * % tiến độ luôn đối chiếu với dữ liệu completion qua API completion.
  */
-describe('K2 learning content, player & progress', () => {
+describe('Nội dung học tập, trình phát và tiến độ K2', () => {
   let app: INestApplication;
   let admin: string;
 

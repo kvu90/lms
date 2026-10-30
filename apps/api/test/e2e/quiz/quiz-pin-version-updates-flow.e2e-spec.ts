@@ -31,7 +31,7 @@ import { addExamSlot, createExamDraft, createReadyQuestion, personalExamBankId, 
  *     lần ghim: bản sao của pin float vẫn float, pin pinned vẫn
  *     pinned.
  */
-describe('Pin version updates + answer-key regrade (issue #254)', () => {
+describe('Cập nhật phiên bản ghim + chấm lại theo đáp án (issue #254)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;

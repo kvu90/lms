@@ -16,7 +16,7 @@ import {
  * (refcount ở kho, file vật lý tại khoá nội dung, cleanupOrphan của đường worker)
  * nằm ở test/integration/files/files-storage-invariants.int-spec.ts (issue #483).
  */
-describe('Files: content-addressed dedup, refcount cleanup, capability-checked serving', () => {
+describe('File: khử trùng theo địa chỉ nội dung, dọn refcount, phục vụ kiểm tra năng lực', () => {
   let app: INestApplication;
   let admin: string;
   let courseCtx: string;
@@ -63,7 +63,7 @@ describe('Files: content-addressed dedup, refcount cleanup, capability-checked s
     expect(delB.body.refcount).toBe(0);
   });
 
-  it('serves content to a user with the file-context capability via signed URL and guarded stream', async () => {
+  it('phục vụ nội dung cho người có năng lực ngữ cảnh file qua URL đã ký và luồng có rào', async () => {
     const file = await upload(uploaderToken, 'serve.txt', 'serve-me');
     const signed = await http(app).post(`/api/v1/files/${file.id}/signed-url`).set('Authorization', `Bearer ${uploaderToken}`);
     expect(signed.status).toBe(201);
@@ -75,7 +75,7 @@ describe('Files: content-addressed dedup, refcount cleanup, capability-checked s
     expect(stream.text).toBe('serve-me');
   });
 
-  it('denies a stranger: signed-url request and guarded stream return 403 Problem Details; unsigned download is 401', async () => {
+  it('từ chối người lạ: request URL đã ký và luồng có rào trả 403 Problem Details; tải không ký trả 401', async () => {
     const file = await upload(uploaderToken, 'secret.txt', 'top-secret');
     const stranger = await createUserViaApi(app, admin);
     const strangerToken = (await login(app, stranger.username, STRONG_PASSWORD)).accessToken;

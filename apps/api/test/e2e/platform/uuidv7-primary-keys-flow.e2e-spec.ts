@@ -15,7 +15,7 @@ import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWO
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CONN = process.env.DATABASE_URL;
 
-describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
+describe('Khoá chính UUIDv7 (kiểm chứng platform PostgreSQL 18)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;
@@ -29,7 +29,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
   });
   afterAll(async () => { await pg.end(); await app.close(); });
 
-  it('(1) raw SQL inserts without an id get version-7 ids, and the single baseline migration defaults every PK to uuidv7()', async () => {
+  it('(1) insert SQL thô không có id nhận id phiên bản 7, và migration baseline duy nhất mặc định mọi PK thành uuidv7()', async () => {
     const cat = await pg.query(
       `insert into course_categories (name, tenant_id) values ($1, (select id from tenants where slug = 'trang-chinh')) returning id, uuid_extract_version(id) as v`,
       [`${run}-cat`],
@@ -203,7 +203,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     expect(sequenceNames).toEqual(['payment_code_seq']);
   });
 
-  it('(1b) the live catalog defaults every entity id to uuidv7(), and pure join tables carry no surrogate id', async () => {
+  it('(1b) catalog live mặc định mọi id thực thể thành uuidv7(), và bảng join thuần không mang id thay thế', async () => {
     const defaults = await pg.query<{ table_name: string; column_default: string | null }>(
       `SELECT c.relname AS table_name, pg_get_expr(d.adbin, d.adrelid) AS column_default
          FROM pg_class c
@@ -274,7 +274,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     }
   });
 
-  it('(2) ids are monotonic within one session: 2,000 sequential inserts on one connection sort in insertion order', async () => {
+  it('(2) id đơn điệu trong một phiên: 2.000 insert tuần tự trên một kết nối sắp xếp theo thứ tự chèn', async () => {
     // Một Client = một connection = một session: đúng phạm vi đảm bảo của uuidv7().
     const inserted: string[] = [];
     for (let i = 0; i < 2000; i += 1) {
@@ -286,7 +286,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     await pg.query(`delete from tag where name like $1`, [`${run}-mono-%`]);
   }, 60_000);
 
-  it('(3) mixing DB defaults and app-side $defaultFn ids never collides, and seq stays unique and increasing', async () => {
+  it('(3) trộn mặc định DB và id $defaultFn phía app không bao giờ xung đột, và seq vẫn duy nhất và tăng dần', async () => {
     const ids = new Set<string>();
     const seqs: number[] = [];
     for (let i = 0; i < 60; i += 1) {
@@ -310,7 +310,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     await pg.query(`delete from outbox_events where type = $1`, [`${run}.mix`]);
   });
 
-  it('(3b) bulk mixed generation stays unique: 100k ids from DB defaults, app-side values and parallel connections', async () => {
+  it('(3b) sinh hỗn hợp hàng loạt vẫn duy nhất: 100k id từ mặc định DB, giá trị phía app và kết nối song song', async () => {
     await pg.query(`create table if not exists u7_probe (id uuid primary key default uuidv7(), marker text not null)`);
     try {
       await pg.query(`insert into u7_probe (marker) select $1 from generate_series(1, 40000)`, [`${run}-bulk-db`]);
@@ -343,7 +343,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     }
   }, 60_000);
 
-  it('(4) uuid_extract_timestamp agrees with created_at within ±2s', async () => {
+  it('(4) uuid_extract_timestamp khớp created_at trong ±2s', async () => {
     const r = await pg.query(
       `insert into event_log (event_type, payload) values ($1, '{}'::jsonb)
        returning id, created_at, uuid_extract_timestamp(id) as embedded`,
@@ -355,7 +355,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     await pg.query(`delete from event_log where event_type = $1`, [`${run}.probe`]);
   });
 
-  it('(5) keyset pagination on (created_at, id) neither duplicates nor loses rows when inserts land mid-paging', async () => {
+  it('(5) phân trang keyset trên (created_at, id) không trùng lặp cũng không mất dòng khi insert rơi vào giữa lúc phân trang', async () => {
     const base = new Date('2026-01-01T00:00:00.000Z').getTime();
     const originalIds: string[] = [];
     // 30 dòng, mốc thời gian trùng nhau theo nhóm 5 để buộc dùng id làm tie-break.
@@ -405,7 +405,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     await pg.query(`delete from event_log where event_type = $1`, [`${run}.page`]);
   });
 
-  it('(6) FK filters use the explicit FK indexes (planner + pg_indexes presence)', async () => {
+  it('(6) bộ lọc FK dùng index FK tường minh (planner + sự hiện diện pg_indexes)', async () => {
     const expectedIndexes = [
       'course_category_idx',
       'course_modules_course_idx',
@@ -435,7 +435,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     }
   });
 
-  it('(6b) every single-column foreign key in the schema is covered by a leading index column', async () => {
+  it('(6b) mọi khoá ngoại một cột trong schema đều được cột index đầu bao phủ', async () => {
     const missing = await pg.query<{ col: string }>(
       `SELECT conrelid::regclass || '.' || a.attname AS col
          FROM pg_constraint c
@@ -446,7 +446,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     expect(missing.rows.map((r) => r.col)).toEqual([]);
   });
 
-  it('(7) IDOR: a valid UUID of another course resource is still denied (404/403) after the key change', async () => {
+  it('(7) IDOR: UUID hợp lệ của tài nguyên khoá khác vẫn bị từ chối (404/403) sau khi đổi khoá', async () => {
     const cat = await createCategory(app, admin);
     const courseA = await createCourse(app, admin, cat.id);
     const courseB = await createCourse(app, admin, cat.id);
@@ -461,7 +461,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     expect([403, 404]).toContain(foreign.status);
   });
 
-  it('(8) API contract: ids serialize as UUIDv7 strings; malformed id → 400; unknown well-formed id → 404', async () => {
+  it('(8) Hợp đồng API: id tuần tự hoá thành chuỗi UUIDv7; id sai định dạng → 400; id đúng định dạng nhưng lạ → 404', async () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
     expect(typeof course.id).toBe('string');
@@ -474,7 +474,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     expect(missing.status).toBe(404);
   });
 
-  it('(8b) user ids follow the same contract — and a malformed user id is a 400, never a 500 from the capability guard', async () => {
+  it('(8b) id người dùng tuân cùng hợp đồng — và id người dùng sai định dạng là 400, không bao giờ là 500 từ guard năng lực', async () => {
     // CapabilityGuard chạy trước pipe validate và tra context theo :id thô:
     // id không phải UUID từng làm guard ném lỗi DB (500). Regression test
     // cho hành vi đúng của hợp đồng: 400 ở biên validate.

@@ -44,7 +44,7 @@ import { createCategory } from '../../support/course-enrolment-helpers';
  *      và học viên trong lớp chỉ nhận họ tên, hai trường liên hệ bị
  *      làm rỗng ở phía server.
  */
-describe('class teacher surface (CLASS-1, #184)', () => {
+describe('Bề mặt giáo viên lớp (CLASS-1, #184)', () => {
   let app: INestApplication;
   let pg: Client;
   let admin = '';

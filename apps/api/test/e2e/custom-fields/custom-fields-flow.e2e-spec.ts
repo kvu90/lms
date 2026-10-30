@@ -8,7 +8,7 @@ import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWO
  * test_create_category, test_delete_category_with_fields, CRUD danh mục/trường;
  * kiểm chứng giá trị tuân theo khai báo của từng loại trường (trình xử lý core_customfield).
  */
-describe('CustomFields: profile fields are defined as metadata and validated on save', () => {
+describe('CustomFields: trường hồ sơ định nghĩa dạng metadata và kiểm chứng khi lưu', () => {
   let app: INestApplication;
   let admin: string;
   let categoryId: string;
@@ -31,7 +31,7 @@ describe('CustomFields: profile fields are defined as metadata and validated on 
   });
   afterAll(async () => { await app.close(); });
 
-  it('stores valid values and returns them with the profile', async () => {
+  it('lưu giá trị hợp lệ và trả chúng kèm hồ sơ', async () => {
     const user = await createUserViaApi(app, admin, {
       customFields: { department: 'Engineering', bio: 'hello', newsletter: '1', birthdate: '2000-01-15' },
     });
@@ -42,14 +42,14 @@ describe('CustomFields: profile fields are defined as metadata and validated on 
     expect(fields.birthdate).toBe('2000-01-15');
   });
 
-  it('rejects a select value outside the declared options', async () => {
+  it('từ chối giá trị select ngoài các tuỳ chọn đã khai', async () => {
     const res = await http(app).post('/api/v1/users').set('Authorization', `Bearer ${admin}`)
             .send({ username: uniqueName('badselect'), email: `${uniqueName('badselect')}@example.com`, password: STRONG_PASSWORD, customFields: { department: 'Legal' } });
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('customfield.validation_failed');
   });
 
-  it('rejects a profile missing a required field on update', async () => {
+  it('từ chối hồ sơ thiếu trường bắt buộc khi cập nhật', async () => {
     const user = await createUserViaApi(app, admin, { customFields: { department: 'Sales' } });
     const { accessToken } = await login(app, user.username, STRONG_PASSWORD);
     const res = await http(app).patch(`/api/v1/users/${user.id}`).set('Authorization', `Bearer ${accessToken}`)
@@ -57,13 +57,13 @@ describe('CustomFields: profile fields are defined as metadata and validated on 
     expect(res.status).toBe(400);
   });
 
-  it('rejects an invalid date value', async () => {
+  it('từ chối giá trị ngày không hợp lệ', async () => {
     const res = await http(app).post('/api/v1/users').set('Authorization', `Bearer ${admin}`)
             .send({ username: uniqueName('baddate'), email: `${uniqueName('baddate')}@example.com`, password: STRONG_PASSWORD, customFields: { department: 'Sales', birthdate: 'not-a-date' } });
     expect(res.status).toBe(400);
   });
 
-  it('only capability holders can manage field definitions', async () => {
+  it('chỉ người có năng lực mới quản lý được định nghĩa trường', async () => {
     const user = await createUserViaApi(app, admin, { customFields: { department: 'Sales' } });
     const { accessToken } = await login(app, user.username, STRONG_PASSWORD);
     const res = await http(app).post('/api/v1/custom-fields/fields').set('Authorization', `Bearer ${accessToken}`)
@@ -71,7 +71,7 @@ describe('CustomFields: profile fields are defined as metadata and validated on 
     expect(res.status).toBe(403);
   });
 
-  it('deleting a category removes its fields (api_test::test_delete_category_with_fields)', async () => {
+  it('xoá danh mục xoá luôn các trường của nó (api_test::test_delete_category_with_fields)', async () => {
     const cat = await http(app).post('/api/v1/custom-fields/categories').set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Temp', component: 'core_user', area: 'user' });
     const field = await http(app).post('/api/v1/custom-fields/fields').set('Authorization', `Bearer ${admin}`)

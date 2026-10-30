@@ -40,7 +40,7 @@ interface ContentSection {
   frame: { nodeId: string; nodeTitle: string; outcomes: { content: string }[] } | null;
 }
 
-describe('K0a curriculum frame re-application is idempotent per node', () => {
+describe('Áp lại khung chương trình K0a luỹ đẳng theo từng node', () => {
   let app: INestApplication;
   let teacherToken: string;
   let curriculum5Id: string;
@@ -94,7 +94,7 @@ describe('K0a curriculum frame re-application is idempotent per node', () => {
   }, 180_000);
   afterAll(async () => { await app.close(); });
 
-  it('first application creates one anchored section for the topic', async () => {
+  it('lần áp đầu tạo một section có neo cho chủ đề', async () => {
     const topic = findByPath(tree5, ['Số và phép tính', 'Phân số', 'Số thập phân']);
     expect(topic).toBeTruthy();
     const res = await applyFrame([topic!.id]);
@@ -104,7 +104,7 @@ describe('K0a curriculum frame re-application is idempotent per node', () => {
     expect(created[0]!.frame.nodeId).toBe(topic!.id);
   });
 
-  it('re-applying the same node creates NO duplicate section and reports zero created', async () => {
+  it('áp lại cùng node KHÔNG tạo section trùng và báo zero created', async () => {
     const topic = findByPath(tree5, ['Số và phép tính', 'Phân số', 'Số thập phân'])!;
     const res = await applyFrame([topic.id]);
     expect(res.status).toBe(201);
@@ -115,7 +115,7 @@ describe('K0a curriculum frame re-application is idempotent per node', () => {
     expect(sections.filter((s) => s.frame?.nodeId === topic.id).length).toBe(1);
   });
 
-  it('re-applying with insertAtSection is also a no-op for the outline', async () => {
+  it('áp lại kèm insertAtSection cũng là no-op với dàn ý', async () => {
     const topic = findByPath(tree5, ['Số và phép tính', 'Phân số', 'Số thập phân'])!;
     const res = await applyFrame([topic.id], 1);
     expect(res.status).toBe(201);
@@ -126,7 +126,7 @@ describe('K0a curriculum frame re-application is idempotent per node', () => {
     expect(sections[1]!.frame?.nodeId).toBe(topic.id);
   });
 
-  it('a mixed batch (already-applied node + new node) creates only the new section', async () => {
+  it('lô hỗn hợp (node đã áp + node mới) chỉ tạo section mới', async () => {
     const topic = findByPath(tree5, ['Số và phép tính', 'Phân số', 'Số thập phân'])!;
     const sectionNode = findByPath(tree5, ['Số và phép tính', 'Phân số'])!;
     const res = await applyFrame([topic.id, sectionNode.id]);
@@ -144,7 +144,7 @@ describe('K0a curriculum frame re-application is idempotent per node', () => {
     expect(sections[2]!.frame?.nodeId).toBe(sectionNode.id);
   });
 
-  it('a duplicate node inside a single request still creates only one section', async () => {
+  it('node trùng trong một request vẫn chỉ tạo một section', async () => {
     const stream = findByPath(tree5, ['Số và phép tính'])!;
     const res = await applyFrame([stream.id, stream.id]);
     expect(res.status).toBe(201);
