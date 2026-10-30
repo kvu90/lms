@@ -16,6 +16,20 @@ export interface TenantAlsStore {
   tenantId?: string;
   userId?: string;
   /**
+   * Slug của không gian (trung tâm) trong sổ đăng ký control plane
+   * mà ngữ cảnh này thuộc về — khoá định tuyến của khung kết nối
+   * theo trung tâm (issue #581): handle định tuyến ở tầng dữ kiện
+   * (`SpaceDatabaseService.routedDatabase`) đọc trường này để chọn
+   * kho của trung tâm khi trung tâm đã ở kho riêng. Đường gắn ngữ
+   * cảnh của request/job nạp trường này thuộc issue kế tiếp; chừng
+   * nào chưa đường nào nạp, mọi ngữ cảnh đều không mang slug và
+   * tầng dữ kiện chạy đúng đường kho chung như hiện tại. Trường này
+   * KHÔNG thay `tenantId`: GUC RLS vẫn theo `tenantId`, hai định
+   * danh sống ở hai tầng khác nhau (sổ đăng ký ↔ dòng tenant trong
+   * kho).
+   */
+  spaceSlug?: string;
+  /**
    * Đường platform tường minh (vận hành xuyên tenant qua
    * `TenantDbService.withPlatform`/`runInPlatformContext`): kết nối được
    * gắn cờ `app.platform = 'on'`. Chỉ mã vận hành hệ thống (relay outbox,

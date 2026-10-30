@@ -1,7 +1,18 @@
 {
   "extends": "@lms/config/tsconfig/nest.json",
   "compilerOptions": {
-    "outDir": "./dist"
+    "outDir": "./dist",
+    // Subpath control plane của @lms/db (issue #581 — khung định
+    // tuyến phía worker đọc sổ đăng ký qua entry point này):
+    // package giữ moduleResolution Node10 nên TS không đọc được
+    // `exports` của package — ánh xạ thẳng tới bản dist đã build,
+    // đúng cách apps/api đã làm cho cùng subpath ở issue #580.
+    // Runtime Node đọc `exports` trong package.json như thường.
+    "paths": {
+      "@lms/db/control-plane": [
+        "../../packages/db/dist/control-plane.d.ts"
+      ]
+    }
   },
   "include": [
     "src",
