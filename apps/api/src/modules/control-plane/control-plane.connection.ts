@@ -22,6 +22,10 @@ export type ControlPlaneDatabase = NodePgDatabase;
  * - Pool THƯỜNG của `pg`, không qua `TenantAwarePool`: dữ liệu control
  *   plane là dữ liệu của platform, không thuộc tenant nào, không có
  *   RLS theo tenant để áp; gác quyền nằm ở tầng service.
+ * - Trần kết nối lấy từ `CONTROL_PLANE_POOL_MAX` khi được cấu hình
+ *   (issue #586 — ngân sách kết nối của cụm, xem `DATABASE_POOL_MAX`
+ *   trong `config/env.ts`); chưa cấu hình thì giữ mặc định của thư
+ *   viện `pg` như trước.
  * - Kết nối có thể VẮNG: hệ chưa cấu hình biến môi trường thì `db`
  *   bằng null và ứng dụng vẫn khởi động như cũ (môi trường triển khai
  *   bằng compose luôn cấu hình). Mọi điểm dùng phải hỏi `isConfigured`
@@ -42,7 +46,9 @@ export class ControlPlaneConnection implements OnModuleDestroy {
       return;
     }
     const connection = databaseConnectionFromEnv(url, config.get<boolean>('DATABASE_SSL') ?? false);
-    this.pool = new Pool(typeof connection === 'string' ? { connectionString: connection } : connection);
+    const poolConfig = typeof connection === 'string' ? { connectionString: connection } : connection;
+    const poolMax = config.get<number>('CONTROL_PLANE_POOL_MAX');
+    this.pool = new Pool(poolMax ? { ...poolConfig, max: poolMax } : poolConfig);
     this.db = drizzle({ client: this.pool });
   }
 

@@ -3,6 +3,14 @@ import { z } from 'zod';
 
 export const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
+  /**
+   * Trần kết nối của pool nghiệp vụ phía worker (issue #586 — ngân
+   * sách kết nối của cụm): số kết nối tối đa mà tiến trình worker
+   * được mở tới kho nghiệp vụ. TUỲ CHỌN — chưa đặt thì giữ mặc
+   * định của thư viện `pg` như trước. Xem biến cùng tên phía api
+   * để biết cách cộng ngân sách toàn cụm.
+   */
+  DATABASE_POOL_MAX: z.coerce.number().int().positive().max(1000).optional(),
   // Bật TLS cho kết nối PostgreSQL khi nhà cung cấp bắt buộc (một số
   // nhà cung cấp PostgreSQL chỉ nhận kết nối có mã hoá). Mặc định tắt:
   // môi trường local và CI chạy PostgreSQL thường không có TLS.

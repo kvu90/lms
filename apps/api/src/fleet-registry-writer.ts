@@ -1,0 +1,194 @@
+/**
+ * Cầu ghi registry cho các công cụ vận hành đội kho (issue #586):
+ * các script CLI (`fleet-migration-runner.ts`, `fleet-backup.ts`,
+ * `fleet-restore-test.ts`) chạy NGOÀI vòng đời NestJS của ứng dụng,
+ * nên file này tự lắp `ControlPlaneConnection` +
+ * `ControlPlaneRepository` của module control plane với một
+ * `ConfigService` tối giản đọc thẳng `process.env` — dùng lại đúng
+ * repository và đúng bất biến ghi của tầng service, không dựng
+ * đường ghi song song.
+ *
+ * Mọi thao tác ghi ở đây tuân theo cùng một khuôn khoá như
+ * `ControlPlaneRegistryService` (sau bản sửa của issue này): mở
+ * transaction → khoá dòng đăng ký của không gian (`FOR UPDATE`) →
+ * đọc registry hiện tại → hợp nhất các trường mình phụ trách, giữ
+ * nguyên các trường của tác vụ khác → ghi. Nhờ vậy runner
+ * migration, tác vụ sao lưu và tác vụ kiểm thử khôi phục chạy đồng
+ * thời trên cùng một kho không ghi đè mất trạng thái của nhau.
+ *
+ * Khác với service: không có gác capability ở đây — các script là
+ * công cụ vận hành chạy bằng thông tin đăng nhập của chính đội vận
+ * hành trên máy triển khai; quyền truy cập script và biến môi
+ * trường của chúng là ranh giới tin cậy của tầng vận hành.
+ */
+import type { ConfigService } from '@nestjs/config';
+import type { SchemaMigrationStep } from '@lms/db/control-plane';
+import type { FleetSpace } from './fleet-common';
+import { ControlPlaneConnection } from './modules/control-plane/control-plane.connection';
+import { ControlPlaneRepository } from './modules/control-plane/control-plane.repository';
+
+/** Kết quả một lượt chạy migration mà runner báo về registry. */
+export type MigrationRunOutcome = {
+  runId: string;
+  fromVersion: string | null;
+  toVersion: string | null;
+  status: 'success' | 'failed';
+  steps: SchemaMigrationStep[];
+};
+
+/**
+ * Bộ ghi/đọc registry của đội kho trên một kết nối control plane.
+ * @throws Error khi `CONTROL_PLANE_DATABASE_URL` chưa được cấu hình
+ * — công cụ vận hành không có registry để ghi thì phải dừng rõ
+ * ràng, khác với ứng dụng (vẫn khởi động khi chưa cấu hình).
+ */
+export class FleetRegistryWriter {
+  private readonly connection: ControlPlaneConnection;
+  private readonly repo: ControlPlaneRepository;
+
+  constructor(env: NodeJS.ProcessEnv = process.env) {
+    const stub = {
+      get: (key: string) => (key === 'DATABASE_SSL' ? env[key] === 'true' : env[key]),
+    } as unknown as ConfigService;
+    this.connection = new ControlPlaneConnection(stub);
+    if (!this.connection.isConfigured) {
+      throw new Error('CONTROL_PLANE_DATABASE_URL is required for fleet operations tooling');
+    }
+    this.repo = new ControlPlaneRepository(this.connection);
+  }
+
+  /** Toàn bộ sổ đăng ký kèm ảnh registry phiên bản/trạng thái của từng kho, theo thứ tự slug. */
+  async listFleetSpaces(): Promise<FleetSpace[]> {
+    const spaces = await this.repo.listSpaces();
+    const fleet: FleetSpace[] = [];
+    for (const space of spaces) {
+      const registry = await this.repo.findSchemaRegistry(space.id);
+      fleet.push({
+        id: space.id,
+        slug: space.slug,
+        kind: space.kind === 'platform' ? 'platform' : 'center',
+        status: space.status,
+        databaseName: space.databaseName,
+        secretRef: space.secretRef,
+        registryVersion: registry?.currentVersion ?? space.schemaVersion,
+        lastBackupAt: registry?.lastBackupAt ?? null,
+        lastRestoreAt: registry?.lastRestoreAt ?? null,
+      });
+    }
+    return fleet;
+  }
+
+  /**
+   * Ghi kết quả một lượt chạy migration: chèn dòng nhật ký lượt
+   * chạy; khi lượt thành công và có phiên bản đích thì đồng thời
+   * nâng phiên bản hiện tại ở cả registry lẫn dòng đăng ký — cùng
+   * bất biến và cùng thứ tự khoá với
+   * `ControlPlaneRegistryService.recordMigrationRun` nhưng không
+   * qua gác capability của tầng HTTP.
+   */
+  async recordMigrationOutcome(spaceId: string, outcome: MigrationRunOutcome): Promise<void> {
+    await this.repo.transaction(async (tx) => {
+      await this.repo.findSpaceByIdForUpdate(spaceId, tx);
+      await this.repo.insertMigrationRun(
+        {
+          spaceId,
+          runId: outcome.runId,
+          fromVersion: outcome.fromVersion,
+          toVersion: outcome.toVersion,
+          status: outcome.status,
+          steps: outcome.steps,
+          finishedAt: new Date(),
+        },
+        tx,
+      );
+      if (outcome.status === 'success' && outcome.toVersion) {
+        const existing = await this.repo.findSchemaRegistry(spaceId, tx);
+        await this.repo.upsertSchemaRegistry(
+          {
+            spaceId,
+            currentVersion: outcome.toVersion,
+            lastBackupStatus: existing?.lastBackupStatus ?? null,
+            lastBackupAt: existing?.lastBackupAt ?? null,
+            lastRestoreStatus: existing?.lastRestoreStatus ?? null,
+            lastRestoreAt: existing?.lastRestoreAt ?? null,
+          },
+          tx,
+        );
+        await this.repo.updateSpace(spaceId, { schemaVersion: outcome.toVersion }, tx);
+      }
+    });
+  }
+
+  /**
+   * Đồng bộ phiên bản trên sổ về đúng sự thật đọc được trong
+   * database của kho mà KHÔNG bịa một dòng nhật ký lượt chạy: dùng
+   * khi runner phát hiện kho đã ở phiên bản đích nhưng sổ còn ghi
+   * phiên bản cũ (lệch sổ sau một lượt ghi dở dang) — sự thật trong
+   * database thắng, sổ được sửa cho khớp.
+   */
+  async syncVersion(spaceId: string, version: string | null): Promise<void> {
+    await this.repo.transaction(async (tx) => {
+      await this.repo.findSpaceByIdForUpdate(spaceId, tx);
+      const existing = await this.repo.findSchemaRegistry(spaceId, tx);
+      await this.repo.upsertSchemaRegistry(
+        {
+          spaceId,
+          currentVersion: version,
+          lastBackupStatus: existing?.lastBackupStatus ?? null,
+          lastBackupAt: existing?.lastBackupAt ?? null,
+          lastRestoreStatus: existing?.lastRestoreStatus ?? null,
+          lastRestoreAt: existing?.lastRestoreAt ?? null,
+        },
+        tx,
+      );
+      await this.repo.updateSpace(spaceId, { schemaVersion: version }, tx);
+    });
+  }
+
+  /** Ghi kết quả lượt sao lưu gần nhất của một kho, giữ nguyên mọi trường còn lại của registry. */
+  async recordBackupOutcome(spaceId: string, status: 'success' | 'failed', at: Date): Promise<void> {
+    await this.mergeRegistry(spaceId, { lastBackupStatus: status, lastBackupAt: at });
+  }
+
+  /** Ghi kết quả lượt kiểm thử khôi phục gần nhất của một kho, giữ nguyên mọi trường còn lại của registry. */
+  async recordRestoreOutcome(spaceId: string, status: 'success' | 'failed', at: Date): Promise<void> {
+    await this.mergeRegistry(spaceId, { lastRestoreStatus: status, lastRestoreAt: at });
+  }
+
+  /**
+   * Khuôn hợp nhất dùng chung: khoá dòng đăng ký, đọc registry hiện
+   * tại, ghi lại toàn bộ ảnh với đúng các trường được truyền vào là
+   * thay đổi. Phiên bản hiện tại khi chưa có dòng registry thì lấy
+   * từ chính dòng đăng ký (ảnh phản chiếu đang có hiệu lực).
+   */
+  private async mergeRegistry(
+    spaceId: string,
+    patch: Partial<{
+      lastBackupStatus: string;
+      lastBackupAt: Date;
+      lastRestoreStatus: string;
+      lastRestoreAt: Date;
+    }>,
+  ): Promise<void> {
+    await this.repo.transaction(async (tx) => {
+      const space = await this.repo.findSpaceByIdForUpdate(spaceId, tx);
+      const existing = await this.repo.findSchemaRegistry(spaceId, tx);
+      await this.repo.upsertSchemaRegistry(
+        {
+          spaceId,
+          currentVersion: existing?.currentVersion ?? space?.schemaVersion ?? null,
+          lastBackupStatus: patch.lastBackupStatus ?? existing?.lastBackupStatus ?? null,
+          lastBackupAt: patch.lastBackupAt ?? existing?.lastBackupAt ?? null,
+          lastRestoreStatus: patch.lastRestoreStatus ?? existing?.lastRestoreStatus ?? null,
+          lastRestoreAt: patch.lastRestoreAt ?? existing?.lastRestoreAt ?? null,
+        },
+        tx,
+      );
+    });
+  }
+
+  /** Đóng pool kết nối control plane của bộ ghi. */
+  async close(): Promise<void> {
+    await this.connection.onModuleDestroy();
+  }
+}

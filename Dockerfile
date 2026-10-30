@@ -36,6 +36,19 @@ FROM node:24-bookworm-slim AS api
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build --chown=node:node /out/api ./
+# Bộ công cụ PostgreSQL 18 (pg_dump/pg_restore) cho các công cụ vận
+# hành đội kho (issue #586): service migrate và các lệnh fleet:* khi
+# vận hành gọi đều chạy trong chính image này. Bản công cụ phải khớp
+# major với server Postgres của stack (18) — pg_dump cũ hơn server
+# từ chối dump. Cài từ kho PGDG chính thức của PostgreSQL.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
+  && install -d /usr/share/postgresql-common/pgdg \
+  && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg \
+  && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] http://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends postgresql-client-18 \
+  && rm -rf /var/lib/apt/lists/*
 USER node
 EXPOSE 3100
 CMD ["node", "dist/main.js"]

@@ -18,6 +18,10 @@
     "db:generate:control-plane": "drizzle-kit generate --config drizzle-control-plane.config.ts",
     "db:migrate:control-plane": "drizzle-kit migrate --config drizzle-control-plane.config.ts",
     "db:setup:control-plane": "node dist/control-plane-setup.js",
+    "db:setup:runtime-roles": "node dist/runtime-roles-setup.js",
+    "fleet:migrate": "node dist/fleet-migration-runner.js",
+    "fleet:backup": "node dist/fleet-backup.js",
+    "fleet:restore-test": "node dist/fleet-restore-test.js",
     "seed:review": "node dist/review-seed.js"
   },
   "dependencies": {

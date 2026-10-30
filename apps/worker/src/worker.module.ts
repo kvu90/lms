@@ -95,9 +95,12 @@ const outboxRouteQueueNames: string[] = allQueueNamesOfRoutes(OUTBOX_EVENT_QUEUE
           config.getOrThrow<string>('DATABASE_URL'),
           config.get<boolean>('DATABASE_SSL') ?? false,
         );
-        const pool = new TenantAwarePool(
-          typeof connection === 'string' ? { connectionString: connection } : connection,
-        );
+        const poolConfig = typeof connection === 'string' ? { connectionString: connection } : connection;
+        // Ngân sách kết nối (issue #586): trần `DATABASE_POOL_MAX`
+        // khi được cấu hình; chưa cấu hình thì giữ nguyên cấu hình
+        // pool như trước — cùng cơ chế với phía api.
+        const poolMax = config.get<number>('DATABASE_POOL_MAX');
+        const pool = new TenantAwarePool(poolMax ? { ...poolConfig, max: poolMax } : poolConfig);
         return {
           // TENANT-1 (#196): pool tự dựng có gắn GUC tenant theo ngữ
           // cảnh ALS ở mọi checkout — cùng cơ chế với phía API (xem

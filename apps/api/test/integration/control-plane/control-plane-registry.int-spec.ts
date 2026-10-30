@@ -32,10 +32,13 @@ import { createTestApp } from '../../support/identity-access-helpers';
  * `connect()`. ACL của database nghiệp vụ được trả về mặc định ở
  * afterAll để không ảnh hưởng các ca khác dùng chung cụm test.
  * Giới hạn phạm vi của các ca kết nối: chúng chứng minh cô lập với
- * role KHÔNG phải superuser — role runtime của ứng dụng trong
- * compose hiện là superuser của cụm, mà superuser thì bỏ qua mọi
- * kiểm tra quyền kết nối; việc hạ role runtime xuống role thường
- * là việc hạ tầng riêng ngoài issue này.
+ * role KHÔNG phải superuser — tại thời điểm của issue này, role
+ * runtime của ứng dụng trong compose vẫn là superuser của cụm, mà
+ * superuser thì bỏ qua mọi kiểm tra quyền kết nối. Việc tách role
+ * runtime thành role thường riêng và role migration riêng thuộc
+ * issue #586; từ đó cô lập ở bước mở kết nối được kiểm chứng bằng
+ * chính các role thật của mô hình mới trong ca tích hợp của đội
+ * kho (test/integration/fleet).
  *
  * Shim `uuidv7()` chỉ áp khi server PostgreSQL dưới 18 (môi trường
  * chạy local bằng PG16): PG18 — bản ở CI và production — có sẵn hàm
@@ -385,6 +388,53 @@ describe('Control plane: sổ đăng ký không gian và registry phiên bản s
     expect(state.lastBackupAt).toBe('2026-10-30T04:00:00.000Z');
     expect(state.lastRestoreStatus).toBe('success');
     expect(state.lastRestoreAt).toBe('2026-10-30T04:05:00.000Z');
+  });
+
+  it('lượt ghi migration chồng lấn với lượt ghi trạng thái sao lưu không làm mất giá trị của nhau', async () => {
+    // Cùng kỹ thuật cổng như ca chồng lấn ngay trên: transaction
+    // thô giữ khoá dòng registry trong lúc hai lượt ghi của service
+    // cùng chạy. `recordMigrationRun` (sau bản sửa của issue #586)
+    // khoá dòng đăng ký của không gian TRƯỚC khi đọc và ghi đè
+    // registry — cùng thứ tự khoá với `updateSchemaRegistry` — nên
+    // hai lượt nối tiếp nhau và lượt sau đọc trạng thái tươi: phiên
+    // bản mới của lượt migration và trạng thái sao lưu mới cùng tồn
+    // tại. Thiếu khoá đó, cả hai cùng đọc một ảnh cũ rồi lần ghi sau
+    // ghi đè: hoặc phiên bản mới bị thay bằng giá trị null cũ, hoặc
+    // trạng thái sao lưu vừa ghi bị cuốn về giá trị trước đó.
+    const gate = new Client({ connectionString: clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD) });
+    await gate.connect();
+    try {
+      await gate.query('BEGIN');
+      await gate.query('SELECT space_id FROM space_schema_registry WHERE space_id = $1 FOR UPDATE', [createdSpaceId]);
+      const runWrite = registry.recordMigrationRun(adminId, createdSpaceId, {
+        runId: 'run-586-lock',
+        fromVersion: null,
+        toVersion: 'v-lock',
+        status: 'success',
+        steps: [{ name: 'apply-v-lock', status: 'success' }],
+      });
+      const backupWrite = registry.updateSchemaRegistry(adminId, createdSpaceId, {
+        lastBackupStatus: 'failed',
+        lastBackupAt: '2026-10-30T12:00:00+07:00',
+      });
+      // Khoảng chờ dư dả để cả hai lượt đều tới bước ghi và bị chặn
+      // ở khoá trước khi mở cổng.
+      await new Promise((resolve) => setTimeout(resolve, 750));
+      await gate.query('COMMIT');
+      await Promise.all([runWrite, backupWrite]);
+    } finally {
+      await gate.end().catch(() => undefined);
+    }
+    const state = await registry.getSchemaRegistry(adminId, createdSpaceId);
+    expect(state.currentVersion).toBe('v-lock');
+    expect(state.lastBackupStatus).toBe('failed');
+    expect(state.lastBackupAt).toBe('2026-10-30T05:00:00.000Z');
+    // Trường của các lượt trước (trạng thái khôi phục) vẫn nguyên.
+    expect(state.lastRestoreStatus).toBe('success');
+    // Phiên bản trên dòng đăng ký cũng đồng bộ theo lượt chạy.
+    expect((await registry.getBySlug(adminId, 'trung-tam-test-580')).schemaVersion).toBe('v-lock');
+    const runs = await registry.listMigrationRuns(adminId, createdSpaceId);
+    expect(runs.map((run) => run.runId)).toContain('run-586-lock');
   });
 
   it('role của control plane bị từ chối ngay ở bước mở kết nối vào kho nghiệp vụ', async () => {
