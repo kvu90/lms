@@ -10,7 +10,7 @@ import { MessagingService, coursePreferenceName } from './messaging.service';
  * P2 (mandatoryInApp, gồm admin_announcement) cũng không bị chặn —
  * luật toàn cục thắng ghi đè theo khoá.
  */
-describe('MessagingService.notify — course mute override (NB-4)', () => {
+describe('MessagingService.notify — override tắt tiếng theo khoá (NB-4)', () => {
   const MUTED_COURSE = 'course-muted';
   const OPEN_COURSE = 'course-open';
 
@@ -49,7 +49,7 @@ describe('MessagingService.notify — course mute override (NB-4)', () => {
     return { service, inserted, logs, jobs };
   }
 
-  it('a regular notification from a muted course is skipped on every channel and logged as skipped-course-mute', async () => {
+  it('thông báo thường từ khoá bị tắt tiếng bị bỏ qua trên mọi kênh và ghi log skipped-course-mute', async () => {
     const { service, inserted, logs, jobs } = buildService();
     const result = await service.notify('user-1', 'activity_due_soon', {
       subject: 'Sắp đến hạn', body: 'Bài tập sắp đến hạn nộp',
@@ -66,7 +66,7 @@ describe('MessagingService.notify — course mute override (NB-4)', () => {
     expect(logs[0]).toMatchObject({ provider: 'activity_due_soon', channel: 'popup', status: 'skipped-course-mute' });
   });
 
-  it('P3: a new grade from a muted course is still delivered', async () => {
+  it('P3: điểm mới từ khoá bị tắt tiếng vẫn được gửi', async () => {
     const { service, inserted } = buildService();
     const result = await service.notify('user-1', 'grade_updated', {
       subject: 'Có điểm mới', body: 'Điểm đã cập nhật', courseId: MUTED_COURSE,
@@ -76,7 +76,7 @@ describe('MessagingService.notify — course mute override (NB-4)', () => {
     expect(inserted).toHaveLength(1);
   });
 
-  it('P3 + P2: an enrolment-expiry warning from a muted course is still delivered', async () => {
+  it('P3 + P2: cảnh báo hết hạn ghi danh từ khoá bị tắt tiếng vẫn được gửi', async () => {
     const { service, inserted } = buildService();
     const result = await service.notify('user-1', 'enrol_expiry_warning', {
       subject: 'Sắp hết hạn ghi danh', body: 'Ghi danh sắp hết hạn', courseId: MUTED_COURSE,
@@ -85,7 +85,7 @@ describe('MessagingService.notify — course mute override (NB-4)', () => {
     expect(inserted).toHaveLength(1);
   });
 
-  it('P2: a mandatory provider is never blocked by a course override, even with a courseId attached', async () => {
+  it('P2: provider bắt buộc không bao giờ bị override khoá chặn, ngay cả khi kèm courseId', async () => {
     const { service, inserted } = buildService();
     const result = await service.notify('user-1', 'admin_announcement', {
       subject: 'Thông báo quản trị', body: 'Nội dung chính thức', courseId: MUTED_COURSE,
@@ -100,7 +100,7 @@ describe('MessagingService.notify — course mute override (NB-4)', () => {
     expect(inserted).toHaveLength(1);
   });
 
-  it('a notification from a different (unmuted) course is delivered normally', async () => {
+  it('thông báo từ khoá khác (không bị tắt tiếng) được gửi bình thường', async () => {
     const { service, inserted } = buildService();
     const result = await service.notify('user-1', 'activity_due_soon', {
       subject: 'Sắp đến hạn', body: 'Bài tập sắp đến hạn nộp', courseId: OPEN_COURSE,
@@ -109,7 +109,7 @@ describe('MessagingService.notify — course mute override (NB-4)', () => {
     expect(inserted).toHaveLength(1);
   });
 
-  it('without a courseId the override does not apply (behaviour unchanged)', async () => {
+  it('không có courseId thì override không áp dụng (hành vi không đổi)', async () => {
     const { service, inserted } = buildService();
     const result = await service.notify('user-1', 'activity_due_soon', {
       subject: 'Sắp đến hạn', body: 'Bài tập sắp đến hạn nộp',
@@ -118,7 +118,7 @@ describe('MessagingService.notify — course mute override (NB-4)', () => {
     expect(inserted).toHaveLength(1);
   });
 
-  it("an explicit 'all' override delivers normally", async () => {
+  it("override all tường minh vẫn gửi bình thường", async () => {
     const { service, inserted } = buildService('all');
     const result = await service.notify('user-1', 'activity_due_soon', {
       subject: 'Sắp đến hạn', body: 'Bài tập sắp đến hạn nộp', courseId: MUTED_COURSE,
@@ -127,7 +127,7 @@ describe('MessagingService.notify — course mute override (NB-4)', () => {
     expect(inserted).toHaveLength(1);
   });
 
-  it('other regular course providers are blocked too (course_completed from a muted course)', async () => {
+  it('các provider khoá thường khác cũng bị chặn (course_completed từ khoá bị tắt tiếng)', async () => {
     const { service, inserted, logs } = buildService();
     const result = await service.notify('user-1', 'course_completed', {
       subject: 'Hoàn thành khoá', body: 'Bạn đã hoàn thành khoá', courseId: MUTED_COURSE,

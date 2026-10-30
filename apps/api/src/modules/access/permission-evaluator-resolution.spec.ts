@@ -172,8 +172,8 @@ async function legacySnapshot(
   return out;
 }
 
-describe('PermissionEvaluator.resolveCapabilitiesForContexts', () => {
-  it('matches hasCapability for every user, context and capability in the fixture world', async () => {
+describe('Hàm PermissionEvaluator.resolveCapabilitiesForContexts', () => {
+  it('khớp hasCapability với mọi người dùng, ngữ cảnh và năng lực trong thế giới fixture', async () => {
     const { evaluator, byId } = makeWorld();
     const scenarios: { userId: string; targets: Ctx[]; opts?: { isGuest?: boolean } }[] = [
       { userId: 'user-cat', targets: [C1, CAT, S] },
@@ -197,7 +197,7 @@ describe('PermissionEvaluator.resolveCapabilitiesForContexts', () => {
     }
   });
 
-  it('keeps the hand-computed semantics of the tricky branches', async () => {
+  it('giữ ngữ nghĩa tính tay của các nhánh khó', async () => {
     const { evaluator, byId } = makeWorld();
     const teacher = await evaluator.resolveCapabilitiesForContexts('user-teacher', [C1, CL], byId);
     // ALLOW tại lá thắng PREVENT tại tổ tiên gần hơn; PROHIBIT tại lá thắng ALLOW tại gốc.
@@ -239,7 +239,7 @@ describe('PermissionEvaluator.resolveCapabilitiesForContexts', () => {
     expect(guest.get(S.id)).not.toContain('course:view');
   });
 
-  it('resolves a whole snapshot with a bounded number of data calls, unlike the per-pair path', async () => {
+  it('phân giải cả snapshot với số lần gọi dữ liệu bị chặn, khác với đường theo từng cặp', async () => {
     const { evaluator, counter, byId } = makeWorld();
     const targets = [C1, CAT, S, CL];
     counter.dbCalls = 0;

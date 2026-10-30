@@ -85,8 +85,8 @@ async function enableFactor(service: TotpService): Promise<string> {
   return secret;
 }
 
-describe('TotpService setup re-authentication gate', () => {
-  it('allows first-time setup without a code and stores a pending factor', async () => {
+describe('Cổng tái xác thực khi thiết lập TotpService', () => {
+  it('cho thiết lập lần đầu không cần mã và lưu factor đang chờ', async () => {
     const { service, storedRow } = buildService();
     const { secret, otpauthUrl } = await service.setup(USER_ID, USERNAME);
     expect(secret).toBeTruthy();
@@ -95,7 +95,7 @@ describe('TotpService setup re-authentication gate', () => {
     expect(await service.isEnabled(USER_ID)).toBe(false);
   });
 
-  it('allows repeated setup while the factor is still pending, without a code', async () => {
+  it('cho thiết lập lặp lại khi factor vẫn đang chờ, không cần mã', async () => {
     const { service, storedRow } = buildService();
     const first = await service.setup(USER_ID, USERNAME);
     const firstStored = storedRow()?.secretEncrypted;
@@ -106,7 +106,7 @@ describe('TotpService setup re-authentication gate', () => {
     expect(await service.isEnabled(USER_ID)).toBe(false);
   });
 
-  it('rejects re-setup without the current code while a factor is active and keeps the active factor intact', async () => {
+  it('từ chối thiết lập lại không có mã hiện tại khi factor đang hoạt động và giữ nguyên factor đang hoạt động', async () => {
     const { service, storedRow } = buildService();
     const activeSecret = await enableFactor(service);
     const before = storedRow();
@@ -122,7 +122,7 @@ describe('TotpService setup re-authentication gate', () => {
     expect(await service.verifyForUser(USER_ID, await currentCode(activeSecret))).toBe(true);
   });
 
-  it('rejects re-setup with a wrong current code while a factor is active and keeps the active factor intact', async () => {
+  it('từ chối thiết lập lại với mã hiện tại sai khi factor đang hoạt động và giữ nguyên factor đang hoạt động', async () => {
     const { service, storedRow } = buildService();
     const activeSecret = await enableFactor(service);
     const before = storedRow();
@@ -136,7 +136,7 @@ describe('TotpService setup re-authentication gate', () => {
     expect(await service.verifyForUser(USER_ID, await currentCode(activeSecret))).toBe(true);
   });
 
-  it('replaces the factor when re-setup presents the correct current code', async () => {
+  it('thay factor khi thiết lập lại trình mã hiện tại đúng', async () => {
     const { service, storedRow } = buildService();
     const activeSecret = await enableFactor(service);
 

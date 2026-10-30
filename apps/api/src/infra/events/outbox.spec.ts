@@ -26,7 +26,7 @@ import { OutboxService } from './outbox.service';
  * relay nữa; dòng chưa phát giữ `publishedAt` null cho tới khi
  * relay của worker chạy.
  */
-describe('Transactional outbox (real DB, lms_test_api)', () => {
+describe('Outbox giao dịch (DB thật, lms_test_api)', () => {
   let moduleRef: TestingModule;
   let db: Database;
   let outbox: OutboxService;

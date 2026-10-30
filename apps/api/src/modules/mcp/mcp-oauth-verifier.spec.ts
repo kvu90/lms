@@ -88,7 +88,7 @@ describe('McpOAuthVerifier (lát MCP-1, issue #163)', () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
-  it('accepts a well-formed token and surfaces sub/client_id/scopes', async () => {
+  it('chấp nhận token đúng định dạng và lộ sub/client_id/scopes', async () => {
     const result = await verifier.verify(requestWith(signToken(privateKey, validClaims())));
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -98,20 +98,20 @@ describe('McpOAuthVerifier (lát MCP-1, issue #163)', () => {
     }
   });
 
-  it('rejects a token for a different audience', async () => {
+  it('từ chối token của audience khác', async () => {
     const token = signToken(privateKey, validClaims({ aud: 'http://localhost:4891/other-resource' }));
     const result = await verifier.verify(requestWith(token));
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.status).toBe(401);
   });
 
-  it('rejects a token from a different issuer', async () => {
+  it('từ chối token của issuer khác', async () => {
     const token = signToken(privateKey, validClaims({ iss: 'http://localhost:9999/api/v1/auth' }));
     const result = await verifier.verify(requestWith(token));
     expect(result.ok).toBe(false);
   });
 
-  it('rejects an expired token', async () => {
+  it('từ chối token đã hết hạn', async () => {
     const now = Math.floor(Date.now() / 1000);
     const token = signToken(privateKey, validClaims({ iat: now - 7200, exp: now - 3600 }));
     const result = await verifier.verify(requestWith(token));
@@ -119,14 +119,14 @@ describe('McpOAuthVerifier (lát MCP-1, issue #163)', () => {
     if (!result.ok) expect(result.status).toBe(401);
   });
 
-  it('rejects a token signed with a different key', async () => {
+  it('từ chối token ký bằng khoá khác', async () => {
     const token = signToken(otherPrivateKey, validClaims());
     const result = await verifier.verify(requestWith(token));
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.status).toBe(401);
   });
 
-  it('rejects a request without an Authorization header', async () => {
+  it('từ chối request thiếu header Authorization', async () => {
     const result = await verifier.verify(requestWith(null));
     expect(result.ok).toBe(false);
     if (!result.ok) {

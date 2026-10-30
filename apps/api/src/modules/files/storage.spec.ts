@@ -78,12 +78,12 @@ function makeS3Storage(): { storage: S3ObjectStorage; fake: FakeS3Client } {
  * là chi tiết triển khai — không khẳng định ở đây (rà soát #219).
  */
 function storageContract(name: string, make: () => Promise<{ storage: ObjectStorage; cleanup: () => Promise<void> }>): void {
-  describe(`ObjectStorage contract — ${name}`, () => {
+  describe(`Hợp đồng ObjectStorage — ${name}`, () => {
     const dataA = Buffer.from('noi-dung-phieu-A');
     const dataB = Buffer.from('noi-dung-khac-B');
     const hash = sha256Hex(dataA);
 
-    it('put → exists=true and get returns the exact bytes', async () => {
+    it('put → exists=true và get trả đúng các byte', async () => {
       const { storage, cleanup } = await make();
       try {
         expect(await storage.exists(hash)).toBe(false);
@@ -93,7 +93,7 @@ function storageContract(name: string, make: () => Promise<{ storage: ObjectStor
       } finally { await cleanup(); }
     });
 
-    it('put with an existing hash is a dedup no-op (never overwrites)', async () => {
+    it('put với hash đã có là no-op khử trùng (không bao giờ ghi đè)', async () => {
       const { storage, cleanup } = await make();
       try {
         await storage.put(hash, dataA);
@@ -102,7 +102,7 @@ function storageContract(name: string, make: () => Promise<{ storage: ObjectStor
       } finally { await cleanup(); }
     });
 
-    it('delete removes the object; get afterwards throws', async () => {
+    it('delete xoá object; get sau đó ném lỗi', async () => {
       const { storage, cleanup } = await make();
       try {
         await storage.put(hash, dataA);
@@ -112,7 +112,7 @@ function storageContract(name: string, make: () => Promise<{ storage: ObjectStor
       } finally { await cleanup(); }
     });
 
-    it('get on a missing hash throws', async () => {
+    it('get trên hash thiếu ném lỗi', async () => {
       const { storage, cleanup } = await make();
       try {
         await expect(storage.get(sha256Hex(Buffer.from('khong-ton-tai')))).rejects.toThrow();
@@ -132,8 +132,8 @@ storageContract('S3ObjectStorage (in-memory S3 double)', async () => {
   return { storage, cleanup: async () => undefined };
 });
 
-describe('S3ObjectStorage specifics', () => {
-  it('presignGetUrl issues a signed URL carrying the content key and the TTL (offline presigning)', async () => {
+describe('Đặc thù S3ObjectStorage', () => {
+  it('presignGetUrl cấp URL đã ký mang content key và TTL (ký offline)', async () => {
     const storage = new S3ObjectStorage(fakeConfig({
       ...S3_TEST_CONFIG,
       FILE_STORAGE_S3_ENDPOINT: 'https://s3.example.test',
@@ -146,36 +146,36 @@ describe('S3ObjectStorage specifics', () => {
     expect(url).toContain('X-Amz-Expires=300');
   });
 
-  it('constructor fails fast naming the missing env vars (names only)', () => {
+  it('constructor lỗi nhanh và nêu tên các biến env thiếu (chỉ tên)', () => {
     expect(() => new S3ObjectStorage(fakeConfig({ FILE_STORAGE_S3_BUCKET: 'bucket-test' })))
       .toThrow(/FILE_STORAGE_S3_ACCESS_KEY_ID/);
     expect(() => new S3ObjectStorage(fakeConfig({}))).toThrow(/FILE_STORAGE_S3_BUCKET/);
   });
 });
 
-describe('createObjectStorage (driver selection by env)', () => {
-  it('defaults to the local adapter when FILE_STORAGE_DRIVER is unset', () => {
+describe('Hàm createObjectStorage (chọn driver theo env)', () => {
+  it('mặc định dùng adapter local khi FILE_STORAGE_DRIVER chưa đặt', () => {
     expect(createObjectStorage(fakeConfig({ FILE_STORAGE_DIR: '/tmp/x' }))).toBeInstanceOf(LocalObjectStorage);
   });
 
-  it('selects the S3 adapter when driver=s3 with full config', () => {
+  it('chọn adapter S3 khi driver=s3 với cấu hình đầy đủ', () => {
     expect(createObjectStorage(fakeConfig({ FILE_STORAGE_DRIVER: 's3', ...S3_TEST_CONFIG }))).toBeInstanceOf(S3ObjectStorage);
   });
 
-  it('fails fast when driver=s3 but required S3 env is missing', () => {
+  it('lỗi nhanh khi driver=s3 nhưng thiếu env S3 bắt buộc', () => {
     expect(() => createObjectStorage(fakeConfig({ FILE_STORAGE_DRIVER: 's3' }))).toThrow(/FILE_STORAGE_S3_BUCKET/);
   });
 
-  it('fails fast on an unknown driver instead of silently falling back', () => {
+  it('lỗi nhanh với driver lạ thay vì lặng lẽ fallback', () => {
     expect(() => createObjectStorage(fakeConfig({ FILE_STORAGE_DRIVER: 'gcs' }))).toThrow(/FILE_STORAGE_DRIVER/);
   });
 });
 
-describe('FileSigningService download target', () => {
+describe('Đích tải xuống của FileSigningService', () => {
   const signingConfig = fakeConfig({ JWT_SECRET: 'fixture-jwt-secret-for-tests-only', FILE_SIGNED_URL_TTL_SECONDS: 300 });
   const file = { id: '11111111-1111-7111-8111-111111111111', contentHash: sha256Hex(Buffer.from('sign-me')), fileName: 'phieu.png', mimeType: 'image/png' };
 
-  it('local adapter (no presign capability) → HMAC API URL, verifiable with verify()', async () => {
+  it('adapter local (không có khả năng presign) → URL API HMAC, kiểm chứng được bằng verify()', async () => {
     const signing = new FileSigningService(signingConfig, new LocalObjectStorage(fakeConfig({ FILE_STORAGE_DIR: '/tmp/x' })));
     const target = await signing.createDownloadTarget(file);
     expect(target.url.startsWith(`/api/v1/files/${file.id}/download?sig=`)).toBe(true);
@@ -183,13 +183,13 @@ describe('FileSigningService download target', () => {
     expect(() => signing.verify(file.id, token)).not.toThrow();
   });
 
-  it('no storage injected → HMAC API URL (backwards-compatible construction)', async () => {
+  it('không inject storage nào → URL API HMAC (cách dựng tương thích ngược)', async () => {
     const signing = new FileSigningService(signingConfig);
     const target = await signing.createDownloadTarget(file);
     expect(target.url.startsWith(`/api/v1/files/${file.id}/download?sig=`)).toBe(true);
   });
 
-  it('S3 adapter → presigned URL to the store, not the API download path', async () => {
+  it('adapter S3 → URL đã ký tới kho lưu, không phải đường tải xuống của API', async () => {
     const s3 = new S3ObjectStorage(fakeConfig({
       ...S3_TEST_CONFIG,
       FILE_STORAGE_S3_ENDPOINT: 'https://s3.example.test',

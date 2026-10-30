@@ -83,8 +83,8 @@ function extractWorkerMirror(): Map<string, MirrorEntry> {
   return mirror;
 }
 
-describe('Notification parity: worker mirror vs API registry (issue #293)', () => {
-  it('the worker mirror is a faithful projection of the API registry on every law field in scope', () => {
+describe('Đối chiếu thông báo: mirror worker so với registry API (issue #293)', () => {
+  it('mirror worker là hình chiếu trung thực của registry API trên mọi trường luật trong phạm vi', () => {
     const mirror = extractWorkerMirror();
     expect(mirror.size).toBeGreaterThan(0);
     expect(MESSAGE_PROVIDERS.length).toBeGreaterThan(0);
@@ -99,7 +99,7 @@ describe('Notification parity: worker mirror vs API registry (issue #293)', () =
     }
   });
 
-  it('every provider emitted through deliverInApp in worker sources is registered in the mirror', () => {
+  it('mọi provider phát qua deliverInApp trong mã worker đều đã đăng ký trong mirror', () => {
     const mirror = extractWorkerMirror();
     const emitted = new Set<string>();
     const walk = (dir: string) => {
