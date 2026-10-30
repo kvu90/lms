@@ -648,6 +648,7 @@ describe('Đội kho: tách role, migration theo đợt, sao lưu, khôi phục 
       { slug: 'fx595-d-thieu-cu', kind: 'center', database: 'lms_test_fx595_stale' },
     ] as const;
     const FX_NOUSERS_SPACE = { slug: 'fx595-e-khong-users', kind: 'center', database: 'lms_test_fx595_nousers' } as const;
+    const FX_DEADCONNECT_SPACE = { slug: 'fx595-f-loi-ket-noi', kind: 'center', database: 'lms_test_fx595_deadconnect' } as const;
 
     const fxEnv = (): NodeJS.ProcessEnv => ({
       ...process.env,
@@ -770,7 +771,12 @@ describe('Đội kho: tách role, migration theo đợt, sao lưu, khôi phục 
     afterAll(async () => {
       const adminUrl = clusterUrl('postgres');
       await withClient(adminUrl, async (admin) => {
-        for (const database of [FX_CP_DATABASE, ...FX_SPACES.map((space) => space.database), FX_NOUSERS_SPACE.database]) {
+        for (const database of [
+          FX_CP_DATABASE,
+          ...FX_SPACES.map((space) => space.database),
+          FX_NOUSERS_SPACE.database,
+          FX_DEADCONNECT_SPACE.database,
+        ]) {
           await admin.query(
             `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`,
             [database],
@@ -941,5 +947,57 @@ describe('Đội kho: tách role, migration theo đợt, sao lưu, khôi phục 
       });
       expect(bypassed.status).toBe('success');
     }, 300_000);
+
+    it('kết nối quản trị hỏng khi kiểm thử khôi phục: lượt chạy được ghi nhận failed và không để lại tệp dump thô ở thư mục sao lưu', async () => {
+      const adminUrl = clusterUrl('postgres');
+      await withClient(adminUrl, async (admin) => {
+        await admin.query(`CREATE DATABASE ${quoted(FX_DEADCONNECT_SPACE.database)} OWNER ${quoted(MIGRATOR_ROLE)}`);
+        await admin.query(`REVOKE CONNECT ON DATABASE ${quoted(FX_DEADCONNECT_SPACE.database)} FROM PUBLIC`);
+        await admin.query(`GRANT CONNECT ON DATABASE ${quoted(FX_DEADCONNECT_SPACE.database)} TO ${quoted(MIGRATOR_ROLE)}`);
+        await admin.query(`GRANT CONNECT ON DATABASE ${quoted(FX_DEADCONNECT_SPACE.database)} TO ${quoted(RUNTIME_ROLE)}`);
+      });
+      // Kho có dữ kiện thật (bảng users với tài khoản quản trị
+      // gieo sẵn như một kho đang vận hành) để bản sao lưu của nó
+      // là một bản dump hoàn chỉnh — đúng thứ sẽ bị bỏ lại ở dạng
+      // thô nếu đường dọn dẹp của kiểm thử khôi phục bị hở.
+      await withClient(clusterUrl(FX_DEADCONNECT_SPACE.database, MIGRATOR_ROLE, MIGRATOR_PASSWORD), async (client) => {
+        await client.query('CREATE TABLE users (id integer PRIMARY KEY, username text NOT NULL)');
+        await client.query(`INSERT INTO users (id, username) VALUES (1, 'admin')`);
+      });
+      await fxRegisterSpace(FX_DEADCONNECT_SPACE);
+      await dumpDatabaseToFile({
+        url: clusterUrl(FX_DEADCONNECT_SPACE.database),
+        dir: join(FX_BACKUP_DIR, FX_DEADCONNECT_SPACE.slug),
+        kind: 'scheduled',
+        runId: 'fx595-deadconnect',
+        at: new Date(),
+        encryptionKey: FX_ENCRYPTION_KEY,
+        env: fxEnv(),
+      });
+      expect((await fxRegistryState(FX_DEADCONNECT_SPACE.slug)).lastRestoreStatus).toBeNull();
+
+      // Ép kết nối quản trị hỏng: URL quản trị trỏ vào một cổng
+      // không có tiến trình nào nghe, nên bước mở kết nối tới
+      // database tạm hỏng ngay — tại thời điểm đó tệp dump thô
+      // trung gian đã được ghi xuống thư mục sao lưu rồi.
+      const deadAdmin = new URL(clusterUrl('postgres'));
+      deadAdmin.port = '59999';
+      const result = await runFleetRestoreTest({
+        env: { ...fxEnv(), DATABASE_ADMIN_URL: deadAdmin.toString() },
+        backupDir: FX_BACKUP_DIR,
+        spaceSlug: FX_DEADCONNECT_SPACE.slug,
+        log: () => undefined,
+      });
+
+      // Lượt hỏng được ghi nhận như mọi lỗi vận hành sau khi đã
+      // chọn kho, thay vì để ngoại lệ thoát thẳng làm mất dấu.
+      expect(result.status).toBe('failed');
+      expect((await fxRegistryState(FX_DEADCONNECT_SPACE.slug)).lastRestoreStatus).toBe('failed');
+      // Tệp dump thô trung gian không được ở lại trên đĩa ở bất
+      // kỳ đường ra nào: nó là toàn bộ dữ kiện của kho ở dạng
+      // đọc được, và tên của nó không khớp khuôn tệp sao lưu nên
+      // không cơ chế dọn theo hạn nào nhìn thấy nó.
+      expect(readdirSync(FX_BACKUP_DIR).filter((name) => name.startsWith('.restore-'))).toEqual([]);
+    }, 120_000);
   });
 });
