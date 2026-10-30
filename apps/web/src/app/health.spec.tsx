@@ -3,12 +3,12 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { HealthPage } from './health';
 
-describe('HealthPage', () => {
+describe('Khối HealthPage', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it('renders the API health returned by fetch', async () => {
+  it('render trạng thái sức khoẻ API do fetch trả về', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -33,7 +33,7 @@ describe('HealthPage', () => {
     expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/v1/health');
   });
 
-  it('does not refetch on mount when the loader already supplied health (F-09)', async () => {
+  it('không fetch lại khi mount khi loader đã cấp trạng thái sức khoẻ (F-09)', async () => {
     cleanup();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -63,7 +63,7 @@ describe('HealthPage', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('refetches only when the user presses the recheck button (F-09)', async () => {
+  it('chỉ fetch lại khi người dùng bấm nút kiểm tra lại (F-09)', async () => {
     cleanup();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -97,7 +97,7 @@ describe('HealthPage', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/health');
   });
 
-  it('shows an error state when the API is unreachable', async () => {
+  it('hiện trạng thái lỗi khi không tới được API', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
     render(
       <MemoryRouter>

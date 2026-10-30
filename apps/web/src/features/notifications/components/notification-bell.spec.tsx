@@ -161,7 +161,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('NotificationBell (NB-3)', () => {
+describe('Khối NotificationBell (NB-3)', () => {
   it('hiện huy hiệu đúng số chưa đọc của API và liệt kê dropdown theo thứ tự mới nhất', async () => {
     const calls: RecordedCall[] = [];
     const state: StubState = { unread: 3, groups: defaultGroups() };

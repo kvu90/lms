@@ -334,14 +334,14 @@ function stubFetchGroups(calls: RecordedCall[]) {
   );
 }
 
-describe('Groupings & cohort members (teacher with manage capabilities)', () => {
+describe('Nhóm grouping và thành viên cohort (giáo viên có năng lực quản lý)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('creates a grouping via POST /courses/:id/groupings', async () => {
+  it('tạo grouping qua POST /courses/:id/groupings', async () => {
     const calls: RecordedCall[] = [];
     stubFetchGroups(calls);
     renderCourseAdmin();
@@ -357,7 +357,7 @@ describe('Groupings & cohort members (teacher with manage capabilities)', () => 
     expect(await screen.findByTestId(`grouping-${GROUPING_ID}`)).toBeTruthy();
   });
 
-  it('adds a course group into a grouping via POST groupings/:id/groups', async () => {
+  it('thêm nhóm khoá học vào grouping qua POST groupings/:id/groups', async () => {
     const calls: RecordedCall[] = [];
     stubFetchGroups(calls);
     renderCourseAdmin();
@@ -385,7 +385,7 @@ describe('Groupings & cohort members (teacher with manage capabilities)', () => 
     await waitFor(() => expect(within(groupingRow).getByText('Nhóm 1')).toBeTruthy());
   });
 
-  it('lists, adds and removes cohort members through /cohorts/:id/members', async () => {
+  it('liệt kê, thêm và xoá thành viên cohort qua /cohorts/:id/members', async () => {
     const calls: RecordedCall[] = [];
     stubFetchGroups(calls);
     renderCourseAdmin();
@@ -535,7 +535,7 @@ function stubFetchGroupAdmin(calls: RecordedCall[], opts?: { manageGroups?: bool
   );
 }
 
-describe('Course groups admin (GN-1/GN-3, issue #234)', () => {
+describe('Quản trị nhóm khoá học (GN-1/GN-3, issue #234)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -543,7 +543,7 @@ describe('Course groups admin (GN-1/GN-3, issue #234)', () => {
     localStorage.clear();
   });
 
-  it('lists group members, adds an actively enrolled student from the picker and removes a member', async () => {
+  it('liệt kê thành viên nhóm, thêm học viên đang ghi danh từ bộ chọn và xoá một thành viên', async () => {
     const calls: RecordedCall[] = [];
     stubFetchGroupAdmin(calls);
     renderCourseAdmin();
@@ -584,7 +584,7 @@ describe('Course groups admin (GN-1/GN-3, issue #234)', () => {
     await waitFor(() => expect(within(groupRow).queryByText(new RegExp(MEMBER_ID))).toBeNull());
   });
 
-  it('renames a group inline via PATCH and deletes it via DELETE after confirmation', async () => {
+  it('đổi tên nhóm ngay tại chỗ qua PATCH và xoá qua DELETE sau khi xác nhận', async () => {
     const calls: RecordedCall[] = [];
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     stubFetchGroupAdmin(calls);
@@ -619,7 +619,7 @@ describe('Course groups admin (GN-1/GN-3, issue #234)', () => {
     await waitFor(() => expect(screen.queryByTestId(`group-${GROUP_ID}`)).toBeNull());
   });
 
-  it('saves the course group mode (mode + force) via PATCH /courses/:id', async () => {
+  it('lưu chế độ nhóm khoá học (mode + force) qua PATCH /courses/:id', async () => {
     const calls: RecordedCall[] = [];
     stubFetchGroupAdmin(calls);
     renderCourseAdmin();
@@ -644,7 +644,7 @@ describe('Course groups admin (GN-1/GN-3, issue #234)', () => {
     );
   });
 
-  it('a teacher without course:managegroups sees groups and members but no group management tools', async () => {
+  it('giáo viên không có course:managegroups thấy nhóm và thành viên nhưng không có công cụ quản lý nhóm', async () => {
     const calls: RecordedCall[] = [];
     stubFetchGroupAdmin(calls, { manageGroups: false });
     renderCourseAdmin();

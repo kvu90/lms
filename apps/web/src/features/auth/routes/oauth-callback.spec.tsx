@@ -62,7 +62,7 @@ function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-describe('OAuth callback page (cookie session resolution, fetch mocked at the boundary)', () => {
+describe('Trang callback OAuth (phân giải phiên cookie, fetch mock tại biên)', () => {
   afterEach(() => {
     // Dự án không bật auto-cleanup của Testing Library nên phải dọn
     // DOM tường minh, tránh cây render của test trước sót sang test sau.
@@ -71,7 +71,7 @@ describe('OAuth callback page (cookie session resolution, fetch mocked at the bo
     localStorage.clear();
   });
 
-  it('resolves the cookie session and lands on the profile without any handoff exchange', async () => {
+  it('phân giải phiên cookie và tới hồ sơ mà không cần trao đổi handoff nào', async () => {
     const requestedUrls: string[] = [];
     vi.stubGlobal(
       'fetch',
@@ -92,7 +92,7 @@ describe('OAuth callback page (cookie session resolution, fetch mocked at the bo
     expect(localStorage.getItem('lms.accessToken')).toBeNull();
   });
 
-  it('shows an error and a way back to login when there is no session cookie', async () => {
+  it('hiện lỗi và đường về trang đăng nhập khi không có cookie phiên', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: unknown) => {
@@ -107,7 +107,7 @@ describe('OAuth callback page (cookie session resolution, fetch mocked at the bo
     expect(localStorage.getItem('lms.accessToken')).toBeNull();
   });
 
-  it('shows the error when a session exists but the profile cannot be loaded', async () => {
+  it('hiện lỗi khi phiên tồn tại nhưng không tải được hồ sơ', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: unknown) => {

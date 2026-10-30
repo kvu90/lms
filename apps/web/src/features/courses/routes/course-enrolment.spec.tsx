@@ -238,13 +238,13 @@ function renderCourse() {
   );
 }
 
-describe('Course page — self enrolment and fee payment', () => {
+describe('Trang khoá học — tự ghi danh và đóng phí', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
   });
 
-  it('shows the self-enrol panel to a non-enrolled user and enrols via self-enrol on click', async () => {
+  it('hiện panel tự ghi danh cho người chưa ghi danh và ghi danh qua tự ghi danh khi bấm', async () => {
     const state = { enrolled: false, cmState: 0, payments: [] as unknown[] };
     const calls: RecordedCall[] = [];
     stubFetch(makeHandler(state, calls));
@@ -268,7 +268,7 @@ describe('Course page — self enrolment and fee payment', () => {
     expect(selfEnrolCalls[0]?.body).toBeUndefined();
   });
 
-  it('creates a fee payment via /payments/fee/:id and never calls self-enrol for the fee instance', async () => {
+  it('tạo thanh toán phí qua /payments/fee/:id và không bao giờ gọi self-enrol cho suất phí', async () => {
     const state = { enrolled: false, cmState: 0, payments: [] as unknown[] };
     const calls: RecordedCall[] = [];
     stubFetch(makeHandler(state, calls));
@@ -290,7 +290,7 @@ describe('Course page — self enrolment and fee payment', () => {
     expect(calls.some((c) => c.url.includes('self-enrol'))).toBe(false);
   });
 
-  it('lets an enrolled learner toggle manual completion for a manual module only', async () => {
+  it('cho học viên đã ghi danh bật/tắt hoàn thành thủ công chỉ cho module thủ công', async () => {
     const state = { enrolled: true, cmState: 0, payments: [] as unknown[] };
     const calls: RecordedCall[] = [];
     stubFetch(makeHandler(state, calls));

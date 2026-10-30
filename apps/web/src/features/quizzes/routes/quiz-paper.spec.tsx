@@ -112,14 +112,14 @@ function renderPage() {
   );
 }
 
-describe('Quiz paper page — CAM-0 queues', () => {
+describe('Trang bài thi giấy — hàng đợi CAM-0', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('loads batches and queues, then assigns identity, resolves an ambiguous answer and records a grade', async () => {
+  it('tải lô và hàng đợi, rồi gán định danh, phân giải đáp án mơ hồ và ghi điểm', async () => {
     vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
     // jsdom thiếu URL.createObjectURL cho ảnh phiếu: gắn trực tiếp lên
     // class URL (thay cả global URL sẽ làm hỏng constructor của router).
@@ -185,14 +185,14 @@ describe('Quiz paper page — CAM-0 queues', () => {
   });
 });
 
-describe('Quiz paper page — unbatched sheet in the identity queue', () => {
+describe('Trang bài thi giấy — phiếu chưa xếp lô trong hàng đợi định danh', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('shows an unrouted sheet as unbatched and assigns a print batch from the queue', async () => {
+  it('hiện phiếu chưa định tuyến dạng chưa xếp lô và gán lô in từ hàng đợi', async () => {
     vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
     const urlStatics = URL as unknown as { createObjectURL: () => string; revokeObjectURL: () => void };
     urlStatics.createObjectURL = () => 'blob:fake';

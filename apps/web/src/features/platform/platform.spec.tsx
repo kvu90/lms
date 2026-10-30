@@ -30,13 +30,13 @@ function stubFetch(handler: (url: string, init?: RequestInit) => unknown) {
   );
 }
 
-describe('Search page (platform)', () => {
+describe('Trang tìm kiếm (platform)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
   });
 
-  it('submits the query and renders only the permission-filtered results returned by the API', async () => {
+  it('gửi truy vấn và chỉ render kết quả đã lọc theo quyền do API trả về', async () => {
     stubFetch((url) => {
       if (url.startsWith('/api/v1/search?q='))
         return [
@@ -70,13 +70,13 @@ describe('Search page (platform)', () => {
   });
 });
 
-describe('Privacy page (platform)', () => {
+describe('Trang riêng tư (platform)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
   });
 
-  it('sends an export request for the current user and shows it as pending', async () => {
+  it('gửi yêu cầu xuất cho người dùng hiện tại và hiện trạng đang chờ', async () => {
     const posts: unknown[] = [];
     stubFetch((url, init) => {
       if (url === '/api/v1/privacy/requests' && init?.method === 'POST') {
@@ -129,13 +129,13 @@ describe('Privacy page (platform)', () => {
  * khoá trang sẽ đọc thì trang mở ra hiện dữ liệu ngay, không fetch
  * trùng lần hai.
  */
-describe('Insights page (platform)', () => {
+describe('Trang phân tích (platform)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
   });
 
-  it('renders the insights returned by the API with their student and course line', async () => {
+  it('render các phân tích do API trả về kèm dòng học viên và khoá học', async () => {
     stubFetch((url) => {
       if (url === '/api/v1/analytics/insights/me')
         return [
@@ -162,13 +162,13 @@ describe('Insights page (platform)', () => {
   });
 });
 
-describe('Backup page (platform)', () => {
+describe('Trang sao lưu (platform)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
   });
 
-  it('lists jobs, loads the steps of a job on demand and creates a job for the typed course', async () => {
+  it('liệt kê job, tải các bước của một job khi cần và tạo job cho khoá học đã nhập', async () => {
     const posts: { url: string; body: unknown }[] = [];
     let jobs = [
       {
@@ -211,13 +211,13 @@ describe('Backup page (platform)', () => {
   });
 });
 
-describe('Tokens page (platform)', () => {
+describe('Trang quản lý token (platform)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
   });
 
-  it('creates a token showing the raw value once and revokes it from the list', async () => {
+  it('tạo token chỉ hiện giá trị thô một lần và thu hồi nó từ danh sách', async () => {
     let revoked = false;
     const posts: string[] = [];
     stubFetch((url, init) => {
@@ -255,13 +255,13 @@ describe('Tokens page (platform)', () => {
   });
 });
 
-describe('Reports page (platform)', () => {
+describe('Trang báo cáo (platform)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
   });
 
-  it('runs a report and shows the returned rows', async () => {
+  it('chạy báo cáo và hiện các dòng trả về', async () => {
     stubFetch((url) => {
       if (url === '/api/v1/reports')
         return [{ id: 'rep-1', name: 'Báo cáo ghi danh', dataSource: 'enrolments', columns: ['userId', 'courseId', 'status'] }];
@@ -291,7 +291,7 @@ describe('Platform clientLoaders (F-01 của #133)', () => {
     queryClient.clear();
   });
 
-  it('insights loader prefetches the exact key the page reads, so the page renders without a second fetch', async () => {
+  it('insights loader prefetch đúng khoá trang đọc, nên trang render mà không cần fetch lần hai', async () => {
     const payload = [
       {
         id: '01900000-0000-7000-8000-000000000021',

@@ -44,11 +44,11 @@ const CASES = [
 
 describe('F-07/F-08 (#133): 6 route module platform thật — ErrorBoundary dùng chung + meta() theo trang', () => {
   for (const { name, route, key } of CASES) {
-    it(`route ${name} exports the shared RouteErrorBoundary as its ErrorBoundary`, () => {
+    it(`route ${name} export RouteErrorBoundary dùng chung làm ErrorBoundary`, () => {
       expect(route.ErrorBoundary).toBe(RouteErrorBoundary);
     });
 
-    it(`route ${name} meta() returns the title built from its own platform key ${key}`, () => {
+    it(`route ${name} meta() trả tiêu đề dựng từ khoá platform riêng ${key}`, () => {
       const expectedTitle = i18n.t(key, { ns: 'platform' });
       expect(expectedTitle).not.toBe(key);
       expect(route.meta()).toEqual([{ title: `${expectedTitle} · LMS` }]);
