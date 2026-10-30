@@ -72,12 +72,29 @@ export const CHAT_MENU_CONTENT_CLASS = 'w-max min-w-52 max-w-[calc(100vw-2rem)]'
  */
 export const CHAT_MENU_ITEM_CLASS = 'whitespace-nowrap';
 
-/** Hai chữ cái đầu của tên hiển thị — nội dung AvatarFallback. */
+/**
+ * Chữ viết tắt của tên hiển thị — nội dung AvatarFallback.
+ *
+ * Luật (issue #591): chỉ lấy KÝ TỰ CHỮ — ký tự đặc biệt ở đầu
+ * tên (ví dụ tên nhóm bắt đầu bằng dấu ngoặc như "[KT] Nhóm…")
+ * bị bỏ qua, không lọt vào chữ viết tắt như trước. Cách lấy giữ
+ * cùng khuôn với tên người: tách tên thành các TỪ CHỮ (mỗi từ chỉ
+ * giữ các ký tự chữ Unicode của nó, từ không còn ký tự chữ nào
+ * thì bỏ hẳn); từ hai từ chữ trở lên thì lấy chữ đầu của từ đầu
+ * + chữ đầu của từ cuối; đúng một từ chữ thì lấy hai chữ đầu của
+ * từ đó; không có ký tự chữ nào thì rơi về '?'.
+ */
 export function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  const letterWords = name
+    .trim()
+    .split(/\s+/)
+    .map((word) => Array.from(word).filter((ch) => /\p{L}/u.test(ch)).join(''))
+    .filter(Boolean);
+  if (letterWords.length === 0) return '?';
+  if (letterWords.length === 1) return Array.from(letterWords[0]!).slice(0, 2).join('').toUpperCase();
+  const first = Array.from(letterWords[0]!)[0]!;
+  const last = Array.from(letterWords[letterWords.length - 1]!)[0]!;
+  return (first + last).toUpperCase();
 }
 
 /** Gộp tin vào danh sách hiện có: chống trùng theo id và clientMessageId, sắp theo seq (tin lạc quan chưa có seq thật nằm cuối). */

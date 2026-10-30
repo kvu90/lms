@@ -10,12 +10,13 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@lms/ui/components/dropdown-menu';
 import { Input } from '@lms/ui/components/input';
+import { Skeleton } from '@lms/ui/components/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@lms/ui/components/tabs';
 import { cn } from '@lms/ui/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { CreateGroupSheet } from './create-group-sheet';
 import { GroupTreeNav } from './group-tree-nav';
-import { NewMessageSheet } from './new-message-sheet';
+import { NewMessageDialog } from './new-message-dialog';
 import type {
   ContactRequestView,
   ConversationGroupTreeView,
@@ -46,8 +47,10 @@ import { CHAT_MENU_CONTENT_CLASS, CHAT_MENU_ITEM_CLASS, initialsOf, relativeTime
  *   Nhóm tự do do server dựng sẵn ({@link GroupTreeNav}); bấm một
  *   nút là mở ngay chat của nút đó ở khung phải. Tab mang huy hiệu
  *   tổng số chưa đọc của cả cây.
- * - Nút **Tin nhắn mới** cạnh tiêu đề mở sheet cùng tên ({@link
- *   NewMessageSheet}): nơi tab Danh bạ cũ bị hạ xuống — lời mời kết
+ * - Nút **Tin nhắn mới** cạnh tiêu đề mở hộp thoại cùng tên
+ *   ({@link NewMessageDialog} — hộp thoại nằm giữa màn hình như
+ *   bản demo từ issue #591, thay ngăn kéo trượt bên phải trước
+ *   đây): nơi tab Danh bạ cũ bị hạ xuống — lời mời kết
  *   bạn (kèm huy hiệu số lượng trên chính nút này), chọn người từ
  *   liên hệ/roster lớp/khoá, và mục liên hệ đã chặn.
  * - Tiêu đề khung trái kèm avatar của chính người xem — ánh xạ nút
@@ -124,6 +127,27 @@ interface ConversationSidebarProps {
   pickerRosterCursor: string | null;
   /** Tải trang roster tiếp theo cho bộ chọn. */
   onLoadMorePicker: () => void;
+  /**
+   * Danh sách hội thoại đang nạp lần đầu (issue #591): khung
+   * trái hiện khung đang tải (skeleton) đúng hình dạng trang
+   * thay cho trạng thái rỗng giả; rỗng thật chỉ hiện sau khi
+   * nạp xong và xác nhận không có dữ kiện.
+   */
+  loading?: boolean;
+  /**
+   * Cây nhóm đang nạp (vòng sửa PR #593): trạng thái tải của
+   * cây lấy từ chính query cây nhóm của trang — khung trái
+   * truyền thẳng xuống cây để cây hiện khung đang tải theo
+   * nhịp của nó, không mượn cờ đang tải của danh sách hội
+   * thoại (hai query về lệch nhịp nhau).
+   */
+  groupTreeLoading?: boolean;
+  /**
+   * Lỗi nạp cây nhóm lần đầu (vòng sửa 2 PR #593): khung trái
+   * truyền thẳng xuống cây để cây hiện thông báo lỗi thay cho
+   * câu rỗng giả; null khi cây đã có dữ kiện hoặc chưa lỗi.
+   */
+  groupTreeError?: string | null;
 }
 
 type ConversationFilterChip = 'all' | 'unread';
@@ -131,8 +155,8 @@ type ConversationFilterChip = 'all' | 'unread';
 /**
  * Trình bày khung trái Tin nhắn: tiêu đề + avatar người xem + nút
  * Tin nhắn mới, hai tab Trò chuyện / Nhóm (trong tab Trò chuyện là
- * các mục thu gọn Ghim / Gần đây / Đã lưu trữ), và hai sheet (Tin
- * nhắn mới, Tạo nhóm).
+ * các mục thu gọn Ghim / Gần đây / Đã lưu trữ), hộp thoại Tin
+ * nhắn mới và sheet Tạo nhóm.
  *
  * @param props - Dữ kiện và sự kiện do trang Tin nhắn đưa xuống.
  * @returns Khung trái hoàn chỉnh của màn master–detail.
@@ -145,7 +169,7 @@ export function ConversationSidebar({
   contacts, contactMessage, incomingRequests, outgoingRequests, blocked, blockMessage,
   onMessageContact, onSendContactRequest, onRespondContactRequest, onUnblockContact,
   pickerContext, onSelectPickerContext, pickerClasses, pickerCourses, pickerMembers,
-  pickerRosterError, pickerRosterCursor, onLoadMorePicker,
+  pickerRosterError, pickerRosterCursor, onLoadMorePicker, loading, groupTreeLoading, groupTreeError,
 }: ConversationSidebarProps) {
   const { t } = useTranslation('app');
   const open = onOpenConversation;
@@ -242,40 +266,52 @@ export function ConversationSidebar({
   const renderConversationItem = (c: ConversationView) => {
     const isActive = active?.id === c.id;
     const otherId = c.type === 1 ? c.members.find((id) => id !== myId) : undefined;
-    const otherOnline = otherId ? Boolean(onlineUsers[otherId]) : false;
+    /**
+     * Hiện diện của đối tác trên hàng hội thoại giữ BA trạng
+     * thái như ở đầu khung (vòng sửa PR #593): đã xác nhận
+     * trực tuyến thì chấm xanh lá, đã xác nhận ngoại tuyến thì
+     * chấm xám, chưa biết (chưa có sự kiện nào) thì không chấm
+     * — không gộp chưa biết thành ngoại tuyến.
+     */
+    const otherPresence = otherId ? onlineUsers[otherId] : undefined;
     const avatarLabel = c.name ?? (otherId ? nameOf(otherId) : labelOf(c));
     const unreadCount = c.unread ?? 0;
     return (
       <li key={c.id}>
-        <div className={cn('flex items-start gap-0.5 rounded-lg', isActive && 'bg-muted')}>
+        <div className={cn('flex min-w-0 items-start gap-0.5 rounded-lg', isActive && 'bg-muted')}>
           <button
             type="button"
             aria-current={isActive || undefined}
-            className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted"
+            className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2.5 py-2.5 text-left hover:bg-muted"
             onClick={() => void open(c)}
           >
             <span className="relative shrink-0">
               <Avatar>
                 <AvatarFallback>{initialsOf(avatarLabel)}</AvatarFallback>
               </Avatar>
-              {otherOnline ? (
-                <span className="absolute right-0 bottom-0 size-2.5 rounded-full bg-emerald-500 ring-2 ring-background" />
+              {otherPresence !== undefined ? (
+                <span
+                  className={cn(
+                    'absolute right-0 bottom-0 size-2.5 rounded-full ring-2 ring-background',
+                    otherPresence ? 'bg-green-500' : 'bg-muted-foreground',
+                  )}
+                />
               ) : null}
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex items-baseline gap-2">
-                <span className={cn('min-w-0 flex-1 truncate text-sm', unreadCount > 0 && !c.muted && 'font-semibold')}>
+                <span className={cn('min-w-0 flex-1 truncate text-sm font-medium', unreadCount > 0 && !c.muted && 'font-semibold')}>
                   {labelOf(c)}
                 </span>
                 {c.lastMessage ? (
-                  <span className="shrink-0 text-xs text-muted-foreground" data-testid={`conversation-last-time-${c.id}`}>
+                  <span className="shrink-0 text-xs leading-5 text-muted-foreground tabular-nums" data-testid={`conversation-last-time-${c.id}`}>
                     {relativeTime(c.lastMessage.createdAt, t)}
                   </span>
                 ) : null}
               </span>
               <span className="mt-0.5 flex items-center gap-1.5">
                 {c.lastMessage ? (
-                  <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                  <span className="min-w-0 flex-1 truncate text-xs leading-4 text-muted-foreground">
                     {c.lastMessage.userIdFrom === myId ? `${t('lastMessageOwnPrefix')} ` : ''}
                     {c.lastMessage.fullMessage}
                   </span>
@@ -336,6 +372,19 @@ export function ConversationSidebar({
     { key: 'all', label: t('messagesFilterAll'), count: allCount },
     { key: 'unread', label: t('messagesFilterUnread'), count: unreadCountTotal },
   ];
+  /**
+   * Bản đồ hội thoại theo id cho cây nhóm (issue #591): dòng
+   * nhóm trong tab Nhóm tra hội thoại tương ứng ở đây để hiện
+   * xem trước tin cuối + ngày + biểu tượng tắt tiếng như các
+   * hàng còn lại.
+   */
+  const conversationsById = new Map(conversations.map((c) => [c.id, c]));
+  /**
+   * Đang nạp lần đầu và chưa có dữ kiện nào trong cache: khung
+   * trái hiện skeleton thay cho mọi trạng thái rỗng (issue
+   * #591 — cấm trạng thái rỗng giả lúc tải).
+   */
+  const initialLoading = Boolean(loading) && conversations.length === 0 && !error;
 
   /**
    * Một mục thu gọn trong tab Trò chuyện (issue #564): tiêu đề
@@ -361,7 +410,7 @@ export function ConversationSidebar({
     children: ReactNode,
   ) => (
     <Collapsible open={open} onOpenChange={onOpenChange}>
-      <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium hover:bg-muted">
+      <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-muted-foreground hover:bg-muted">
         <span>{title}</span>
         <span aria-hidden className="text-xs text-muted-foreground">{count}</span>
         <ChevronDown aria-hidden className={cn('ml-auto size-4 shrink-0 transition-transform', open && 'rotate-180')} />
@@ -377,7 +426,7 @@ export function ConversationSidebar({
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex items-center justify-between gap-2 px-4 pt-3">
         <div className="flex min-w-0 items-center gap-2">
           {myId ? (
@@ -385,11 +434,26 @@ export function ConversationSidebar({
               <AvatarFallback>{initialsOf(nameOf(myId))}</AvatarFallback>
             </Avatar>
           ) : null}
-          <h2 className="text-base font-semibold">
-            {t('messagesTitle')} {unread > 0 ? t('unreadSuffix', { count: unread }) : ''}
+          {/*
+            Tiêu đề KHÔNG được cắt ba chấm: hậu tố số chưa đọc là
+            một phần của tiêu đề và phải hiện trọn. Tiêu đề và hậu
+            tố là hai khối không tách rời (whitespace-nowrap) xếp
+            bằng flex-wrap — khi cột danh sách không đủ bề ngang
+            cho cả hai trên một dòng, hậu tố xuống dòng nguyên
+            khối thay vì bị truncate nuốt mất phần đuôi. (Bản
+            trước mang class truncate nên khi có số chưa đọc,
+            tiêu đề bị rút thành dạng "Tin nhắn (2 chưa…" dù nút
+            cạnh nó đã shrink-0: bề ngang thật của cả dòng vượt
+            bề ngang cột, phần thiếu dồn hết vào tiêu đề.)
+          */}
+          <h2 className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-lg font-semibold">
+            <span className="whitespace-nowrap">{t('messagesTitle')}</span>
+            {unread > 0 ? (
+              <span className="whitespace-nowrap">{t('unreadSuffix', { count: unread })}</span>
+            ) : null}
           </h2>
         </div>
-        <Button type="button" size="sm" aria-label={t('newMessage')} onClick={() => setNewMessageOpen(true)}>
+        <Button type="button" size="sm" className="shrink-0" aria-label={t('newMessage')} onClick={() => setNewMessageOpen(true)}>
           <Plus className="size-4" />
           {t('newMessage')}
           {incomingRequests.length > 0 ? (
@@ -407,7 +471,7 @@ export function ConversationSidebar({
         onValueChange={(value) => {
           onTabChange(value);
         }}
-        className="min-h-0 flex-1 px-2 pt-2"
+        className="min-h-0 min-w-0 flex-1 px-2 pt-2"
       >
         <TabsList className="w-full">
           <TabsTrigger value="chats">{t('messagesTabChats')}</TabsTrigger>
@@ -416,7 +480,7 @@ export function ConversationSidebar({
             {treeUnreadTotal > 0 ? <Badge className="ml-1.5 shrink-0">{treeUnreadTotal}</Badge> : null}
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="chats" className="flex min-h-0 flex-1 flex-col">
+        <TabsContent value="chats" className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="space-y-2 px-2 pt-1">
             <Input
               type="search"
@@ -440,10 +504,54 @@ export function ConversationSidebar({
                   <span aria-hidden>{count}</span>
                 </Button>
               ))}
+              {/*
+                Chip Yêu thích (issue #591): tab Yêu thích riêng
+                của bản demo là điểm CHƯA có phán quyết về chức
+                năng và chưa có dữ kiện yêu thích nào — ở đợt này
+                chỉ dựng đúng HÌNH DẠNG chip trong hàng lọc, ở
+                trạng thái vô hiệu (không lọc gì, không phát sinh
+                tác dụng giả); chức năng chờ phán quyết ở đợt
+                backend.
+              */}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-full"
+                disabled
+              >
+                {t('messagesFilterFavourites')}
+              </Button>
             </div>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-1 py-2">
-            {visibleConversations.length === 0 ? (
+          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-1 py-2">
+            {initialLoading ? (
+              /*
+                Khung đang tải lần đầu (issue #591): các dòng
+                skeleton giữ đúng hình dạng hàng hội thoại
+                (avatar tròn + hai dòng chữ) để trang không nhảy
+                hình khi dữ kiện về; trạng thái rỗng chỉ được
+                hiện ở nhánh dưới, sau khi nạp xong.
+              */
+              <div data-testid="conversations-loading" className="space-y-3 px-2" aria-label={t('conversationsLoading')}>
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <Skeleton className="size-10 shrink-0 rounded-full" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <Skeleton className="h-3.5 w-2/3" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : !error && visibleConversations.length === 0 ? (
+              /*
+                Nhánh rỗng chỉ hiện khi KHÔNG có lỗi tải (vòng
+                sửa 2 PR #593): tải lần đầu lỗi thì chỉ banner
+                lỗi ở trên hiện — câu "chưa có hội thoại" trên
+                đường lỗi là trạng thái rỗng giả mà issue #591
+                cấm (chưa tải xong, chưa xác nhận là rỗng thật).
+              */
               <p className="px-2 text-sm text-muted-foreground">
                 {filterNeedle
                   ? t('conversationSearchNoResults')
@@ -469,7 +577,7 @@ export function ConversationSidebar({
                 ) : null}
               </div>
             )}
-            {renderSection(
+            {initialLoading ? null : renderSection(
               t('archivedConversationsTitle'),
               visibleArchived.length,
               archivedOpen,
@@ -489,7 +597,7 @@ export function ConversationSidebar({
             )}
           </div>
         </TabsContent>
-        <TabsContent value="groups" className="flex min-h-0 flex-1 flex-col">
+        <TabsContent value="groups" className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="px-2 pt-1">
             <Input
               type="search"
@@ -499,7 +607,7 @@ export function ConversationSidebar({
               onChange={(e) => setGroupFilter(e.target.value)}
             />
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-1 py-2">
+          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-1 py-2">
             <GroupTreeNav
               tree={groupTree}
               filter={groupFilter}
@@ -510,11 +618,16 @@ export function ConversationSidebar({
               onOpenGroupConversation={onOpenGroupConversation}
               canCreateFreeGroup={canCreateFreeGroup}
               onCreateFreeGroup={() => setCreateGroupOpen(true)}
+              conversationsById={conversationsById}
+              myId={myId}
+              nameOf={nameOf}
+              loading={initialLoading || Boolean(groupTreeLoading)}
+              treeError={groupTreeError ?? null}
             />
           </div>
         </TabsContent>
       </Tabs>
-      <NewMessageSheet
+      <NewMessageDialog
         open={newMessageOpen}
         onOpenChange={setNewMessageOpen}
         incomingRequests={incomingRequests}

@@ -1,7 +1,10 @@
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@lms/ui/components/sheet';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@lms/ui/components/dialog';
+import { Input } from '@lms/ui/components/input';
 import { useTranslation } from 'react-i18next';
 import { PeoplePicker } from './people-picker';
 import type {
@@ -13,17 +16,20 @@ import type {
 import { initialsOf } from '../utils/utils';
 
 /**
- * Sheet "TIN NHẮN MỚI" của màn Tin nhắn (lát MSG-T3, issue #33) —
- * nơi tab Danh bạ cũ được HẠ xuống theo quyết cấu trúc 11:36 ngày
- * 26/10/2026: bắt đầu một hội thoại riêng không còn là một tab
- * chính, mà là một sheet mở từ nút "Tin nhắn mới".
+ * Hộp thoại "TIN NHẮN MỚI" của màn Tin nhắn (lát MSG-T3, issue
+ * #33; đổi từ ngăn kéo trượt bên phải sang hộp thoại nằm giữa
+ * màn hình như bản demo ở issue #591) — nơi tab Danh bạ cũ được
+ * HẠ xuống theo quyết cấu trúc 11:36 ngày 26/10/2026: bắt đầu
+ * một hội thoại riêng không còn là một tab chính, mà là một
+ * hộp thoại mở từ nút "Tin nhắn mới". Nội dung và đường dữ
+ * kiện liên hệ bên trong giữ nguyên như bề mặt cũ.
  *
  * Flow tổng thể:
  *
- * 1. Sheet mở → mục trên cùng là LỜI MỜI KẾT BẠN đang chờ (nếu có):
- *    người gửi hiện bằng tên hiển thị, chấp nhận/từ chối đi qua
- *    đúng endpoint yêu cầu kết bạn; số lời mời chờ cũng là badge
- *    trên nút mở sheet ở khung trái.
+ * 1. Hộp thoại mở → mục trên cùng là LỜI MỜI KẾT BẠN đang chờ
+ *    (nếu có): người gửi hiện bằng tên hiển thị, chấp nhận/từ
+ *    chối đi qua đúng endpoint yêu cầu kết bạn; số lời mời chờ
+ *    cũng là badge trên nút mở hộp thoại ở khung trái.
  * 2. Phần chọn người do {@link PeoplePicker} trình bày: liên hệ đã
  *    kết bạn (danh sách phẳng, mỗi dòng một nút Nhắn tin), hoặc
  *    roster của một lớp/khoá của tôi. Hành động trên dòng roster
@@ -33,20 +39,22 @@ import { initialsOf } from '../utils/utils';
  *    Kết bạn; đang chờ thì hiện trạng thái/hành động trả lời tương
  *    ứng. Người đã bị chặn không xuất hiện ở bất kỳ mục nào (server
  *    đã ẩn ở mọi đường đọc).
- * 3. Cuối sheet là mục LIÊN HỆ ĐÃ CHẶN với nút Bỏ chặn — giữ bề mặt
- *    quản lý chặn duy nhất còn lại sau khi tab Danh bạ bị hạ.
+ * 3. Cuối hộp thoại là mục LIÊN HỆ ĐÃ CHẶN với nút Bỏ chặn — giữ
+ *    bề mặt quản lý chặn duy nhất còn lại sau khi tab Danh bạ bị
+ *    hạ — và khối LIÊN KẾT MỜI chỉ ở dạng hình dạng vô hiệu
+ *    (điểm chưa có phán quyết về chức năng, issue #591).
  * 4. Bấm Nhắn tin ở bất kỳ dòng nào: sự kiện đi lên trang chứa —
- *    trang tạo/lấy hội thoại 1–1, đóng sheet, chuyển khung trái về
- *    tab Trò chuyện và mở hội thoại ở khung phải.
+ *    trang tạo/lấy hội thoại 1–1, đóng hộp thoại, chuyển khung
+ *    trái về tab Trò chuyện và mở hội thoại ở khung phải.
  *
- * Bất biến: sheet chỉ trình bày + phát sự kiện; luật được phép nhắn
- * ai là của server (cổng `assertCanContact` khi tạo hội thoại) —
- * client không tự nới cũng không tự cấm thêm.
+ * Bất biến: hộp thoại chỉ trình bày + phát sự kiện; luật được
+ * phép nhắn ai là của server (cổng `assertCanContact` khi tạo
+ * hội thoại) — client không tự nới cũng không tự cấm thêm.
  */
-interface NewMessageSheetProps {
-  /** Sheet đang mở hay không (trang/sidebar chứa giữ trạng thái). */
+interface NewMessageDialogProps {
+  /** Hộp thoại đang mở hay không (trang/sidebar chứa giữ trạng thái). */
   open: boolean;
-  /** Đổi trạng thái mở của sheet. */
+  /** Đổi trạng thái mở của hộp thoại. */
   onOpenChange: (open: boolean) => void;
   /** Lời mời kết bạn ĐẾN đang chờ trả lời. */
   incomingRequests: ContactRequestView[];
@@ -89,19 +97,19 @@ interface NewMessageSheetProps {
 }
 
 /**
- * Trình bày sheet "Tin nhắn mới" với đủ ba mục: lời mời kết bạn,
+ * Trình bày hộp thoại "Tin nhắn mới" với đủ ba mục: lời mời kết bạn,
  * chọn người theo ngữ cảnh, liên hệ đã chặn.
  *
  * @param props - Dữ kiện và sự kiện do khung trái Tin nhắn đưa xuống.
- * @returns Sheet điều khiển bằng `open`/`onOpenChange`.
+ * @returns Hộp thoại điều khiển bằng `open`/`onOpenChange`.
  */
-export function NewMessageSheet({
+export function NewMessageDialog({
   open, onOpenChange, incomingRequests, outgoingRequests, contacts, contactMessage,
   blocked, blockMessage, nameOf, onMessageContact, onSendContactRequest,
   onRespondContactRequest, onUnblockContact, pickerContext, onSelectPickerContext,
   pickerClasses, pickerCourses, pickerMembers, pickerRosterError, pickerRosterCursor,
   onLoadMorePicker,
-}: NewMessageSheetProps) {
+}: NewMessageDialogProps) {
   const { t } = useTranslation('app');
 
   /**
@@ -145,12 +153,12 @@ export function NewMessageSheet({
   );
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>{t('newMessage')}</SheetTitle>
-        </SheetHeader>
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 pb-4">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{t('newMessage')}</DialogTitle>
+        </DialogHeader>
+        <div className="max-h-[70vh] space-y-5 overflow-y-auto pr-1">
           {/* Thông báo kết quả hành động danh bạ (kết bạn/chấp nhận…)
               hiện bất kể ngữ cảnh đang chọn — người dùng vừa thao tác
               ở ngữ cảnh khoá/lớp vẫn phải thấy kết quả ngay. */}
@@ -241,8 +249,32 @@ export function NewMessageSheet({
               <p className="text-sm text-muted-foreground">{t('noBlockedContacts')}</p>
             ) : null}
           </div>
+          {/*
+            Liên kết mời (issue #591): phần tử thuộc bản demo
+            nhưng là điểm CHƯA có phán quyết về chức năng và hệ
+            không có cơ chế liên kết mời nào — ở đợt này chỉ
+            dựng đúng HÌNH DẠNG (nhãn + ô liên kết + nút sao
+            chép) ở trạng thái vô hiệu: không sinh liên kết,
+            không sao chép gì. Chức năng chỉ được nối ở đợt
+            backend sau khi điểm này có phán quyết.
+          */}
+          <div className="space-y-2">
+            <h3 className="font-medium">{t('inviteLinkLabel')}</h3>
+            <div className="flex gap-2">
+              <Input
+                aria-label={t('inviteLinkLabel')}
+                placeholder={t('inviteLinkPlaceholder')}
+                disabled
+                value=""
+                readOnly
+              />
+              <Button type="button" variant="outline" disabled>
+                {t('copyInviteLink')}
+              </Button>
+            </div>
+          </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
