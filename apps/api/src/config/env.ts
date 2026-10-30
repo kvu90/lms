@@ -12,6 +12,27 @@ export const envSchema = z.object({
    * biến này. Giá trị là bí mật kết nối — không ghi ra log.
    */
   CONTROL_PLANE_DATABASE_URL: z.string().min(1).optional(),
+  /**
+   * Trần kết nối của pool nghiệp vụ (issue #586 — ngân sách kết nối
+   * của cụm): số kết nối tối đa mà MỘT tiến trình (api hoặc worker)
+   * được mở tới kho nghiệp vụ. TUỲ CHỌN — chưa đặt thì giữ mặc định
+   * của thư viện `pg` như trước, hành vi không đổi. Tổng ngân sách
+   * kết nối của cụm bằng trần của api cộng trần của worker cộng
+   * trần của control plane (`CONTROL_PLANE_POOL_MAX`) cộng phần nhỏ
+   * cho các công cụ vận hành đội kho (mỗi công cụ giữ tối đa một
+   * kết nối thường trực tới mỗi kho tại một thời điểm); đội vận
+   * hành đặt các trần sao cho tổng nằm dưới `max_connections` của
+   * cụm. Kho nhàn rỗi không giữ kết nối nào: pool chỉ mở kết nối
+   * khi có việc và kết nối nhàn bị thu hồi theo mặc định của thư
+   * viện, nên trần là giới hạn trên chứ không phải lượng giữ sẵn.
+   */
+  DATABASE_POOL_MAX: z.coerce.number().int().positive().max(1000).optional(),
+  /**
+   * Trần kết nối của pool CONTROL PLANE (issue #586): phần ngân
+   * sách kết nối dành cho database control plane của tiến trình
+   * api — xem `DATABASE_POOL_MAX`.
+   */
+  CONTROL_PLANE_POOL_MAX: z.coerce.number().int().positive().max(1000).optional(),
   // Khung định tuyến kết nối theo trung tâm (issue #581): bộ phân
   // giải đọc sổ đăng ký ở control plane và đệm kết quả trong tiến
   // trình — TTL của đệm là lưới dự phòng ngoài kênh vô hiệu hoá theo

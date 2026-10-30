@@ -331,6 +331,15 @@ export class ControlPlaneRegistryService {
    * bản schema + trường phiên bản trên dòng đăng ký) trong cùng
    * transaction — phiên bản hiện tại chỉ tiến khi lượt chạy thành
    * công, lượt hỏng không đổi phiên bản đích.
+   *
+   * Transaction khoá dòng đăng ký của không gian TRƯỚC khi đọc và
+   * ghi đè registry phiên bản (issue #586, ghi chú từ phán quyết
+   * PR #589): cùng thứ tự khoá với `updateSchemaRegistry`, nên một
+   * lượt ghi migration và một lượt ghi trạng thái sao lưu/khôi phục
+   * đồng thời của cùng không gian nối tiếp nhau thay vì cùng đọc một
+   * ảnh cũ của registry rồi lần ghi sau ghi đè mất trường của lần
+   * ghi trước (phiên bản mới bị thay bằng ảnh cũ, hoặc trạng thái
+   * sao lưu vừa báo bị cuốn về giá trị trước đó).
    */
   async recordMigrationRun(actorId: string, spaceId: string, dto: RecordSpaceSchemaMigrationRun): Promise<SpaceSchemaMigrationRun> {
     await this.assertPlatformManager(actorId);
@@ -340,6 +349,11 @@ export class ControlPlaneRegistryService {
     }
     let versionChanged = false;
     const run = await this.repo.transaction(async (tx) => {
+      // Khoá dòng đăng ký trước (nối tiếp các thao tác ghi của
+      // không gian), rồi mới chèn lượt chạy và đọc trạng thái
+      // registry để hợp nhất — thứ tự khoá thống nhất với
+      // `updateSchemaRegistry`.
+      await this.repo.findSpaceByIdForUpdate(spaceId, tx);
       const saved = await this.repo.insertMigrationRun(
         {
           spaceId,

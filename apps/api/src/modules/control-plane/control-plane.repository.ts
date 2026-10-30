@@ -98,6 +98,17 @@ export class ControlPlaneRepository {
     return row;
   }
 
+  /**
+   * Toàn bộ sổ đăng ký theo thứ tự slug (issue #586): đầu vào của
+   * các công cụ vận hành đội kho — runner migration đọc danh sách
+   * kho + phiên bản hiện tại từ đây, tác vụ sao lưu và kiểm thử
+   * khôi phục cũng duyệt cùng danh sách này. Thứ tự slug cố định để
+   * mọi lượt chạy duyệt các kho theo cùng một thứ tự xác định.
+   */
+  async listSpaces(db: CpDb = this.db()): Promise<SpaceRegistryRow[]> {
+    return db.select().from(spaceRegistry).orderBy(asc(spaceRegistry.slug));
+  }
+
   /** Ghi một dòng lịch sử quản trị (gọi trong cùng transaction với thay đổi trên sổ). */
   async insertHistory(
     values: { spaceId: string; actorId: string; action: string; before: SpaceRegistrySnapshot | null; after: SpaceRegistrySnapshot },
