@@ -223,8 +223,8 @@ export function MessagesPage() {
         <div
           className={
             activeHook.active
-              ? 'hidden min-h-0 w-full flex-col md:flex md:w-[340px] md:shrink-0 md:border-r lg:w-[360px]'
-              : 'flex min-h-0 w-full flex-col md:w-[340px] md:shrink-0 md:border-r lg:w-[360px]'
+              ? 'hidden min-h-0 w-full min-w-0 flex-col md:flex md:w-[340px] md:shrink-0 md:border-r lg:w-[360px]'
+              : 'flex min-h-0 w-full min-w-0 flex-col md:w-[340px] md:shrink-0 md:border-r lg:w-[360px]'
           }
         >
           <ConversationSidebar
@@ -269,9 +269,10 @@ export function MessagesPage() {
             pickerRosterCursor={contacts.pickerCursor}
             onLoadMorePicker={() => void contacts.loadMorePicker()}
             loading={!list.listLoaded && !list.error}
+            groupTreeLoading={list.groupTreeLoading}
           />
         </div>
-        <div className={activeHook.active ? 'flex min-h-0 flex-1 flex-col' : 'hidden min-h-0 flex-1 flex-col md:flex'}>
+        <div className={activeHook.active ? 'flex min-h-0 min-w-0 flex-1 flex-col' : 'hidden min-h-0 min-w-0 flex-1 flex-col md:flex'}>
           <ChatPanel
             active={activeHook.active}
             myId={myId}

@@ -68,6 +68,14 @@ export function useConversationList({ myId, applyReadMarker, lastSeqRef }: UseCo
    */
   const groupTreeQuery = useQuery(messagingGroupTreeQueryOptions());
   const groupTree = groupTreeQuery.data ?? null;
+  /**
+   * Cờ đang nạp của CHÍNH cây nhóm (vòng sửa PR #593): bề mặt
+   * cây dùng cờ này để hiện khung đang tải theo nhịp của cây,
+   * không mượn cờ của query danh sách hội thoại — hai query về
+   * lệch nhịp, mượn cờ nhau làm cây hiện trạng thái rỗng giả
+   * trong lúc nó còn đang nạp.
+   */
+  const groupTreeLoading = groupTreeQuery.isPending;
   // Tìm bạn theo KHOÁ (mô hình chốt lại 24/10/2026): khoá của tôi →
   // chọn khoá → roster thành viên (phân trang con trỏ phía server).
   const coursesQuery = useQuery(messagingCoursesQueryOptions());
@@ -275,6 +283,7 @@ export function useConversationList({ myId, applyReadMarker, lastSeqRef }: UseCo
     people,
     myCourses,
     groupTree,
+    groupTreeLoading,
     setGroupTree,
     sidebarTab,
     setSidebarTab,

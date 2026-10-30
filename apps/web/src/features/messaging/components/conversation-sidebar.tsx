@@ -134,6 +134,14 @@ interface ConversationSidebarProps {
    * nạp xong và xác nhận không có dữ kiện.
    */
   loading?: boolean;
+  /**
+   * Cây nhóm đang nạp (vòng sửa PR #593): trạng thái tải của
+   * cây lấy từ chính query cây nhóm của trang — khung trái
+   * truyền thẳng xuống cây để cây hiện khung đang tải theo
+   * nhịp của nó, không mượn cờ đang tải của danh sách hội
+   * thoại (hai query về lệch nhịp nhau).
+   */
+  groupTreeLoading?: boolean;
 }
 
 type ConversationFilterChip = 'all' | 'unread';
@@ -155,7 +163,7 @@ export function ConversationSidebar({
   contacts, contactMessage, incomingRequests, outgoingRequests, blocked, blockMessage,
   onMessageContact, onSendContactRequest, onRespondContactRequest, onUnblockContact,
   pickerContext, onSelectPickerContext, pickerClasses, pickerCourses, pickerMembers,
-  pickerRosterError, pickerRosterCursor, onLoadMorePicker, loading,
+  pickerRosterError, pickerRosterCursor, onLoadMorePicker, loading, groupTreeLoading,
 }: ConversationSidebarProps) {
   const { t } = useTranslation('app');
   const open = onOpenConversation;
@@ -252,40 +260,52 @@ export function ConversationSidebar({
   const renderConversationItem = (c: ConversationView) => {
     const isActive = active?.id === c.id;
     const otherId = c.type === 1 ? c.members.find((id) => id !== myId) : undefined;
-    const otherOnline = otherId ? Boolean(onlineUsers[otherId]) : false;
+    /**
+     * Hiện diện của đối tác trên hàng hội thoại giữ BA trạng
+     * thái như ở đầu khung (vòng sửa PR #593): đã xác nhận
+     * trực tuyến thì chấm xanh lá, đã xác nhận ngoại tuyến thì
+     * chấm xám, chưa biết (chưa có sự kiện nào) thì không chấm
+     * — không gộp chưa biết thành ngoại tuyến.
+     */
+    const otherPresence = otherId ? onlineUsers[otherId] : undefined;
     const avatarLabel = c.name ?? (otherId ? nameOf(otherId) : labelOf(c));
     const unreadCount = c.unread ?? 0;
     return (
       <li key={c.id}>
-        <div className={cn('flex items-start gap-0.5 rounded-lg', isActive && 'bg-muted')}>
+        <div className={cn('flex min-w-0 items-start gap-0.5 rounded-lg', isActive && 'bg-muted')}>
           <button
             type="button"
             aria-current={isActive || undefined}
-            className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted"
+            className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2.5 py-2.5 text-left hover:bg-muted"
             onClick={() => void open(c)}
           >
             <span className="relative shrink-0">
               <Avatar>
                 <AvatarFallback>{initialsOf(avatarLabel)}</AvatarFallback>
               </Avatar>
-              {otherOnline ? (
-                <span className="absolute right-0 bottom-0 size-2.5 rounded-full bg-emerald-500 ring-2 ring-background" />
+              {otherPresence !== undefined ? (
+                <span
+                  className={cn(
+                    'absolute right-0 bottom-0 size-2.5 rounded-full ring-2 ring-background',
+                    otherPresence ? 'bg-green-500' : 'bg-muted-foreground',
+                  )}
+                />
               ) : null}
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex items-baseline gap-2">
-                <span className={cn('min-w-0 flex-1 truncate text-sm', unreadCount > 0 && !c.muted && 'font-semibold')}>
+                <span className={cn('min-w-0 flex-1 truncate text-sm font-medium', unreadCount > 0 && !c.muted && 'font-semibold')}>
                   {labelOf(c)}
                 </span>
                 {c.lastMessage ? (
-                  <span className="shrink-0 text-xs text-muted-foreground" data-testid={`conversation-last-time-${c.id}`}>
+                  <span className="shrink-0 text-xs leading-5 text-muted-foreground tabular-nums" data-testid={`conversation-last-time-${c.id}`}>
                     {relativeTime(c.lastMessage.createdAt, t)}
                   </span>
                 ) : null}
               </span>
               <span className="mt-0.5 flex items-center gap-1.5">
                 {c.lastMessage ? (
-                  <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                  <span className="min-w-0 flex-1 truncate text-xs leading-4 text-muted-foreground">
                     {c.lastMessage.userIdFrom === myId ? `${t('lastMessageOwnPrefix')} ` : ''}
                     {c.lastMessage.fullMessage}
                   </span>
@@ -384,7 +404,7 @@ export function ConversationSidebar({
     children: ReactNode,
   ) => (
     <Collapsible open={open} onOpenChange={onOpenChange}>
-      <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium hover:bg-muted">
+      <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-muted-foreground hover:bg-muted">
         <span>{title}</span>
         <span aria-hidden className="text-xs text-muted-foreground">{count}</span>
         <ChevronDown aria-hidden className={cn('ml-auto size-4 shrink-0 transition-transform', open && 'rotate-180')} />
@@ -400,7 +420,7 @@ export function ConversationSidebar({
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex items-center justify-between gap-2 px-4 pt-3">
         <div className="flex min-w-0 items-center gap-2">
           {myId ? (
@@ -408,7 +428,7 @@ export function ConversationSidebar({
               <AvatarFallback>{initialsOf(nameOf(myId))}</AvatarFallback>
             </Avatar>
           ) : null}
-          <h2 className="text-base font-semibold">
+          <h2 className="truncate text-lg font-semibold">
             {t('messagesTitle')} {unread > 0 ? t('unreadSuffix', { count: unread }) : ''}
           </h2>
         </div>
@@ -430,7 +450,7 @@ export function ConversationSidebar({
         onValueChange={(value) => {
           onTabChange(value);
         }}
-        className="min-h-0 flex-1 px-2 pt-2"
+        className="min-h-0 min-w-0 flex-1 px-2 pt-2"
       >
         <TabsList className="w-full">
           <TabsTrigger value="chats">{t('messagesTabChats')}</TabsTrigger>
@@ -439,7 +459,7 @@ export function ConversationSidebar({
             {treeUnreadTotal > 0 ? <Badge className="ml-1.5 shrink-0">{treeUnreadTotal}</Badge> : null}
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="chats" className="flex min-h-0 flex-1 flex-col">
+        <TabsContent value="chats" className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="space-y-2 px-2 pt-1">
             <Input
               type="search"
@@ -483,7 +503,7 @@ export function ConversationSidebar({
               </Button>
             </div>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-1 py-2">
+          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-1 py-2">
             {initialLoading ? (
               /*
                 Khung đang tải lần đầu (issue #591): các dòng
@@ -549,7 +569,7 @@ export function ConversationSidebar({
             )}
           </div>
         </TabsContent>
-        <TabsContent value="groups" className="flex min-h-0 flex-1 flex-col">
+        <TabsContent value="groups" className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="px-2 pt-1">
             <Input
               type="search"
@@ -559,7 +579,7 @@ export function ConversationSidebar({
               onChange={(e) => setGroupFilter(e.target.value)}
             />
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-1 py-2">
+          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-1 py-2">
             <GroupTreeNav
               tree={groupTree}
               filter={groupFilter}
@@ -573,7 +593,7 @@ export function ConversationSidebar({
               conversationsById={conversationsById}
               myId={myId}
               nameOf={nameOf}
-              loading={initialLoading}
+              loading={initialLoading || Boolean(groupTreeLoading)}
             />
           </div>
         </TabsContent>

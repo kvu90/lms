@@ -7,10 +7,14 @@ import {
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Bubble, BubbleContent } from '@lms/ui/components/bubble';
 import { Button } from '@lms/ui/components/button';
+import { cn } from '@lms/ui/lib/utils';
 import {
   DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@lms/ui/components/dropdown-menu';
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from '@lms/ui/components/popover';
 import {
   Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle,
 } from '@lms/ui/components/empty';
@@ -34,10 +38,13 @@ import { MemberActionMenu, MemberPanel, MemberProfileSheet, useMemberProfile, ty
 import { CHAT_MENU_CONTENT_CLASS, CHAT_MENU_ITEM_CLASS, initialsOf, quoteExcerptOfText } from '../utils/utils';
 
 /**
- * Lưới emoji của bộ chọn ở ô soạn (issue #591): popover dạng
- * lưới 5 cột × 4 hàng như bản demo, thay danh sách dọc hẹp 6
- * biểu tượng trước đây. Chọn emoji vẫn chèn ký tự vào ô soạn
- * như hành vi hiện có; không thêm thư viện picker.
+ * Lưới emoji của bộ chọn ở ô soạn (issue #591): dựng trên
+ * component Popover của `@lms/ui` (vòng sửa PR #593 — bản
+ * trước dùng DropdownMenu đã bị cả hai lớp review bác vì
+ * khác component và khác ngữ nghĩa), dạng lưới 5 cột × 4
+ * hàng như bản demo, thay danh sách dọc hẹp 6 biểu tượng
+ * trước đây. Chọn emoji vẫn chèn ký tự vào ô soạn như hành
+ * vi hiện có; không thêm thư viện picker.
  */
 const EMOJI_GRID_OPTIONS = [
   '👍', '❤️', '😂', '😀', '😍',
@@ -179,11 +186,14 @@ export function ChatPanel({
   const [searchOpen, setSearchOpen] = useState(false);
   /** Panel thông tin cuộc trò chuyện (thành viên + ai đã xem, N7) — bật/tắt ở header. */
   const [infoOpen, setInfoOpen] = useState(false);
+  /** Bộ chọn emoji ở ô soạn đang mở hay không (vòng sửa PR #593): Popover được điều khiển tường minh để chọn xong một emoji là đóng lại như hành vi menu trước đây. */
+  const [emojiOpen, setEmojiOpen] = useState(false);
   /** Hồ sơ rút gọn của thành viên đang xem từ menu avatar/tên (lát MSG-T4) — một sheet dùng chung cho cả panel và dòng tin. */
   const memberProfile = useMemberProfile();
   useEffect(() => {
     setSearchOpen(false);
     setInfoOpen(false);
+    setEmojiOpen(false);
     setSearchDraft('');
   }, [active?.id]);
 
@@ -239,12 +249,12 @@ export function ChatPanel({
    * trước khi trang tải thì bản đồ không có bản ghi của họ,
    * nên `undefined` tuyệt đối không được gộp thành ngoại
    * tuyến — bề mặt hiện chữ trạng thái chỉ được khẳng định
-   * khi đã có sự kiện xác nhận. `otherOnline` (chấm/chữ "đang
-   * trực tuyến") chỉ cần nhánh `true`: vắng chấm khi chưa
-   * biết không khẳng định điều gì sai.
+   * khi đã có sự kiện xác nhận. Chấm hiện diện trên avatar
+   * (đầu khung và panel) bám đúng ba trạng thái này: xanh lá
+   * khi `true`, xám khi `false`, vắng hẳn khi `undefined` —
+   * vắng chấm khi chưa biết không khẳng định điều gì sai.
    */
   const otherPresence = otherId ? onlineUsers[otherId] : undefined;
-  const otherOnline = otherPresence === true;
   /**
    * Tiêu đề đầu khung — panel thông tin dùng lại đúng biến này:
    * hội thoại có tên thì dùng tên; hội thoại 1–1 không có tên
@@ -427,29 +437,41 @@ export function ChatPanel({
                   <button
                     type="button"
                     data-testid={`quote-block-${m.id}`}
-                    className="mb-1 block w-full max-w-full cursor-pointer rounded-md border-l-4 border-primary/60 bg-background/60 px-2 py-1 text-left"
+                    className="mb-1 block w-full max-w-full cursor-pointer rounded-lg border-l-2 border-primary/60 bg-background/60 px-2.5 py-1.5 text-left"
                     onClick={() => onJumpToQuote(m.replyTo!)}
                   >
-                    <span className="block text-xs font-medium">{nameOf(m.replyTo.userIdFrom)}</span>
+                    <span className="block text-xs font-semibold">{nameOf(m.replyTo.userIdFrom)}</span>
                     <span className="block truncate text-xs opacity-80">
                       {m.replyTo.unavailable ? t('quotedMessageUnavailable') : m.replyTo.excerpt}
                     </span>
                   </button>
                 ) : null}
                 <span className="block">{m.recalledAt ? t('messageRecalled') : m.fullMessage}</span>
+                {/*
+                  Mốc giờ + dấu trạng thái trong bong bóng
+                  (vòng sửa PR #593, theo đúng giá trị demo):
+                  giờ cỡ 10px; dấu trạng thái cỡ 12px và có BA
+                  trạng thái như demo — đang gửi (chưa có seq
+                  phía server) là dấu đơn mờ 70%, đã tới server
+                  nhưng chưa ai xem là dấu đôi mờ 70%, đã được
+                  mọi phía còn lại xem (`seenByOthers`) là dấu
+                  đôi đủ độ đậm.
+                */}
                 <span
                   data-testid={`message-time-${m.id}`}
-                  className="mt-1 flex items-center justify-end gap-1 text-[11px] leading-none opacity-70"
+                  className="mt-1 flex items-center justify-end gap-1 text-[10px] leading-none"
                 >
                   {formatTime(m.createdAt)}
-                  {mine && !m.localStatus && m.seq > 0 ? (
+                  {mine && m.localStatus === 'sending' ? (
+                    <Check className="size-3 opacity-70" aria-hidden />
+                  ) : mine && !m.localStatus && m.seq > 0 ? (
                     seenByOthers ? (
                       <>
-                        <CheckCheck className="size-3.5" aria-hidden />
+                        <CheckCheck className="size-3" aria-hidden />
                         <span className="sr-only">{t('seenByMembers')}</span>
                       </>
                     ) : (
-                      <Check className="size-3.5" aria-hidden />
+                      <CheckCheck className="size-3 opacity-70" aria-hidden />
                     )
                   ) : null}
                 </span>
@@ -699,13 +721,18 @@ export function ChatPanel({
           <Avatar>
             <AvatarFallback>{initialsOf(avatarLabel)}</AvatarFallback>
           </Avatar>
-          {otherOnline ? (
-            <span className="absolute right-0 bottom-0 size-2.5 rounded-full bg-emerald-500 ring-2 ring-background" />
+          {otherPresence !== undefined ? (
+            <span
+              className={cn(
+                'absolute right-0 bottom-0 size-2.5 rounded-full ring-2 ring-background',
+                otherPresence ? 'bg-green-500' : 'bg-muted-foreground',
+              )}
+            />
           ) : null}
         </button>
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1.5">
-            <span className="truncate font-medium">{title}</span>
+            <span className="truncate text-sm font-medium">{title}</span>
             {/*
               Biểu tượng tắt thông báo ở đầu khung (issue
               #591): hội thoại đã tắt tiếng — gồm cả nhóm —
@@ -920,12 +947,14 @@ export function ChatPanel({
             {replyTarget ? (
               <div
                 data-testid="reply-chip"
-                className="flex items-center gap-2 rounded-md border-l-4 border-primary/60 bg-muted px-3 py-2"
+                className="flex items-center gap-2 rounded-lg border-l-2 border-primary bg-muted/50 px-3 py-2"
               >
-                <span className="min-w-0 flex-1 truncate text-sm">
-                  <span className="font-medium">{t('replyingTo', { user: nameOf(replyTarget.userIdFrom) })}</span>
-                  {': '}
-                  {replyTarget.recalledAt ? t('quotedMessageUnavailable') : quoteExcerptOfText(replyTarget.fullMessage)}
+                <span className="min-w-0 flex-1 truncate text-xs">
+                  <span className="font-medium text-primary">{t('replyingTo', { user: nameOf(replyTarget.userIdFrom) })}</span>
+                  <span className="text-muted-foreground">
+                    {': '}
+                    {replyTarget.recalledAt ? t('quotedMessageUnavailable') : quoteExcerptOfText(replyTarget.fullMessage)}
+                  </span>
                 </span>
                 <Button
                   type="button"
@@ -938,22 +967,24 @@ export function ChatPanel({
               </div>
             ) : null}
             {/*
-              Ô soạn theo bản demo (issue #591):
+              Ô soạn theo bản demo (issue #591; vòng sửa PR
+              #593 đưa về đúng dạng XẾP CHỒNG của demo):
               - Tab Trả lời / Ghi chú nội bộ ở trên cùng: tab
                 Ghi chú nội bộ là điểm CHƯA có phán quyết chức
                 năng — chỉ dựng hình dạng, ở trạng thái vô hiệu.
               - Chip trả lời nhanh phía trên ô nhập: CHỈ HÌNH
                 DẠNG từ lớp adapter, vô hiệu, không chèn nội
                 dung nào (điểm chưa có phán quyết).
-              - Hàng nhập gọn một dòng (tự giãn khi nhiều
-                dòng): nút đính kèm + nút định dạng đậm + nút
-                chèn liên kết là hình dạng vô hiệu (điểm chưa
-                có phán quyết); nút emoji mở popover LƯỚI;
-                nút Gửi là nút BIỂU TƯỢNG, vẫn vô hiệu khi
-                nháp trống; KHÔNG còn bộ đếm ký tự và khung
-                nhập phình to như trước (trần ký tự vẫn được
-                cổng gửi chặn như cũ, lỗi hiện ở dòng báo lỗi
-                dưới ô soạn).
+              - Ô nhập nằm PHÍA TRÊN, hàng công cụ nằm PHÍA
+                DƯỚI (cột dọc như demo): nút đính kèm + nút
+                định dạng đậm + nút chèn liên kết là hình dạng
+                vô hiệu (điểm chưa có phán quyết); nút emoji mở
+                POPOVER lưới (component Popover của `@lms/ui`);
+                nút Gửi là nút BIỂU TƯỢNG ở cuối hàng công cụ,
+                vẫn vô hiệu khi nháp trống; KHÔNG còn bộ đếm ký
+                tự và khung nhập phình to như trước (trần ký tự
+                vẫn được cổng gửi chặn như cũ, lỗi hiện ở dòng
+                báo lỗi dưới ô soạn).
             */}
             <Tabs value="reply">
               <TabsList>
@@ -968,63 +999,11 @@ export function ChatPanel({
                 </Button>
               ))}
             </div>
-            <form onSubmit={(e) => void send(e)} className="flex items-end gap-1.5">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={t('attachFileLabel')}
-                disabled
-              >
-                <Paperclip aria-hidden />
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={t('emojiPickerLabel')}
-                    />
-                  }
-                >
-                  <Smile aria-hidden />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" sideOffset={4} className="grid w-72 grid-cols-5 gap-1 p-2">
-                  {EMOJI_GRID_OPTIONS.map((emoji) => (
-                    <DropdownMenuItem
-                      key={emoji}
-                      className="flex items-center justify-center text-lg"
-                      onClick={() => { setDrafts((prev) => ({ ...prev, [active.id]: `${prev[active.id] ?? ''}${emoji}` })); noteTyping(); }}
-                    >
-                      {emoji}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={t('boldLabel')}
-                disabled
-              >
-                <Bold aria-hidden />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={t('insertLinkLabel')}
-                disabled
-              >
-                <Link2 aria-hidden />
-              </Button>
+            <form onSubmit={(e) => void send(e)} className="flex flex-col gap-2">
               <Textarea
                 aria-label={t('messageText')}
                 rows={1}
-                className="max-h-40 min-h-9 flex-1 resize-none"
+                className="max-h-32 min-h-10 min-w-0 resize-none"
                 value={draft}
                 onChange={(e) => {
                   // Nháp ghi theo conversation đang mở (lát M1,
@@ -1045,14 +1024,79 @@ export function ChatPanel({
                   }
                 }}
               />
-              <Button
-                type="submit"
-                size="icon"
-                aria-label={t('send')}
-                disabled={sendInFlight || !draft.trim()}
-              >
-                <SendHorizontal aria-hidden />
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('attachFileLabel')}
+                  disabled
+                >
+                  <Paperclip aria-hidden />
+                </Button>
+                <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
+                  <PopoverTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={t('emojiPickerLabel')}
+                      />
+                    }
+                  >
+                    <Smile aria-hidden />
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="start"
+                    sideOffset={4}
+                    data-testid="emoji-picker-popover"
+                    className="grid w-72 grid-cols-5 gap-1 p-2"
+                  >
+                    {EMOJI_GRID_OPTIONS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        className="flex items-center justify-center rounded-md p-1 text-lg hover:bg-muted"
+                        onClick={() => {
+                          setDrafts((prev) => ({ ...prev, [active.id]: `${prev[active.id] ?? ''}${emoji}` }));
+                          noteTyping();
+                          setEmojiOpen(false);
+                        }}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('boldLabel')}
+                  disabled
+                >
+                  <Bold aria-hidden />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('insertLinkLabel')}
+                  disabled
+                >
+                  <Link2 aria-hidden />
+                </Button>
+                <Button
+                  type="submit"
+                  size="icon-sm"
+                  className="ml-auto"
+                  aria-label={t('send')}
+                  disabled={sendInFlight || !draft.trim()}
+                >
+                  <SendHorizontal aria-hidden />
+                </Button>
+              </div>
             </form>
             {sendError ? (
               <p role="alert" className="text-sm text-destructive">{sendError}</p>
@@ -1064,7 +1108,7 @@ export function ChatPanel({
       {showInfoAside ? (
         <aside
           data-testid="info-aside"
-          className="absolute inset-y-0 right-0 z-20 flex w-[85vw] max-w-[320px] flex-col overflow-y-auto border-l bg-background shadow-xl md:static md:z-auto md:w-[320px] md:shrink-0 md:shadow-none"
+          className="absolute inset-y-0 right-0 z-20 flex w-[85vw] max-w-[320px] min-w-0 flex-col overflow-x-hidden overflow-y-auto border-l bg-background shadow-xl md:static md:z-auto md:w-[320px] md:shrink-0 md:shadow-none"
         >
           <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
             <p className="truncate text-sm font-medium">{t('conversationInfoTitle')}</p>
@@ -1088,7 +1132,7 @@ export function ChatPanel({
                 để trạng thái tắt tiếng hiện và đổi được nhất
                 quán ở mọi bề mặt của nhóm.
               */}
-              <div className="flex gap-2 border-b px-3 py-2">
+              <div className="flex flex-wrap gap-2 border-b px-3 py-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -1141,15 +1185,25 @@ export function ChatPanel({
                   <Avatar className="size-16">
                     <AvatarFallback className="text-lg">{initialsOf(avatarLabel)}</AvatarFallback>
                   </Avatar>
-                  {otherOnline ? (
-                    <span className="absolute right-0 bottom-0 size-3 rounded-full bg-emerald-500 ring-2 ring-background" />
+                  {otherPresence !== undefined ? (
+                    <span
+                      className={cn(
+                        'absolute right-0 bottom-0 size-2.5 rounded-full ring-2 ring-background',
+                        otherPresence ? 'bg-green-500' : 'bg-muted-foreground',
+                      )}
+                    />
                   ) : null}
                 </span>
                 <div className="min-w-0">
-                  <p className="font-semibold break-words">{title}</p>
-                  {partnerProfile.roleLine ? (
-                    <p className="text-sm text-muted-foreground">{partnerProfile.roleLine}</p>
-                  ) : null}
+                  <p className="font-medium break-words">{title}</p>
+                  {/*
+                    Dòng vai trò của panel (vòng sửa PR #593):
+                    luôn render đúng vị trí dưới tên như demo kể
+                    cả khi adapter chưa có dữ kiện — khi rỗng thì
+                    hiện dấu "—" như mọi trường rỗng khác của
+                    panel, không để dòng biến mất hẳn.
+                  */}
+                  <p className="text-xs text-muted-foreground">{partnerProfile.roleLine ?? '—'}</p>
                   {/*
                     Dòng trạng thái ở panel dùng cùng luật ba
                     trạng thái với đầu khung: chỉ hiện khi đã
@@ -1157,7 +1211,7 @@ export function ChatPanel({
                     thì không hiện dòng nào.
                   */}
                   {otherPresence !== undefined ? (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {otherPresence ? t('onlineNow') : t('messagesOfflineNow')}
                     </p>
                   ) : null}
@@ -1168,12 +1222,12 @@ export function ChatPanel({
                   ) : null}
                 </div>
               </div>
-              <div className="flex justify-center gap-1">
+              <div className="flex flex-wrap justify-center gap-1">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="flex-col gap-1 py-2"
+                  className="flex-col gap-1 px-2 py-2 text-xs"
                   onClick={() => onUpdateConversationState(active, { muted: !active.muted })}
                 >
                   {active.muted ? <Bell aria-hidden /> : <BellOff aria-hidden />}
@@ -1183,7 +1237,7 @@ export function ChatPanel({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="flex-col gap-1 py-2"
+                  className="flex-col gap-1 px-2 py-2 text-xs"
                   onClick={() => onUpdateConversationState(active, { pinned: !active.pinnedAt })}
                 >
                   {active.pinnedAt ? <PinOff aria-hidden /> : <Pin aria-hidden />}
@@ -1194,7 +1248,7 @@ export function ChatPanel({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="flex-col gap-1 py-2"
+                    className="flex-col gap-1 px-2 py-2 text-xs"
                     onClick={() => void unblockContact(otherId)}
                   >
                     <Ban aria-hidden />
@@ -1205,7 +1259,7 @@ export function ChatPanel({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="flex-col gap-1 py-2"
+                    className="flex-col gap-1 px-2 py-2 text-xs"
                     onClick={() => void blockContact(otherId)}
                   >
                     <Ban aria-hidden />
@@ -1216,7 +1270,7 @@ export function ChatPanel({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="flex-col gap-1 py-2"
+                  className="flex-col gap-1 px-2 py-2 text-xs"
                   disabled
                 >
                   <Trash aria-hidden />
@@ -1227,7 +1281,7 @@ export function ChatPanel({
                 {partnerProfile.bio ? (
                   <div>
                     <dt className="text-muted-foreground">{t('profileBio')}</dt>
-                    <dd className="break-words">{partnerProfile.bio}</dd>
+                    <dd className="leading-relaxed break-words">{partnerProfile.bio}</dd>
                   </div>
                 ) : (
                   <div className="flex justify-between gap-3">
@@ -1247,12 +1301,12 @@ export function ChatPanel({
                 ] as const).map(([key, value]) => (
                   <div key={key} className="flex justify-between gap-3">
                     <dt className="text-muted-foreground">{t(key)}</dt>
-                    <dd className="min-w-0 font-medium break-words">{value ?? '—'}</dd>
+                    <dd className="min-w-0 break-words">{value ?? '—'}</dd>
                   </div>
                 ))}
                 <div className="flex justify-between gap-3">
                   <dt className="text-muted-foreground">{t('profileTags')}</dt>
-                  <dd className="font-medium">
+                  <dd>
                     {partnerProfile.tags.length > 0 ? partnerProfile.tags.join(', ') : '—'}
                   </dd>
                 </div>

@@ -3152,7 +3152,7 @@ describe('Trang tin nhắn — dựng lại theo mẫu demo (issue #564)', () =>
     expect(sendButton).toBeEnabled();
   });
 
-  it('bấm emoji trong menu chèn ký tự đó vào cuối nháp', async () => {
+  it('bấm emoji trong popover chèn ký tự đó vào cuối nháp', async () => {
     const calls: RecordedCall[] = [];
     stubMsgT3Fetch(calls);
     renderMessages();
@@ -3162,7 +3162,7 @@ describe('Trang tin nhắn — dựng lại theo mẫu demo (issue #564)', () =>
     const input = screen.getByLabelText('Nội dung tin nhắn') as HTMLTextAreaElement;
     await userEvent.type(input, 'chào');
     await userEvent.click(screen.getByRole('button', { name: 'Chèn biểu tượng cảm xúc' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: '👍' }));
+    await userEvent.click(await screen.findByRole('button', { name: '👍' }));
     expect(input.value).toBe('chào👍');
   });
   it('bấm emoji trên nháp trống vẫn phát tín hiệu đang nhập cho đúng hội thoại', async () => {
@@ -3180,7 +3180,7 @@ describe('Trang tin nhắn — dựng lại theo mẫu demo (issue #564)', () =>
     // xoá mock sẽ xanh ngay cả khi chưa sửa.
     realtime.handle.typing.mockClear();
     await userEvent.click(screen.getByRole('button', { name: 'Chèn biểu tượng cảm xúc' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: '👍' }));
+    await userEvent.click(await screen.findByRole('button', { name: '👍' }));
     expect(input.value).toBe('👍');
     expect(realtime.handle.typing).toHaveBeenCalledWith(T3_DM_A);
   });
@@ -3349,6 +3349,7 @@ describe('Trang tin nhắn — vòng sửa hẹp PR #576 (tiêu đề 1–1 và 
 const SEEN_MINE_ID = '01900000-0000-7000-8000-000000000591';
 const SEEN_PEER_ID = '01900000-0000-7000-8000-000000000592';
 const KT_GROUP_ID = '01900000-0000-7000-8000-000000000593';
+const KT_GROUP_MUTED_EMPTY_ID = '01900000-0000-7000-8000-000000000595';
 
 /** Stub cho các ca #591: 1–1 có mốc đã xem của đối tác dừng ở seq 1, nhóm tự do tên bắt đầu bằng ký tự đặc biệt. */
 function stub591Fetch(calls: RecordedCall[], gateList?: Promise<void>) {
@@ -3380,13 +3381,22 @@ function stub591Fetch(calls: RecordedCall[], gateList?: Promise<void>) {
             lastMessage: { id: '01900000-0000-7000-8000-000000000594', conversationId: KT_GROUP_ID, userIdFrom: OTHER_ID, subject: '', fullMessage: 'nội dung tin nhóm cuối', createdAt: '2026-01-01T00:03:00.000Z', seq: 1, clientMessageId: null },
             memberProfiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } },
           },
+          {
+            id: KT_GROUP_MUTED_EMPTY_ID, type: 2, name: 'Nhóm tắt tiếng chưa có tin', members: [ME_ID, OTHER_ID],
+            unread: 0, lastReadSeq: 0, lastMessageSeq: 0, muted: true,
+            lastMessage: null,
+            memberProfiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } },
+          },
         ]);
       }
       if (url === '/api/v1/messages/group-tree')
         return respond({
           classes: [],
           coursesOutsideClasses: [],
-          freeGroups: [{ id: KT_GROUP_ID, name: '[KT] Nhóm kiểm chứng', myRole: 'staff', conversationId: KT_GROUP_ID, unread: 0 }],
+          freeGroups: [
+            { id: KT_GROUP_ID, name: '[KT] Nhóm kiểm chứng', myRole: 'staff', conversationId: KT_GROUP_ID, unread: 0 },
+            { id: KT_GROUP_MUTED_EMPTY_ID, name: 'Nhóm tắt tiếng chưa có tin', myRole: 'staff', conversationId: KT_GROUP_MUTED_EMPTY_ID, unread: 0 },
+          ],
           canCreateFreeGroup: false,
         });
       if (url === '/api/v1/messages/unread-count') return respond({ conversations: 1, notifications: 0 });
@@ -3461,8 +3471,8 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
 
     await userEvent.click(await screen.findByRole('button', { name: /Bạn Học/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Chèn biểu tượng cảm xúc' }));
-    const menu = await screen.findByRole('menu');
-    expect(within(menu).getAllByRole('menuitem')).toHaveLength(20);
+    const popover = await screen.findByTestId('emoji-picker-popover');
+    expect(within(popover).getAllByRole('button')).toHaveLength(20);
     await userEvent.keyboard('{Escape}');
 
     const favouritesChip = screen.getByRole('button', { name: 'Yêu thích' });
@@ -3493,6 +3503,16 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     const groupRow = await screen.findByRole('button', { name: /Nhóm kiểm chứng/ });
     expect(within(groupRow).getByText(/Bạn Học: nội dung tin nhóm cuối/)).toBeInTheDocument();
     expect(within(groupRow).getByTestId(`conversation-muted-${KT_GROUP_ID}`)).toBeInTheDocument();
+  });
+
+  it('dòng nhóm đã tắt tiếng mà chưa có tin cuối nào vẫn hiện biểu tượng tắt tiếng', async () => {
+    const calls: RecordedCall[] = [];
+    stub591Fetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
+    const groupRow = await screen.findByRole('button', { name: /Nhóm tắt tiếng chưa có tin/ });
+    expect(within(groupRow).getByTestId(`conversation-muted-${KT_GROUP_MUTED_EMPTY_ID}`)).toBeInTheDocument();
   });
 
   it('panel thông tin 1–1 là hồ sơ người theo hình dạng demo: đủ nhãn trường hồ sơ với dấu gạch ngang chờ backend và hành động Tắt tiếng thật', async () => {

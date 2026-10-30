@@ -218,10 +218,12 @@ export function GroupTreeNav({
    * trong danh sách của trang và hội thoại đó có tin cuối thì
    * hiện XEM TRƯỚC TIN CUỐI kèm tiền tố người gửi (tin của mình
    * mang tiền tố "Bạn:") như các hàng hội thoại còn lại và như
-   * bản demo, kèm ngày ở cuối dòng tên và biểu tượng tắt tiếng
-   * khi hội thoại đã tắt tiếng; nút chưa có hội thoại hoặc chưa
-   * có tin nào thì giữ phụ đề vai trò như trước (chưa có dữ
-   * kiện xem trước để hiện, không bịa).
+   * bản demo, kèm ngày ở cuối dòng tên; nút chưa có hội thoại
+   * hoặc chưa có tin nào thì giữ phụ đề vai trò như trước
+   * (chưa có dữ kiện xem trước để hiện, không bịa). Biểu tượng
+   * tắt tiếng nằm NGOÀI nhánh có tin cuối (vòng sửa PR #593):
+   * hội thoại đã tắt tiếng thì hiện biểu tượng ở dòng phụ kể
+   * cả khi chưa có tin cuối nào.
    */
   const nodeRow = (
     key: string,
@@ -239,7 +241,7 @@ export function GroupTreeNav({
         key={key}
         type="button"
         aria-current={isActive || undefined}
-        className={cn('flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2 py-2 text-left hover:bg-muted', isActive && 'bg-muted')}
+        className={cn('flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left hover:bg-muted', isActive && 'bg-muted')}
         onClick={onOpen}
       >
         <Avatar className="size-8">
@@ -247,28 +249,28 @@ export function GroupTreeNav({
         </Avatar>
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-2">
-            <span className={cn('min-w-0 flex-1 truncate text-sm', unread > 0 && 'font-semibold')}>{label}</span>
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold">{label}</span>
             {lastMessage ? (
-              <span className="shrink-0 text-xs text-muted-foreground">
+              <span className="shrink-0 text-xs leading-5 text-muted-foreground tabular-nums">
                 {relativeTime(lastMessage.createdAt, t)}
               </span>
             ) : null}
           </span>
-          {lastMessage ? (
-            <span className="mt-0.5 flex items-center gap-1.5">
-              <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+          <span className="mt-0.5 flex items-center gap-1.5">
+            {lastMessage ? (
+              <span className="min-w-0 flex-1 truncate text-xs leading-4 text-muted-foreground">
                 {lastMessage.userIdFrom === myId
                   ? `${t('lastMessageOwnPrefix')} `
                   : `${nameOf?.(lastMessage.userIdFrom) ?? lastMessage.userIdFrom}: `}
                 {lastMessage.fullMessage}
               </span>
-              {conversation?.muted ? (
-                <BellOff data-testid={`conversation-muted-${conversation.id}`} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-              ) : null}
-            </span>
-          ) : (
-            <span className="block text-xs text-muted-foreground">{roleLabel(role)}</span>
-          )}
+            ) : (
+              <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{roleLabel(role)}</span>
+            )}
+            {conversation?.muted ? (
+              <BellOff data-testid={`conversation-muted-${conversation.id}`} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+            ) : null}
+          </span>
         </span>
         <TreeUnreadBadge count={unread} />
       </button>
@@ -280,7 +282,7 @@ export function GroupTreeNav({
     const expanded = expandedCourses.has(course.courseId);
     return (
       <div key={course.courseId}>
-        <div className="flex items-center">
+        <div className="flex min-w-0 items-center">
           {course.groups.length > 0
             ? expandToggle(expanded, () => {
               setExpandedCourses((prev) => {
@@ -324,7 +326,7 @@ export function GroupTreeNav({
         const expanded = expandedClasses.has(cls.classId);
         return (
           <div key={cls.classId}>
-            <div className="flex items-center">
+            <div className="flex min-w-0 items-center">
               {cls.courses.length > 0
                 ? expandToggle(expanded, () => {
                   setExpandedClasses((prev) => {
