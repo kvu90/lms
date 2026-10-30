@@ -62,6 +62,16 @@ export class SpaceDatabaseService implements OnModuleDestroy {
   private sharedDatabase: SpaceDatabase | null = null;
   /** Các trung tâm đã chuẩn bị xong: slug → handle + kho của handle (bảng tra đồng bộ cho `routedDatabase`). */
   private readonly prepared = new Map<string, { db: SpaceDatabase; databaseName: string }>();
+  /**
+   * Các slug mà lần chuẩn bị gần nhất kết luận đang ở chế độ KHO
+   * RIÊNG — cùng vai trò với bản phía API: bảng này KHÔNG bị
+   * `onPoolClosed` xoá theo mục đã-chuẩn-bị, để `currentDatabase`
+   * phân biệt "slug chưa từng chuẩn bị" (được rơi về kho chung
+   * theo hợp đồng) với "slug đã chuẩn bị ở kho riêng nhưng mục
+   * đã-chuẩn-bị đã bị thu hồi" (phải fail-closed). Mục của một
+   * slug bị xoá khi lần chuẩn bị sau kết luận slug đó ở kho chung.
+   */
+  private readonly dedicatedSlugs = new Set<string>();
 
   /** Handle định tuyến theo ngữ cảnh ALS — cùng hợp đồng với phía API, xem mô tả lớp. */
   readonly routedDatabase: SpaceDatabase;
@@ -107,6 +117,12 @@ export class SpaceDatabaseService implements OnModuleDestroy {
     });
     this.pools = new SpacePoolManager<SpaceDatabase>({
       idleTimeoutMs,
+      // Pool của một kho bị gỡ (đóng vì nhàn rỗi, hoặc bị thay vì
+      // sổ đổi danh tính kết nối) thì các trung tâm trỏ vào kho đó
+      // cũng hết trạng thái "đã chuẩn bị" — như bản phía API.
+      // Đường đồng bộ của `routedDatabase` không chuẩn bị lại
+      // được nên với slug đã chuẩn bị ở kho riêng nó fail-closed
+      // (xem `dedicatedSlugs` và `currentDatabase`).
       onPoolClosed: (databaseName) => {
         for (const [slug, entry] of [...this.prepared]) {
           if (entry.databaseName === databaseName) this.prepared.delete(slug);
@@ -136,13 +152,19 @@ export class SpaceDatabaseService implements OnModuleDestroy {
    * Lấy handle Drizzle của một trung tâm theo slug: kho chung thì
    * trả handle kho chung đã gắn; kho riêng thì lấy (hoặc tạo lười)
    * pool của kho đó — nối bằng đúng role của kho, trần kết nối
-   * theo cấu hình `SPACE_DB_POOL_MAX`.
+   * theo cấu hình `SPACE_DB_POOL_MAX`. Pool được lấy THEO DANH
+   * TÍNH kết nối vừa phân giải như bản phía API: sổ đã đổi
+   * role/bí mật thì pool cũ bị thay bằng pool đúng danh tính hiện
+   * hành (xem `SpacePoolManager.getHandleForIdentity`). Chế độ
+   * kho của lần chuẩn bị này cũng được ghi vào `dedicatedSlugs`
+   * (chỉ khi là kho riêng) cho đường định tuyến đồng bộ.
    */
   async getDatabaseForSpace(slug: string): Promise<SpaceDatabase> {
     const target = await this.resolver.resolve(slug);
     if (target.mode === 'shared') {
       const db = this.requireSharedDatabase();
       this.prepared.set(slug, { db, databaseName: target.databaseName });
+      this.dedicatedSlugs.delete(slug);
       return db;
     }
     const connectionString = target.connectionString;
@@ -152,7 +174,7 @@ export class SpaceDatabaseService implements OnModuleDestroy {
         `Resolved dedicated target for space ${slug} has no connection string`,
       );
     }
-    const handle = this.pools.getHandle(target.databaseName, (databaseName) => {
+    const handle = this.pools.getHandleForIdentity(target.databaseName, connectionString, (databaseName) => {
       const connection = databaseConnectionFromEnv(connectionString, this.ssl);
       const pool = new TenantAwarePool(
         typeof connection === 'string'
@@ -162,6 +184,7 @@ export class SpaceDatabaseService implements OnModuleDestroy {
       return { databaseName, pool, db: drizzle({ client: pool, relations }) };
     });
     this.prepared.set(slug, { db: handle.db, databaseName: target.databaseName });
+    this.dedicatedSlugs.add(slug);
     return handle.db;
   }
 
@@ -200,12 +223,27 @@ export class SpaceDatabaseService implements OnModuleDestroy {
     return this.sharedDatabase;
   }
 
-  /** Handle hiệu lực cho ngữ cảnh hiện tại: trung tâm đã chuẩn bị ở kho riêng, hoặc kho chung. */
+  /**
+   * Handle hiệu lực cho ngữ cảnh hiện tại — cùng hợp đồng với bản
+   * phía API: slug chưa từng chuẩn bị ở kho riêng thì về kho
+   * chung; slug đã chuẩn bị ở kho riêng mà mục đã-chuẩn-bị đã bị
+   * thu hồi (pool đóng vì nhàn rỗi hoặc bị thay vì đổi danh tính)
+   * thì ném `SpaceRoutingError`
+   * (`space_routing.prepared_revoked`) — fail-closed, tuyệt đối
+   * không rơi im lặng về kho chung; bên gọi chuẩn bị lại qua
+   * `getDatabaseForSpace`/`withSpaceDatabase` rồi thử lại.
+   */
   private currentDatabase(): SpaceDatabase {
     const slug = tenantAls.getStore()?.spaceSlug;
     if (slug) {
       const preparedEntry = this.prepared.get(slug);
       if (preparedEntry) return preparedEntry.db;
+      if (this.dedicatedSlugs.has(slug)) {
+        throw new SpaceRoutingError(
+          'space_routing.prepared_revoked',
+          `Space ${slug} was prepared with a dedicated store but that preparation is no longer active; prepare the space again before routing queries to it`,
+        );
+      }
     }
     return this.requireSharedDatabase();
   }

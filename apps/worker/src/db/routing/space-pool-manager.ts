@@ -29,6 +29,17 @@
  *   vòng sau. Pool đã đóng bị gỡ khỏi sổ của trình quản lý: lần lấy
  *   handle kế tiếp tạo pool mới — đóng pool vì vậy không phải trạng
  *   thái cuối, chỉ là trả ngân sách về cụm.
+ *
+ * Ngoài ba kỷ luật ngân sách, trình quản lý còn giữ một bất biến
+ * đúng/sai của định tuyến: pool của một kho bị BUỘC theo danh tính
+ * kết nối đã phân giải mà nó được tạo bằng (xem
+ * `getHandleForIdentity`). Sổ đăng ký là nguồn sự thật duy nhất
+ * cho đích kết nối, nên khi sổ đổi role/bí mật của một kho thì
+ * pool đang sống bằng danh tính cũ không còn được dùng: lần lấy
+ * handle kế tiếp theo danh tính mới đóng pool cũ và tạo pool mới
+ * — việc xoay role/mật khẩu qua sổ có hiệu lực ngay, không phải
+ * chờ pool tình cờ bị đóng vì nhàn rỗi hay tiến trình khởi động
+ * lại.
  */
 
 /** Hình tối thiểu của một pool mà trình quản lý cần — `pg` Pool thoả mãn trực tiếp. */
@@ -53,6 +64,12 @@ export interface SpacePoolHandle<TDatabase> {
 interface PoolEntry<TDatabase> {
   handle: SpacePoolHandle<TDatabase>;
   lastUsedAt: number;
+  /**
+   * Danh tính kết nối đã phân giải mà pool được tạo bằng (do nơi
+   * gọi chốt qua `getHandleForIdentity`); undefined khi pool được
+   * tạo qua đường lấy handle không kèm danh tính.
+   */
+  identity?: string;
 }
 
 /** Các phụ thuộc của trình quản lý pool. */
@@ -61,7 +78,7 @@ export interface SpacePoolManagerDeps {
   idleTimeoutMs: number;
   /** Đồng hồ — tách ra để kiểm chứng vòng quét bằng thời gian giả. */
   now?: () => number;
-  /** Báo cho chủ sở hữu mỗi khi một pool bị đóng vì nhàn rỗi (để đồng bộ các bảng tra cứu theo kho). */
+  /** Báo cho chủ sở hữu mỗi khi một pool bị gỡ khỏi sổ (đóng vì nhàn rỗi, hoặc bị thay vì danh tính kết nối đã đổi) để đồng bộ các bảng tra cứu theo kho. */
   onPoolClosed?: (databaseName: string) => void;
 }
 
@@ -78,19 +95,73 @@ export class SpacePoolManager<TDatabase> {
    * Lấy handle của một kho, tạo pool ở lần lấy đầu tiên (tạo lười).
    * Hàm tạo chỉ chạy khi kho chưa có pool đang sống — các lần lấy
    * sau dùng lại đúng handle đã tạo và chỉ cập nhật mốc traffic.
+   * Đường này không kèm danh tính kết nối: nó dùng lại pool đang
+   * sống bất kể danh tính pool đó được tạo bằng.
    *
    * @param databaseName - Tên database làm khoá pool.
    * @param create - Hàm dựng handle (pool + Drizzle) cho kho, chạy
    *   tối đa một lần cho mỗi vòng đời pool.
    */
   getHandle(databaseName: string, create: (databaseName: string) => SpacePoolHandle<TDatabase>): SpacePoolHandle<TDatabase> {
+    return this.acquire(databaseName, undefined, create);
+  }
+
+  /**
+   * Lấy handle của một kho theo DANH TÍNH kết nối đã phân giải:
+   * pool đang sống được tạo bằng đúng danh tính này thì dùng lại;
+   * pool đang sống mang danh tính khác (sổ đăng ký vừa đổi
+   * role/bí mật của kho) thì pool cũ bị đóng và gỡ khỏi sổ — kèm
+   * thông báo `onPoolClosed` như một lần đóng pool thường, để chủ
+   * sở hữu đồng bộ các bảng tra cứu theo kho — rồi pool mới được
+   * tạo bằng danh tính mới. Nhờ vậy kết nối thật luôn chạy bằng
+   * đúng danh tính sổ hiện hành, và hai dòng đăng ký trùng tên
+   * database nhưng khác role không bao giờ dùng chung một pool.
+   *
+   * @param databaseName - Tên database làm khoá pool.
+   * @param identity - Danh tính kết nối đã phân giải (chuỗi kết nối
+   *   đã chốt đích) mà pool phải được tạo bằng.
+   * @param create - Hàm dựng handle cho kho, chạy khi chưa có pool
+   *   đang sống mang đúng danh tính.
+   */
+  getHandleForIdentity(
+    databaseName: string,
+    identity: string,
+    create: (databaseName: string) => SpacePoolHandle<TDatabase>,
+  ): SpacePoolHandle<TDatabase> {
+    return this.acquire(databaseName, identity, create);
+  }
+
+  /** Đường lấy handle chung: dùng lại pool đang sống khi danh tính khớp (hoặc không đặt điều kiện danh tính), thay pool khi danh tính đã đổi. */
+  private acquire(
+    databaseName: string,
+    identity: string | undefined,
+    create: (databaseName: string) => SpacePoolHandle<TDatabase>,
+  ): SpacePoolHandle<TDatabase> {
     const existing = this.entries.get(databaseName);
     if (existing) {
-      existing.lastUsedAt = this.now();
-      return existing.handle;
+      if (identity === undefined || existing.identity === identity) {
+        existing.lastUsedAt = this.now();
+        return existing.handle;
+      }
+      if (existing.identity === undefined) {
+        // Pool tạo qua đường không kèm danh tính: nhận danh tính
+        // của lần lấy này làm danh tính gốc của pool thay vì thay
+        // pool — chưa có căn cứ kết luận pool đang chạy sai role.
+        existing.identity = identity;
+        existing.lastUsedAt = this.now();
+        return existing.handle;
+      }
+      // Danh tính đã đổi: gỡ pool cũ khỏi sổ TRƯỚC khi đóng (như
+      // vòng quét nhàn rỗi) để một lần lấy handle đến trong lúc
+      // đóng tạo pool mới thay vì nhận phải pool đang chết; việc
+      // đóng là phụ trợ nền — lỗi đóng pool cũ không chặn việc
+      // cấp pool mới đúng danh tính.
+      this.entries.delete(databaseName);
+      void existing.handle.pool.end().catch(() => undefined);
+      this.deps.onPoolClosed?.(databaseName);
     }
     const handle = create(databaseName);
-    const entry: PoolEntry<TDatabase> = { handle, lastUsedAt: this.now() };
+    const entry: PoolEntry<TDatabase> = { handle, lastUsedAt: this.now(), identity };
     this.entries.set(databaseName, entry);
     // Mốc traffic tính cả hoạt động mượn kết nối trực tiếp từ pool
     // (mọi truy vấn qua handle Drizzle đều mượn kết nối ở đây), để

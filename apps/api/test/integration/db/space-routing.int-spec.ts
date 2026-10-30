@@ -1,7 +1,7 @@
 import type { ConfigService } from '@nestjs/config';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -9,6 +9,7 @@ import { tenants } from '@lms/db';
 import { spaceRegistry } from '@lms/db/control-plane';
 import type { Database } from '../../../src/db/database';
 import { relations } from '../../../src/db/relations';
+import { SpaceRoutingError } from '../../../src/db/routing/space-connection-resolver';
 import { emitSpaceRegistryChanged } from '../../../src/db/routing/space-routing-events';
 import { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
 import { TenantAwarePool } from '../../../src/db/tenant-pool';
@@ -43,6 +44,18 @@ import { tenantAls } from '../../../src/modules/tenants/tenant-als';
  * chung giữ nguyên hành vi hiện tại (đúng handle kho chung); đệm
  * phân giải mất hiệu lực ngay khi sổ đổi và có sự kiện phát ra.
  *
+ * Vòng sửa của PR (theo phán quyết điều phối trên PR) thêm hai ca
+ * hồi quy cho hai khuyết tật định tuyến đã được phân xử xác nhận:
+ * (1) trung tâm kho riêng ĐÃ chuẩn bị mà pool bị đóng vì nhàn rỗi
+ * thì truy vấn qua handle định tuyến trong ngữ cảnh còn mang slug
+ * phải bị từ chối (fail-closed), không được rơi im lặng về kho
+ * chung — ca dựng đúng hình: chuẩn bị, ép pool đóng, rồi vẫn giữ
+ * ngữ cảnh cũ mà truy vấn/ghi; (2) sổ đổi role/bí mật của một kho
+ * SAU khi pool đã tạo thì lần lấy handle kế tiếp phải kết nối
+ * bằng role mới — ca cần thêm một role thứ hai của kho A
+ * (`lms_centre_a2_581_app`, có CONNECT vào kho A như một role của
+ * kho thật được cấp phát) để làm đích đổi sổ.
+ *
  * Shim `uuidv7()` chỉ áp khi server PostgreSQL dưới 18 (môi trường
  * chạy local bằng PG16): PG18 — bản ở CI và production — có sẵn
  * hàm này, shim sẽ che mất hàm gốc nên tuyệt đối không áp ở đó.
@@ -62,6 +75,11 @@ const SHARED_SLUG = 'trang-chinh';
 const TENANT_A_ID = '01958100-0000-7000-8000-0000000000a1';
 const TENANT_B_ID = '01958100-0000-7000-8000-0000000000b2';
 const SHARED_TENANT_ID = '01958100-0000-7000-8000-0000000000c3';
+/** Role thứ hai của kho A — đích đổi sổ của ca hồi quy xoay role/bí mật sau khi pool đã tạo. */
+const CENTRE_A2_ROLE = 'lms_centre_a2_581_app';
+const CENTRE_A2_PASSWORD = 'centre-a2-581';
+/** Id của dòng ghi mà ca hồi quy bị-thu-hồi cố ý ghi qua handle định tuyến: dòng này không được phép xuất hiện ở bất kỳ kho nào. */
+const REVOKED_MARKER_ID = '01958100-0000-7000-8000-0000000000f6';
 /** Trần kết nối mỗi pool kho riêng trong ca này — nhỏ để ca trần kiểm được bằng số kết nối thật. */
 const POOL_MAX = 2;
 /** Ngưỡng nhàn rỗi trong ca này — nhỏ để ca đóng pool không phải chờ theo mặc định 60 giây. */
@@ -166,12 +184,13 @@ describe('Khung định tuyến kết nối theo trung tâm (integration)', () =
       for (const database of [CP_DATABASE, CENTRE_A_DATABASE, CENTRE_B_DATABASE]) {
         await admin.query(`DROP DATABASE IF EXISTS ${quoted(database)} WITH (FORCE)`);
       }
-      for (const role of [CP_ROLE, CENTRE_A_ROLE, CENTRE_B_ROLE]) {
+      for (const role of [CP_ROLE, CENTRE_A_ROLE, CENTRE_B_ROLE, CENTRE_A2_ROLE]) {
         await admin.query(`DROP ROLE IF EXISTS ${quoted(role)}`);
       }
       await admin.query(`CREATE ROLE ${CP_ROLE} LOGIN PASSWORD '${CP_PASSWORD}'`);
       await admin.query(`CREATE ROLE ${CENTRE_A_ROLE} LOGIN PASSWORD '${CENTRE_A_PASSWORD}'`);
       await admin.query(`CREATE ROLE ${CENTRE_B_ROLE} LOGIN PASSWORD '${CENTRE_B_PASSWORD}'`);
+      await admin.query(`CREATE ROLE ${CENTRE_A2_ROLE} LOGIN PASSWORD '${CENTRE_A2_PASSWORD}'`);
       await admin.query(`CREATE DATABASE ${CP_DATABASE} OWNER ${CP_ROLE}`);
       await admin.query(`CREATE DATABASE ${CENTRE_A_DATABASE} OWNER ${CENTRE_A_ROLE}`);
       await admin.query(`CREATE DATABASE ${CENTRE_B_DATABASE} OWNER ${CENTRE_B_ROLE}`);
@@ -181,6 +200,10 @@ describe('Khung định tuyến kết nối theo trung tâm (integration)', () =
       await admin.query(`GRANT CONNECT ON DATABASE ${CENTRE_A_DATABASE} TO ${CENTRE_A_ROLE}`);
       await admin.query(`REVOKE CONNECT ON DATABASE ${CENTRE_B_DATABASE} FROM PUBLIC`);
       await admin.query(`GRANT CONNECT ON DATABASE ${CENTRE_B_DATABASE} TO ${CENTRE_B_ROLE}`);
+      // Role thứ hai của kho A được cấp CONNECT vào kho A như một
+      // role của kho thật: ca hồi quy đổi sổ sẽ trỏ sổ sang role
+      // này và kết nối thật phải chạy được bằng chính nó.
+      await admin.query(`GRANT CONNECT ON DATABASE ${CENTRE_A_DATABASE} TO ${CENTRE_A2_ROLE}`);
     });
 
     await applyControlPlaneMigrations(clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD));
@@ -192,6 +215,7 @@ describe('Khung định tuyến kết nối theo trung tâm (integration)', () =
     // databaseName trong sổ, không theo tên database trong chuỗi.
     process.env.SPACE_TEST_A_581_URL = clusterUrl('postgres', CENTRE_A_ROLE, CENTRE_A_PASSWORD);
     process.env.SPACE_TEST_B_581_URL = clusterUrl('postgres', CENTRE_B_ROLE, CENTRE_B_PASSWORD);
+    process.env.SPACE_TEST_A2_581_URL = clusterUrl('postgres', CENTRE_A2_ROLE, CENTRE_A2_PASSWORD);
 
     controlPlane = new ControlPlaneConnection(
       fakeConfig({
@@ -256,16 +280,19 @@ describe('Khung định tuyến kết nối theo trung tâm (integration)', () =
     await controlPlane.onModuleDestroy();
     delete process.env.SPACE_TEST_A_581_URL;
     delete process.env.SPACE_TEST_B_581_URL;
+    delete process.env.SPACE_TEST_A2_581_URL;
     // Dọn dòng kiểm chứng đã ghi vào kho chung để các ca khác dùng
-    // chung database nghiệp vụ test không thấy dữ kiện lạ.
+    // chung database nghiệp vụ test không thấy dữ kiện lạ (dòng
+    // đánh dấu của ca bị-thu-hồi về nguyên tắc không bao giờ được
+    // ghi thành công, xoá kèm để dọn dẹp phòng hờ).
     await withClient(process.env.DATABASE_URL!, async (client) => {
-      await client.query('DELETE FROM tenants WHERE id = $1', [SHARED_TENANT_ID]);
+      await client.query('DELETE FROM tenants WHERE id = ANY($1)', [[SHARED_TENANT_ID, REVOKED_MARKER_ID]]);
     }).catch(() => undefined);
     await withClient(clusterUrl('postgres'), async (admin) => {
       for (const database of [CP_DATABASE, CENTRE_A_DATABASE, CENTRE_B_DATABASE]) {
         await admin.query(`DROP DATABASE IF EXISTS ${quoted(database)} WITH (FORCE)`);
       }
-      for (const role of [CP_ROLE, CENTRE_A_ROLE, CENTRE_B_ROLE]) {
+      for (const role of [CP_ROLE, CENTRE_A_ROLE, CENTRE_B_ROLE, CENTRE_A2_ROLE]) {
         await admin.query(`DROP ROLE IF EXISTS ${quoted(role)}`);
       }
     });
@@ -378,6 +405,72 @@ describe('Khung định tuyến kết nối theo trung tâm (integration)', () =
     expect(rows).toHaveLength(1);
   });
 
+  it('trung tâm kho riêng đã chuẩn bị mà pool bị đóng vì nhàn rỗi: truy vấn qua handle định tuyến trong ngữ cảnh còn mang slug bị từ chối thay vì rơi về kho chung', async () => {
+    // Chuẩn bị trung tâm A rồi đối chứng: trong ngữ cảnh mang
+    // slug của A, handle định tuyến phục vụ từ kho riêng của A.
+    await service.getDatabaseForSpace(CENTRE_A_SLUG);
+    const probeBefore = await tenantAls.run({ spaceSlug: CENTRE_A_SLUG, tenantId: TENANT_A_ID }, async () => {
+      const result = (await service.routedDatabase.execute(sql`SELECT current_database() AS db`)) as unknown as {
+        rows: { db: string }[];
+      };
+      return result.rows[0]!.db;
+    });
+    expect(probeBefore).toBe(CENTRE_A_DATABASE);
+
+    // Ép pool của kho A bị vòng quét đóng vì nhàn rỗi (chờ quá
+    // ngưỡng + một chu kỳ quét, xác nhận kết nối thật đã về 0 —
+    // trạng thái đã-chuẩn-bị của slug bị khung thu hồi tại đây).
+    await new Promise((resolve) => setTimeout(resolve, POOL_IDLE_TIMEOUT_MS + 1_800));
+    await expect(countConnections(CENTRE_A_DATABASE, CENTRE_A_ROLE)).resolves.toBe(0);
+
+    // Ngữ cảnh VẪN mang slug của A và không có lần chuẩn bị nào
+    // mới: truy vấn qua handle định tuyến phải bị TỪ CHỐI
+    // (fail-closed), tuyệt đối không rơi về kho chung.
+    let readError: unknown;
+    await tenantAls.run({ spaceSlug: CENTRE_A_SLUG, tenantId: TENANT_A_ID }, async () => {
+      try {
+        await service.routedDatabase.execute(sql`SELECT 1`);
+      } catch (err) {
+        readError = err;
+      }
+    });
+    expect(readError).toBeInstanceOf(SpaceRoutingError);
+    expect((readError as SpaceRoutingError).code).toBe('space_routing.prepared_revoked');
+
+    // Một lệnh GHI trong cùng ngữ cảnh đó cũng bị từ chối, và
+    // dòng ghi không xuất hiện ở kho chung (nơi nó sẽ rơi vào nếu
+    // khung đổi đích im lặng).
+    let writeError: unknown;
+    await tenantAls.run({ spaceSlug: CENTRE_A_SLUG, tenantId: REVOKED_MARKER_ID }, async () => {
+      try {
+        await service.routedDatabase
+          .insert(tenants)
+          .values({ id: REVOKED_MARKER_ID, slug: 'dau-ghi-bi-thu-hoi-581', name: 'Dòng ghi ca thu hồi 581', kind: 'center' });
+      } catch (err) {
+        writeError = err;
+      }
+    });
+    expect(writeError).toBeInstanceOf(SpaceRoutingError);
+    const markerInShared = await withClient(process.env.DATABASE_URL!, async (client) => {
+      await client.query("SELECT set_config('app.platform', 'on', false)");
+      const result = await client.query<{ id: string }>('SELECT id FROM tenants WHERE id = $1', [REVOKED_MARKER_ID]);
+      return result.rows.map((row) => row.id);
+    });
+    expect(markerInShared).toEqual([]);
+
+    // Đối chứng cuối: chuẩn bị lại thì đường định tuyến phục vụ
+    // đúng kho riêng của A như trước — lỗi chỉ nằm ở khoảng giữa
+    // thu hồi và chuẩn bị lại, và nó ồn ào chứ không im lặng.
+    await service.getDatabaseForSpace(CENTRE_A_SLUG);
+    const probeAfter = await tenantAls.run({ spaceSlug: CENTRE_A_SLUG, tenantId: TENANT_A_ID }, async () => {
+      const result = (await service.routedDatabase.execute(sql`SELECT current_database() AS db`)) as unknown as {
+        rows: { db: string }[];
+      };
+      return result.rows[0]!.db;
+    });
+    expect(probeAfter).toBe(CENTRE_A_DATABASE);
+  });
+
   it('tổng kết nối mở vào một kho không vượt trần cấu hình khi nhiều phiên chạy đồng thời', async () => {
     const db = await service.getDatabaseForSpace(CENTRE_B_SLUG);
     // Bốn transaction mở đồng thời, mỗi transaction giữ kết nối
@@ -443,5 +536,49 @@ describe('Khung định tuyến kết nối theo trung tâm (integration)', () =
       return rows;
     });
     expect(unrouted).toHaveLength(0);
+  });
+
+  it('sổ đổi role và bí mật của một kho sau khi pool đã tạo: lần lấy handle kế tiếp kết nối bằng role mới của sổ, pool cũ bị thay', async () => {
+    // Đối chứng: handle hiện tại của trung tâm A kết nối bằng
+    // role gốc của kho A.
+    const dbBefore = await service.getDatabaseForSpace(CENTRE_A_SLUG);
+    const userBefore = (await dbBefore.execute(sql`SELECT current_user AS u`)) as unknown as { rows: { u: string }[] };
+    expect(userBefore.rows[0]!.u).toBe(CENTRE_A_ROLE);
+
+    // Đổi danh tính kết nối trong sổ: role A -> role A2, bí mật
+    // trỏ sang chuỗi của A2 (đúng các trường hợp đồng cập nhật
+    // cho phép đổi), rồi phát sự kiện đổi sổ như tầng quản trị sổ
+    // phát sau khi commit.
+    await withClient(clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD), async (client) => {
+      await client.query('UPDATE space_registry SET connection_role_ref = $1, secret_ref = $2 WHERE slug = $3', [
+        CENTRE_A2_ROLE,
+        'env:SPACE_TEST_A2_581_URL',
+        CENTRE_A_SLUG,
+      ]);
+    });
+    emitSpaceRegistryChanged(CENTRE_A_SLUG);
+
+    // Bộ phân giải thấy danh tính mới ngay (đệm đã vô hiệu hoá):
+    const target = await service.resolveTarget(CENTRE_A_SLUG);
+    expect(target.connectionRole).toBe(CENTRE_A2_ROLE);
+
+    // Lần lấy handle kế tiếp phải cho handle MỚI (pool cũ bị
+    // thay) và kết nối thật chạy bằng role MỚI của sổ — không
+    // được tiếp tục dùng pool cũ theo khoá tên database.
+    const dbAfter = await service.getDatabaseForSpace(CENTRE_A_SLUG);
+    expect(dbAfter).not.toBe(dbBefore);
+    const userAfter = (await dbAfter.execute(sql`SELECT current_user AS u`)) as unknown as { rows: { u: string }[] };
+    expect(userAfter.rows[0]!.u).toBe(CENTRE_A2_ROLE);
+
+    // Trả sổ về role/bí mật gốc để trạng thái cuối của ca độc lập
+    // với thứ tự chạy.
+    await withClient(clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD), async (client) => {
+      await client.query('UPDATE space_registry SET connection_role_ref = $1, secret_ref = $2 WHERE slug = $3', [
+        CENTRE_A_ROLE,
+        'env:SPACE_TEST_A_581_URL',
+        CENTRE_A_SLUG,
+      ]);
+    });
+    emitSpaceRegistryChanged(CENTRE_A_SLUG);
   });
 });
