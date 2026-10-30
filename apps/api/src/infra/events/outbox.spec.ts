@@ -1,7 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { DrizzleModule } from '@nestjs/drizzle';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -12,15 +11,25 @@ import type { Database } from '../../db/database';
 import { getDrizzleToken } from '@nestjs/drizzle';
 import { validateEnv } from '../../config/env';
 import { EventsModule } from './events.module';
-import { OutboxRelayService } from './outbox-relay.service';
 import { OutboxService } from './outbox.service';
 
+/**
+ * Hợp đồng giao dịch của writer outbox (real DB, lms_test_api).
+ *
+ * Spec này chỉ khẳng định phía ghi: sự kiện được đưa vào outbox
+ * trong cùng transaction với nghiệp vụ thì chỉ tồn tại sau khi
+ * transaction commit, và biến mất cùng transaction khi rollback.
+ * Phía phát (đóng dấu `publishedAt` sau khi phát) thuộc về relay
+ * duy nhất ở worker và được ghim bởi
+ * `apps/worker/src/outbox-relay.scheduler.spec.ts` — từ issue #523,
+ * tiến trình API không còn relay riêng nên spec này không còn gọi
+ * relay nữa; dòng chưa phát giữ `publishedAt` null cho tới khi
+ * relay của worker chạy.
+ */
 describe('Transactional outbox (real DB, lms_test_api)', () => {
   let moduleRef: TestingModule;
   let db: Database;
   let outbox: OutboxService;
-  let relay: OutboxRelayService;
-  let emitter: EventEmitter2;
 
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
@@ -40,8 +49,6 @@ describe('Transactional outbox (real DB, lms_test_api)', () => {
     }).compile();
     db = moduleRef.get(getDrizzleToken());
     outbox = moduleRef.get(OutboxService);
-    relay = moduleRef.get(OutboxRelayService);
-    emitter = moduleRef.get(EventEmitter2);
   });
 
   beforeEach(async () => {
@@ -52,29 +59,21 @@ describe('Transactional outbox (real DB, lms_test_api)', () => {
     await moduleRef.close();
   });
 
-  it('publishes the event after the transaction commits', async () => {
-    const received: unknown[] = [];
-    emitter.on('Test.Committed', (payload) => received.push(payload));
-
+  it('ghi sự kiện vào outbox khi transaction commit (chưa phát: publishedAt null cho tới khi relay worker chạy)', async () => {
     await db.transaction(async (tx) => {
       await outbox.enqueue(tx, {
         aggregate: 'test', type: 'Test.Committed', payload: { n: 1 },
       });
     });
 
-    const published = await relay.publishPending();
-    expect(published).toBe(1);
-    expect(received).toEqual([{ n: 1 }]);
-
     const rows = await db.select().from(outboxEvents);
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.publishedAt).not.toBeNull();
+    expect(rows[0]?.type).toBe('Test.Committed');
+    expect(rows[0]?.payload).toEqual({ n: 1 });
+    expect(rows[0]?.publishedAt).toBeNull();
   });
 
-  it('publishes NOTHING when the transaction rolls back', async () => {
-    const received: unknown[] = [];
-    emitter.on('Test.RolledBack', (payload) => received.push(payload));
-
+  it('không ghi sự kiện nào khi transaction rollback', async () => {
     await expect(
       db.transaction(async (tx) => {
         await outbox.enqueue(tx, {
@@ -89,9 +88,5 @@ describe('Transactional outbox (real DB, lms_test_api)', () => {
       .from(outboxEvents)
       .where(eq(outboxEvents.type, 'Test.RolledBack'));
     expect(rows).toHaveLength(0);
-
-    const published = await relay.publishPending();
-    expect(published).toBe(0);
-    expect(received).toEqual([]);
   });
 });
