@@ -384,6 +384,33 @@ describe('identity contracts', () => {
     expect(() => listUsersQuerySchema.parse({ pageSize: 101 })).toThrow();
   });
 
+  it('hợp đồng ma trận quyền theo context: query chỉ nhận contextId là UUID, đáp ứng giữ đúng hình dạng vai kèm tập ghi đè', async () => {
+    const { capabilityMatrixQuerySchema, capabilityMatrixResponseSchema } = await import('./identity.js');
+    const contextId = '01900000-0000-7000-8000-000000000040';
+    const roleId = '01900000-0000-7000-8000-000000000041';
+    // Query hợp lệ: đúng một trường contextId mang UUID.
+    expect(capabilityMatrixQuerySchema.parse({ contextId })).toEqual({ contextId });
+    // Thiếu contextId, contextId sai khuôn UUID và trường lạ đều bị chặn (strict).
+    expect(() => capabilityMatrixQuerySchema.parse({})).toThrow();
+    expect(() => capabilityMatrixQuerySchema.parse({ contextId: 'khong-phai-uuid' })).toThrow();
+    expect(() => capabilityMatrixQuerySchema.parse({ contextId, roleId })).toThrow();
+    // Đáp ứng: vai có ghi đè giữ nguyên cặp năng lực/quyền; vai không có
+    // ghi đè tại context mang tập rỗng; số người giữ không được âm.
+    const parsed = capabilityMatrixResponseSchema.parse({
+      contextId,
+      roles: [
+        { id: roleId, name: 'Manager', userCount: 2, overrides: [{ capability: 'role:manage', permission: 1 }] },
+        { id: '01900000-0000-7000-8000-000000000042', name: 'Guest', userCount: 0, overrides: [] },
+      ],
+    });
+    expect(parsed.roles[0].overrides).toEqual([{ capability: 'role:manage', permission: 1 }]);
+    expect(parsed.roles[1].overrides).toEqual([]);
+    expect(() => capabilityMatrixResponseSchema.parse({
+      contextId,
+      roles: [{ id: roleId, name: 'Manager', userCount: -1, overrides: [] }],
+    })).toThrow();
+  });
+
   it('parses a login response and a profile without email (identity field hidden)', () => {
     expect(loginResponseSchema.parse({
       accessToken: 'a', refreshToken: 'r', expiresIn: 900,

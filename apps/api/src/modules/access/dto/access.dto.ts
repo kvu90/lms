@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   assignRoleSchema,
+  capabilityMatrixQuerySchema,
   createContextSchema,
   createRoleSchema,
   hasCapabilityQuerySchema,
@@ -9,6 +10,7 @@ import {
   replaceRoleCapabilitiesSchema,
   updateRoleSchema,
   type AssignRole,
+  type CapabilityMatrixQuery,
   type CreateContext,
   type CreateRole,
   type ListAssignmentsQuery,
@@ -22,13 +24,14 @@ import {
  * Validation của Access (contexts/roles/assignments) dùng Zod qua Standard
  * Schema — schema nền ở `@lms/contracts` là nguồn sự thật duy nhất.
  */
-export { assignRoleSchema, createContextSchema, createRoleSchema, overrideCapabilitySchema, replaceRoleCapabilitiesSchema, updateRoleSchema };
+export { assignRoleSchema, capabilityMatrixQuerySchema, createContextSchema, createRoleSchema, overrideCapabilitySchema, replaceRoleCapabilitiesSchema, updateRoleSchema };
 export type CreateContextDto = CreateContext;
 export type CreateRoleDto = CreateRole;
 export type UpdateRoleDto = UpdateRole;
 export type AssignRoleDto = AssignRole;
 export type OverrideCapabilityDto = OverrideCapability;
 export type ReplaceRoleCapabilitiesDto = ReplaceRoleCapabilities;
+export type CapabilityMatrixQueryDto = CapabilityMatrixQuery;
 
 /**
  * Schema phía server cho query liệt kê gán vai — EXTEND từ schema nền ở
