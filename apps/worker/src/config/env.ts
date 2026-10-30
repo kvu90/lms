@@ -3,6 +3,14 @@ import { z } from 'zod';
 
 export const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
+  /**
+   * Trần kết nối của pool nghiệp vụ phía worker (issue #586 — ngân
+   * sách kết nối của cụm): số kết nối tối đa mà tiến trình worker
+   * được mở tới kho nghiệp vụ. TUỲ CHỌN — chưa đặt thì giữ mặc
+   * định của thư viện `pg` như trước. Xem biến cùng tên phía api
+   * để biết cách cộng ngân sách toàn cụm.
+   */
+  DATABASE_POOL_MAX: z.coerce.number().int().positive().max(1000).optional(),
   // Bật TLS cho kết nối PostgreSQL khi nhà cung cấp bắt buộc (một số
   // nhà cung cấp PostgreSQL chỉ nhận kết nối có mã hoá). Mặc định tắt:
   // môi trường local và CI chạy PostgreSQL thường không có TLS.
@@ -11,6 +19,22 @@ export const envSchema = z.object({
     .default('false')
     .transform((value) => value === 'true'),
   REDIS_URL: z.string().min(1),
+  /**
+   * URL kết nối của database CONTROL PLANE — worker đọc sổ đăng ký
+   * không gian qua biến này để khung định tuyến theo trung tâm
+   * (issue #581) phân giải đích cho tác vụ nền. TUỲ CHỌN: chưa cấu
+   * hình thì khung định tuyến báo chưa cấu hình khi được gọi, các
+   * đường kho chung của worker vẫn chạy như cũ. Giá trị là bí mật
+   * kết nối — không ghi ra log.
+   */
+  CONTROL_PLANE_DATABASE_URL: z.string().min(1).optional(),
+  // Khung định tuyến kết nối theo trung tâm (issue #581) — cùng
+  // ngữ nghĩa và cùng giá trị mặc định với phía API: TTL đệm phân
+  // giải đích, trần kết nối cho pool của mỗi kho riêng, ngưỡng
+  // nhàn rỗi để đóng pool của kho không còn traffic.
+  SPACE_ROUTING_CACHE_TTL_MS: z.coerce.number().int().positive().default(5_000),
+  SPACE_DB_POOL_MAX: z.coerce.number().int().positive().default(5),
+  SPACE_DB_POOL_IDLE_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
   JWT_SECRET: z.string().min(16),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   FILE_STORAGE_DIR: z.string().min(1).default('./data/files'),

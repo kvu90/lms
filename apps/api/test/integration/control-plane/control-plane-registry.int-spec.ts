@@ -32,10 +32,13 @@ import { createTestApp } from '../../support/identity-access-helpers';
  * `connect()`. ACL của database nghiệp vụ được trả về mặc định ở
  * afterAll để không ảnh hưởng các ca khác dùng chung cụm test.
  * Giới hạn phạm vi của các ca kết nối: chúng chứng minh cô lập với
- * role KHÔNG phải superuser — role runtime của ứng dụng trong
- * compose hiện là superuser của cụm, mà superuser thì bỏ qua mọi
- * kiểm tra quyền kết nối; việc hạ role runtime xuống role thường
- * là việc hạ tầng riêng ngoài issue này.
+ * role KHÔNG phải superuser — tại thời điểm của issue này, role
+ * runtime của ứng dụng trong compose vẫn là superuser của cụm, mà
+ * superuser thì bỏ qua mọi kiểm tra quyền kết nối. Việc tách role
+ * runtime thành role thường riêng và role migration riêng thuộc
+ * issue #586; từ đó cô lập ở bước mở kết nối được kiểm chứng bằng
+ * chính các role thật của mô hình mới trong ca tích hợp của đội
+ * kho (test/integration/fleet).
  *
  * Shim `uuidv7()` chỉ áp khi server PostgreSQL dưới 18 (môi trường
  * chạy local bằng PG16): PG18 — bản ở CI và production — có sẵn hàm
@@ -385,6 +388,118 @@ describe('Control plane: sổ đăng ký không gian và registry phiên bản s
     expect(state.lastBackupAt).toBe('2026-10-30T04:00:00.000Z');
     expect(state.lastRestoreStatus).toBe('success');
     expect(state.lastRestoreAt).toBe('2026-10-30T04:05:00.000Z');
+  });
+
+  it('lượt ghi migration chồng lấn với lượt ghi trạng thái sao lưu không làm mất giá trị của nhau', async () => {
+    // Bất biến được gác ở đây là THỨ TỰ KHOÁ THỐNG NHẤT trên dòng
+    // đăng ký của không gian: mọi thao tác ghi của control plane
+    // khoá dòng đăng ký (FOR UPDATE) TRƯỚC TIÊN, rồi mới chạm vào
+    // registry — nhờ vậy hai lượt ghi đồng thời nối tiếp nhau ở
+    // đúng một điểm và lượt sau luôn hợp nhất trên trạng thái
+    // tươi. `recordMigrationRun` (sau bản sửa của issue #586)
+    // tuân theo đúng thứ tự đó như `updateSchemaRegistry`.
+    //
+    // Kỹ thuật cổng hai pha, có chứng minh ở từng pha (nhận diện
+    // phiên bị cổng chặn qua `pg_blocking_pids`, không dùng
+    // khoảng chờ cố định): cổng giữ khoá FOR KEY SHARE trên dòng
+    // đăng ký — mức khoá nhẹ nhất vẫn xung đột với FOR UPDATE,
+    // nên bất kỳ lượt ghi nào tới câu khoá dòng đăng ký của mình
+    // đều phải dừng sau cổng.
+    // - Pha 1: cho lượt ghi sao lưu xuất phát trước và chờ tới
+    //   khi nó thật sự bị cổng chặn ở câu khoá dòng đăng ký.
+    // - Pha 2: cho `recordMigrationRun` xuất phát. Có khoá dòng
+    //   đăng ký, nó cũng bị cổng chặn ngay ở câu khoá của mình —
+    //   pha 2 thấy một phiên thứ hai bị cổng chặn. Thiếu khoá đó,
+    //   nó không có câu khoá nào để dừng: nó chèn lượt chạy, ghi
+    //   registry và commit XONG TOÀN BỘ trong lúc lượt sao lưu
+    //   vẫn còn bị cổng chặn — pha 2 không bao giờ thấy phiên
+    //   thứ hai và ca đỏ ngay tại khẳng định của pha.
+    // Mở cổng thì lượt sao lưu (đứng trước trong hàng đợi khoá)
+    // chạy trước, lượt migration nối tiếp sau và đọc trạng thái
+    // tươi: phiên bản mới và trạng thái sao lưu mới cùng tồn tại
+    // trong các khẳng định cuối ca.
+    //
+    // Vì sao cổng không đặt trên dòng registry như ca cũ: ca cũ
+    // cho hai lượt xuất phát cùng lúc sau một khoảng chờ cố định
+    // và đo thực tế cho thấy nó KHÔNG có sức phân biệt — câu chèn
+    // lượt chạy vào bảng con của `space_registry` tự nó đã lấy
+    // khoá KEY SHARE của khoá ngoại trên dòng cha, nên cặp ghi
+    // này tự nối tiếp nhau ở mọi thứ tự xuất phát dù
+    // `recordMigrationRun` có khoá tường minh hay không; gỡ dòng
+    // khoá ra ca cũ vẫn xanh. Cổng trên dòng cha + ép thứ tự
+    // xuất phát như trên là điểm duy nhất mà dòng khoá tường
+    // minh tạo ra khác biệt quan sát được.
+    const gate = new Client({ connectionString: clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD) });
+    await gate.connect();
+    const gatePid = (await gate.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0]!.pid;
+    const lockWaiters = async (): Promise<{ pid: number; blockers: number[] }[]> => {
+      const result = await gate.query<{ pid: number; blockers: number[] }>(
+        `SELECT pid, pg_blocking_pids(pid) AS blockers FROM pg_stat_activity
+          WHERE datname = current_database() AND wait_event_type = 'Lock' AND pid <> pg_backend_pid()`,
+      );
+      return result.rows;
+    };
+    const waitForBlocked = async (
+      ready: (rows: { pid: number; blockers: number[] }[]) => boolean,
+    ): Promise<{ pid: number; blockers: number[] }[]> => {
+      for (let attempt = 0; attempt < 100; attempt++) {
+        const rows = await lockWaiters();
+        if (ready(rows)) return rows;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      return [];
+    };
+    try {
+      await gate.query('BEGIN');
+      await gate.query('SELECT id FROM space_registry WHERE id = $1 FOR KEY SHARE', [createdSpaceId]);
+      const backupWrite = registry.updateSchemaRegistry(adminId, createdSpaceId, {
+        lastBackupStatus: 'failed',
+        lastBackupAt: '2026-10-30T12:00:00+07:00',
+      });
+      // Pha 1: lượt sao lưu đã tới câu khoá dòng đăng ký và đang
+      // bị chính cổng chặn.
+      const phase1 = await waitForBlocked((rows) => rows.some((row) => row.blockers.includes(gatePid)));
+      expect(phase1.some((row) => row.blockers.includes(gatePid))).toBe(true);
+      const backupPid = phase1.find((row) => row.blockers.includes(gatePid))!.pid;
+      const runWrite = registry.recordMigrationRun(adminId, createdSpaceId, {
+        runId: 'run-586-lock',
+        fromVersion: null,
+        toVersion: 'v-lock',
+        status: 'success',
+        steps: [{ name: 'apply-v-lock', status: 'success' }],
+      });
+      // Pha 2: lượt migration cũng phải bị chặn ở câu khoá dòng
+      // đăng ký của nó — bị cổng chặn trực tiếp, hoặc xếp hàng
+      // sau lượt sao lưu trong hàng đợi khoá của dòng (`pg_blocking_pids`
+      // của một phiên xếp hàng chỉ nêu phiên đứng ngay trước nó,
+      // không nhất thiết nêu cổng). Thiếu dòng khoá đó thì lượt
+      // migration chạy thẳng qua và commit xong, không phiên thứ
+      // hai nào xuất hiện trong hạn chờ.
+      const phase2 = await waitForBlocked((rows) =>
+        rows.some(
+          (row) => row.pid !== backupPid && (row.blockers.includes(gatePid) || row.blockers.includes(backupPid)),
+        ),
+      );
+      expect(
+        phase2.some(
+          (row) => row.pid !== backupPid && (row.blockers.includes(gatePid) || row.blockers.includes(backupPid)),
+        ),
+      ).toBe(true);
+      await gate.query('COMMIT');
+      await Promise.all([runWrite, backupWrite]);
+    } finally {
+      await gate.end().catch(() => undefined);
+    }
+    const state = await registry.getSchemaRegistry(adminId, createdSpaceId);
+    expect(state.currentVersion).toBe('v-lock');
+    expect(state.lastBackupStatus).toBe('failed');
+    expect(state.lastBackupAt).toBe('2026-10-30T05:00:00.000Z');
+    // Trường của các lượt trước (trạng thái khôi phục) vẫn nguyên.
+    expect(state.lastRestoreStatus).toBe('success');
+    // Phiên bản trên dòng đăng ký cũng đồng bộ theo lượt chạy.
+    expect((await registry.getBySlug(adminId, 'trung-tam-test-580')).schemaVersion).toBe('v-lock');
+    const runs = await registry.listMigrationRuns(adminId, createdSpaceId);
+    expect(runs.map((run) => run.runId)).toContain('run-586-lock');
   });
 
   it('role của control plane bị từ chối ngay ở bước mở kết nối vào kho nghiệp vụ', async () => {
