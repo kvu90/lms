@@ -6,7 +6,7 @@ import { and, asc, gt, inArray, max } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Queue } from 'bullmq';
 import Redis from 'ioredis';
-import { outboxEvents } from '@lms/db';
+import { outboxEvents, tenants } from '@lms/db';
 import type { relations } from './db/relations';
 import { redisConnectionFromUrl } from './config/env';
 import { tenantAls } from './db/tenant-als';
@@ -294,6 +294,14 @@ export class CohortSyncCatchupService implements OnModuleInit, OnModuleDestroy {
           .orderBy(asc(outboxEvents.seq))
           .limit(DRAIN_BATCH_SIZE);
         if (rows.length === 0) break;
+        const tenantIds = [...new Set(rows.map((row) => row.tenantId).filter((id) => id !== null))];
+        const slugRows = tenantIds.length
+          ? await this.db
+              .select({ id: tenants.id, slug: tenants.slug })
+              .from(tenants)
+              .where(inArray(tenants.id, tenantIds))
+          : [];
+        const spaceSlugs = new Map(slugRows.map((row) => [row.id, row.slug] as const));
         for (const row of rows) {
           cursor = Number(row.seq);
           const data: OutboxEventJobData = {
@@ -303,6 +311,11 @@ export class CohortSyncCatchupService implements OnModuleInit, OnModuleDestroy {
             type: row.type,
             payload: row.payload as Record<string, unknown> | null,
             tenantId: row.tenantId,
+            // Định danh trung tâm suy từ tenant của dòng trong
+            // chính kho đang xả (một truy vấn theo lô, cùng cách
+            // của relay): consumer mở đúng kho của trung tâm khi
+            // xử lý job được xả bù này.
+            spaceSlug: row.tenantId ? (spaceSlugs.get(row.tenantId) ?? null) : null,
             occurredAt: row.occurredAt.toISOString(),
           };
           await this.queue.add(row.type, data, { jobId: row.id });

@@ -212,7 +212,7 @@ describe('Worker notification events queue mechanism (viết lại reanchor ở 
     // trùng theo outboxId của processor + marker.
     const jobData: OutboxEventJobData = {
       outboxId: uid(960), seq: 0, aggregate: 'grades', type: 'grade_updated',
-      tenantId: fixtureTenantId, occurredAt: new Date().toISOString(),
+      tenantId: fixtureTenantId, spaceSlug: null, occurredAt: new Date().toISOString(),
       payload: {
         courseId, itemId: item[0]!.id, userId: student,
         rawGrade: 9, finalGrade: 9, actorId: uid(961),

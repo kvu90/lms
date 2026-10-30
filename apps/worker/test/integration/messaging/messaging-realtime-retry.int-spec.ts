@@ -1,3 +1,5 @@
+import { SpaceJobRunner } from '../../../src/db/routing/space-job-runner';
+import type { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
@@ -52,6 +54,15 @@ async function waitUntil(check: () => Promise<boolean>, timeoutMs: number, label
   throw new Error(`Hết thời gian chờ: ${label}`);
 }
 
+// Bộ chạy job cho các processor dựng tay: dịch vụ định tuyến không
+// cấu hình sổ nên mọi job chạy ở phiên platform trên kho chung như
+// trước (định tuyến theo trung tâm có spec riêng ở tầng worker).
+const jobRunner = new SpaceJobRunner({
+  resolveTarget: async () => {
+    throw new Error('spec không cấu hình sổ đăng ký');
+  },
+} as unknown as SpaceDatabaseService);
+
 describe('Worker — job phân phối realtime lỗi bền không chết theo attempts (issue #521)', () => {
   const outboxId = uuidv7();
   const markKey = `${MESSAGING_DISTRIBUTED_KEY_PREFIX}${outboxId}`;
@@ -75,7 +86,7 @@ describe('Worker — job phân phối realtime lỗi bền không chết theo at
         delivered.push(type);
       },
     };
-    const processor = new MessagingRealtimeProcessor(distribution as never, markRedis as never);
+    const processor = new MessagingRealtimeProcessor(distribution as never, markRedis as never, jobRunner);
 
     queue = new Queue<OutboxEventJobData>(RETRY_TEST_QUEUE, {
       connection: new Redis(REDIS_URL, { maxRetriesPerRequest: null }),
@@ -112,6 +123,7 @@ describe('Worker — job phân phối realtime lỗi bền không chết theo at
         aggregate: 'messaging',
         type: 'message_sent',
         payload: { conversationId: 'conv-retry', messageId: 'msg-retry' },
+        spaceSlug: null,
         tenantId: 'tenant-retry',
         occurredAt: '2026-10-29T00:00:00.000Z',
       };
@@ -203,7 +215,7 @@ describe('Worker — job phân phối realtime khi đọc dấu lỗi bền vẫ
         delivered.push(type);
       },
     };
-    const processor = new MessagingRealtimeProcessor(distribution as never, markClient as never);
+    const processor = new MessagingRealtimeProcessor(distribution as never, markClient as never, jobRunner);
 
     queue = new Queue<OutboxEventJobData>(EXISTS_RETRY_TEST_QUEUE, {
       connection: new Redis(REDIS_URL, { maxRetriesPerRequest: null }),
@@ -240,6 +252,7 @@ describe('Worker — job phân phối realtime khi đọc dấu lỗi bền vẫ
         aggregate: 'messaging',
         type: 'message_sent',
         payload: { conversationId: 'conv-exists-retry', messageId: 'msg-exists-retry' },
+        spaceSlug: null,
         tenantId: 'tenant-exists-retry',
         occurredAt: '2026-10-29T00:00:00.000Z',
       };

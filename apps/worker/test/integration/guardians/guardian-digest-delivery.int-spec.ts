@@ -438,7 +438,7 @@ describe('Worker guardian digest delivery (PH-2, issue #159; chuyển worker ở
     const digestId = row!.id as string;
     const jobData: OutboxEventJobData = {
       outboxId: '01900000-0000-7000-8000-0000000000d1', seq: 0, aggregate: 'guardian',
-      type: 'guardian_digest_due', tenantId: fixtureTenantId, occurredAt: new Date().toISOString(),
+      type: 'guardian_digest_due', tenantId: fixtureTenantId, spaceSlug: null, occurredAt: new Date().toISOString(),
       payload: {
         guardianUserId: guardian, studentUserId: student, digestId, tenantId: fixtureTenantId,
         kind: 'weekly', windowStart: windowStart.toISOString(), windowEnd: windowEnd.toISOString(),

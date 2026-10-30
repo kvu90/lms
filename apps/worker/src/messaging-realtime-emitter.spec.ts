@@ -46,6 +46,8 @@ import {
   createMessagingRealtimeEmitter,
   type MessagingRealtimeEmitterHandle,
 } from './messaging-realtime-emitter';
+import { SpaceJobRunner } from './db/routing/space-job-runner';
+import type { SpaceDatabaseService } from './db/routing/space-database.service';
 import {
   MESSAGING_DISTRIBUTED_KEY_PREFIX,
   MessagingRealtimeProcessor,
@@ -101,7 +103,15 @@ function makeProcessor(emitterHandle: MessagingRealtimeEmitterHandle, markRedis:
     emitter: emitterHandle.emitter,
     logger: { warn: () => undefined, error: () => undefined },
   });
-  return new MessagingRealtimeProcessor(distribution, markRedis);
+  // Bộ chạy job với dịch vụ định tuyến không cấu hình sổ: mọi
+  // job của spec mang slug rỗng nên phiên chạy giữ nguyên đường
+  // platform như trước (định tuyến kho có spec riêng).
+  const runner = new SpaceJobRunner({
+    resolveTarget: async () => {
+      throw new Error('spec không cấu hình sổ đăng ký');
+    },
+  } as unknown as SpaceDatabaseService);
+  return new MessagingRealtimeProcessor(distribution, markRedis, runner);
 }
 
 function jobOf(outboxId: string, messageId: string, seq: number): never {
