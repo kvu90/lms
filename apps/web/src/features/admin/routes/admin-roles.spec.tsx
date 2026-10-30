@@ -30,14 +30,17 @@ import { AdminRolesPage } from './admin-roles';
  * Lượt căn chỉnh trình bày khớp bản demo mẫu (issue #555) đổi các bề
  * mặt sau và spec này ghim trạng thái mới: thẻ thêm vai là một thẻ đầy
  * đủ (tiêu đề + mô tả + nút trong thẻ); mặt thẻ vai không còn tên ngắn
- * và dòng nguyên mẫu, ba con số Đọc/Ghi/Tổng thành dải nền xám số lớn
- * với nhãn dưới số; hộp thoại vai có đúng một nút Huỷ, thêm nút × và
+ * và dòng nguyên mẫu, ba con số Đọc/Ghi/Tổng thành dải nền xám với
+ * nhãn dưới số; hộp thoại vai có đúng một nút Huỷ, thêm nút × và
  * dòng mô tả phụ theo chế độ; trang không còn khối tiêu đề phía trên
- * lưới; thanh lọc của bảng co thành một hàng; chân bảng hiện khoảng
- * dòng kèm cụm nút luôn bày. Nhãn ngữ cảnh giữ nguyên chuỗi hiện tại
- * vì hạng mục nhãn ngắn của issue đã dừng theo điều kiện dừng (dữ
- * liệu API không có tên thực thể) — các assertion nhãn ngữ cảnh trong
- * spec này vì thế không đổi.
+ * lưới; chân bảng hiện khoảng dòng kèm cụm nút luôn bày.
+ *
+ * Lượt dựng lại bảng theo người dùng (issue #569) thay bảng gán vai
+ * đợt 3 bằng bảng một dòng một người dùng đọc từ endpoint gộp
+ * users-with-assignments: cột Vai trò bày mọi gán kèm nhãn cấp ngữ
+ * cảnh dạng chữ (không mã định danh, không đường dẫn), thanh công cụ
+ * đúng hai hàng, hộp thoại quản lý vai trò theo dòng, và liên kết lọc
+ * theo người dùng từ trang danh sách người dùng qua tham số `userId`.
  */
 const ROLE_ID = '01900000-0000-7000-8000-0000000000b1';
 const NEW_ROLE_ID = '01900000-0000-7000-8000-0000000000b2';
@@ -68,34 +71,109 @@ interface StubOptions {
   assignErrorCode?: string;
   /** DELETE /access/assignments/:id trả về mã lỗi này thay vì thành công. */
   unassignErrorCode?: string;
-  /** Tổng số dòng gán fixture trả về (mặc định 2) — dùng để kiểm chứng số trang. */
-  assignmentsTotal?: number;
-  /** Dòng gán thường trỏ tới người dùng không còn tồn tại (tên/email null). */
-  nullUserRow?: boolean;
-  /** Bảng gán phân trang động: tạo đúng số dòng này, GET cắt theo trang/cỡ trang, DELETE trừ thật khỏi danh sách. */
-  pagedAssignmentsTotal?: number;
+  /** Bảng người dùng phân trang động: tạo đúng số người này, GET cắt theo trang/cỡ trang. */
+  pagedTableUsersTotal?: number;
   /** Danh sách người dùng phân trang động: tạo đúng số người này, GET lọc theo từ khoá rồi cắt theo trang/cỡ trang. */
   pagedUsersTotal?: number;
 }
 
 function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
   let matrixCalls = 0;
-  /** Danh sách dòng gán động cho ca phân trang (chỉ khi dùng pagedAssignmentsTotal). */
-  let pagedRows: Array<Record<string, unknown>> | null =
-    options.pagedAssignmentsTotal === undefined
+  /** Danh sách người dùng động cho ca phân trang của bảng (chỉ khi dùng pagedTableUsersTotal). */
+  const pagedTableUsers: Array<Record<string, unknown>> | null =
+    options.pagedTableUsersTotal === undefined
       ? null
-      : Array.from({ length: options.pagedAssignmentsTotal }, (_, i) => ({
-          id: `01900000-0000-7000-8000-0000000000${String(i + 1).padStart(2, '0')}`,
-          roleId: ROLE_ID,
-          userId: `01900000-0000-7000-8000-0000000001${String(i + 1).padStart(2, '0')}`,
-          contextId: SYSTEM_CONTEXT_ID,
-          component: '',
-          itemId: null,
-          modifierId: null,
-          updatedAt: '2026-10-01T00:00:00.000Z',
-          userName: `Người dùng ${i + 1}`,
-          userEmail: `nguoidung${i + 1}@example.com`,
+      : Array.from({ length: options.pagedTableUsersTotal }, (_, i) => ({
+          id: `01900000-0000-7000-8000-0000000001${String(i + 1).padStart(2, '0')}`,
+          username: `nguoidung${i + 1}`,
+          email: `nguoidung${i + 1}@example.com`,
+          firstName: `Người dùng`,
+          lastName: `${i + 1}`,
+          suspended: false,
+          deleted: false,
+          createdAt: '2022-01-14T00:00:00.000Z',
+          assignments: [
+            {
+              id: `01900000-0000-7000-8000-0000000000${String(i + 1).padStart(2, '0')}`,
+              roleId: ROLE_ID,
+              roleName: 'Giáo viên',
+              contextId: SYSTEM_CONTEXT_ID,
+              contextLevel: 10,
+              component: '',
+            },
+          ],
         }));
+  /** Người dùng mặc định của bảng: An giữ hai vai ở hai cấp, Bình giữ một gán do ghi danh, Cô Lan bị khoá. */
+  const defaultTableUsers: Array<Record<string, unknown>> = [
+    {
+      id: USER_A_ID,
+      username: 'annguyen',
+      email: 'an@example.com',
+      firstName: 'An',
+      lastName: 'Nguyễn',
+      suspended: false,
+      deleted: false,
+      createdAt: '2022-01-14T00:00:00.000Z',
+      assignments: [
+        {
+          id: ASSIGN_A_ID,
+          roleId: ROLE_ID,
+          roleName: 'Giáo viên',
+          contextId: SYSTEM_CONTEXT_ID,
+          contextLevel: 10,
+          component: '',
+        },
+        {
+          id: '01900000-0000-7000-8000-0000000000d3',
+          roleId: ROLE_ID,
+          roleName: 'Giáo viên',
+          contextId: TENANT_CONTEXT_ID,
+          contextLevel: 20,
+          component: '',
+        },
+      ],
+    },
+    {
+      id: USER_B_ID,
+      username: 'binhtran',
+      email: 'binh@example.com',
+      firstName: 'Bình',
+      lastName: 'Trần',
+      suspended: false,
+      deleted: false,
+      createdAt: '2021-06-01T00:00:00.000Z',
+      assignments: [
+        {
+          id: ASSIGN_B_ID,
+          roleId: ROLE_ID,
+          roleName: 'Giáo viên',
+          contextId: '01900000-0000-7000-8000-000000000050',
+          contextLevel: 50,
+          component: 'enrol',
+        },
+      ],
+    },
+    {
+      id: USER_C_ID,
+      username: 'colan',
+      email: 'co@example.com',
+      firstName: 'Cô',
+      lastName: 'Lan',
+      suspended: true,
+      deleted: false,
+      createdAt: '2023-03-05T00:00:00.000Z',
+      assignments: [
+        {
+          id: '01900000-0000-7000-8000-0000000000d4',
+          roleId: ROLE_ID,
+          roleName: 'Giáo viên',
+          contextId: SYSTEM_CONTEXT_ID,
+          contextLevel: 10,
+          component: '',
+        },
+      ],
+    },
+  ];
   /** Danh sách người dùng động cho ca tải thêm (chỉ khi dùng pagedUsersTotal). */
   const pagedUsers: Array<Record<string, unknown>> | null =
     options.pagedUsersTotal === undefined
@@ -158,48 +236,32 @@ function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
           { id: SYSTEM_CONTEXT_ID, contextLevel: 10, instanceId: '0', path: '/1' },
           { id: TENANT_CONTEXT_ID, contextLevel: 20, instanceId: '1', path: '/1/2' },
         ]);
-      if (url.startsWith('/api/v1/access/assignments') && method === 'GET') {
+      if (url.startsWith('/api/v1/access/users-with-assignments') && method === 'GET') {
         const query = new URLSearchParams(url.split('?')[1] ?? '');
         const page = Number(query.get('page') ?? 1);
-        const pageSize = Number(query.get('pageSize') ?? 20);
-        if (pagedRows !== null) {
-          const start = (page - 1) * pageSize;
-          return respond({
-            assignments: pagedRows.slice(start, start + pageSize),
-            total: pagedRows.length,
-            page,
-            pageSize,
-          });
-        }
+        const pageSize = Number(query.get('pageSize') ?? 10);
+        const roleId = query.get('roleId') ?? '';
+        const status = query.get('status') ?? '';
+        const search = (query.get('search') ?? '').toLowerCase();
+        // Lọc phía server như hợp đồng: vai trò là điều kiện tồn tại gán, trạng thái theo hai cờ, tìm kiếm theo tên/email/tên đăng nhập.
+        const allUsers = pagedTableUsers ?? defaultTableUsers;
+        const filtered = allUsers.filter((u) => {
+          const assignments = u.assignments as Array<Record<string, unknown>>;
+          if (roleId !== '' && !assignments.some((a) => a.roleId === roleId)) return false;
+          if (status === 'active' && (u.suspended === true || u.deleted === true)) return false;
+          if (status === 'suspended' && (u.suspended !== true || u.deleted === true)) return false;
+          if (status === 'deleted' && u.deleted !== true) return false;
+          if (status === '' && u.deleted === true) return false;
+          if (search !== '') {
+            const haystack = `${u.firstName} ${u.lastName} ${u.email} ${u.username}`.toLowerCase();
+            if (!haystack.includes(search)) return false;
+          }
+          return true;
+        });
+        const start = (page - 1) * pageSize;
         return respond({
-          assignments: [
-            {
-              id: ASSIGN_A_ID,
-              roleId: ROLE_ID,
-              userId: USER_A_ID,
-              contextId: SYSTEM_CONTEXT_ID,
-              // Đường gán của quản trị mang component rỗng (xem roles.service.ts).
-              component: '',
-              itemId: null,
-              modifierId: null,
-              updatedAt: '2026-10-01T00:00:00.000Z',
-              userName: options.nullUserRow ? null : 'An Nguyễn',
-              userEmail: options.nullUserRow ? null : 'an@example.com',
-            },
-            {
-              id: ASSIGN_B_ID,
-              roleId: ROLE_ID,
-              userId: USER_B_ID,
-              contextId: TENANT_CONTEXT_ID,
-              component: 'enrol',
-              itemId: '01900000-0000-7000-8000-0000000000e1',
-              modifierId: null,
-              updatedAt: '2026-10-02T00:00:00.000Z',
-              userName: 'Bình Trần',
-              userEmail: 'binh@example.com',
-            },
-          ],
-          total: options.assignmentsTotal ?? 2,
+          users: filtered.slice(start, start + pageSize),
+          total: filtered.length,
           page,
           pageSize,
         });
@@ -242,10 +304,6 @@ function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
         return respond({});
       }
       if (url.startsWith('/api/v1/access/assignments/') && method === 'DELETE') {
-        if (pagedRows !== null) {
-          const id = url.split('/').pop() ?? '';
-          pagedRows = pagedRows.filter((r) => r.id !== id);
-        }
         if (options.unassignErrorCode)
           return respond(
             { type: 'about:blank', title: 'Không gỡ được dòng gán', status: 400, code: options.unassignErrorCode },
@@ -290,9 +348,9 @@ function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
   );
 }
 
-function renderPage() {
+function renderPage(entry = '/admin/roles') {
   const router = createMemoryRouter([{ path: '/admin/roles', element: <AdminRolesPage /> }], {
-    initialEntries: ['/admin/roles'],
+    initialEntries: [entry],
   });
   render(
     <TestProviders>
@@ -564,272 +622,284 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
   });
 });
 
-describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
+describe('Trang vai trò — bảng người dùng kèm vai trò (issue #569)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  /** Mở hộp thoại gán từ bảng và chọn người dùng annguyen trong danh sách tìm kiếm. */
-  async function openAssignDialog() {
-    await userEvent.click(screen.getByRole('button', { name: 'Gán vai trò' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Gán vai trò' });
-    const userButton = await within(dialog).findByRole('button', { name: /annguyen/ });
-    await userEvent.click(userButton);
-    return dialog;
+  /** Bảng mặc định: đợi hàng đầu tiên rồi trả về phần tử bảng để các test soi trong phạm vi bảng. */
+  async function renderTable(calls: RecordedCall[], options: StubOptions = {}, waitText = 'An Nguyễn') {
+    stubFetch(calls, options);
+    renderPage();
+    await screen.findByText(waitText);
+    return screen.getByRole('table');
   }
 
-  it('hiện đủ cột, dòng enrol-managed không có nút gỡ mà hiện lý do', async () => {
-    stubFetch([]);
-    renderPage();
+  /** Mở hộp thoại gán vai trò chung từ nút trên thanh công cụ của bảng. */
+  async function openAssignDialog() {
+    await userEvent.click(screen.getByRole('button', { name: 'Gán vai trò' }));
+    return screen.getByRole('dialog', { name: 'Gán vai trò' });
+  }
 
-    await screen.findByText('An Nguyễn');
-    const table = screen.getByRole('table');
-    // Tiêu đề cột đúng đặc tả, không có cột Plan/Billing.
-    for (const header of ['Người dùng', 'Vai trò', 'Ngữ cảnh', 'Ngày gán', 'Thao tác']) {
-      expect(within(table).getByText(header)).toBeInTheDocument();
-    }
-    expect(within(table).queryByText('Plan')).not.toBeInTheDocument();
-    expect(within(table).queryByText('Billing')).not.toBeInTheDocument();
-    // Cả hai dòng đều mang tên vai trò phân giải từ danh sách vai.
-    expect(within(table).getAllByText('Giáo viên')).toHaveLength(2);
-    // Nhãn ngữ cảnh kèm cấp của từng dòng.
-    expect(within(table).getByText('cấp 10 · thực thể 0 · /1')).toBeInTheDocument();
-    expect(within(table).getByText('cấp 20 · thực thể 1 · /1/2')).toBeInTheDocument();
-    // Chỉ dòng thường có nút gỡ; dòng enrol-managed hiện lý do thay cho nút.
-    expect(within(table).getAllByRole('button', { name: 'Gỡ gán' })).toHaveLength(1);
-    expect(within(table).getByText('Không gỡ trực tiếp được — gỡ bằng cách rút ghi danh')).toBeInTheDocument();
-    expect(screen.getByText('Tổng: 2 dòng gán')).toBeInTheDocument();
-    // Bảng không có nút Export/Import.
-    expect(screen.queryByText(/Export/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Import/)).not.toBeInTheDocument();
+  /** Mở hộp thoại quản lý vai trò của dòng thứ `index` trong bảng (thứ tự theo id người dùng). */
+  async function openManageDialog(table: HTMLElement, index: number) {
+    const buttons = within(table).getAllByRole('button', { name: 'Quản lý vai trò' });
+    await userEvent.click(buttons[index]);
+    return screen.getByRole('dialog', { name: /Vai trò của / });
+  }
+
+  it('hiện đúng một dòng cho mỗi người dùng với đủ năm cột, không Plan/Billing/Export/Import và không mã định danh', async () => {
+    const calls: RecordedCall[] = [];
+    const table = await renderTable(calls);
+    const headers = within(table).getAllByRole('columnheader').map((h) => h.textContent);
+    expect(headers).toEqual(['Người dùng', 'Vai trò', 'Trạng thái', 'Ngày tham gia', 'Thao tác']);
+    // Mỗi người dùng một dòng: tiêu đề + ba dòng dữ liệu.
+    expect(within(table).getAllByRole('row')).toHaveLength(4);
+    // Người giữ nhiều vai vẫn một dòng, bày đủ mọi gán kèm nhãn cấp dạng chữ.
+    // 'Giáo viên · Hệ thống' xuất hiện hai lần (An Nguyễn và Cô Lan cùng giữ gán đó).
+    expect(within(table).getAllByText('Giáo viên · Hệ thống')).toHaveLength(2);
+    expect(within(table).getByText('Giáo viên · Trung tâm')).toBeInTheDocument();
+    // Ngày tham gia theo định dạng tiếng Việt dễ đọc, không MM/DD/YYYY.
+    expect(within(table).getByText('14 tháng 1, 2022')).toBeInTheDocument();
+    // Trạng thái theo người dùng: An/Bình đang hoạt động, Cô Lan bị khoá.
+    expect(within(table).getAllByText('Đang hoạt động')).toHaveLength(2);
+    expect(within(table).getByText('Bị khoá')).toBeInTheDocument();
+    // Chân bảng đếm theo người dùng, không theo dòng gán.
+    expect(screen.getByText('Hiển thị 1 đến 3 trong 3 người dùng')).toBeInTheDocument();
+    // Quét toàn bảng: không UUID, không đường dẫn thô, không nhãn cấp dạng số.
+    const tableText = table.textContent ?? '';
+    expect(tableText).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/);
+    expect(tableText).not.toContain('/1');
+    expect(tableText).not.toContain('cấp 10');
+    expect(screen.queryByText('Plan')).toBeNull();
+    expect(screen.queryByText('Billing')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Export' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Import' })).toBeNull();
+    // Không cột checkbox chọn: bảng không có ô checkbox nào.
+    expect(within(table).queryByRole('checkbox')).toBeNull();
+    expect(calls.some((c) => c.url.startsWith('/api/v1/access/users-with-assignments'))).toBe(true);
+    expect(calls.some((c) => c.url.startsWith('/api/v1/access/assignments') && c.method === 'GET')).toBe(false);
   });
 
-  it('lọc theo vai trò và ngữ cảnh, tìm kiếm, đổi cỡ trang và chuyển trang đều gửi tham số lên server', async () => {
+  it('thanh công cụ đúng hai hàng: hàng một chỉ có lọc vai trò và trạng thái, hàng hai có tìm kiếm, cỡ trang và nút gán', async () => {
     const calls: RecordedCall[] = [];
-    stubFetch(calls, { assignmentsTotal: 25 });
-    renderPage();
+    await renderTable(calls);
+    const filtersRow = screen.getByTestId('user-roles-toolbar-filters');
+    const searchRow = screen.getByTestId('user-roles-toolbar-search');
+    // Hàng lọc: nhãn nằm phía trên ô chọn, chỉ có hai bộ lọc.
+    expect(within(filtersRow).getByLabelText('Lọc theo vai trò')).toBeInTheDocument();
+    expect(within(filtersRow).getByLabelText('Trạng thái')).toBeInTheDocument();
+    expect(within(filtersRow).queryByLabelText('Tìm người dùng')).toBeNull();
+    expect(within(filtersRow).queryByLabelText('Số người dùng mỗi trang')).toBeNull();
+    expect(within(filtersRow).queryByRole('button', { name: 'Gán vai trò' })).toBeNull();
+    // Hàng tìm kiếm: ô tìm kiếm bên trái, cỡ trang và nút gán bên phải.
+    expect(within(searchRow).getByLabelText('Tìm người dùng')).toBeInTheDocument();
+    expect(within(searchRow).getByLabelText('Số người dùng mỗi trang')).toBeInTheDocument();
+    expect(within(searchRow).getByRole('button', { name: 'Gán vai trò' })).toBeInTheDocument();
+    expect(within(searchRow).queryByLabelText('Lọc theo vai trò')).toBeNull();
+    expect(within(searchRow).queryByLabelText('Trạng thái')).toBeNull();
+  });
 
-    await screen.findByText('An Nguyễn');
-    const assignmentsCalls = () =>
-      calls.filter((c) => c.url.startsWith('/api/v1/access/assignments') && c.method === 'GET');
-
-    await userEvent.type(screen.getByLabelText('Tìm người dùng'), 'An');
-    await waitFor(() => expect(assignmentsCalls().some((c) => c.url.includes('search=An'))).toBe(true));
-
+  it('lọc vai trò gửi roleId, lọc trạng thái gửi status, tìm kiếm gửi search và đổi cỡ trang gửi pageSize lên endpoint gộp', async () => {
+    const calls: RecordedCall[] = [];
+    await renderTable(calls);
+    // Lọc vai trò là điều kiện tồn tại: An vẫn giữ đủ cả hai gán dù chỉ một gán khớp vai.
     await userEvent.selectOptions(screen.getByLabelText('Lọc theo vai trò'), ROLE_ID);
-    await waitFor(() => expect(assignmentsCalls().some((c) => c.url.includes(`roleId=${ROLE_ID}`))).toBe(true));
-
-    await userEvent.selectOptions(screen.getByLabelText('Lọc theo ngữ cảnh'), TENANT_CONTEXT_ID);
     await waitFor(() =>
-      expect(assignmentsCalls().some((c) => c.url.includes(`contextId=${TENANT_CONTEXT_ID}`))).toBe(true),
+      expect(
+        calls.some((c) => c.url.includes('/api/v1/access/users-with-assignments') && c.url.includes(`roleId=${ROLE_ID}`)),
+      ).toBe(true),
     );
-
-    await userEvent.selectOptions(screen.getByLabelText('Số dòng mỗi trang'), '10');
-    await waitFor(() => expect(assignmentsCalls().some((c) => c.url.includes('pageSize=10'))).toBe(true));
-    // Tổng 25 dòng với cỡ trang 10 thành 3 trang: chân bảng hiện khoảng
-    // dòng của trang 1 (stub trả 2 dòng mỗi trang bất kể cỡ trang).
-    expect(screen.getByText('Hiển thị 1–2 trong 25 dòng')).toBeInTheDocument();
-    // Bảng có hai nút mang tên 'Sau' (tới trang kế và tới trang cuối, nút
-    // cuối ẩn bằng class responsive mà jsdom không tính) nên bấm nút đầu.
-    await userEvent.click(screen.getAllByRole('button', { name: 'Sau' })[0]);
-    await waitFor(() => expect(assignmentsCalls().some((c) => c.url.includes('page=2'))).toBe(true));
-    expect(screen.getByText('Hiển thị 11–12 trong 25 dòng')).toBeInTheDocument();
+    expect(screen.getAllByText('Giáo viên · Hệ thống')).toHaveLength(2);
+    expect(screen.getByText('Giáo viên · Trung tâm')).toBeInTheDocument();
+    // Lọc trạng thái bị khoá chỉ còn Cô Lan.
+    await userEvent.selectOptions(screen.getByLabelText('Trạng thái'), 'suspended');
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.url.includes('/api/v1/access/users-with-assignments') && c.url.includes('status=suspended')),
+      ).toBe(true),
+    );
+    // Dữ liệu cũ còn hiện trong lúc tải lại (keepPreviousData) nên phải chờ giao diện đổi theo dữ liệu mới.
+    await waitFor(() => {
+      expect(screen.queryByText('An Nguyễn')).toBeNull();
+      expect(screen.getByText('Cô Lan')).toBeInTheDocument();
+    });
+    // Xoá trạng thái rồi tìm kiếm theo tên đăng nhập: chỉ còn An
+    // (tìm 'An' sẽ khớp cả 'binhtran' vì backend tìm theo chuỗi con trên username).
+    await userEvent.selectOptions(screen.getByLabelText('Trạng thái'), '');
+    await userEvent.type(screen.getByLabelText('Tìm người dùng'), 'annguyen');
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.url.includes('/api/v1/access/users-with-assignments') && c.url.includes('search=annguyen')),
+      ).toBe(true),
+    );
+    await waitFor(() => {
+      expect(screen.getByText('An Nguyễn')).toBeInTheDocument();
+      expect(screen.queryByText('Bình Trần')).toBeNull();
+    });
+    // Đổi cỡ trang: lần gọi mới mang pageSize=100 và quay về trang đầu.
+    await userEvent.selectOptions(screen.getByLabelText('Số người dùng mỗi trang'), '100');
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.url.includes('/api/v1/access/users-with-assignments') && c.url.includes('pageSize=100')),
+      ).toBe(true),
+    );
   });
 
-  it('gán vai qua hộp thoại POST đúng bộ ba và làm mới các truy vấn access', async () => {
+  it('phân trang theo người dùng: chuyển trang gửi page và chân bảng hiện đúng khoảng người dùng', async () => {
     const calls: RecordedCall[] = [];
-    stubFetch(calls);
-    renderPage();
-
-    await screen.findByText('An Nguyễn');
-    const roleLoadsBefore = calls.filter((c) => c.url === '/api/v1/access/roles' && c.method === 'GET').length;
-    const dialog = await openAssignDialog();
-    // Ngữ cảnh mặc định là ngữ cảnh hệ thống như form gán cũ.
+    const table = await renderTable(calls, { pagedTableUsersTotal: 25 }, 'Người dùng 1');
+    expect(screen.getByText('Hiển thị 1 đến 10 trong 25 người dùng')).toBeInTheDocument();
+    expect(within(table).getAllByRole('row')).toHaveLength(11);
+    await userEvent.click(screen.getAllByRole('button', { name: 'Sau' })[0]);
     await waitFor(() =>
-      expect((within(dialog).getByLabelText('Ngữ cảnh') as HTMLSelectElement).value).toBe(SYSTEM_CONTEXT_ID),
+      expect(
+        calls.some((c) => c.url.includes('/api/v1/access/users-with-assignments') && c.url.includes('page=2')),
+      ).toBe(true),
     );
-    await userEvent.selectOptions(within(dialog).getByLabelText('Vai trò'), ROLE_ID);
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Gán vai trò' }));
+    expect(screen.getByText('Hiển thị 11 đến 20 trong 25 người dùng')).toBeInTheDocument();
+    // Lần gọi đầu mặc định cỡ trang 10.
+    expect(calls.some((c) => c.url.includes('/api/v1/access/users-with-assignments') && c.url.includes('pageSize=10'))).toBe(true);
+  });
 
+  it('hộp thoại quản lý liệt kê mọi gán, gỡ gán thủ công qua xác nhận và không cho gỡ gán do ghi danh', async () => {
+    const calls: RecordedCall[] = [];
+    const table = await renderTable(calls);
+    const manage = await openManageDialog(table, 0);
+    expect(within(manage).getByRole('heading', { name: 'Vai trò của An Nguyễn' })).toBeInTheDocument();
+    // Hộp thoại quản lý xếp tên vai và cấp thành hai dòng riêng nên soi riêng từng phần.
+    expect(within(manage).getAllByText('Giáo viên')).toHaveLength(2);
+    expect(within(manage).getByText('Hệ thống')).toBeInTheDocument();
+    expect(within(manage).getByText('Trung tâm')).toBeInTheDocument();
+    // Gỡ gán thủ công: xác nhận rồi DELETE đúng id gán, hộp thoại quản lý vẫn mở để thấy dữ liệu mới.
+    const before = calls.length;
+    await userEvent.click(within(manage).getAllByRole('button', { name: 'Gỡ gán' })[0]);
+    const confirm = await screen.findByRole('dialog', { name: 'Gỡ gán vai trò' });
+    expect(within(confirm).getByText('Gỡ vai trò “Giáo viên” của An Nguyễn tại Hệ thống?')).toBeInTheDocument();
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Gỡ gán' }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === `/api/v1/access/assignments/${ASSIGN_A_ID}` && c.method === 'DELETE')).toBe(true),
+    );
+    expect(screen.queryByRole('dialog', { name: 'Gỡ gán vai trò' })).toBeNull();
+    expect(screen.getByRole('dialog', { name: /Vai trò của / })).toBeInTheDocument();
+    // Sau khi gỡ, bảng tải lại từ endpoint gộp (invalidation theo tiền tố khoá).
+    await waitFor(() => expect(calls.length).toBeGreaterThan(before));
+    expect(calls.some((c) => c.url.startsWith('/api/v1/access/users-with-assignments'))).toBe(true);
+    // Gán do ghi danh: không có nút gỡ, chỉ có lý do hiển thị.
+    await userEvent.click(screen.getByRole('button', { name: 'Huỷ' }));
+    const manageBinh = await openManageDialog(table, 1);
+    expect(within(manageBinh).getByRole('heading', { name: 'Vai trò của Bình Trần' })).toBeInTheDocument();
+    expect(within(manageBinh).getByText('Giáo viên')).toBeInTheDocument();
+    expect(within(manageBinh).getByText('Khoá học')).toBeInTheDocument();
+    expect(within(manageBinh).queryByRole('button', { name: 'Gỡ gán' })).toBeNull();
+    expect(within(manageBinh).getByText('Không gỡ trực tiếp được — gỡ bằng cách rút ghi danh')).toBeInTheDocument();
+  });
+
+  it('gán thêm từ hộp thoại quản lý mở hộp thoại gán với người dùng đã cố định và POST đúng id người dùng đó', async () => {
+    const calls: RecordedCall[] = [];
+    const table = await renderTable(calls);
+    const manage = await openManageDialog(table, 0);
+    await userEvent.click(within(manage).getByRole('button', { name: 'Gán thêm vai trò' }));
+    // Hộp thoại quản lý đóng, hộp thoại gán mở với người dùng cố định, không còn ô tìm người dùng.
+    expect(screen.queryByRole('dialog', { name: /Vai trò của / })).toBeNull();
+    const dialog = await screen.findByRole('dialog', { name: 'Gán vai trò' });
+    expect(within(dialog).getByText('annguyen')).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText('Tìm người dùng')).toBeNull();
+    await userEvent.selectOptions(within(dialog).getByLabelText('Vai trò'), ROLE_ID);
+    await userEvent.selectOptions(within(dialog).getByLabelText('Ngữ cảnh'), SYSTEM_CONTEXT_ID);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Gán vai trò' }));
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (c) =>
+            c.url === '/api/v1/access/assignments' &&
+            c.method === 'POST' &&
+            (c.body as { userId?: string } | undefined)?.userId === USER_A_ID,
+        ),
+      ).toBe(true),
+    );
+    const post = calls.find((c) => c.url === '/api/v1/access/assignments' && c.method === 'POST');
+    expect(post?.body).toEqual({ userId: USER_A_ID, roleId: ROLE_ID, contextId: SYSTEM_CONTEXT_ID });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Gán vai trò' })).toBeNull());
+  });
+
+  it('nút gán chung vẫn mở hộp thoại tìm người dùng, chọn người dùng rồi gán qua POST đúng bộ ba', async () => {
+    const calls: RecordedCall[] = [];
+    await renderTable(calls);
+    const dialog = await openAssignDialog();
+    await userEvent.type(within(dialog).getByLabelText('Tìm người dùng'), 'annguyen');
+    await userEvent.click(await within(dialog).findByRole('button', { name: /annguyen/ }));
+    await userEvent.selectOptions(within(dialog).getByLabelText('Vai trò'), ROLE_ID);
+    await userEvent.selectOptions(within(dialog).getByLabelText('Ngữ cảnh'), SYSTEM_CONTEXT_ID);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Gán vai trò' }));
     await waitFor(() =>
       expect(calls.some((c) => c.url === '/api/v1/access/assignments' && c.method === 'POST')).toBe(true),
     );
     const post = calls.find((c) => c.url === '/api/v1/access/assignments' && c.method === 'POST');
     expect(post?.body).toEqual({ userId: USER_A_ID, roleId: ROLE_ID, contextId: SYSTEM_CONTEXT_ID });
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    // Sau đột biến, truy vấn access được làm mới (danh sách vai tải lại).
-    await waitFor(() =>
-      expect(calls.filter((c) => c.url === '/api/v1/access/roles' && c.method === 'GET').length).toBeGreaterThan(
-        roleLoadsBefore,
-      ),
-    );
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Gán vai trò' })).toBeNull());
   });
 
-  it('gán trúng chốt gói số chỗ thì hiện đúng lý do và giữ hộp thoại mở', async () => {
+  it('gán bị chặn bởi giới hạn slot của gói vẫn báo đúng lỗi và giữ hộp thoại mở', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls, { assignErrorCode: 'plan.tenant_slot_limit_reached' });
     renderPage();
-
     await screen.findByText('An Nguyễn');
     const dialog = await openAssignDialog();
+    await userEvent.type(within(dialog).getByLabelText('Tìm người dùng'), 'annguyen');
+    await userEvent.click(await within(dialog).findByRole('button', { name: /annguyen/ }));
     await userEvent.selectOptions(within(dialog).getByLabelText('Vai trò'), ROLE_ID);
+    await userEvent.selectOptions(within(dialog).getByLabelText('Ngữ cảnh'), SYSTEM_CONTEXT_ID);
     await userEvent.click(within(dialog).getByRole('button', { name: 'Gán vai trò' }));
-
-    expect(
-      await within(dialog).findByText(
-        'Trung tâm đã chạm hạn mức gói nên không gán thêm vai trò giảng dạy được.',
-      ),
-    ).toBeInTheDocument();
+    await screen.findByText('Trung tâm đã chạm hạn mức gói nên không gán thêm vai trò giảng dạy được.');
     expect(screen.getByRole('dialog', { name: 'Gán vai trò' })).toBeInTheDocument();
-    expect(calls.some((c) => c.url === '/api/v1/access/assignments' && c.method === 'POST')).toBe(true);
   });
 
-  it('gán trúng chốt tách vai thì hiện đúng lý do và giữ hộp thoại mở', async () => {
-    stubFetch([], { assignErrorCode: 'access.role_context_conflict' });
+  it('gán xung đột ngữ cảnh (người đang là học viên) vẫn báo đúng lỗi và giữ hộp thoại mở', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, { assignErrorCode: 'access.role_context_conflict' });
     renderPage();
-
     await screen.findByText('An Nguyễn');
     const dialog = await openAssignDialog();
+    await userEvent.type(within(dialog).getByLabelText('Tìm người dùng'), 'annguyen');
+    await userEvent.click(await within(dialog).findByRole('button', { name: /annguyen/ }));
     await userEvent.selectOptions(within(dialog).getByLabelText('Vai trò'), ROLE_ID);
+    await userEvent.selectOptions(within(dialog).getByLabelText('Ngữ cảnh'), SYSTEM_CONTEXT_ID);
     await userEvent.click(within(dialog).getByRole('button', { name: 'Gán vai trò' }));
-
-    expect(
-      await within(dialog).findByText(
-        'Người này đang là học viên đang hoạt động của khoá/lớp đó nên không nhận thêm vai trò giảng dạy tại đây.',
-      ),
-    ).toBeInTheDocument();
+    await screen.findByText('Người này đang là học viên đang hoạt động của khoá/lớp đó nên không nhận thêm vai trò giảng dạy tại đây.');
     expect(screen.getByRole('dialog', { name: 'Gán vai trò' })).toBeInTheDocument();
   });
 
-  it('gỡ dòng gán sau xác nhận thì DELETE đúng id và bảng tải lại', async () => {
+  it('vào trang với tham số userId thì bảng lọc sẵn đúng người dùng đó và xoá lọc khôi phục toàn bảng', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
-    renderPage();
-
-    await screen.findByText('An Nguyễn');
-    const assignmentsBefore = calls.filter(
-      (c) => c.url.startsWith('/api/v1/access/assignments') && c.method === 'GET',
-    ).length;
-    await userEvent.click(screen.getByRole('button', { name: 'Gỡ gán' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Gỡ gán vai trò' });
-    expect(within(dialog).getByText(/Gỡ vai trò “Giáo viên” của An Nguyễn tại cấp 10/)).toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Gỡ gán' }));
-
-    await waitFor(() =>
-      expect(
-        calls.some((c) => c.url === `/api/v1/access/assignments/${ASSIGN_A_ID}` && c.method === 'DELETE'),
-      ).toBe(true),
-    );
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    await waitFor(() =>
-      expect(
-        calls.filter((c) => c.url.startsWith('/api/v1/access/assignments') && c.method === 'GET').length,
-      ).toBeGreaterThan(assignmentsBefore),
-    );
-  });
-
-  it('gỡ bị backend từ chối bằng mã enrol-managed thì hiện đúng lý do và giữ hộp thoại mở', async () => {
-    stubFetch([], { unassignErrorCode: 'access.assignment_enrol_managed' });
-    renderPage();
-
-    await screen.findByText('An Nguyễn');
-    await userEvent.click(screen.getByRole('button', { name: 'Gỡ gán' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Gỡ gán vai trò' });
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Gỡ gán' }));
-
-    expect(
-      await within(dialog).findByText('Không gỡ trực tiếp được — gỡ bằng cách rút ghi danh'),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('dialog', { name: 'Gỡ gán vai trò' })).toBeInTheDocument();
-  });
-
-  it('dòng trỏ tới người dùng không còn tồn tại hiện trạng thái thay cho tên', async () => {
-    stubFetch([], { nullUserRow: true });
-    renderPage();
-
-    await screen.findByText('Người dùng không còn tồn tại');
+    renderPage(`/admin/roles?userId=${USER_B_ID}`);
+    // Chế độ lọc theo người dùng: chỉ một dòng Bình Trần, kèm biểu ngữ lọc — không hiện mã định danh.
+    await screen.findByText('Đang lọc theo người dùng: Bình Trần');
     const table = screen.getByRole('table');
-    expect(within(table).getByText('Người dùng không còn tồn tại')).toBeInTheDocument();
-  });
-
-  it('gỡ dòng duy nhất của trang cuối thì bảng tự về trang hợp lệ cuối cùng thay vì kẹt ở trang rỗng', async () => {
-    const calls: RecordedCall[] = [];
-    stubFetch(calls, { pagedAssignmentsTotal: 21 });
-    renderPage();
-
-    await screen.findByText('Người dùng 1');
-    expect(screen.getByText('Hiển thị 1–20 trong 21 dòng')).toBeInTheDocument();
-    // Sang trang 2: chỉ còn dòng 21.
-    await userEvent.click(screen.getAllByRole('button', { name: 'Sau' })[0]);
-    await waitFor(() => expect(screen.getByText('Hiển thị 21–21 trong 21 dòng')).toBeInTheDocument());
-    expect(screen.getByText('Người dùng 21')).toBeInTheDocument();
-    // Gỡ dòng duy nhất của trang 2 rồi xác nhận.
-    await userEvent.click(screen.getByRole('button', { name: 'Gỡ gán' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Gỡ gán vai trò' });
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Gỡ gán' }));
-    // Tổng còn 20 dòng (1 trang): bảng tự về trang 1, không kẹt ở khoảng
-    // dòng của trang 2; cụm phân trang vẫn hiện khi chỉ còn một trang.
-    await waitFor(() => expect(screen.getByText('Hiển thị 1–20 trong 20 dòng')).toBeInTheDocument());
-    expect(screen.getByText('Người dùng 1')).toBeInTheDocument();
-    expect(screen.queryByText('Hiển thị 21–21 trong 20 dòng')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument();
-    expect(
-      calls.some(
-        (c) =>
-          c.url === '/api/v1/access/assignments/01900000-0000-7000-8000-000000000021' && c.method === 'DELETE',
-      ),
-    ).toBe(true);
-  });
-
-  it('bộ chọn người dùng tải thêm được khi kết quả khớp vượt quá 20 người', async () => {
-    const calls: RecordedCall[] = [];
-    stubFetch(calls, { pagedUsersTotal: 25 });
-    renderPage();
-
+    expect(within(table).getAllByRole('row')).toHaveLength(2);
+    expect(within(table).getByText('Bình Trần')).toBeInTheDocument();
+    expect(within(table).queryByText('An Nguyễn')).toBeNull();
+    expect(screen.queryByText(USER_B_ID)).toBeNull();
+    // Xoá lọc: bảng trở lại đủ ba người, biểu ngữ biến mất.
+    await userEvent.click(screen.getByRole('button', { name: 'Xoá lọc' }));
     await screen.findByText('An Nguyễn');
-    await userEvent.click(screen.getByRole('button', { name: 'Gán vai trò' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Gán vai trò' });
-    // Đợt đầu chỉ tải 20 người: người thứ 21 chưa có, có nút tải thêm.
-    await within(dialog).findByRole('button', { name: /nguoidung1@/ });
-    expect(within(dialog).queryByRole('button', { name: /nguoidung21@/ })).not.toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: 'Tải thêm người dùng' })).toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Tải thêm người dùng' }));
-    // Sau tải thêm, người thứ 21 chọn được.
-    await within(dialog).findByRole('button', { name: /nguoidung21@/ });
-    expect(
-      calls.some((c) => c.url.startsWith('/api/v1/users') && c.url.includes('pageSize=40')),
-    ).toBe(true);
+    expect(screen.queryByText('Đang lọc theo người dùng: Bình Trần')).toBeNull();
+    expect(screen.getByText('Hiển thị 1 đến 3 trong 3 người dùng')).toBeInTheDocument();
+    // Sau khi xoá lọc, bảng đọc lại từ endpoint gộp ở chế độ thường.
+    expect(calls.some((c) => c.url.startsWith('/api/v1/access/users-with-assignments'))).toBe(true);
   });
 
-  it('bảng có mô tả phụ dưới tiêu đề, thanh lọc co thành một hàng và chân bảng hiện khoảng dòng ngay cả khi một trang', async () => {
-    stubFetch([]);
-    renderPage();
-
+  it('vào trang với tham số userId không khớp ai thì báo không tìm thấy và xoá lọc khôi phục toàn bảng', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderPage('/admin/roles?userId=01900000-0000-7000-8000-0000000000ff');
+    await screen.findByText('Không tìm thấy người dùng theo bộ lọc này.');
+    expect(screen.queryByRole('table')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Xoá lọc' }));
     await screen.findByText('An Nguyễn');
-    // Dòng mô tả phụ dưới tiêu đề bảng.
-    expect(screen.getByText('Mọi người dùng đang giữ vai trò và ngữ cảnh họ được gán.')).toBeInTheDocument();
-    // Thanh lọc một hàng: các trường co chiều ngang thay vì full-width
-    // như Field mặc định — ô tìm kiếm mang bề rộng cố định, ô chọn lọc
-    // co theo nội dung. jsdom không tính layout nên hành vi quan sát
-    // được ở đây là class co chiều ngang trên đúng các trường của
-    // thanh lọc.
-    const searchField = screen.getByLabelText('Tìm người dùng').closest('[data-slot="field"]');
-    expect(searchField?.className).toContain('w-72');
-    const roleFilterField = screen.getByLabelText('Lọc theo vai trò').closest('[data-slot="field"]');
-    expect(roleFilterField?.className).toContain('w-auto');
-    // Chân bảng: dòng khoảng dòng thay cho "Trang X / Y", và cụm nút
-    // chuyển trang LUÔN hiện — dữ kiện chỉ có 1 trang nên các nút
-    // Trước/Sau ở trạng thái tắt, nút số trang 1 vẫn bày.
-    expect(screen.getByText('Hiển thị 1–2 trong 2 dòng')).toBeInTheDocument();
-    expect(screen.queryByText('Trang 1 / 1')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument();
-    for (const button of screen.getAllByRole('button', { name: 'Sau' })) {
-      expect(button).toBeDisabled();
-    }
-    for (const button of screen.getAllByRole('button', { name: 'Trước' })) {
-      expect(button).toBeDisabled();
-    }
+    expect(screen.getByText('Hiển thị 1 đến 3 trong 3 người dùng')).toBeInTheDocument();
   });
 });
