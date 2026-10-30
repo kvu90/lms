@@ -9,6 +9,8 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { I18nWorkerModule } from './i18n/i18n.config';
 import { databaseConnectionFromEnv, redisConnectionFromUrl, validateEnv } from './config/env';
 import { relations } from './db/relations';
+import { SpaceDatabaseService } from './db/routing/space-database.service';
+import { SpaceRoutingModule } from './db/routing/space-routing.module';
 import { TenantAwarePool } from './db/tenant-pool';
 import { EnrolExpiryScheduler } from './enrol-expiry.scheduler';
 import { ClassEnrolReconcileScheduler } from './class-enrol-reconcile.scheduler';
@@ -88,9 +90,9 @@ const outboxRouteQueueNames: string[] = allQueueNamesOfRoutes(OUTBOX_EVENT_QUEUE
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     I18nWorkerModule,
     DrizzleModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
+      imports: [ConfigModule, SpaceRoutingModule],
+      inject: [ConfigService, SpaceDatabaseService],
+      useFactory: (config: ConfigService, spaceDatabase: SpaceDatabaseService) => {
         const connection = databaseConnectionFromEnv(
           config.getOrThrow<string>('DATABASE_URL'),
           config.get<boolean>('DATABASE_SSL') ?? false,
@@ -101,12 +103,21 @@ const outboxRouteQueueNames: string[] = allQueueNamesOfRoutes(OUTBOX_EVENT_QUEUE
         // pool như trước — cùng cơ chế với phía api.
         const poolMax = config.get<number>('DATABASE_POOL_MAX');
         const pool = new TenantAwarePool(poolMax ? { ...poolConfig, max: poolMax } : poolConfig);
+        const sharedDb = drizzle({ client: pool, relations });
+        // Khung định tuyến theo trung tâm (issue #581): gắn handle
+        // kho chung vào khung của worker để các phiên theo trung
+        // tâm (`withSpaceDatabase`) có đích kho chung mà uỷ thác.
+        // Handle mà các processor/service hiện hữu inject GIỮ
+        // NGUYÊN handle này — khung không đổi đường dữ kiện hiện
+        // hành của worker; việc áp phiên theo trung tâm vào từng
+        // job thuộc issue kế tiếp.
+        spaceDatabase.bindSharedDatabase(sharedDb);
         return {
           // TENANT-1 (#196): pool tự dựng có gắn GUC tenant theo ngữ
           // cảnh ALS ở mọi checkout — cùng cơ chế với phía API (xem
           // apps/api/src/app.module.ts): scheduler/processor tự bọc
           // ngữ cảnh platform/tenant, ngoài ngữ cảnh là fail-closed.
-          db: drizzle({ client: pool, relations }),
+          db: sharedDb,
         };
       },
     }),

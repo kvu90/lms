@@ -33,6 +33,15 @@ export const envSchema = z.object({
    * api — xem `DATABASE_POOL_MAX`.
    */
   CONTROL_PLANE_POOL_MAX: z.coerce.number().int().positive().max(1000).optional(),
+  // Khung định tuyến kết nối theo trung tâm (issue #581): bộ phân
+  // giải đọc sổ đăng ký ở control plane và đệm kết quả trong tiến
+  // trình — TTL của đệm là lưới dự phòng ngoài kênh vô hiệu hoá theo
+  // sự kiện đổi sổ. Trần kết nối áp cho pool của MỖI kho riêng (pool
+  // tạo lười theo database), và ngưỡng nhàn rỗi mà quá đó pool của
+  // kho không còn traffic bị đóng để trả ngân sách kết nối về cụm.
+  SPACE_ROUTING_CACHE_TTL_MS: z.coerce.number().int().positive().default(5_000),
+  SPACE_DB_POOL_MAX: z.coerce.number().int().positive().default(5),
+  SPACE_DB_POOL_IDLE_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
   // Bật TLS cho kết nối PostgreSQL khi nhà cung cấp bắt buộc (một số
   // nhà cung cấp PostgreSQL chỉ nhận kết nối có mã hoá). Mặc định tắt:
   // môi trường local và CI chạy PostgreSQL thường không có TLS.
