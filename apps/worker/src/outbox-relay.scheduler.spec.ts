@@ -531,4 +531,26 @@ describe('Relay outbox — định tuyến theo trung tâm (issue #582)', () => 
     await expect(relay.relayTick()).resolves.toBeUndefined();
     expect(taskRuns).toEqual([{ status: 'failed' }]);
   });
+
+  it('không đọc được sổ đăng ký thì lượt theo trung tâm trả tín hiệu lỗi riêng và nhịp relay ghi task_log failed phân biệt được', async () => {
+    const spaceDb = {
+      listRegisteredSpaces: async () => {
+        throw new Error('control plane unreachable');
+      },
+      withSpaceDatabase: async () => {
+        throw new Error('không được gọi khi đọc sổ lỗi');
+      },
+    };
+    const { relay, taskRuns } = makeRelay([], ROUTES, { spaceDb });
+
+    const result = await relay.publishPendingForCentres();
+    expect(result).toEqual({
+      published: 0,
+      failedSlugs: [],
+      registryError: 'control plane unreachable',
+    });
+
+    await expect(relay.relayTick()).resolves.toBeUndefined();
+    expect(taskRuns).toEqual([{ status: 'failed' }]);
+  });
 });

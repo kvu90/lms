@@ -24,12 +24,19 @@ import { TenantsRepository } from './tenants.repository';
  *    mang trung tâm → request đi đúng đường hiện tại, guard không
  *    chạm gì thêm.
  * 2. Phân giải ứng viên qua khung định tuyến (bộ đệm của khung đọc
- *    sổ đăng ký control plane). Slug chưa đăng ký, hoặc tầng định
- *    tuyến chưa được cấu hình (không có control plane), → địa chỉ
- *    không thuộc trung tâm nào trong sổ: request vẫn đi đường hiện
- *    tại. Mọi lỗi phân giải còn lại (bí mật/role của kho riêng lệch
- *    sổ) là lỗi cấu hình vận hành: ném ra nguyên trạng, fail-closed,
- *    thay vì im lặng phục vụ request bằng kho chung.
+ *    sổ đăng ký control plane). Slug chưa đăng ký → địa chỉ không
+ *    thuộc trung tâm nào trong sổ: request vẫn đi đường hiện tại.
+ *    Tầng định tuyến chưa được cấu hình (không có control plane)
+ *    thì cho qua như địa chỉ thường KHI phiên không mang claim
+ *    `centre_id` — giữ hợp đồng "chưa cấu hình thì app chạy như
+ *    trước" của đợt khung; NHƯNG phiên mang claim `centre_id` là
+ *    bằng chứng traffic thuộc trung tâm kho riêng, nên ở trường
+ *    hợp đó tầng chưa cấu hình là lỗi vận hành ở deployment đang
+ *    phục vụ kho riêng và guard fail-closed (ném lỗi ra) thay vì
+ *    cho qua lặng lẽ. Mọi lỗi phân giải còn lại (bí mật/role của
+ *    kho riêng lệch sổ) là lỗi cấu hình vận hành: ném ra nguyên
+ *    trạng, fail-closed, thay vì im lặng phục vụ request bằng kho
+ *    chung.
  * 3. Đường vận hành platform tường minh được miễn toàn bộ các bước
  *    sau: request mà tenant hiệu lực là tenant platform
  *    (tenant-zero) và người dùng là quản trị viên của site chính
@@ -87,10 +94,19 @@ export class SpaceContextGuard implements CanActivate {
     try {
       target = await this.spaceDb.resolveTarget(slug);
     } catch (err) {
-      if (
-        err instanceof SpaceRoutingError &&
-        (err.code === 'space_routing.space_not_found' || err.code === 'space_routing.not_configured')
-      ) {
+      if (err instanceof SpaceRoutingError && err.code === 'space_routing.space_not_found') {
+        return true;
+      }
+      if (err instanceof SpaceRoutingError && err.code === 'space_routing.not_configured') {
+        // Phiên mang claim `centre_id` là bằng chứng traffic thuộc
+        // trung tâm kho riêng: tầng định tuyến chưa cấu hình ở
+        // deployment đang phục vụ kho riêng là lỗi vận hành, phải
+        // fail-closed thay vì cho qua lặng lẽ sang kho chung.
+        // Phiên không mang claim giữ hợp đồng "chưa cấu hình thì
+        // app chạy như trước" của đợt khung.
+        if (request.user?.centreId !== undefined) {
+          throw err;
+        }
         return true;
       }
       throw err;

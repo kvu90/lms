@@ -106,6 +106,13 @@ type OutboxRow = typeof outboxEvents.$inferSelect;
  *   trung tâm khác đã phát xong giữ nguyên dấu của chúng, lượt
  *   của trung tâm lỗi được thử lại ở nhịp sau (các dòng chưa đóng
  *   dấu của nó vẫn nằm chờ trong kho của nó).
+ * - Không đọc được sổ đăng ký thì toàn bộ lượt theo trung tâm bị
+ *   bỏ qua ở nhịp này, nhưng nhịp vẫn ghi `task_log` trạng thái
+ *   `failed` với thông điệp phân biệt (không lẫn với nhịp không
+ *   có trung tâm nào) — sự cố control plane kéo dài không bị che
+ *   bởi nhịp `success` giả của lượt kho chung; lượt kho chung
+ *   không bị ảnh hưởng và các dòng chưa đóng dấu được thử lại ở
+ *   nhịp sau.
  *
  * Side-effect của một nhịp: đẩy job BullMQ (với loại đã định tuyến),
  * ghi cột `publishedAt` của `outbox_events`, chèn dòng `event_log`
@@ -153,6 +160,20 @@ export class OutboxRelayScheduler {
       const publishedShared = await this.publishPending();
       const centrePass = await this.publishPendingForCentres();
       const published = publishedShared + centrePass.published;
+      if (centrePass.registryError !== undefined) {
+        // Không đọc được sổ đăng ký: toàn bộ lượt theo trung tâm
+        // bị bỏ qua ở nhịp này — ghi failed với thông điệp phân
+        // biệt để vận hành thấy sự cố control plane, thay vì để
+        // nhịp trôi qua như nhịp không có trung tâm nào (hoặc
+        // `success` giả nhờ lượt kho chung).
+        await this.taskLog.recordRun(
+          'outbox-relay',
+          startedAt,
+          'failed',
+          `centre outbox registry read failed: ${centrePass.registryError}`,
+        );
+        return;
+      }
       if (centrePass.failedSlugs.length > 0) {
         // Lượt của ít nhất một trung tâm lỗi: ghi failed kèm slug
         // để vận hành thấy được, nhưng không ném — phần đã phát
@@ -197,22 +218,31 @@ export class OutboxRelayScheduler {
    *
    * @param limitPerCentre Số dòng tối đa xử lý cho MỘT trung tâm
    * trong lượt này (mặc định 50, như lượt kho chung).
-   * @returns Số dòng đã đóng dấu trên mọi trung tâm và danh sách
+   * @returns Số dòng đã đóng dấu trên mọi trung tâm, danh sách
    * slug của các trung tâm mà lượt của chúng lỗi (lượt của một
-   * trung tâm lỗi không chặn các trung tâm còn lại).
+   * trung tâm lỗi không chặn các trung tâm còn lại), và thông
+   * điệp lỗi đọc sổ (`registryError`) khi không đọc được sổ đăng
+   * ký — trường này chỉ xuất hiện ở đường lỗi đọc sổ, để nhịp
+   * relay ghi `task_log` failed phân biệt được với nhịp không có
+   * trung tâm nào.
    */
-  async publishPendingForCentres(limitPerCentre = 50): Promise<{ published: number; failedSlugs: string[] }> {
+  async publishPendingForCentres(
+    limitPerCentre = 50,
+  ): Promise<{ published: number; failedSlugs: string[]; registryError?: string }> {
     let spaces;
     try {
       spaces = await this.spaceDb.listRegisteredSpaces();
     } catch (err) {
       // Không đọc được sổ ở nhịp này: bỏ qua lượt theo trung tâm
       // của nhịp này (nhịp sau thử lại) thay vì làm hỏng cả nhịp
-      // relay — lượt kho chung không phụ thuộc sổ.
+      // relay — lượt kho chung không phụ thuộc sổ — NHƯNG trả tín
+      // hiệu lỗi riêng để nhịp ghi `task_log` failed phân biệt
+      // được, thay vì trôi qua như nhịp không có trung tâm nào.
+      const message = err instanceof Error ? err.message : String(err);
       this.logger.warn(
-        `Không đọc được sổ đăng ký để quét outbox theo trung tâm ở nhịp này: ${err instanceof Error ? err.message : String(err)}`,
+        `Không đọc được sổ đăng ký để quét outbox theo trung tâm ở nhịp này: ${message}`,
       );
-      return { published: 0, failedSlugs: [] };
+      return { published: 0, failedSlugs: [], registryError: message };
     }
     const dedicated = spaces.filter((space) => space.storageMode === 'dedicated' && space.status !== 'closed');
     let published = 0;

@@ -9,9 +9,10 @@ import { SpaceJobRunner } from './space-job-runner';
  * định tuyến được thay bằng vật giả ghi lại cách phiên được mở —
  * các ca khoá đúng quyết định phiên cho từng hình job: job của
  * trung tâm ở kho riêng chạy trong phiên theo trung tâm mang cả
- * tenant của job; job ở kho chung, job không mang slug và job mà
- * đích không còn phân giải được đều chạy trong ngữ cảnh platform
- * như hiện tại.
+ * tenant của job; job ở kho chung và job không mang slug chạy
+ * trong ngữ cảnh platform như hiện tại; job mà đích phân giải lỗi
+ * thì bị lỗi thay vì chạy trên platform (vòng sửa theo phán quyết
+ * điều phối PR #602).
  */
 
 const DEDICATED_TARGET: ResolvedSpaceConnection = {
@@ -94,16 +95,56 @@ describe('Bộ chạy job theo trung tâm', () => {
     expect(observed?.platform).toBe(true);
   });
 
-  it('đích của slug không còn phân giải được thì job vẫn chạy trong ngữ cảnh platform thay vì bị làm chết', async () => {
-    const { runner, spaceDb } = makeRunner({
-      resolveError: new SpaceRoutingError('space_routing.space_not_found', 'gone'),
-    });
-    const observed = await runner.runForJob(
-      { spaceSlug: 'trung-tam-da-go', tenantId: 'tenant-x' },
-      async () => tenantAls.getStore(),
-    );
+  it('đích của slug không còn phân giải được thì job bị lỗi thay vì chạy trên platform: thân xử lý không chạy', async () => {
+    const failure = new SpaceRoutingError('space_routing.space_not_found', 'gone');
+    const { runner, spaceDb } = makeRunner({ resolveError: failure });
+    let ran = false;
+    await expect(
+      runner.runForJob({ spaceSlug: 'trung-tam-da-go', tenantId: 'tenant-x' }, async () => {
+        ran = true;
+      }),
+    ).rejects.toBe(failure);
+    expect(ran).toBe(false);
     expect(spaceDb.withSpaceDatabase).not.toHaveBeenCalled();
-    expect(observed?.platform).toBe(true);
+  });
+
+  it('không đọc được control plane khi phân giải thì job bị lỗi thay vì chạy trên platform', async () => {
+    const failure = new Error('control plane unreachable');
+    const { runner, spaceDb } = makeRunner({ resolveError: failure });
+    let ran = false;
+    await expect(
+      runner.runForJob({ spaceSlug: 'trung-tam-loi', tenantId: 'tenant-x' }, async () => {
+        ran = true;
+      }),
+    ).rejects.toBe(failure);
+    expect(ran).toBe(false);
+    expect(spaceDb.withSpaceDatabase).not.toHaveBeenCalled();
+  });
+
+  it('role kết nối lệch sổ đăng ký khi phân giải thì job bị lỗi thay vì chạy trên platform', async () => {
+    const failure = new SpaceRoutingError('space_routing.role_mismatch', 'role mismatch');
+    const { runner, spaceDb } = makeRunner({ resolveError: failure });
+    let ran = false;
+    await expect(
+      runner.runForJob({ spaceSlug: 'trung-tam-loi', tenantId: 'tenant-x' }, async () => {
+        ran = true;
+      }),
+    ).rejects.toBe(failure);
+    expect(ran).toBe(false);
+    expect(spaceDb.withSpaceDatabase).not.toHaveBeenCalled();
+  });
+
+  it('thiếu bí mật kết nối khi phân giải thì job bị lỗi thay vì chạy trên platform', async () => {
+    const failure = new SpaceRoutingError('space_routing.secret_missing', 'secret missing');
+    const { runner, spaceDb } = makeRunner({ resolveError: failure });
+    let ran = false;
+    await expect(
+      runner.runForJob({ spaceSlug: 'trung-tam-loi', tenantId: 'tenant-x' }, async () => {
+        ran = true;
+      }),
+    ).rejects.toBe(failure);
+    expect(ran).toBe(false);
+    expect(spaceDb.withSpaceDatabase).not.toHaveBeenCalled();
   });
 
   it('kết quả và lỗi của thân xử lý được truyền nguyên qua bộ chạy ở cả hai đường phiên', async () => {

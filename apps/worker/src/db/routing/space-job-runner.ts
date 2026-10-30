@@ -26,12 +26,13 @@ import { SpaceDatabaseService } from './space-database.service';
  *    ngữ cảnh mang cả `tenantId` của job để GUC RLS của kho đích
  *    theo đúng tenant của sự kiện.
  * 4. Phân giải lỗi (trung tâm bị gỡ khỏi sổ giữa lúc phát và lúc
- *    xử lý, hoặc tầng định tuyến chưa cấu hình) → rơi về ngữ cảnh
- *    platform như hiện tại thay vì làm chết job: job vẫn phải được
- *    xử lý, và với kho chung/platform thì đó là đúng đích; riêng
- *    ca trung tâm đã ở kho riêng mà phiên không mở được thì lỗi
- *    của bước chuẩn bị bên trong `withSpaceDatabase` vẫn ném ra
- *    bình thường để BullMQ thử lại job.
+ *    xử lý, bí mật/role lệch sổ, hoặc không đọc được control
+ *    plane) → NÉM lỗi ra để BullMQ thử lại job, tuyệt đối không
+ *    rơi về ngữ cảnh platform: cơ quan cô lập (sổ đăng ký) không
+ *    đọc được thì job của trung tâm kho riêng không được phép
+ *    hoàn tất "thành công" trên kho chung. Lỗi của bước chuẩn bị
+ *    bên trong `withSpaceDatabase` (trung tâm đã ở kho riêng mà
+ *    phiên không mở được) cũng ném ra như trước để BullMQ thử lại.
  *
  * Tính idempotent của processor theo `outboxId` không đổi: bộ
  * chạy này chỉ quyết ngữ cảnh/kho cho lượt xử lý, không chen vào
@@ -49,9 +50,12 @@ export class SpaceJobRunner {
    *   xác định được) và `tenantId` của sự kiện.
    * @param fn - Thân xử lý của processor cho job này.
    * @returns Kết quả của `fn`.
-   * @throws Lỗi của `fn`, hoặc lỗi của bước chuẩn bị khi trung
-   *   tâm ở kho riêng mà kho không mở được (bí mật/role lệch sổ)
-   *   — truyền ra để BullMQ thử lại job theo chính sách hiện hành.
+   * @throws Lỗi của `fn`; lỗi phân giải đích khi job mang slug
+   *   khác null (bất kỳ mã nào: slug không còn trong sổ, bí mật
+   *   thiếu/sai, role lệch sổ, không đọc được control plane) —
+   *   truyền ra nguyên trạng để BullMQ thử lại job, tuyệt đối
+   *   không chạy thân xử lý trên kho chung; hoặc lỗi của bước
+   *   chuẩn bị khi trung tâm ở kho riêng mà kho không mở được.
    */
   async runForJob<T>(
     data: { spaceSlug?: string | null; tenantId?: string | null },
@@ -59,9 +63,9 @@ export class SpaceJobRunner {
   ): Promise<T> {
     const slug = data.spaceSlug ?? null;
     if (slug) {
-      // Không phân giải được đích (xem bước 4 ở mô tả lớp): rơi
-      // về đường platform như hiện tại thay vì làm chết job.
-      const target = await this.spaceDb.resolveTarget(slug).catch(() => null);
+      // Phân giải lỗi (xem bước 4 ở mô tả lớp): KHÔNG nuốt lỗi
+      // thành platform — ném ra để BullMQ thử lại job.
+      const target = await this.spaceDb.resolveTarget(slug);
       if (target?.mode === 'dedicated') {
         return this.spaceDb.withSpaceDatabase(slug, async () => fn(), {
           tenantId: data.tenantId ?? undefined,

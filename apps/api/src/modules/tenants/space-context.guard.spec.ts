@@ -116,6 +116,18 @@ describe('Guard gắn ngữ cảnh trung tâm theo địa chỉ', () => {
     expect(spaceDb.getDatabaseForSpace).not.toHaveBeenCalled();
   });
 
+  it('tầng định tuyến chưa cấu hình control plane nhưng phiên mang centre_id thì fail-closed thay vì cho qua', async () => {
+    const failure = new SpaceRoutingError('space_routing.not_configured', 'not configured');
+    const { guard, spaceDb } = makeGuard({ resolveError: failure });
+    const request: FakeRequest = {
+      headers: { host: HOST_A },
+      tenantId: 'tenant-a',
+      user: { id: 'u1', username: 'gv1', centreId: 'id-dang-ky-a' },
+    };
+    await expect(guard.canActivate(httpContext(request))).rejects.toBe(failure);
+    expect(spaceDb.getDatabaseForSpace).not.toHaveBeenCalled();
+  });
+
   it('lỗi phân giải do cấu hình kho riêng lệch sổ thì ném ra nguyên trạng thay vì rơi về đường thường', async () => {
     const failure = new SpaceRoutingError('space_routing.role_mismatch', 'role mismatch');
     const { guard } = makeGuard({ resolveError: failure });
