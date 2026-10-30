@@ -5,6 +5,9 @@ import {
   adminToken, assignRole, createTestApp, createUserViaApi, http, login,
   roleIdByShortname, STRONG_PASSWORD, systemContextId,
 } from '../../support/identity-access-helpers';
+// Từ issue #539, nhịp quét matching chạy ở worker nên tiến trình API trong test
+// không còn tự quét: mỗi vòng chờ dẫn một nhịp qua cầu dẫn này rồi mới đọc trạng thái.
+import { closeSepaySweepDriver, driveSepaySweep } from '../../support/sepay-sweep-driver';
 
 /**
  * Lát 2 của issue #189 — mô hình gói `tenant_plan`/`teacher_plan` với
@@ -73,6 +76,7 @@ describe('Plan purchases: tenant_plan + teacher_plan over the VietQR pipeline (i
     const start = Date.now();
     let last: Record<string, unknown> = {};
     while (Date.now() - start < timeoutMs) {
+      await driveSepaySweep();
       const res = await http(app).get(`/api/v1/payments/${id}`).set('Authorization', `Bearer ${admin}`);
       last = res.body;
       if (last.status === want) return last;
@@ -121,6 +125,7 @@ describe('Plan purchases: tenant_plan + teacher_plan over the VietQR pipeline (i
     if (disabledAccountIds.length > 0) {
       await pg.query('update payment_accounts set enabled = true where id = any($1)', [disabledAccountIds]);
     }
+    await closeSepaySweepDriver();
     await pg.end();
     await app.close();
   });

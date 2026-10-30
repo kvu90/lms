@@ -7,6 +7,9 @@ import {
 } from '../../support/identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance } from '../../support/course-enrolment-helpers';
 import { TenantConfigService } from '../../../src/modules/tenants/tenant-config.service';
+// Từ issue #539, nhịp quét matching chạy ở worker nên tiến trình API trong test
+// không còn tự quét: mỗi vòng chờ dẫn một nhịp qua cầu dẫn này rồi mới đọc trạng thái.
+import { closeSepaySweepDriver, driveSepaySweep } from '../../support/sepay-sweep-driver';
 
 /**
  * Lát 3 (cuối) của issue #189 — vòng đời duyệt hoàn + hàng đợi
@@ -135,6 +138,7 @@ describe('Lát 3 #189: vòng đời hoàn tiền + hàng đợi needs_review the
     const start = Date.now();
     let last: Record<string, unknown> = {};
     while (Date.now() - start < timeoutMs) {
+      await driveSepaySweep();
       const res = await http(app).get(`/api/v1/payments/${id}`).set('Authorization', `Bearer ${admin}`);
       last = res.body;
       if (last.status === want) return last;
@@ -147,6 +151,7 @@ describe('Lát 3 #189: vòng đời hoàn tiền + hàng đợi needs_review the
     const start = Date.now();
     let last: Record<string, unknown> = {};
     while (Date.now() - start < timeoutMs) {
+      await driveSepaySweep();
       const ev = await pg.query('select id, match_status from payment_provider_events where external_transaction_id = $1', [txId]);
       last = (ev.rows[0] ?? {}) as Record<string, unknown>;
       if (last.match_status === want) return last;
@@ -192,7 +197,7 @@ describe('Lát 3 #189: vòng đời hoàn tiền + hàng đợi needs_review the
     await pg.connect();
     sepayAccountId = await createSepayAccount(admin);
   });
-  afterAll(async () => { await pg.end(); await app.close(); });
+  afterAll(async () => { await closeSepaySweepDriver(); await pg.end(); await app.close(); });
 
   it('1. tạo yêu cầu hoàn: lý do là bắt buộc và payment chưa succeeded không hoàn được', async () => {
     const { payment } = await manualSucceededPayment();
@@ -380,6 +385,7 @@ describe('Lát 3 #189: vòng đời hoàn tiền + hàng đợi needs_review the
     const start = Date.now();
     let settled: Record<string, unknown> | undefined;
     while (Date.now() - start < 12000) {
+      await driveSepaySweep();
       const refunds = await listRefunds(payment.id);
       settled = refunds[0];
       if (settled?.status === 'settled') break;

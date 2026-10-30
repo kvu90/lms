@@ -6,7 +6,14 @@
       "@/*": [
         "./src/*"
       ]
-    }
+    },
+    // Chương trình typecheck (noEmit) bao gồm cả cầu dẫn test
+    // `test/support/sepay-sweep-driver.ts` vốn import code production
+    // của apps/worker (issue #539): rootDir phải chứa cả hai app thì
+    // tsc mới chấp nhận các file đó. Cấu hình build riêng
+    // (tsconfig.build.json) đã ghi đè rootDir về ./src nên đầu ra
+    // build không đổi.
+    "rootDir": ".."
   },
   "include": [
     "src",

@@ -7,6 +7,9 @@ import {
 } from '../../support/identity-access-helpers';
 import { createCategory, createCourse, grantActiveTeacherPlan } from '../../support/course-enrolment-helpers';
 import { createGradeItem, setGrade } from '../../support/assessment-helpers';
+// Từ issue #539, nhịp quét matching chạy ở worker nên tiến trình API trong test
+// không còn tự quét: mỗi vòng chờ dẫn một nhịp qua cầu dẫn này rồi mới đọc trạng thái.
+import { closeSepaySweepDriver, driveCohortSync, driveSepaySweep } from '../../support/sepay-sweep-driver';
 
 /**
  * CLASS-3 — HỌC PHÍ THEO LỚP (issue #184, lát cuối của feat lớp học
@@ -83,6 +86,7 @@ describe('CLASS-3: học phí theo lớp qua pipeline class_fee (issue #184)', (
     const start = Date.now();
     let last: Record<string, unknown> = {};
     while (Date.now() - start < timeoutMs) {
+      await driveSepaySweep();
       const res = await http(app).get(`/api/v1/payments/${id}`).set('Authorization', `Bearer ${admin}`);
       last = res.body as Record<string, unknown>;
       if (last.status === want) return last;
@@ -117,6 +121,9 @@ describe('CLASS-3: học phí theo lớp qua pipeline class_fee (issue #184)', (
   async function waitForClassEnrolmentActive(classId: string, userId: string, token: string, courseIds: string[], timeoutMs = 12000): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
+      await driveSepaySweep();
+      // Nhịp quét vừa ghi dòng cohort — dẫn tiếp nhịp đồng bộ cohort để ghi danh vật chất hoá trước khi đọc trạng thái.
+      await driveCohortSync();
       let settled = (await rosterIds(classId)).includes(userId);
       for (const courseId of courseIds) {
         if (!settled) break;
@@ -142,6 +149,7 @@ describe('CLASS-3: học phí theo lớp qua pipeline class_fee (issue #184)', (
   async function waitForPaymentReconciled(paymentId: string, timeoutMs = 12000): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
+      await driveSepaySweep();
       const matched = await pg.query(
         `select count(*)::int as c from payment_provider_events where matched_payment_id = $1 and match_status = 'matched'`,
         [paymentId],
@@ -220,7 +228,7 @@ describe('CLASS-3: học phí theo lớp qua pipeline class_fee (issue #184)', (
 
     classNoFee = await createClass('Lớp không thu phí');
   });
-  afterAll(async () => { await pg.end(); await app.close(); });
+  afterAll(async () => { await closeSepaySweepDriver(); await pg.end(); await app.close(); });
 
   it('1. đặt học phí qua PATCH lớp (chủ lớp được, học sinh không có capability tại lớp thì 403); gói công khai không lộ dữ kiện nội bộ', async () => {
     const buyer = await person();
