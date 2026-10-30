@@ -39,7 +39,7 @@ interface BankBody {
   };
 }
 
-describe('Bank admin parity (feat #70 follow-up)', () => {
+describe('Ngang bằng admin ngân hàng (feat #70 follow-up)', () => {
   let app: INestApplication;
   let admin: string;
   let adminId: string;

@@ -17,7 +17,7 @@ import { createCategory, createCourse, createEnrolInstance } from '../../support
 const SECRET = process.env.PAYMENT_WEBHOOK_SECRET ?? '';
 const SECRET_HEADER = 'x-payment-webhook-secret';
 
-describe('Payments webhook verification (H1): forged webhooks cannot move payment state or activate fee enrolment', () => {
+describe('Xác minh webhook thanh toán (H1): webhook giả không thể đổi trạng thái thanh toán hay kích hoạt ghi danh phí', () => {
   let app: INestApplication;
   let admin: string;
 
@@ -60,7 +60,7 @@ describe('Payments webhook verification (H1): forged webhooks cannot move paymen
     return req.send(body);
   }
 
-  it('rejects a forged succeeded webhook WITHOUT the secret header: 401, payment stays pending, enrolment not activated', async () => {
+  it('từ chối webhook succeeded giả KHÔNG có header secret: 401, thanh toán vẫn pending, ghi danh không kích hoạt', async () => {
     const { course, buyerToken, paymentId } = await feePayment();
     const res = await webhook({ gateway: 'manual', externalTransactionId: `forge-${Date.now()}`, paymentId, status: 'succeeded' });
     expect(res.status).toBe(401);
@@ -68,7 +68,7 @@ describe('Payments webhook verification (H1): forged webhooks cannot move paymen
     expect(await enrolActive(course.id, buyerToken)).toBe(false);
   });
 
-  it('rejects a webhook with a WRONG secret: 401, payment stays pending, enrolment not activated', async () => {
+  it('từ chối webhook có secret SAI: 401, thanh toán vẫn pending, ghi danh không kích hoạt', async () => {
     const { course, buyerToken, paymentId } = await feePayment();
     const res = await webhook({ gateway: 'manual', externalTransactionId: `wrong-${Date.now()}`, paymentId, status: 'succeeded' }, 'wrong-secret-wrong-secret-wrong-secret');
     expect(res.status).toBe(401);
@@ -76,7 +76,7 @@ describe('Payments webhook verification (H1): forged webhooks cannot move paymen
     expect(await enrolActive(course.id, buyerToken)).toBe(false);
   });
 
-  it('rejects an UNKNOWN gateway even with the correct secret header: 400, payment unchanged', async () => {
+  it('từ chối gateway LẠ ngay cả với header secret đúng: 400, thanh toán không đổi', async () => {
     const { course, buyerToken, paymentId } = await feePayment();
     const res = await webhook({ gateway: 'stripe', externalTransactionId: `unk-${Date.now()}`, paymentId, status: 'succeeded' }, SECRET);
     expect(res.status).toBe(400);
@@ -84,14 +84,14 @@ describe('Payments webhook verification (H1): forged webhooks cannot move paymen
     expect(await enrolActive(course.id, buyerToken)).toBe(false);
   });
 
-  it('rejects a forged FAILED webhook without secret: 401 and the payment stays pending (verify precedes ALL status handling)', async () => {
+  it('từ chối webhook FAILED giả không có secret: 401 và thanh toán vẫn pending (verify đứng trước MỌI xử lý trạng thái)', async () => {
     const { paymentId } = await feePayment();
     const res = await webhook({ gateway: 'manual', externalTransactionId: `failforge-${Date.now()}`, paymentId, status: 'failed' });
     expect(res.status).toBe(401);
     expect(await paymentStatus(paymentId)).toBe('pending');
   });
 
-  it('accepts a correctly signed webhook: payment succeeds, enrolment activates, signed replay stays idempotent', async () => {
+  it('chấp nhận webhook ký đúng: thanh toán thành công, ghi danh kích hoạt, replay đã ký vẫn luỹ đẳng', async () => {
     const { course, buyerToken, paymentId } = await feePayment();
     const txId = `ok-${Date.now()}`;
     const res = await webhook({ gateway: 'manual', externalTransactionId: txId, paymentId, status: 'succeeded' }, SECRET);
@@ -104,7 +104,7 @@ describe('Payments webhook verification (H1): forged webhooks cannot move paymen
     expect(replay.body.duplicate).toBe(true);
   });
 
-  it('a correctly signed FAILED webhook still marks the payment failed (legitimate gateway path unchanged)', async () => {
+  it('webhook FAILED ký đúng vẫn đánh dấu thanh toán thất bại (đường gateway hợp lệ không đổi)', async () => {
     const { paymentId } = await feePayment();
     const res = await webhook({ gateway: 'manual', externalTransactionId: `fail-ok-${Date.now()}`, paymentId, status: 'failed' }, SECRET);
     expect(res.status).toBeLessThan(300);

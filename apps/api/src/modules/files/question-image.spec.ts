@@ -61,7 +61,7 @@ describe('sniffImageMimeType — chỉ tin magic bytes', () => {
   });
 });
 
-describe('FilesService.uploadQuestionImage', () => {
+describe('Hàm FilesService.uploadQuestionImage', () => {
   it('lưu ảnh hợp lệ với component question và mimetype do server sniff ra', async () => {
     const { service, repo } = makeService();
     const row = await service.uploadQuestionImage({
@@ -91,7 +91,7 @@ describe('FilesService.uploadQuestionImage', () => {
   });
 });
 
-describe('FilesService.resolveQuestionImageUrls', () => {
+describe('Hàm FilesService.resolveQuestionImageUrls', () => {
   const docWith = (src: string) => ({
     type: 'doc',
     content: [{ type: 'paragraph', content: [{ type: 'image', attrs: { src, alt: 'hình' } }] }],

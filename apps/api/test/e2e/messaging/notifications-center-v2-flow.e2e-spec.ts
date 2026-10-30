@@ -25,7 +25,7 @@ import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWO
  * sự kiện nghiệp vụ đã được spec của N1 (notifications-providers-flow)
  * kiểm chứng riêng.
  */
-describe('Notification centre v2 (N2, issue #51)', () => {
+describe('Trung tâm thông báo v2 (N2, issue #51)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;

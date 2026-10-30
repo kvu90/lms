@@ -112,7 +112,7 @@ interface ContentSection {
 
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
-describe('K0b book frame (SGK chapters → course sections with dual anchors)', () => {
+describe('Khung sách K0b (chương SGK → section khoá học với neo kép)', () => {
   let app: INestApplication;
   let admin: string;
   let systemCtxId: string;
@@ -164,7 +164,7 @@ describe('K0b book frame (SGK chapters → course sections with dual anchors)', 
   }, 300_000);
   afterAll(async () => { await app.close(); });
 
-  it('course teacher reads the book picker surface for their own course via forCourseId, other-course teacher and student are denied', async () => {
+  it('giáo viên khoá học đọc bề mặt chọn sách cho chính khoá của họ qua forCourseId, giáo viên khoá khác và học viên bị từ chối', async () => {
     const books = await http(app).get(`/api/v1/books?subjectId=${subjectId}&forCourseId=${courseA}`).set(bearer(teacherA));
     expect(books.status).toBe(200);
     expect((books.body as { id: string }[]).some((b) => b.id === bookId)).toBe(true);
@@ -183,7 +183,7 @@ describe('K0b book frame (SGK chapters → course sections with dual anchors)', 
     expect(studentImport.status).toBe(403);
   });
 
-  it('teacher applies two chapters: sections carry items whose captured outcomes match the mapped programme outcomes', async () => {
+  it('giáo viên áp hai chương: section mang item có outcome ghi nhận khớp outcome chương trình đã ánh xạ', async () => {
     const chapter1 = tree.chapters.find((c) => c.title === 'Các số từ 0 đến 10')!;
     const chapter3 = tree.chapters.find((c) => c.title === 'Phép cộng, phép trừ trong phạm vi 10')!;
     expect(chapter1).toBeTruthy();
@@ -235,7 +235,7 @@ describe('K0b book frame (SGK chapters → course sections with dual anchors)', 
     }
   }, 120_000);
 
-  it('enrolled student sees the applied structure as ordinary course content', async () => {
+  it('học viên đã ghi danh thấy cấu trúc đã áp dạng nội dung khoá học thường', async () => {
     const content = await http(app).get(`/api/v1/courses/${courseA}/content`).set(bearer(studentA));
     expect(content.status).toBe(200);
     const sections = (content.body as { sections: ContentSection[] }).sections

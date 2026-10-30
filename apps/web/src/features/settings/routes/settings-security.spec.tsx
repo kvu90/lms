@@ -76,7 +76,7 @@ function renderPage() {
   );
 }
 
-describe('Settings — security page, sessions card (moved from Profile, issue #288)', () => {
+describe('Cài đặt — trang bảo mật, thẻ phiên (chuyển từ Hồ sơ, issue #288)', () => {
   beforeEach(() => {
     localStorage.clear();
   });
@@ -87,7 +87,7 @@ describe('Settings — security page, sessions card (moved from Profile, issue #
     vi.unstubAllGlobals();
   });
 
-  it('renders sessions with the current badge and revokes a single other session', async () => {
+  it('render các phiên kèm huy hiệu hiện tại và thu hồi một phiên khác', async () => {
     let sessions = [{ ...CURRENT_SESSION }, { ...OTHER_SESSION }];
     vi.stubGlobal(
       'fetch',
@@ -131,7 +131,7 @@ describe('Settings — security page, sessions card (moved from Profile, issue #
     expect(screen.getByText('203.0.113.10')).toBeInTheDocument();
   });
 
-  it('revokes all other sessions in one action, keeping only the current one', async () => {
+  it('thu hồi mọi phiên khác trong một thao tác, chỉ giữ phiên hiện tại', async () => {
     let sessions = [{ ...CURRENT_SESSION }, { ...OTHER_SESSION }, { ...THIRD_SESSION }];
     vi.stubGlobal(
       'fetch',
@@ -181,7 +181,7 @@ const TOTP_OTPAUTH_URL = 'otpauth://totp/LMS:learner?' + 'sec' + 'ret=' + TOTP_S
 const TOTP_SETUP_RESPONSE: Record<string, string> = { otpauthUrl: TOTP_OTPAUTH_URL };
 TOTP_SETUP_RESPONSE['sec' + 'ret'] = TOTP_SECRET;
 
-describe('Settings — security page, two-factor card (moved from Profile, issue #288)', () => {
+describe('Cài đặt — trang bảo mật, thẻ hai yếu tố (chuyển từ Hồ sơ, issue #288)', () => {
   beforeEach(() => {
     localStorage.clear();
   });
@@ -226,7 +226,7 @@ describe('Settings — security page, two-factor card (moved from Profile, issue
     );
   }
 
-  it('shows the off state and the enable button when MFA is not enabled', async () => {
+  it('hiện trạng thái tắt và nút bật khi chưa bật MFA', async () => {
     stubFetch({ enabled: false });
     renderPage();
     await waitFor(() => expect(screen.getByText('Chưa bật')).toBeInTheDocument());
@@ -234,7 +234,7 @@ describe('Settings — security page, two-factor card (moved from Profile, issue
     expect(screen.queryByRole('button', { name: 'Tắt xác thực hai lớp' })).not.toBeInTheDocument();
   });
 
-  it('enables MFA: setup shows the QR code and the text secret, the right code turns the status on', async () => {
+  it('bật MFA: thiết lập hiện mã QR và secret dạng chữ, mã đúng bật trạng thái', async () => {
     const state = { enabled: false };
     stubFetch(state);
     const { container } = renderPage();
@@ -253,7 +253,7 @@ describe('Settings — security page, two-factor card (moved from Profile, issue
     expect(screen.queryByText(TOTP_SECRET)).not.toBeInTheDocument();
   });
 
-  it('keeps the setup step open with a clear error when the code is wrong', async () => {
+  it('giữ bước thiết lập mở kèm lỗi rõ ràng khi mã sai', async () => {
     const state = { enabled: false };
     stubFetch(state);
     renderPage();
@@ -269,7 +269,7 @@ describe('Settings — security page, two-factor card (moved from Profile, issue
     expect(state.enabled).toBe(false);
   });
 
-  it('disables MFA with the current code and returns to the off state', async () => {
+  it('tắt MFA bằng mã hiện tại và về trạng thái tắt', async () => {
     const state = { enabled: true };
     stubFetch(state);
     renderPage();

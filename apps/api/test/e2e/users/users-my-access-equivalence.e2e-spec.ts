@@ -25,7 +25,7 @@ import { EXPECTED_SNAPSHOTS } from '../../support/users-my-access-snapshot.fixtu
  *      tenant; site admin ở trong cây tenant KHÔNG có lối tắt — chỉ
  *      được phân giải như người thường theo gán vai neo trong tenant.
  */
-describe('Users: my-access batch resolution equivalence', () => {
+describe('Người dùng: tương đương phân giải batch my-access', () => {
   let app: INestApplication;
   let admin: string;
   let adminId: string;
@@ -154,14 +154,14 @@ describe('Users: my-access batch resolution equivalence', () => {
 
   afterAll(async () => { await app.close(); });
 
-  it('reproduces the recorded pre-change snapshots field-for-field for the sample roles', async () => {
+  it('tái tạo đúng từng trường snapshot trước-thay-đổi đã ghi cho các vai mẫu', async () => {
     for (const key of ['teacherMulti', 'teacherOne', 'studentPlain', 'plainUser'] as const) {
       const normalized = normalize(await snapshotOf(key));
       expect(normalized, `snapshot mismatch for ${key}`).toEqual(EXPECTED_SNAPSHOTS[key]);
     }
   }, 120000);
 
-  it('matches the legacy has-capability oracle on every capability at the sensitive contexts', async () => {
+  it('khớp oracle has-capability cũ trên mọi năng lực tại ngữ cảnh nhạy cảm', async () => {
     const teacherMulti = normalize(await snapshotOf('teacherMulti'));
     const userIds = new Map<string, string>();
     // Lấy userId thật từ chính đáp ứng (snapshotOf không trả userId ra ngoài normalize).
@@ -180,7 +180,7 @@ describe('Users: my-access batch resolution equivalence', () => {
     expect(studentSystem.capabilities).toEqual(await oracleCapabilities(userIds.get('studentPlain')!, labelToId.get('system')!));
   }, 600000);
 
-  it('applies the tenant gate in the snapshot exactly like the legacy path', async () => {
+  it('áp cổng tenant trong snapshot đúng như đường cũ', async () => {
     const t = (globalThis as Record<string, unknown>).__perfTenant as {
       tenantId: string; tenantCourseId: string; tenantCtxId: string; memberId: string; outsiderId: string;
     };

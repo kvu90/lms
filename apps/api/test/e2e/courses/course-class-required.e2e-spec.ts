@@ -26,7 +26,7 @@ import { createCategory, createClass, createCourse } from '../../support/course-
  *  (8) lưới DB: INSERT thẳng khoá dạy thật không lớp bị CHECK chặn
  *      (23514), trong khi khoá mẫu không lớp vẫn hợp lệ.
  */
-describe('Course must belong to a class (#200 packaging, #184)', () => {
+describe('Khoá học phải thuộc một lớp (#200 packaging, #184)', () => {
   let app: INestApplication;
   let admin = '';
   let categoryId = '';

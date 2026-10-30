@@ -101,7 +101,7 @@ describe('Gradebook page — điểm theo bài của học sinh (issue #224)', (
     localStorage.clear();
   });
 
-  it('renders each activity grade with its publication state, and no course total', async () => {
+  it('render từng điểm hoạt động kèm trạng thái công bố, và không có tổng khoá học', async () => {
     stubFetch((url) => {
       if (url === `/api/v1/courses/${COURSE_ID}/gradebook`) return BOOK;
       if (url === `/api/v1/courses/${COURSE_ID}/gradebook/report`) return REPORT;
@@ -272,7 +272,7 @@ describe('Gradebook administration — giáo viên của khoá (issue #224)', ()
     renderGradebook();
   }
 
-  it('renders the read-only class grid with student names and per-activity grades', async () => {
+  it('render lưới lớp chỉ-đọc với tên học viên và điểm từng hoạt động', async () => {
     const calls: RecordedCall[] = [];
     stubTeacherFetch(calls);
     renderAsTeacher();
@@ -282,7 +282,7 @@ describe('Gradebook administration — giáo viên của khoá (issue #224)', ()
     expect(screen.getByText('85')).toBeInTheDocument();
   });
 
-  it('creates a grade item via POST /courses/:courseId/grade-items with the contracts body', async () => {
+  it('tạo mục điểm qua POST /courses/:courseId/grade-items với body contracts', async () => {
     const calls: RecordedCall[] = [];
     stubTeacherFetch(calls);
     renderAsTeacher();
@@ -307,7 +307,7 @@ describe('Gradebook administration — giáo viên của khoá (issue #224)', ()
     expect(createCall?.body).toEqual({ itemName: 'Midterm', gradeMax: 100 });
   });
 
-  it('publishes an activity via POST /grade-items/:itemId/publish', async () => {
+  it('công bố hoạt động qua POST /grade-items/:itemId/publish', async () => {
     const calls: RecordedCall[] = [];
     stubTeacherFetch(calls, {
       publications: { [ITEM.id]: { policy: 'manual', published: false } },
@@ -320,7 +320,7 @@ describe('Gradebook administration — giáo viên của khoá (issue #224)', ()
     );
   });
 
-  it('loads a student grade history from GET /grade-items/:itemId/users/:userId/history', async () => {
+  it('tải lịch sử điểm của học viên từ GET /grade-items/:itemId/users/:userId/history', async () => {
     const calls: RecordedCall[] = [];
     stubTeacherFetch(calls);
     renderAsTeacher();
@@ -338,7 +338,7 @@ describe('Gradebook administration — giáo viên của khoá (issue #224)', ()
     expect(await screen.findByText(/85 · manual/)).toBeInTheDocument();
   });
 
-  it('exports the vnEdu Excel sheet from published activities with the teacher-confirmed mapping', async () => {
+  it('xuất sheet Excel vnEdu từ hoạt động đã công bố với ánh xạ giáo viên đã xác nhận', async () => {
     const calls: RecordedCall[] = [];
     const regular = { ...ITEM, id: '01900000-0000-7000-8000-000000000061', itemName: 'Kiểm tra 15 phút' };
     const midterm = { ...ITEM, id: '01900000-0000-7000-8000-000000000062', itemName: 'Kiểm tra giữa kỳ' };
@@ -375,7 +375,7 @@ describe('Gradebook administration — giáo viên của khoá (issue #224)', ()
     Reflect.deleteProperty(URL, 'revokeObjectURL');
   });
 
-  it('blocks the vnEdu export at the UI when an activity is not published yet', async () => {
+  it('chặn xuất vnEdu tại UI khi hoạt động chưa công bố', async () => {
     const calls: RecordedCall[] = [];
     const regular = { ...ITEM, id: '01900000-0000-7000-8000-000000000061', itemName: 'Kiểm tra 15 phút' };
     const midterm = { ...ITEM, id: '01900000-0000-7000-8000-000000000062', itemName: 'Kiểm tra giữa kỳ' };

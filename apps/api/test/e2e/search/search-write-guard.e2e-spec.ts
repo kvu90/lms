@@ -18,7 +18,7 @@ import { courseContextId } from '../../support/engagement-helpers';
  * SearchService ở tầng service, không qua các route này — spec
  * platform-search-webservice-flow (ca content bank) là bằng chứng giữ nguyên.
  */
-describe('Search write routes guard (H2+H5, #134)', () => {
+describe('Cổng route ghi tìm kiếm (H2+H5, #134)', () => {
   let app: INestApplication;
   let admin: string;
   let courseId: string;

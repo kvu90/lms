@@ -47,7 +47,7 @@ function renderProfile() {
   );
 }
 
-describe('Profile page — info form only after the Settings split (#288)', () => {
+describe('Trang hồ sơ — chỉ form thông tin sau khi tách Settings (#288)', () => {
   beforeEach(() => {
     localStorage.clear();
   });
@@ -56,7 +56,7 @@ describe('Profile page — info form only after the Settings split (#288)', () =
     vi.unstubAllGlobals();
   });
 
-  it('renders only the user info form — no settings cards, no settings API calls', async () => {
+  it('chỉ render form thông tin người dùng — không thẻ cài đặt, không gọi API cài đặt', async () => {
     const calls: string[] = [];
     vi.stubGlobal(
       'fetch',
@@ -84,7 +84,7 @@ describe('Profile page — info form only after the Settings split (#288)', () =
     expect(calls.some((u) => u.includes('/auth/sessions'))).toBe(false);
   });
 
-  it('still saves edited info through PATCH /users/:id and confirms', async () => {
+  it('vẫn lưu thông tin đã sửa qua PATCH /users/:id và xác nhận', async () => {
     let saved: Record<string, unknown> | null = null;
     let current = PROFILE;
     vi.stubGlobal(

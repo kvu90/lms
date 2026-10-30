@@ -125,13 +125,13 @@ describe('Messaging — roster thành viên khoá + cổng nhắn riêng chỉ l
     await app.close();
   });
 
-  it('the people search endpoint is gone (404)', async () => {
+  it('endpoint tìm kiếm people đã biến mất (404)', async () => {
     const res = await http(app).get('/api/v1/messages/people/search?q=Tran')
       .set('Authorization', `Bearer ${actor.token}`);
     expect(res.status).toBe(404);
   });
 
-  it('lists my courses by membership (enrolment or course-context role assignment)', async () => {
+  it('liệt kê khoá học của tôi theo thành viên (ghi danh hoặc gán vai trò ngữ cảnh khoá học)', async () => {
     const mine = await http(app).get('/api/v1/messages/courses').set('Authorization', `Bearer ${actor.token}`);
     expect(mine.status).toBe(200);
     const ids = (mine.body.courses as { courseId: string }[]).map((c) => c.courseId);
@@ -146,7 +146,7 @@ describe('Messaging — roster thành viên khoá + cổng nhắn riêng chỉ l
     expect(outsiderIds).not.toContain(courseA);
   });
 
-  it('roster shows course members with role markers and the exact field whitelist; self, outsiders and suspended members are excluded', async () => {
+  it('roster hiện thành viên khoá học kèm dấu vai trò và đúng whitelist trường; bản thân, người ngoài và thành viên bị đình chỉ bị loại', async () => {
     const res = await roster(actor.token, courseA);
     expect(res.status).toBe(200);
     const members = res.body.members as RosterMember[];
@@ -174,7 +174,7 @@ describe('Messaging — roster thành viên khoá + cổng nhắn riêng chỉ l
     expect(res.body.nextCursor).toBeNull();
   });
 
-  it('non-members get the same 404 as a non-existent course (no existence oracle)', async () => {
+  it('người không phải thành viên nhận cùng 404 như khoá không tồn tại (không lộ oracle tồn tại)', async () => {
     const asOutsider = await roster(outsider.token, courseA);
     expect(asOutsider.status).toBe(404);
     expect(asOutsider.body.code).toBe('messaging.course_not_found');
@@ -184,7 +184,7 @@ describe('Messaging — roster thành viên khoá + cổng nhắn riêng chỉ l
     expect(missing.body.message).toBe(asOutsider.body.message);
   });
 
-  it('roster reflects relationship states and hides blocked relations in both directions', async () => {
+  it('roster phản ánh trạng thái quan hệ và ẩn quan hệ bị chặn cả hai chiều', async () => {
     // pending_outgoing: actor gửi yêu cầu cho s2.
     const out = await http(app).post(`/api/v1/messages/contacts/${s2.id}`)
       .set('Authorization', `Bearer ${actor.token}`).send({});
@@ -211,7 +211,7 @@ describe('Messaging — roster thành viên khoá + cổng nhắn riêng chỉ l
     expect((s3View.body.members as RosterMember[]).map((m) => m.userId)).not.toContain(actor.id);
   });
 
-  it('a student can friend the role-assigned teacher from the roster and then message them', async () => {
+  it('học viên có thể kết bạn với giáo viên được gán vai từ roster rồi nhắn tin cho họ', async () => {
     await befriend(actor, teacherRoleOnly);
     const res = await roster(actor.token, courseA);
     const byId = new Map((res.body.members as RosterMember[]).map((m) => [m.userId, m]));
@@ -228,7 +228,7 @@ describe('Messaging — roster thành viên khoá + cổng nhắn riêng chỉ l
     expect(reply.status).toBe(201);
   });
 
-  it('direct messages are contacts-only: shared course does not open the gate, messagingallusers no longer opens it, removing the contact closes sending but history stays readable', async () => {
+  it('tin nhắn trực tiếp chỉ-dành-cho-liên-hệ: khoá chung không mở cổng, messagingallusers không còn mở cổng, xoá liên hệ đóng gửi nhưng lịch sử vẫn đọc được', async () => {
     const gateA = await person('Cong', 'Mot');
     const gateB = await person('Cong', 'Hai');
     const category = await createCategory(app, admin);
@@ -288,7 +288,7 @@ describe('Messaging — roster thành viên khoá + cổng nhắn riêng chỉ l
     expect((history.body.messages as { fullMessage: string }[]).map((m) => m.fullMessage)).toContain('tin khi đã kết bạn');
   });
 
-  it('roster paginates by cursor in (displayName, username, id) order without duplicates or gaps', async () => {
+  it('roster phân trang bằng con trỏ theo thứ tự (displayName, username, id) không trùng lặp hay thiếu hụt', async () => {
     const me = await person('Chu', 'Trang');
     const category = await createCategory(app, admin);
     const course = await createCourse(app, admin, category.id, { fullName: 'Khoá Phân Trang' });
@@ -323,7 +323,7 @@ describe('Messaging — roster thành viên khoá + cổng nhắn riêng chỉ l
     expect(bad.body.code).toBe('messaging.roster_cursor_invalid');
   });
 
-  it('conversation lists and contacts still carry display names (profiles) after the search removal', async () => {
+  it('danh sách trò chuyện và liên hệ vẫn mang tên hiển thị (hồ sơ) sau khi bỏ tìm kiếm', async () => {
     const a = await person('Ten', 'Hien');
     const b = await person('Ten', 'Ban');
     await befriend(a, b);

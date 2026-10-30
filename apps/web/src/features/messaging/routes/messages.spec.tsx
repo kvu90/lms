@@ -136,14 +136,14 @@ function renderMessages(entry = '/messages') {
   );
 }
 
-describe('Messages page — block and unblock contacts', () => {
+describe('Trang tin nhắn — chặn và bỏ chặn liên hệ', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('blocks the conversation partner via POST contacts/:userId/block and unblocks via DELETE', async () => {
+  it('chặn đối tác trò chuyện qua POST contacts/:userId/block và bỏ chặn qua DELETE', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderMessages();
@@ -253,7 +253,7 @@ function stubRealtimeFetch(calls: RecordedCall[]) {
   );
 }
 
-describe('Messages page — optimistic send and realtime updates', () => {
+describe('Trang tin nhắn — gửi lạc quan và cập nhật realtime', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -261,7 +261,7 @@ describe('Messages page — optimistic send and realtime updates', () => {
     realtime.handlers = null;
   });
 
-  it('sends with a clientMessageId and dedupes the socket echo of its own message', async () => {
+  it('gửi kèm clientMessageId và khử trùng echo socket của chính tin nhắn đó', async () => {
     const calls: RecordedCall[] = [];
     stubRealtimeFetch(calls);
     renderMessages();
@@ -306,7 +306,7 @@ describe('Messages page — optimistic send and realtime updates', () => {
     expect(within(thread).getAllByText('xin chào lạc quan')).toHaveLength(1);
   });
 
-  it('appends a realtime message from the peer and updates unread from conversation.updated', async () => {
+  it('thêm tin nhắn realtime từ đối tác và cập nhật chưa đọc từ conversation.updated', async () => {
     const calls: RecordedCall[] = [];
     stubRealtimeFetch(calls);
     renderMessages();
@@ -353,7 +353,7 @@ describe('Messages page — optimistic send and realtime updates', () => {
     expect(await screen.findByRole('button', { name: /Nhóm hai.*3 chưa đọc/ })).toBeInTheDocument();
   });
 
-  it('ignores a stale conversation.updated with an older seq than the applied one', async () => {
+  it('bỏ qua conversation.updated cũ có seq nhỏ hơn seq đã áp dụng', async () => {
     const calls: RecordedCall[] = [];
     stubRealtimeFetch(calls);
     renderMessages();
@@ -532,7 +532,7 @@ describe('Messages page — Lớp B contacts (request–accept)', () => {
     realtime.handlers = null;
   });
 
-  it('accepts an incoming contact request and sends a new request from the course roster', async () => {
+  it('chấp nhận yêu cầu liên hệ đến và gửi yêu cầu mới từ danh sách khoá học', async () => {
     const calls: RecordedCall[] = [];
     stubDomainFetch(calls);
     renderMessages();
@@ -583,7 +583,7 @@ describe('Messages page — Lớp B conversation actions (soft delete + report)'
     realtime.handlers = null;
   });
 
-  it('soft-deletes my own message (peer message has no delete button) and reports the conversation', async () => {
+  it('xoá mềm tin nhắn của tôi (tin nhắn đối tác không có nút xoá) và báo cáo cuộc trò chuyện', async () => {
     const calls: RecordedCall[] = [];
     stubDomainFetch(calls);
     renderMessages();
@@ -669,7 +669,7 @@ describe('Messages page — notification deep-link (việc nối tiếp #33)', (
     realtime.handlers = null;
   });
 
-  it('opens the conversation named by ?conversation= when it is in the loaded list', async () => {
+  it('mở cuộc trò chuyện nêu bởi ?conversation= khi nó nằm trong danh sách đã tải', async () => {
     const calls: RecordedCall[] = [];
     stubRealtimeFetch(calls);
     renderMessages(`/messages?conversation=${CONV_ID}`);
@@ -685,7 +685,7 @@ describe('Messages page — notification deep-link (việc nối tiếp #33)', (
     );
   });
 
-  it('fetches by id and opens the conversation when it is not in the loaded list', async () => {
+  it('fetch theo id và mở cuộc trò chuyện khi nó không nằm trong danh sách đã tải', async () => {
     const calls: RecordedCall[] = [];
     stubDeepLinkFetch(calls);
     renderMessages(`/messages?conversation=${CONV3_ID}`);
@@ -709,7 +709,7 @@ describe('Messages page — notification deep-link (việc nối tiếp #33)', (
     );
   });
 
-  it('ignores an unknown ?conversation= id and keeps the page as-is', async () => {
+  it('bỏ qua id ?conversation= lạ và giữ nguyên trang', async () => {
     const calls: RecordedCall[] = [];
     stubDeepLinkFetch(calls);
     renderMessages(`/messages?conversation=${UNKNOWN_CONV_ID}`);
@@ -730,14 +730,14 @@ describe('Messages page — notification deep-link (việc nối tiếp #33)', (
   });
 });
 
-describe('Messages page — create conversation contract', () => {
+describe('Trang tin nhắn — hợp đồng tạo cuộc trò chuyện', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('posts memberIds when starting a conversation from a course roster contact and opens it with the designated user as a member', async () => {
+  it('post memberIds khi bắt đầu trò chuyện từ liên hệ danh sách khoá học và mở nó với người được chỉ định làm thành viên', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderMessages();
@@ -764,7 +764,7 @@ describe('Messages page — create conversation contract', () => {
     expect(await screen.findByRole('button', { name: /^Chặn liên lạc / })).toBeInTheDocument();
   });
 
-  it('shows a direct Message button on roster rows flagged canDirectMessage (teacher → enrolled student, no friending first)', async () => {
+  it('hiện nút Nhắn tin trực tiếp trên dòng danh sách gắn cờ canDirectMessage (giáo viên → học viên đã ghi danh, không cần kết bạn trước)', async () => {
     const calls: RecordedCall[] = [];
     // Khuôn stubFetch nhưng roster mang hai học sinh CHƯA kết bạn:
     // một người được API gắn cờ canDirectMessage (học sinh của khoá
@@ -832,7 +832,7 @@ describe('Messages page — vòng đời tin nhắn theo vai (thu hồi + invali
     realtime.handlers = null;
   });
 
-  it('shows the recall button only for my recent message, recalls via POST, and keeps the recalled line after conversation.invalidate', async () => {
+  it('chỉ hiện nút thu hồi cho tin nhắn gần đây của tôi, thu hồi qua POST, và giữ dòng đã thu hồi sau conversation.invalidate', async () => {
     const calls: RecordedCall[] = [];
     stubDomainFetch(calls);
     renderMessages();

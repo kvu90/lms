@@ -45,18 +45,18 @@ function failuresAt(...minutesAgo: number[]): AttemptRow[] {
   return minutesAgo.map((m) => ({ attemptedAt: new Date(now - m * MIN) }));
 }
 
-describe('LoginLockoutService', () => {
-  it('does not lock below the threshold', async () => {
+describe('Khối LoginLockoutService', () => {
+  it('không khoá dưới ngưỡng', async () => {
     const { service } = buildService({ failures: failuresAt(1, 2, 3, 4) });
     expect(await service.isLockedOut('user-1')).toBe(false);
   });
 
-  it('locks once the threshold of consecutive failures is reached', async () => {
+  it('khoá khi chạm ngưỡng thất bại liên tiếp', async () => {
     const { service } = buildService({ failures: failuresAt(1, 2, 3, 4, 5) });
     expect(await service.isLockedOut('user-1')).toBe(true);
   });
 
-  it('only counts failures after the last successful login', async () => {
+  it('chỉ đếm thất bại sau lần đăng nhập thành công gần nhất', async () => {
     const { service } = buildService({
       failures: failuresAt(1, 2, 4, 5, 6),
       lastSuccess: new Date(Date.now() - 3 * MIN),
@@ -64,12 +64,12 @@ describe('LoginLockoutService', () => {
     expect(await service.isLockedOut('user-1')).toBe(false);
   });
 
-  it('unlocks after the lockout duration has elapsed', async () => {
+  it('mở khoá sau khi hết thời gian khoá', async () => {
     const { service } = buildService({ failures: failuresAt(31, 32, 33, 34, 35) });
     expect(await service.isLockedOut('user-1')).toBe(false);
   });
 
-  it('is disabled entirely when the threshold is 0', async () => {
+  it('tắt hoàn toàn khi ngưỡng bằng 0', async () => {
     const { service } = buildService({
       failures: failuresAt(1, 1, 1, 1, 1, 1, 1, 1),
       config: { LOCKOUT_THRESHOLD: 0 },
@@ -77,14 +77,14 @@ describe('LoginLockoutService', () => {
     expect(await service.isLockedOut('user-1')).toBe(false);
   });
 
-  it('never locks an unknown login identifier and records nothing for it', async () => {
+  it('không bao giờ khoá định danh đăng nhập lạ và không ghi gì cho nó', async () => {
     const { service, recorded } = buildService({ user: undefined });
     expect(await service.isLoginLocked({ username: 'ghost' })).toBe(false);
     await service.recordLoginAttempt({ username: 'ghost' }, false, '198.51.100.7');
     expect(recorded).toHaveLength(0);
   });
 
-  it('records attempts under the canonical username when resolving by email', async () => {
+  it('ghi lượt thử dưới username chuẩn khi phân giải bằng email', async () => {
     const user = { id: 'user-9', username: 'canonical.name', deleted: false };
     const { service, recorded } = buildService({ user });
     await service.recordLoginAttempt({ email: 'person@example.com' }, true, '198.51.100.7');

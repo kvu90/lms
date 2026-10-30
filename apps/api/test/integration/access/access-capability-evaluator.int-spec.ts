@@ -37,7 +37,7 @@ describe('Access: tài khoản khách chỉ được đánh giá qua vai khách 
   });
   afterAll(async () => { await app.close(); });
 
-  it('guest account evaluates through the guest role only', async () => {
+  it('tài khoản khách chỉ được đánh giá qua vai trò khách', async () => {
     const users = app.get(UsersService);
     const evaluator = app.get(PermissionEvaluator);
     const guest = await users.ensureGuestUser();

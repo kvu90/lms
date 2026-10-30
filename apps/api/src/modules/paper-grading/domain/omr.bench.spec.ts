@@ -18,8 +18,8 @@ import { renderSheetRgba, seededRandom, simulatePhoto, type SlotFill } from './s
 const OPTION_COUNTS_40 = Array.from({ length: 40 }, (_, i) => (i % 7 === 3 ? 2 : 4));
 const LONG = { timeout: 600_000 };
 
-describe('CAM-0 simulated acceptance set', () => {
-  it('accuracy: clean filled sheets read ≥99.5% of bubbles correctly, QR 100%', LONG, () => {
+describe('Tập nghiệm thu mô phỏng CAM-0', () => {
+  it('độ chính xác: phiếu tô sạch đọc đúng ≥99.5% ô tròn, QR 100%', LONG, () => {
     const geometry = computeSheetGeometry(OPTION_COUNTS_40);
     let totalQuestions = 0, correctQuestions = 0, ambiguousOnClean = 0;
     let totalCells = 0, correctCells = 0;
@@ -64,7 +64,7 @@ describe('CAM-0 simulated acceptance set', () => {
     expect(qrOk).toBe(SHEETS);
   });
 
-  it('ambiguity: light fills, check marks, double fills and erasures are ALL captured, none guessed', LONG, () => {
+  it('mơ hồ: tô mờ, dấu tick, tô đôi và tẩy xoá đều được ghi nhận HẾT, không đoán gì', LONG, () => {
     const geometry = computeSheetGeometry(OPTION_COUNTS_40);
     const special: SlotFill[] = [
       { choice: 0, style: 'light' },
@@ -100,7 +100,7 @@ describe('CAM-0 simulated acceptance set', () => {
     expect(checked).toBe(32);
   });
 
-  it('identity: bubble codes read exactly; a single wrong digit is always detected', LONG, () => {
+  it('định danh: mã ô tròn đọc chính xác; một chữ số sai duy nhất luôn bị phát hiện', LONG, () => {
     const geometry = computeSheetGeometry(OPTION_COUNTS_40);
     const fills = new Map<number, SlotFill>();
     for (let slot = 1; slot <= 40; slot++) fills.set(slot, { choice: slot % 4, style: 'full' });
@@ -126,7 +126,7 @@ describe('CAM-0 simulated acceptance set', () => {
     }
   });
 
-  it('identity exhaustive: EVERY body position × even and odd deltas is detected on rendered sheets (class codes)', LONG, () => {
+  it('định danh toàn diện: MỌI vị trí thân × delta chẵn và lẻ đều bị phát hiện trên phiếu đã render (mã lớp)', LONG, () => {
     // Ca mù của bench cũ: chỉ thử delta +3 (lẻ) ở một vị trí. Bộ trọng
     // số cũ (3, 5, 7) lọt delta CHẴN ở vị trí trọng số 5 — nay phủ mọi
     // vị trí × {+2, +3, +8 (≡ −2)} trên ảnh mô phỏng thật.
@@ -149,7 +149,7 @@ describe('CAM-0 simulated acceptance set', () => {
     expect(rendered).toBe(9);
   });
 
-  it('quality gate: sheets with a missing fiducial or heavy blur are rejected', LONG, () => {
+  it('cổng chất lượng: phiếu thiếu fiducial hoặc mờ nặng bị từ chối', LONG, () => {
     const geometry = computeSheetGeometry(OPTION_COUNTS_40);
     const fills = new Map<number, SlotFill>();
     for (let slot = 1; slot <= 40; slot++) fills.set(slot, { choice: 1, style: 'full' });
@@ -178,14 +178,14 @@ describe('CAM-0 simulated acceptance set', () => {
  * thống không "sửa" mã đề về mã gần nhất); mã thí sinh 8 số đọc đúng
  * và bắt sai một chữ số 100% như mã 4 số.
  */
-describe('CAM-0 shared-sheet flow (variant grid + SBD codes)', () => {
+describe('Luồng phiếu chung CAM-0 (lưới biến thể + mã SBD)', () => {
   const FILLS_40 = () => {
     const fills = new Map<number, SlotFill>();
     for (let slot = 1; slot <= 40; slot++) fills.set(slot, { choice: slot % 4, style: 'full' });
     return fills;
   };
 
-  it('variant grid: a cleanly bubbled 4-digit exam code reads exactly', LONG, () => {
+  it('lưới biến thể: mã đề 4 chữ số tô sạch đọc chính xác', LONG, () => {
     const geometry = computeSheetGeometry(OPTION_COUNTS_40);
     for (const [seed, variant] of [[1101, '1001'], [1102, '0241'], [1103, '9876']] as const) {
       const sheet = renderSheetRgba({ geometry, qrText: null, bubbleCode: null, variantCode: variant, fills: FILLS_40() });
@@ -195,7 +195,7 @@ describe('CAM-0 shared-sheet flow (variant grid + SBD codes)', () => {
     }
   });
 
-  it('variant grid: one lightly-bubbled digit makes the whole code uncertain — never guessed', LONG, () => {
+  it('lưới biến thể: một chữ số tô mờ làm cả mã không chắc chắn — không bao giờ đoán', LONG, () => {
     const geometry = computeSheetGeometry(OPTION_COUNTS_40);
     for (const lightDigit of [0, 2, 3]) {
       const sheet = renderSheetRgba({
@@ -211,14 +211,14 @@ describe('CAM-0 shared-sheet flow (variant grid + SBD codes)', () => {
     expect(blankResult.variantCode).toBeNull();
   });
 
-  it('variant grid: a wrong-but-clean code reads as-is (routing layer, not the engine, rejects it)', LONG, () => {
+  it('lưới biến thể: mã sai nhưng tô sạch đọc nguyên văn (lớp định tuyến, không phải engine, từ chối nó)', LONG, () => {
     const geometry = computeSheetGeometry(OPTION_COUNTS_40);
     const sheet = renderSheetRgba({ geometry, qrText: null, bubbleCode: null, variantCode: '9999', fills: FILLS_40() });
     const result = processSheetImage(simulatePhoto(sheet, { seed: 1301 }), geometry);
     expect(result.variantCode?.code).toBe('9999');
   });
 
-  it('SBD identity: 8-digit codes read exactly; a single wrong digit is always detected', LONG, () => {
+  it('định danh SBD: mã 8 chữ số đọc chính xác; một chữ số sai duy nhất luôn bị phát hiện', LONG, () => {
     const geometry = computeSheetGeometry(OPTION_COUNTS_40, 8);
     expect(geometry.codeDigits).toBe(8);
     const fills = FILLS_40();
@@ -241,7 +241,7 @@ describe('CAM-0 shared-sheet flow (variant grid + SBD codes)', () => {
     }
   });
 
-  it('SBD identity exhaustive: EVERY body position × even and odd deltas is detected on rendered sheets', LONG, () => {
+  it('định danh SBD toàn diện: MỌI vị trí thân × delta chẵn và lẻ đều bị phát hiện trên phiếu đã render', LONG, () => {
     // Hai vị trí trọng số 5 của bộ cũ là 0 và 6 — delta CHẴN ở đó từng
     // lọt 12,70% đột biến. Phủ cả 7 vị trí thân × {+2, +3, +8 (≡ −2)}.
     const geometry = computeSheetGeometry(OPTION_COUNTS_40, 8);
@@ -262,7 +262,7 @@ describe('CAM-0 shared-sheet flow (variant grid + SBD codes)', () => {
     expect(rendered).toBe(21);
   });
 
-  it('shared sheet end-to-end: SBD code + variant code + answers all read from one photo', LONG, () => {
+  it('phiếu chung đầu-cuối: mã SBD + mã biến thể + đáp án đều đọc từ một ảnh', LONG, () => {
     const geometry = computeSheetGeometry(OPTION_COUNTS_40, 8);
     const fills = new Map<number, SlotFill>();
     const truth = new Map<number, number | null>();

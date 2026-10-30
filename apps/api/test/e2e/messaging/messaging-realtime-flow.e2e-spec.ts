@@ -139,7 +139,7 @@ describe('Messaging foundation + realtime (issue #33, Lớp A)', () => {
     await app.close();
   });
 
-  it('read state is per member: B reading does not clear C unread (group of 3)', async () => {
+  it('trạng thái đã đọc theo từng thành viên: B đọc không xoá chưa đọc của C (nhóm 3 người)', async () => {
     const first = await sendAs(tokenA, 'tin thứ nhất');
     const second = await sendAs(tokenA, 'tin thứ hai');
     expect(first.seq).toBe(1);
@@ -172,7 +172,7 @@ describe('Messaging foundation + realtime (issue #33, Lớp A)', () => {
     expect(bCounts.body.conversations).toBe(0);
   });
 
-  it('send is idempotent per clientMessageId: a retry returns the stored message', async () => {
+  it('gửi luỹ đẳng theo clientMessageId: thử lại trả tin nhắn đã lưu', async () => {
     const firstSend = await sendAs(tokenA, 'nội dung gốc', 'retry-key-1');
     expect(firstSend.clientMessageId).toBe('retry-key-1');
     const retry = await sendAs(tokenA, 'nội dung khác hẳn', 'retry-key-1');
@@ -190,7 +190,7 @@ describe('Messaging foundation + realtime (issue #33, Lớp A)', () => {
     expect(entry.lastMessageSeq).toBe(firstSend.seq);
   });
 
-  it('cursor pagination by seq has no duplicates or gaps', async () => {
+  it('phân trang con trỏ theo seq không trùng lặp hay thiếu hụt', async () => {
     for (const text of ['bốn', 'năm', 'sáu', 'bảy']) await sendAs(tokenA, text);
     // Tổng 7 tin, seq 1..7.
     const detail = await http(app).get(`/api/v1/messages/conversations/${convId}`)
@@ -220,7 +220,7 @@ describe('Messaging foundation + realtime (issue #33, Lớp A)', () => {
     expect(newestWindow.body.hasMoreBefore).toBe(true);
   });
 
-  it('reconnect sync returns exactly the messages missed while offline', async () => {
+  it('đồng bộ khi kết nối lại trả đúng các tin nhắn lỡ khi ngoại tuyến', async () => {
     // Hai hành động dưới đây trước đây thuộc hai ca realtime riêng
     // (tin mới tới socket + biên đã-đọc tới thành viên còn lại): phần
     // khẳng định qua socket đã chuyển sang spec tích hợp của worker
@@ -245,7 +245,7 @@ describe('Messaging foundation + realtime (issue #33, Lớp A)', () => {
     socketB.disconnect();
   });
 
-  it('a socket with an invalid token is disconnected and receives nothing', async () => {
+  it('socket có token không hợp lệ bị ngắt kết nối và không nhận gì', async () => {
     const bad = io(`${base}/messaging`, {
       auth: { token: 'token-khong-hop-le' },
       transports: ['websocket'],
@@ -264,7 +264,7 @@ describe('Messaging foundation + realtime (issue #33, Lớp A)', () => {
     bad.disconnect();
   });
 
-  it('presence and typing (A2): peers see online state and typing signals', async () => {
+  it('presence và đang nhập (A2): phía đối tác thấy trạng thái online và tín hiệu đang nhập', async () => {
     const socketA = await connect(tokenA);
     const socketB = await connect(tokenB);
 

@@ -27,7 +27,7 @@ function stubFetch(handler: (url: string, init?: RequestInit) => unknown) {
   );
 }
 
-describe('Notifications centre v2 (issue #51)', () => {
+describe('Trung tâm thông báo v2 (issue #51)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -81,7 +81,7 @@ describe('Notifications centre v2 (issue #51)', () => {
     return router;
   }
 
-  it('renders one grouped row with its count, expands to the items, and deletes an item at its row', async () => {
+  it('render một dòng nhóm kèm số lượng, mở rộng ra các mục, và xoá một mục ngay tại dòng của nó', async () => {
     const calls: { url: string; method: string }[] = [];
     stubFetch((url, init) => {
       calls.push({ url, method: init?.method ?? 'GET' });
@@ -109,7 +109,7 @@ describe('Notifications centre v2 (issue #51)', () => {
     expect(calls.some((c) => c.method === 'DELETE' && c.url === '/api/v1/notifications/01900000-0000-7000-8000-000000000102')).toBe(true);
   });
 
-  it('filters the grouped list by the learning group tab', async () => {
+  it('lọc danh sách nhóm theo tab nhóm học tập', async () => {
     const urls: string[] = [];
     stubFetch((url) => {
       urls.push(url);
@@ -122,7 +122,7 @@ describe('Notifications centre v2 (issue #51)', () => {
     await waitFor(() => expect(urls.some((u) => u.includes('group=learning'))).toBe(true));
   });
 
-  it('clicking a single-item group marks it read and deep-links to its contextUrl', async () => {
+  it('bấm nhóm một mục đánh dấu đã đọc và deep-link tới contextUrl của nó', async () => {
     const calls: { url: string; method: string }[] = [];
     const singlePage = {
       items: [

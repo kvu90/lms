@@ -12,27 +12,27 @@ import { evaluateTree, leafFromMap, parseAvailabilityTree, type AvailabilityNode
 const ev = (tree: AvailabilityNode, values: Record<string, boolean>) =>
   evaluateTree(tree, leafFromMap(values, { a: 'A', b: 'B', c1: 'C1' }));
 
-describe('AvailabilityTree golden (tree_test.php::test_check_available)', () => {
-  it('no conditions is available', async () => {
+describe('AvailabilityTree chuẩn (tree_test.php::test_check_available)', () => {
+  it('không có điều kiện thì khả dụng', async () => {
     expect((await ev({ op: '|', c: [] }, {})).available).toBe(true);
     expect((await ev({ op: '&', c: [] }, {})).available).toBe(true);
   });
 
-  it('single condition yes/no', async () => {
+  it('một điều kiện: đúng thì khả dụng, sai thì không kèm mô tả lỗi', async () => {
     expect((await ev({ op: '&', c: [{ type: 'mock', id: 'a' }] }, { a: true })).available).toBe(true);
     const no = await ev({ op: '&', c: [{ type: 'mock', id: 'a' }] }, { a: false });
     expect(no.available).toBe(false);
     expect(no.failedDescriptions).toEqual(['A']);
   });
 
-  it('OR: one true is available; both false is not, with both descriptions', async () => {
+  it('OR: một đúng thì khả dụng; cả hai sai thì không, kèm cả hai mô tả', async () => {
     expect((await ev({ op: '|', c: [{ type: 'mock', id: 'a' }, { type: 'mock', id: 'b' }] }, { a: false, b: true })).available).toBe(true);
     const both = await ev({ op: '|', c: [{ type: 'mock', id: 'a' }, { type: 'mock', id: 'b' }] }, { a: false, b: false });
     expect(both.available).toBe(false);
     expect(both.failedDescriptions).toEqual(['A', 'B']);
   });
 
-  it('OR both false with root show=false hides all information (item hidden)', async () => {
+  it('OR cả hai sai với show=false ở gốc sẽ giấu mọi thông tin (mục bị ẩn)', async () => {
     const r = await ev({ op: '|', show: false, c: [{ type: 'mock', id: 'a' }, { type: 'mock', id: 'b' }] }, { a: false, b: false });
     expect(r.available).toBe(false);
     expect(r.informationHidden).toBe(true);
@@ -40,7 +40,7 @@ describe('AvailabilityTree golden (tree_test.php::test_check_available)', () => 
     expect(r.failedDescriptions).toEqual([]);
   });
 
-  it('AND: both true available; one false fails with that description only', async () => {
+  it('AND: cả hai đúng thì khả dụng; một sai thì lỗi chỉ với mô tả đó', async () => {
     const tree: AvailabilityNode = { op: '&', showc: [true, true], c: [{ type: 'mock', id: 'a' }, { type: 'mock', id: 'b' }] };
     expect((await ev(tree, { a: true, b: true })).available).toBe(true);
     const one = await ev(tree, { a: false, b: true });
@@ -50,7 +50,7 @@ describe('AvailabilityTree golden (tree_test.php::test_check_available)', () => 
     expect(bothFail.failedDescriptions).toEqual(['A', 'B']);
   });
 
-  it('AND with showc[0]=false: a failure of that child hides all information', async () => {
+  it('AND với showc[0]=false: lỗi của con đó giấu mọi thông tin', async () => {
     const tree: AvailabilityNode = { op: '&', showc: [false, true], c: [{ type: 'mock', id: 'a' }, { type: 'mock', id: 'b' }] };
     const r = await ev(tree, { a: false, b: false });
     expect(r.available).toBe(false);
@@ -58,21 +58,21 @@ describe('AvailabilityTree golden (tree_test.php::test_check_available)', () => 
     expect(r.visible).toBe(false);
   });
 
-  it('NOT-OR (!|): both false is available; any true fails (De Morgan: !| = NOT(a OR b))', async () => {
+  it('NOT-OR (!|): cả hai sai thì khả dụng; bất kỳ đúng nào cũng lỗi (De Morgan: !| = NOT(a OR b))', async () => {
     const tree: AvailabilityNode = { op: '!|', showc: [true, true], c: [{ type: 'mock', id: 'a' }, { type: 'mock', id: 'b' }] };
     expect((await ev(tree, { a: false, b: false })).available).toBe(true);
     expect((await ev(tree, { a: true, b: false })).available).toBe(false);
     expect((await ev(tree, { a: true, b: true })).available).toBe(false);
   });
 
-  it('NOT-AND (!&): both true fails; one false is available (De Morgan: !& = NOT(a AND b))', async () => {
+  it('NOT-AND (!&): cả hai đúng thì lỗi; một sai thì khả dụng (De Morgan: !& = NOT(a AND b))', async () => {
     const tree: AvailabilityNode = { op: '!&', show: true, c: [{ type: 'mock', id: 'a' }, { type: 'mock', id: 'b' }] };
     expect((await ev(tree, { a: true, b: true })).available).toBe(false);
     expect((await ev(tree, { a: true, b: false })).available).toBe(true);
     expect((await ev(tree, { a: false, b: false })).available).toBe(true);
   });
 
-  it('nested: NOT-AND root containing a nested NOT-AND (Moodle nested NOT case)', async () => {
+  it('lồng nhau: gốc NOT-AND chứa một NOT-AND lồng (ca NOT lồng của Moodle)', async () => {
     // tree_test: op ngoài là !& (mang sang từ ca trước), nút con là một
     // cây !& lồng nhau với một điều kiện đúng: trong = !(true) = false,
     // ngoài = !(false) = true. Khi lá là false: trong=true, ngoài=false.
@@ -81,7 +81,7 @@ describe('AvailabilityTree golden (tree_test.php::test_check_available)', () => 
     expect((await ev(tree, { a: false })).available).toBe(false);
   });
 
-  it('nested AND inside OR with a failing leaf (Moodle nested groups message case structure)', async () => {
+  it('AND lồng trong OR với một lá lỗi (cấu trúc ca thông báo nhóm lồng của Moodle)', async () => {
     const tree: AvailabilityNode = {
       op: '|',
       c: [
@@ -95,7 +95,7 @@ describe('AvailabilityTree golden (tree_test.php::test_check_available)', () => 
     expect((await ev(tree, { a: true, b: true, c1: false })).available).toBe(true);
   });
 
-  it('GOLDEN required case: AND nested inside !| with showc matches the truth table', async () => {
+  it('ca bắt buộc GOLDEN: AND lồng trong !| với showc khớp bảng chân lý', async () => {
     // !| ( completion AND group )  — chỉ khả dụng khi NOT(cả hai complete&grouped)
     const tree: AvailabilityNode = {
       op: '!|', show: true, showc: [true],
@@ -120,7 +120,7 @@ describe('AvailabilityTree golden (tree_test.php::test_check_available)', () => 
     expect(hidden.visible).toBe(false);
   });
 
-  it('parse rejects malformed trees (PHP-detail construct errors become 400-level validation)', () => {
+  it('parse từ chối cây sai định dạng (lỗi dựng chi tiết PHP thành validation mức 400)', () => {
     expect(() => parseAvailabilityTree({ op: 'xor', c: [] })).toThrow();
     expect(() => parseAvailabilityTree({ op: '&' })).toThrow();
     expect(parseAvailabilityTree(null)).toBeNull();

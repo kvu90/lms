@@ -20,7 +20,7 @@ import { createCategory as createCourseCategory, createCourse } from '../../supp
  * bài của học sinh qua question engine (hoạt động tạo usage, học sinh
  * start/submit/finish) không đổi.
  */
-describe('Question bank read gate (issue #55)', () => {
+describe('Cổng đọc ngân hàng câu hỏi (issue #55)', () => {
 
   const tfBody = (stem: string, value = true) => ({
     qtype: 'truefalse',
@@ -124,7 +124,7 @@ describe('Question bank read gate (issue #55)', () => {
     expect(raw).not.toContain('QBANK-SECRET-STIMULUS');
   }
 
-  it('student reads no bank data through any read endpoint (404, no content, no existence oracle)', async () => {
+  it('học viên không đọc dữ liệu ngân hàng qua endpoint đọc nào (404, không nội dung, không oracle tồn tại)', async () => {
     const attempts: [string, string][] = [
       ['categories of the course context', `/api/v1/questions/categories?contextId=${courseCtxId}`],
       ['questions in course category', `/api/v1/questions/categories/${courseCatId}/questions`],
@@ -165,7 +165,7 @@ describe('Question bank read gate (issue #55)', () => {
     expectNoBankContent(create);
   });
 
-  it('teacher with editingteacher at the course context uses that course bank normally', async () => {
+  it('giáo viên có editingteacher tại ngữ cảnh khoá học dùng ngân hàng khoá đó bình thường', async () => {
     const cats = await http(app).get('/api/v1/questions/categories').set('Authorization', `Bearer ${teacher}`);
     const catIds = (cats.body as { id: string }[]).map((c) => c.id);
     expect(catIds).toContain(courseCatId);
@@ -217,7 +217,7 @@ describe('Question bank read gate (issue #55)', () => {
     expect(own.body.usage.id).toBe(teacherUsageId);
   });
 
-  it('teacher does NOT read the system-context bank (context scoping matches the write gate)', async () => {
+  it('giáo viên KHÔNG đọc ngân hàng ngữ cảnh system (phạm vi ngữ cảnh khớp cổng ghi)', async () => {
     const detail = await http(app).get(`/api/v1/questions/${systemQuestionId}`).set('Authorization', `Bearer ${teacher}`);
     expect(detail.status).toBe(404);
     expectNoBankContent(detail);
@@ -225,14 +225,14 @@ describe('Question bank read gate (issue #55)', () => {
     expect(list.status).toBe(404);
   });
 
-  it('admin reads everything; usage of others is visible to the bank team', async () => {
+  it('admin đọc mọi thứ; usage của người khác hiện với đội ngân hàng', async () => {
     const detail = await http(app).get(`/api/v1/questions/${systemQuestionId}`).set('Authorization', `Bearer ${admin}`);
     expect(detail.status).toBe(200);
     const usage = await http(app).get(`/api/v1/question-usages/${teacherUsageId}`).set('Authorization', `Bearer ${admin}`);
     expect(usage.status).toBe(200);
   });
 
-  it('category creation reports the true cause: unknown context is a 400, not a capability error', async () => {
+  it('tạo danh mục báo nguyên nhân thật: ngữ cảnh lạ là 400, không phải lỗi năng lực', async () => {
     const bogus = await http(app).post('/api/v1/questions/categories').set('Authorization', `Bearer ${admin}`)
       .send({ name: uniqueName('bogusctx'), contextId: '01900000-0000-7000-8000-000000000000' });
     expect(bogus.status).toBe(400);
@@ -249,7 +249,7 @@ describe('Question bank read gate (issue #55)', () => {
     expect((sys.body as { code: string }).code).toBe('access.capability_denied');
   });
 
-  it('student attempt flow through the engine is untouched (activity-created usage)', async () => {
+  it('luồng làm bài của học viên qua engine không bị động tới (usage do hoạt động tạo)', async () => {
     // Mẫu dựng sau khi #60 + #55 cùng có mặt trên main: usage của lượt
     // làm thật do HOẠT ĐỘNG tạo ở tầng service với actor là chính học
     // sinh (mô hình mà assertCanCreateUsage của #55 ghi: cổng tạo chỉ áp
@@ -282,7 +282,7 @@ describe('Question bank read gate (issue #55)', () => {
     expect(finished.body.attempts[0].state).toBe('gradedright');
   });
 
-  it('TF-A solution inheritance (S6): same statement set without solution inherits; changed set without solution is rejected 400', async () => {
+  it('thừa kế solution TF-A (S6): cùng tập mệnh đề không solution thì thừa kế; tập đổi không solution bị từ chối 400', async () => {
     // Câu TF-A mới: 4 mệnh đề s1–s4, đáp án toàn Đúng.
     const q = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
       .send({ categoryId: courseCatId, ...tfBody('S6 inheritance stem') });

@@ -17,8 +17,8 @@ function runFilter(exception: unknown) {
   return { status, json };
 }
 
-describe('ProblemDetailsFilter', () => {
-  it('formats a 404 as RFC 7807 problem+json', () => {
+describe('Khối ProblemDetailsFilter', () => {
+  it('định dạng 404 thành problem+json theo RFC 7807', () => {
     const { status, json } = runFilter(new NotFoundException('thing missing'));
     expect(status).toHaveBeenCalledWith(404);
     const body = json.mock.calls[0][0];
@@ -28,7 +28,7 @@ describe('ProblemDetailsFilter', () => {
     });
   });
 
-  it('formats validation errors with an errors array', () => {
+  it('định dạng lỗi validation kèm mảng errors', () => {
     const { json } = runFilter(
       new BadRequestException({ message: ['name is required', 'age must be a number'] }),
     );
@@ -38,7 +38,7 @@ describe('ProblemDetailsFilter', () => {
     expect(body.errors).toHaveLength(2);
   });
 
-  it('hides internals for unknown errors (500)', () => {
+  it('giấu chi tiết nội bộ với lỗi chưa biết (500)', () => {
     const { json } = runFilter(new Error('db password is hunter2'));
     const body = json.mock.calls[0][0];
     expect(body.status).toBe(500);

@@ -38,7 +38,7 @@ import {
  * chứng đi qua kết nối quản trị của harness — khẳng định nghiệp vụ
  * của spec không đổi.
  */
-describe('Worker #174-A: badge auto-award delivers through the shared delivery law (per-course mute NB-4)', () => {
+describe('Worker #174-A: tự trao huy hiệu gửi qua luật gửi chung (tắt tiếng theo khoá NB-4)', () => {
   let context: INestApplicationContext;
   let harness: OrdinaryWorkerModuleHarness;
   let db: any;
@@ -117,7 +117,7 @@ describe('Worker #174-A: badge auto-award delivers through the shared delivery l
 
   afterAll(async () => { await harness.close(); });
 
-  it('badge of the muted course: assertion issued, notification withheld, dispatch log says skipped-course-mute', async () => {
+  it('huy hiệu của khoá bị tắt tiếng: assertion đã cấp, thông báo giữ lại, log gửi ghi skipped-course-mute', async () => {
     const processor = context.get(BadgeAwardProcessor);
     const result = await processor.process({ data: { userId: mutedUser, trigger: 'test-174a' } } as never);
     // Cả ba huy hiệu đều đủ tiêu chí và đều được CẤP cho người này
@@ -140,7 +140,7 @@ describe('Worker #174-A: badge auto-award delivers through the shared delivery l
     expect(deliveredLogs).toHaveLength(2);
   });
 
-  it('a recipient who muted nothing receives all three badge notifications', async () => {
+  it('người nhận không tắt tiếng gì nhận cả ba thông báo huy hiệu', async () => {
     const processor = context.get(BadgeAwardProcessor);
     await processor.process({ data: { userId: openUser, trigger: 'test-174a' } } as never);
     const subjects = (await badgeNotificationsOf(openUser)).map((n) => n.subject);
@@ -150,7 +150,7 @@ describe('Worker #174-A: badge auto-award delivers through the shared delivery l
     expect(await badgeDispatchOf(openUser, 'skipped-course-mute')).toHaveLength(0);
   });
 
-  it('rerunning the job issues nothing twice and sends nothing twice', async () => {
+  it('chạy lại job không cấp trùng gì và không gửi trùng gì', async () => {
     const processor = context.get(BadgeAwardProcessor);
     const before = await badgeNotificationsOf(mutedUser);
     const rerun = await processor.process({ data: { userId: mutedUser, trigger: 'test-174a' } } as never);

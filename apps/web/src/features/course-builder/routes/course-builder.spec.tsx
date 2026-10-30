@@ -283,14 +283,14 @@ function renderCourseBuilder() {
   );
 }
 
-describe('Course completion criteria (teacher with completion:manage)', () => {
+describe('Tiêu chí hoàn thành khoá học (giáo viên có completion:manage)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('saves the criteria set via PUT /courses/:id/completion/criteria with an activity-completion criterion', async () => {
+  it('lưu tập tiêu chí qua PUT /courses/:id/completion/criteria với tiêu chí hoàn thành hoạt động', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderCourseBuilder();
@@ -310,7 +310,7 @@ describe('Course completion criteria (teacher with completion:manage)', () => {
     expect(put?.body).toEqual({ method: 2, criteria: [{ criteriaType: 'module', moduleInstance: MODULE_ID }] });
   });
 
-  it('does not offer the course-grade criterion (the per-activity model has no course total); the date criterion still saves', async () => {
+  it('không đưa tiêu chí điểm khoá học (mô hình theo hoạt động không có tổng khoá học); tiêu chí ngày vẫn lưu được', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderCourseBuilder();
@@ -337,14 +337,14 @@ describe('Course completion criteria (teacher with completion:manage)', () => {
   });
 });
 
-describe('Course builder (teacher)', () => {
+describe('Trình dựng khoá học (giáo viên)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('creates a section via POST /courses/:id/sections with the entered name', async () => {
+  it('tạo section qua POST /courses/:id/sections với tên đã nhập', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderCourseBuilder();
@@ -359,7 +359,7 @@ describe('Course builder (teacher)', () => {
     expect(createCall?.body).toEqual({ name: 'Week 1' });
   });
 
-  it('saves a module availability tree via PATCH /courses/:id/modules/:cmId', async () => {
+  it('lưu cây khả dụng của module qua PATCH /courses/:id/modules/:cmId', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderCourseBuilder();
@@ -397,7 +397,7 @@ describe('Course builder (teacher)', () => {
     expect(typeof tree.c[0]?.t).toBe('number');
   });
 
-  it('deletes a module via DELETE /courses/:id/modules/:cmId after confirmation', async () => {
+  it('xoá module qua DELETE /courses/:id/modules/:cmId sau khi xác nhận', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     vi.spyOn(window, 'confirm').mockReturnValue(true);
@@ -414,7 +414,7 @@ describe('Course builder (teacher)', () => {
   });
 });
 
-describe('Builder Outline K1 (teacher)', () => {
+describe('Dàn ý trình dựng K1 (giáo viên)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();

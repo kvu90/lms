@@ -76,7 +76,7 @@ function renderPage() {
   );
 }
 
-describe('Settings — linked accounts page (cards moved from Profile, issue #288)', () => {
+describe('Cài đặt — trang tài khoản liên kết (thẻ chuyển từ Hồ sơ, issue #288)', () => {
   beforeEach(() => {
     localStorage.clear();
   });
@@ -87,7 +87,7 @@ describe('Settings — linked accounts page (cards moved from Profile, issue #28
     vi.unstubAllGlobals();
   });
 
-  it('renders linked accounts and unlinks one, refreshing the list', async () => {
+  it('render tài khoản liên kết và huỷ liên kết một tài khoản, làm mới danh sách', async () => {
     let links = [{ ...GOOGLE_LINK }];
     vi.stubGlobal(
       'fetch',
@@ -125,7 +125,7 @@ describe('Settings — linked accounts page (cards moved from Profile, issue #28
     expect(screen.getByText('Chưa có tài khoản ngoài nào được liên kết.')).toBeInTheDocument();
   });
 
-  it('maps the last-login-method error to its localised message and hints at setting a password', async () => {
+  it('ánh xạ lỗi phương thức đăng nhập cuối sang thông báo đã bản địa hoá và gợi ý đặt mật khẩu', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {

@@ -163,7 +163,7 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
   });
   afterAll(async () => { await closeWorkerRelayDriver(); await app.close(); });
 
-  it('1. contact requests: decline keeps the gate closed, a blocked user cannot even request, and the recipient is notified of the request', async () => {
+  it('1. yêu cầu liên hệ: từ chối giữ cổng đóng, người bị chặn không thể yêu cầu, và người nhận được thông báo về yêu cầu', async () => {
     const a = await person();
     const b = await person();
 
@@ -232,7 +232,7 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     expect(byOwner.body.createdBy).toBe(owner.id);
   });
 
-  it('3. class group chat is two-way by default; when the teacher switches it off, students stop sending but the teacher still can', async () => {
+  it('3. chat nhóm lớp hai chiều mặc định; khi giáo viên tắt, học viên ngừng gửi nhưng giáo viên vẫn gửi được', async () => {
     // Mặc định hai chiều: học sinh gửi được.
     const warm = await send(s1.token, groupConvId, 'tin mở đầu lớp');
     expect(warm.status).toBe(201);
@@ -389,7 +389,7 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
   // (relay API không tự chạy theo lịch), nên dưới tải CI nó vượt 30s
   // dù mọi assertion đều đúng — xem bàn giao fix CI PR #76. Không bỏ
   // assertion nào, chỉ nới trần cho thao tác xả tồn đọng này.
-  it('5. reports reach the teacher in charge and admins only; reviewing is scope-checked and every view is written to event_log', async () => {
+  it('5. báo cáo chỉ tới giáo viên phụ trách và admin; duyệt được kiểm tra phạm vi và mọi lượt xem đều ghi vào event_log', async () => {
     // Một tin riêng 1-1 (s1–s2 kết bạn trước vì cổng nhắn riêng nay
     // chỉ mở cho liên hệ đã duyệt) bị chính tác giả THU HỒI trong cửa
     // sổ — nội dung bị vô hiệu với phía kia và chỉ còn truy vết được

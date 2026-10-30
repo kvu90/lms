@@ -18,7 +18,7 @@ import { PrivacyService } from '../../../src/modules/privacy/privacy.service';
  * - payment/tests/helper_test.php + generator_test.php (số tiền nguyên, gateway)
  * - privacy/tests/manager_test.php (request lifecycle + phê duyệt) và provider registry §2#28
  */
-describe('Platform services: backup→restore equivalence, payment webhook idempotency, privacy completeness', () => {
+describe('Dịch vụ platform: tương đương backup→restore, luỹ đẳng webhook thanh toán, đầy đủ riêng tư', () => {
 
   const tfBody = (stem: string, values: boolean[]) => ({
     qtype: 'truefalse',
@@ -48,7 +48,7 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
   });
   afterAll(async () => { await app.close(); });
 
-  it('backup DoD: backup a full course and restore it into a fresh course — checklist matches, ids are remapped, file is downloadable in the new course', async () => {
+  it('backup DoD: sao lưu toàn bộ khoá học và khôi phục vào khoá mới — checklist khớp, id ánh xạ lại, file tải được trong khoá mới', async () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
     const section0 = await getFirstSectionId(app, admin, course.id);
@@ -126,7 +126,7 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     expect(cmCount).toBeGreaterThanOrEqual(1);
   });
 
-  it('backup anonymize: user ids are scrubbed from the archive enrol/grades/completion data', async () => {
+  it('backup ẩn danh: id người dùng bị tẩy khỏi dữ liệu enrol/grades/completion trong bản lưu', async () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
     const instance = await createEnrolInstance(app, admin, course.id);
@@ -139,7 +139,7 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     expect(enrolData.enrolments.every((e) => e.userId === null)).toBe(true);
   });
 
-  it('payments DoD: webhook replay does not activate a fee enrolment twice and the payment is immutable; refund is a separate compensating row', async () => {
+  it('thanh toán DoD: replay webhook không kích hoạt ghi danh phí hai lần và thanh toán bất biến; hoàn tiền là dòng bù riêng', async () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
     const account = await http(app).post('/api/v1/payments/accounts').set('Authorization', `Bearer ${admin}`).send({ name: `Acct ${Date.now()}`, gateway: 'manual' });
@@ -196,7 +196,7 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     expect(refunds.body[0].status).toBe('settled');
   });
 
-  it('privacy completeness: every expected subsystem has a registered provider (registry completeness gate)', async () => {
+  it('đầy đủ riêng tư: mọi subsystem kỳ vọng đều có provider đã đăng ký (cổng đầy đủ registry)', async () => {
     const service = app.get(PrivacyService);
     expect(service.missingProviders()).toEqual([]);
     const providers = await http(app).get('/api/v1/privacy/providers').set('Authorization', `Bearer ${admin}`);
@@ -206,7 +206,7 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     expect(completeness.body.complete).toBe(true);
   });
 
-  it('privacy DoD: export bundles every subsystem, and an approved delete propagates to every registered subsystem', async () => {
+  it('riêng tư DoD: export gói mọi subsystem, và xoá đã duyệt lan tới mọi subsystem đã đăng ký', async () => {
     // Dựng dữ liệu cá nhân ở nhiều subsystem cho một user.
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
@@ -247,7 +247,7 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     expect(deletedFlag).toBe(true);
   });
 
-  it('backup extended contributors: question bank (tree + versions), course badges (criteria params remapped) and calendar (course/group events, series, subscription) restore into the new course with new ids', async () => {
+  it('backup contributor mở rộng: ngân hàng câu hỏi (cây + phiên bản), huy hiệu khoá học (tham số tiêu chí ánh xạ lại) và lịch (sự kiện khoá/nhóm, chuỗi, đăng ký) khôi phục vào khoá mới với id mới', async () => {
     const suffix = `${Date.now()}`;
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
@@ -421,7 +421,7 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     expect(mapOf('calendar_subscription', sub.body.id)).toBeTruthy();
   });
 
-  it('site-level backup: backup without a course captures the site question bank, site badges and site calendar, and restores them as new site-level data', async () => {
+  it('sao lưu cấp site: sao lưu không kèm khoá học thu thập ngân hàng câu hỏi site, huy hiệu site và lịch site, và khôi phục chúng thành dữ liệu cấp site mới', async () => {
     const suffix = `${Date.now()}-site`;
     const contextsRes = await http(app).get('/api/v1/access/contexts').set('Authorization', `Bearer ${admin}`);
     const systemCtx = (contextsRes.body as { id: string; contextLevel: number }[]).find((c) => c.contextLevel === 10)!;

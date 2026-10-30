@@ -22,7 +22,7 @@ import {
  * chứng đi qua kết nối quản trị của harness — khẳng định nghiệp vụ
  * của spec không đổi.
  */
-describe('Worker NB-7: admin site policy gates background delivery', () => {
+describe('Worker NB-7: chính sách site của admin làm cổng gửi nền', () => {
   let context: INestApplicationContext;
   let harness: OrdinaryWorkerModuleHarness;
   let db: any;
@@ -71,7 +71,7 @@ describe('Worker NB-7: admin site policy gates background delivery', () => {
     await harness.close();
   });
 
-  it('admin-disabled type: background delivery is skipped with a traceable log; re-enable restores delivery', async () => {
+  it('loại bị admin tắt: gửi nền bị bỏ qua kèm log truy vết được; bật lại thì khôi phục gửi', async () => {
     const processor = context.get(CalendarReminderProcessor);
     await setPolicy('false');
 

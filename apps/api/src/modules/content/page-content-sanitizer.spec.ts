@@ -11,7 +11,7 @@ import { isSafeExternalResourceUrl, sanitizePageContent } from './page-content-s
  * (ghi qua API → học viên đọc/player) nằm ở
  * `test/content-page-xss.e2e-spec.ts`.
  */
-describe('sanitizePageContent', () => {
+describe('Hàm sanitizePageContent', () => {
   it('loại thẻ script cùng toàn bộ nội dung của nó', () => {
     const out = sanitizePageContent('<p>Bài đọc</p><script>alert(1)</script>');
     expect(out).toBe('<p>Bài đọc</p>');
@@ -81,7 +81,7 @@ describe('sanitizePageContent', () => {
  * phát vào href của trang học; parser URL của nền tảng phải bắt được
  * cả biến thể lách bằng ký tự điều khiển.
  */
-describe('isSafeExternalResourceUrl', () => {
+describe('Hàm isSafeExternalResourceUrl', () => {
   it('chấp nhận URL http/https tuyệt đối, gồm đường nhúng YouTube/Vimeo', () => {
     expect(isSafeExternalResourceUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toBe(true);
     expect(isSafeExternalResourceUrl('https://player.vimeo.com/video/12345')).toBe(true);

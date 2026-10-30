@@ -59,7 +59,7 @@ import { createCategory, createCourse, createEnrolInstance, enrolUser } from '..
  *     NHÓM CÙNG KHOÁ; tài khoản dạy khoá này học khoá khác vào
  *     NHÓM KHÁC KHOÁ; lượt kiểm toán không ghi bất kỳ dữ kiện nào.
  */
-describe('Role separation by context (#425)', () => {
+describe('Tách vai trò theo ngữ cảnh (#425)', () => {
   let app: INestApplication;
   let pg: Client;
   let admin: string;
@@ -124,7 +124,7 @@ describe('Role separation by context (#425)', () => {
     return Number(rows.rows[0]!.n);
   }
 
-  it('funnel 1: manual enrolment of a teacher into their own course is rejected and leaves no enrolment or learner role', async () => {
+  it('phễu 1: ghi danh thủ công giáo viên vào chính khoá của họ bị từ chối và không để lại ghi danh hay vai học viên', async () => {
     const teacher = await createUserViaApi(app, admin);
     ownCourseTeacherId = teacher.id;
     const course = await createCourse(app, admin, categoryId);
@@ -150,7 +150,7 @@ describe('Role separation by context (#425)', () => {
     expect(mine.body).toMatchObject({ enrolled: false, active: false });
   });
 
-  it('funnel 2: adding the class owner to their own roster by email is rejected; a regular student is still added', async () => {
+  it('phễu 2: thêm chủ lớp vào chính danh sách của họ qua email bị từ chối; học viên thường vẫn được thêm', async () => {
     const owner = await createUserViaApi(app, admin);
     classOwnerId = owner.id;
     const ownerLogin = await login(app, owner.username, STRONG_PASSWORD);
@@ -205,7 +205,7 @@ describe('Role separation by context (#425)', () => {
     expect(studentMember.rowCount).toBe(1);
   });
 
-  it('a teacher may still enrol as a learner in an unrelated course, and there holds no teaching surface', async () => {
+  it('giáo viên vẫn có thể ghi danh làm học viên ở khoá không liên quan, và ở đó không có bề mặt giảng dạy', async () => {
     const teacher = await createUserViaApi(app, admin);
     crossCourseTeacherId = teacher.id;
     const taught = await createCourse(app, admin, categoryId);
@@ -229,7 +229,7 @@ describe('Role separation by context (#425)', () => {
     expect(content.status).toBe(200);
   });
 
-  it('reverse gate: assigning a teaching role at course or class context to an active learner of a covered course is rejected', async () => {
+  it('cổng ngược: gán vai trò giảng dạy ở ngữ cảnh khoá học hay lớp cho học viên đang hoạt động của khoá được bao phủ bị từ chối', async () => {
     const course = await createCourse(app, admin, categoryId);
     const ctxId = await courseContextId(course.id);
     const instance = await createEnrolInstance(app, admin, course.id, { method: 'manual' });
@@ -268,7 +268,7 @@ describe('Role separation by context (#425)', () => {
     expect(ok.status).toBe(201);
   });
 
-  it('funnel 3: restore skips the enrolment of a user who teaches the target course, restores the valid one, and records the skip in the step detail', async () => {
+  it('phễu 3: restore bỏ qua ghi danh của người dạy khoá đích, khôi phục ghi danh hợp lệ, và ghi lại lần bỏ qua trong chi tiết bước', async () => {
     const source = await createCourse(app, admin, categoryId);
     const instance = await createEnrolInstance(app, admin, source.id, { method: 'manual' });
     const conflicting = await createUserViaApi(app, admin);
@@ -307,7 +307,7 @@ describe('Role separation by context (#425)', () => {
     expect(mine.body).toMatchObject({ enrolled: true, active: true });
   });
 
-  it('reactivation: reactivating a suspended enrolment after a teaching assignment at the same course is rejected and the enrolment stays suspended', async () => {
+  it('kích hoạt lại: kích hoạt lại ghi danh bị đình chỉ sau khi gán giảng dạy ở cùng khoá bị từ chối và ghi danh vẫn bị đình chỉ', async () => {
     const course = await createCourse(app, admin, categoryId);
     const instance = await createEnrolInstance(app, admin, course.id, { method: 'manual' });
     const learner = await createUserViaApi(app, admin);
@@ -336,7 +336,7 @@ describe('Role separation by context (#425)', () => {
     expect(rows.rows[0]!.status).toBe(1);
   });
 
-  it('audit: pre-existing same-course data is classified as violation, cross-course as valid, and the audit writes nothing', async () => {
+  it('kiểm toán: dữ liệu cùng-khoá sẵn có xếp loại vi phạm, khác-khoá xếp loại hợp lệ, và kiểm toán không ghi gì', async () => {
     // Dữ kiện lẫn vai CÙNG khoá dựng thẳng vào DB — mô phỏng trạng
     // thái có sẵn từ trước khi có chốt chặn (đường ghi API hiện nay
     // không tạo nổi trạng thái này nữa).

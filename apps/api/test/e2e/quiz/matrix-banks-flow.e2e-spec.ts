@@ -44,7 +44,7 @@ interface ContributionBody {
   rejectReason: string | null; reviewerId: string | null; resultMatrixId: string | null;
 }
 
-describe('Matrix bank MB-1 (issue #111)', () => {
+describe('Ngân hàng ma trận MB-1 (issue #111)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;

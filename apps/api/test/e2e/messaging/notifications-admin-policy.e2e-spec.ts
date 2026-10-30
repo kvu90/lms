@@ -27,7 +27,7 @@ import { MANDATORY_NOTIFICATION_PROVIDERS, MESSAGE_PROVIDERS, notificationPolicy
  *    ngoại lệ tắt tiếng theo khoá (NB-4) vẫn dùng được.
  *  - Giáo viên (vai nhân sự) giữ nguyên bề mặt v2 đầy đủ.
  */
-describe('NB-7 admin notification policy + student minimal preferences', () => {
+describe('Chính sách thông báo admin NB-7 + tuỳ chọn tối thiểu của học viên', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;
@@ -120,7 +120,7 @@ describe('NB-7 admin notification policy + student minimal preferences', () => {
     expect(actualNames).toContain('provider_admin_announcement_enabled');
   });
 
-  it('admin disable blocks delivery for everyone before user preferences, logs skipped-admin-disabled; re-enable restores', async () => {
+  it('admin tắt chặn phân phối cho mọi người trước tuỳ chọn người dùng, ghi log skipped-admin-disabled; bật lại khôi phục', async () => {
     // Nhân sự hai vai: grade_updated là loại phía học sinh nên chỉ
     // người có context học sinh mới đặt được tuỳ chọn cho nó (#288).
     const staff = await staffDualUser();
@@ -168,7 +168,7 @@ describe('NB-7 admin notification policy + student minimal preferences', () => {
     expect(restored.body.channels.popup).toBe('delivered');
   });
 
-  it('mandatory P2 types cannot be disabled by admin and still deliver', async () => {
+  it('loại bắt buộc P2 không thể bị admin tắt và vẫn phân phối', async () => {
     for (const provider of ['enrol_expiry_warning', 'admin_announcement']) {
       const res = await setSitePolicy(provider, false);
       expect(res.status).toBe(400);
@@ -180,7 +180,7 @@ describe('NB-7 admin notification policy + student minimal preferences', () => {
     expect(sent.body.channels.popup).toBe('delivered');
   });
 
-  it('student: per-type PUT 403, GET empty, course mute override still works; staff keeps their side of the surface', async () => {
+  it('học viên: PUT theo loại 403, GET rỗng, override tắt tiếng khoá vẫn chạy; staff giữ phía bề mặt của họ', async () => {
     const student = await studentInCourse();
 
     const put = await http(app).put('/api/v1/messages/preferences').set('Authorization', `Bearer ${student.token}`)

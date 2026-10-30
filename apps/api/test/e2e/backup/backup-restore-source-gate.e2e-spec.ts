@@ -30,7 +30,7 @@ import { courseContextId } from '../../support/engagement-helpers';
  *    hoàn tất và dữ kiện nguồn (danh mục câu hỏi + câu hỏi) xuất hiện
  *    ở khoá đích.
  */
-describe('Backup restore source read gate', () => {
+describe('Cổng đọc nguồn khôi phục sao lưu', () => {
   let app: INestApplication;
   let admin: string;
   let sourceCourseId: string;
@@ -101,7 +101,7 @@ describe('Backup restore source read gate', () => {
   });
   afterAll(async () => { await app.close(); });
 
-  it('denies reading the source backup job to an actor without source rights (control)', async () => {
+  it('từ chối đọc job sao lưu nguồn đối với actor thiếu quyền nguồn (đối chứng)', async () => {
     const read = await http(app).get(`/api/v1/backup/jobs/${backupJobId}`)
       .set('Authorization', `Bearer ${actor}`);
     expect(read.status).toBe(403);
@@ -110,7 +110,7 @@ describe('Backup restore source read gate', () => {
     expect((list.body as { id: string }[]).map((j) => j.id)).not.toContain(backupJobId);
   });
 
-  it('denies restore merge with backup.job_forbidden and writes nothing to the target course', async () => {
+  it('từ chối restore merge bằng backup.job_forbidden và không ghi gì vào khoá đích', async () => {
     const denied = await http(app).post('/api/v1/backup/restore')
       .set('Authorization', `Bearer ${actor}`)
       .send({ backupJobId, mode: 'merge', targetCourseId });
@@ -129,7 +129,7 @@ describe('Backup restore source read gate', () => {
     expect(cats.body).toHaveLength(0);
   });
 
-  it('denies restore new at the source gate before any destination check', async () => {
+  it('từ chối restore new tại cổng nguồn trước mọi kiểm tra đích', async () => {
     const denied = await http(app).post('/api/v1/backup/restore')
       .set('Authorization', `Bearer ${actor}`)
       .send({ backupJobId, mode: 'new' });
@@ -140,7 +140,7 @@ describe('Backup restore source read gate', () => {
     expect(denied.body.code).toBe('backup.job_forbidden');
   });
 
-  it('restores as before once the actor can read the source job', async () => {
+  it('khôi phục như trước khi actor đọc được job nguồn', async () => {
     const sourceCtx = await courseContextId(app, admin, sourceCourseId);
     const teacherRole = await roleIdByShortname(app, admin, 'editingteacher');
     await assignRole(app, admin, actorId, teacherRole, sourceCtx);

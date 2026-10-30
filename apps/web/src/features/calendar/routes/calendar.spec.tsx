@@ -101,13 +101,13 @@ function localNowInput(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-describe('Calendar page — export', () => {
+describe('Trang lịch — xuất', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
   });
 
-  it('creates a subscription URL via POST /calendar/export-token and revokes it via DELETE', async () => {
+  it('tạo URL đăng ký qua POST /calendar/export-token và thu hồi qua DELETE', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderCalendar();
@@ -124,7 +124,7 @@ describe('Calendar page — export', () => {
     expect(await screen.findByText('Chưa có đường dẫn đăng ký nào.')).toBeInTheDocument();
   });
 
-  it('downloads the ICS file through the authenticated GET /calendar/exports?format=ics endpoint', async () => {
+  it('tải file ICS qua endpoint GET /calendar/exports?format=ics đã xác thực', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     const createObjectURL = vi.fn(() => 'blob:mock');
@@ -142,13 +142,13 @@ describe('Calendar page — export', () => {
   });
 });
 
-describe('Calendar page — create events and subscriptions', () => {
+describe('Trang lịch — tạo sự kiện và đăng ký', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
   });
 
-  it('creates an event via POST /calendar/events with the DTO shape', async () => {
+  it('tạo sự kiện qua POST /calendar/events với hình dạng DTO', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderCalendar();
@@ -169,7 +169,7 @@ describe('Calendar page — create events and subscriptions', () => {
     expect(await screen.findByText('Đã tạo sự kiện.')).toBeInTheDocument();
   });
 
-  it('adds a subscription via POST /calendar/subscriptions and imports it', async () => {
+  it('thêm đăng ký qua POST /calendar/subscriptions và nhập nó', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderCalendar();

@@ -26,7 +26,7 @@ import {
  * chứng đi qua kết nối quản trị của harness — khẳng định nghiệp vụ
  * của spec không đổi.
  */
-describe('Worker guardian digest sweep (PH-2, issue #159)', () => {
+describe('Lượt quét digest phụ huynh của worker (PH-2, issue #159)', () => {
   let context: INestApplicationContext;
   let harness: OrdinaryWorkerModuleHarness;
   let db: any;

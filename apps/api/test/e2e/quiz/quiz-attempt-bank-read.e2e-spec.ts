@@ -41,7 +41,7 @@ interface AttemptViewBody {
 
 const plain = (doc: unknown): string => JSON.stringify(doc ?? '');
 
-describe('Attempt question reading across bank sources (issue #141)', () => {
+describe('Đọc câu hỏi lượt làm qua các nguồn ngân hàng (issue #141)', () => {
   let app: INestApplication;
   let admin: string;
 

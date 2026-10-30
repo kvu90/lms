@@ -20,7 +20,7 @@ import { createCategory } from '../../support/course-enrolment-helpers';
  * (đồng bộ ghi danh theo cohort của Enrol, sinh learning plan của
  * Competencies) gọi service không kèm actor nên giữ nguyên hành vi.
  */
-describe('Cohort members gate (issue #44 follow-up)', () => {
+describe('Cổng thành viên cohort (issue #44 follow-up)', () => {
   let app: INestApplication;
   let admin: string;
 
@@ -39,7 +39,7 @@ describe('Cohort members gate (issue #44 follow-up)', () => {
     expect(res.status).toBe(201);
   }
 
-  it('outsider and plain cohort member get 404 indistinguishable from a nonexistent cohort', async () => {
+  it('người ngoài và thành viên cohort thường nhận 404 không phân biệt được với cohort không tồn tại', async () => {
     const cohort = await createCohort();
     const member = await createUserViaApi(app, admin);
     await addMember(cohort.id, member.id);
@@ -59,7 +59,7 @@ describe('Cohort members gate (issue #44 follow-up)', () => {
     }
   });
 
-  it('site admin gets 200 with the intact member list shape', async () => {
+  it('site admin nhận 200 với hình dạng danh sách thành viên nguyên vẹn', async () => {
     const cohort = await createCohort();
     const member = await createUserViaApi(app, admin);
     await addMember(cohort.id, member.id);
@@ -72,7 +72,7 @@ describe('Cohort members gate (issue #44 follow-up)', () => {
     expect(typeof mine!.timeAdded).toBe('string');
   });
 
-  it('manager assigned at the cohort context (cohort:manage) gets 200', async () => {
+  it('quản lý gán tại ngữ cảnh cohort (cohort:manage) nhận 200', async () => {
     const cohort = await createCohort();
     const member = await createUserViaApi(app, admin);
     await addMember(cohort.id, member.id);
@@ -88,7 +88,7 @@ describe('Cohort members gate (issue #44 follow-up)', () => {
     expect((res.body as { userId: string }[]).some((r) => r.userId === member.id)).toBe(true);
   });
 
-  it('teacher assigned at the cohort context gets 200 via cohort:view but still cannot add members', async () => {
+  it('giáo viên gán tại ngữ cảnh cohort nhận 200 qua cohort:view nhưng vẫn không thể thêm thành viên', async () => {
     const cohort = await createCohort();
     const viewer = await createUserViaApi(app, admin);
     const teacherRole = await roleIdByShortname(app, admin, 'teacher');
@@ -108,7 +108,7 @@ describe('Cohort members gate (issue #44 follow-up)', () => {
     expect(write.body.code).toBe('access.capability_denied');
   });
 
-  it('category cohort: the gate is evaluated at the cohort own context', async () => {
+  it('cohort danh mục: cổng đánh giá tại chính ngữ cảnh của cohort', async () => {
     const catA = await createCategory(app, admin);
     const catB = await createCategory(app, admin);
     const cohortA = await createCohort(catA.id);

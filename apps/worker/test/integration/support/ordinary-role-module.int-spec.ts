@@ -34,7 +34,7 @@ import {
  * production; spec không khẳng định hành vi nghiệp vụ nào của
  * processor — phần đó thuộc các spec đã chuyển sang harness.
  */
-describe('Worker harness: WorkerModule runs as the ordinary DB role (issue #294)', () => {
+describe('Harness của worker: WorkerModule chạy với vai trò DB thường (issue #294)', () => {
   let harness: OrdinaryWorkerModuleHarness;
   const suffix = `${Date.now() % 100000000}`;
   let classId = '';
@@ -64,11 +64,11 @@ describe('Worker harness: WorkerModule runs as the ordinary DB role (issue #294)
 
   afterAll(async () => { await harness.close(); });
 
-  it('the module receives the ordinary-role connection through the drizzle token', () => {
+  it('module nhận kết nối vai trò thường qua drizzle token', () => {
     expect(harness.context.get(getDrizzleToken())).toBe(harness.ordinaryDb);
   });
 
-  it('the module session logs in as the ordinary role without SUPERUSER or BYPASSRLS', async () => {
+  it('phiên module đăng nhập với vai trò thường, không có SUPERUSER hay BYPASSRLS', async () => {
     const sessionRows = (await harness.ordinaryDb.execute(sql`select current_user as current_role`)) as unknown as { rows: { current_role: string }[] };
     expect(sessionRows.rows[0].current_role).toBe(ORDINARY_ROLE);
 
@@ -80,7 +80,7 @@ describe('Worker harness: WorkerModule runs as the ordinary DB role (issue #294)
     expect(role.rolbypassrls).toBe(false);
   });
 
-  it('outside a tenant context the module connection sees no tenant class (RLS fail-closed)', async () => {
+  it('ngoài ngữ cảnh tenant, kết nối module không thấy lớp tenant nào (RLS fail-closed)', async () => {
     const hidden = await harness.ordinaryDb.select().from(classes).where(eq(classes.id, classId));
     expect(hidden).toHaveLength(0);
 

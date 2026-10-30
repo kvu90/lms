@@ -43,7 +43,7 @@ const DAY_MS = 24 * 3600_000;
  * ngoài ngữ cảnh, RLS fail-closed chặn cả dòng thông báo không gắn
  * tenant, vốn chỉ được phép ở ngữ cảnh platform.
  */
-describe('Worker NB-6: notification retention + shared delivery law', () => {
+describe('Worker NB-6: lưu giữ thông báo + luật gửi chung', () => {
   let context: INestApplicationContext;
   let harness: OrdinaryWorkerModuleHarness;
   let db: any;
@@ -110,7 +110,7 @@ describe('Worker NB-6: notification retention + shared delivery law', () => {
   });
   afterAll(async () => { await harness.close(); });
 
-  it('calendar reminder delivers through the shared law: notification + delivered dispatch log, replay is duplicate', async () => {
+  it('nhắc lịch gửi qua luật chung: thông báo + log gửi đã giao, phát lại là trùng lặp', async () => {
     const processor = context.get(CalendarReminderProcessor);
     const eventId = await mkEvent(plainUser, `NB6 exam ${suffix}`);
     const first = await processor.process({ data: { eventId, userId: plainUser, minutesBefore: 30 } } as never);
@@ -129,7 +129,7 @@ describe('Worker NB-6: notification retention + shared delivery law', () => {
     expect(await notesOf(plainUser, 'calendar_reminder')).toHaveLength(1);
   });
 
-  it('calendar reminder honours the v2 preference: off ⇒ nothing stored, skipped-preference logged', async () => {
+  it('nhắc lịch tôn trọng tuỳ chọn v2: tắt ⇒ không lưu gì, ghi log skipped-preference', async () => {
     const processor = context.get(CalendarReminderProcessor);
     const eventId = await mkEvent(v2OffUser, `NB6 exam off ${suffix}`);
     const result = await processor.process({ data: { eventId, userId: v2OffUser, minutesBefore: 30 } } as never);
@@ -138,7 +138,7 @@ describe('Worker NB-6: notification retention + shared delivery law', () => {
     expect(await dispatchOf(v2OffUser, 'calendar_reminder', 'skipped-preference')).toHaveLength(1);
   });
 
-  it('calendar reminder honours legacy preferences by the shared derivation (loggedin, then loggedoff)', async () => {
+  it('nhắc lịch tôn trọng tuỳ chọn cũ theo cách suy ra chung (loggedin, rồi loggedoff)', async () => {
     const processor = context.get(CalendarReminderProcessor);
     const inEvent = await mkEvent(legacyInOffUser, `NB6 legacy in ${suffix}`);
     const inResult = await processor.process({ data: { eventId: inEvent, userId: legacyInOffUser, minutesBefore: 30 } } as never);
@@ -150,7 +150,7 @@ describe('Worker NB-6: notification retention + shared delivery law', () => {
     expect(await notesOf(legacyOutOffUser, 'calendar_reminder')).toHaveLength(0);
   });
 
-  it('calendar reminder delivers nothing to a suspended user and logs skipped-suspended', async () => {
+  it('nhắc lịch không gửi gì cho người dùng bị đình chỉ và ghi log skipped-suspended', async () => {
     const processor = context.get(CalendarReminderProcessor);
     const eventId = await mkEvent(suspendedUser, `NB6 exam susp ${suffix}`);
     const result = await processor.process({ data: { eventId, userId: suspendedUser, minutesBefore: 30 } } as never);
@@ -159,7 +159,7 @@ describe('Worker NB-6: notification retention + shared delivery law', () => {
     expect(await dispatchOf(suspendedUser, 'calendar_reminder', 'skipped-suspended')).toHaveLength(1);
   });
 
-  it('mandatory providers (P2) cannot be turned off: resolution forces the in-app channel on', async () => {
+  it('provider bắt buộc (P2) không thể tắt: bước phân giải ép bật kênh in-app', async () => {
     // v2OffUser không có khoá nào cho provider bắt buộc này — gieo thêm
     // khoá v2 tắt tường minh rồi vẫn phải bị ép bật khi mandatory.
     await setPref(v2OffUser, 'message_provider_enrol_expiry_warning_popup_v2', '0');
@@ -168,7 +168,7 @@ describe('Worker NB-6: notification retention + shared delivery law', () => {
     expect(await delivery.resolvePopupEnabled(v2OffUser, { ...law, mandatoryInApp: false })).toBe(false);
   });
 
-  it('the shared law rejects unregistered providers without writing anything', async () => {
+  it('luật chung từ chối provider chưa đăng ký mà không ghi gì', async () => {
     const result = await delivery.deliverInApp(plainUser, 'not_a_provider', {
       subject: 'x', body: 'y', smallMessage: 'x',
     });
@@ -176,7 +176,7 @@ describe('Worker NB-6: notification retention + shared delivery law', () => {
     expect(await notesOf(plainUser, 'not_a_provider')).toHaveLength(0);
   });
 
-  it('delivery publishes the unread-changed badge signal on the shared Redis channel', async () => {
+  it('lượt gửi phát tín hiệu badge unread-changed trên kênh Redis chung', async () => {
     const subscriber = new Redis(redisConnectionFromUrl(process.env.REDIS_URL ?? 'redis://localhost:6379'));
     try {
       await subscriber.subscribe(NOTIFICATION_UNREAD_CHANGED_CHANNEL);
@@ -200,7 +200,7 @@ describe('Worker NB-6: notification retention + shared delivery law', () => {
     }
   });
 
-  it('report schedule notifies through the shared law and now leaves a delivered dispatch log', async () => {
+  it('lịch báo cáo thông báo qua luật chung và nay để lại log gửi đã giao', async () => {
     const [report] = await db.insert(reportBuilderReport).values({
       name: `NB6 report ${suffix}`, dataSource: 'enrolments', createdBy: plainUser, columns: ['userId'],
     }).returning();
@@ -218,7 +218,7 @@ describe('Worker NB-6: notification retention + shared delivery law', () => {
     expect(logs.some((l: { notificationId: string }) => l.notificationId === mine.id)).toBe(true);
   });
 
-  it('report schedule respects the law: preference off and suspended creators get no notification', async () => {
+  it('lịch báo cáo tôn trọng luật: tuỳ chọn tắt và người tạo bị đình chỉ thì không nhận thông báo', async () => {
     const processor = context.get(ReportScheduleProcessor);
     async function runFor(creator: string, tag: string) {
       const [report] = await db.insert(reportBuilderReport).values({
@@ -242,7 +242,7 @@ describe('Worker NB-6: notification retention + shared delivery law', () => {
       .toBeGreaterThanOrEqual(1);
   });
 
-  it('retention sweep deletes exactly past the 90/180/90 day boundaries and keeps the boundary day', async () => {
+  it('lượt quét lưu giữ xoá đúng quá ngưỡng 90/180/90 ngày và giữ lại ngày ngưỡng', async () => {
     const processor = context.get(NotificationRetentionProcessor);
     const now = new Date();
     const at = (days: number) => new Date(now.getTime() - days * DAY_MS);
@@ -295,7 +295,7 @@ describe('Worker NB-6: notification retention + shared delivery law', () => {
     expect(dispatchIds.has(dispatchGone91)).toBe(false);
   });
 
-  it('retention process run leaves a success task_log row', async () => {
+  it('lượt chạy tiến trình lưu giữ để lại một dòng task_log thành công', async () => {
     const processor = context.get(NotificationRetentionProcessor);
     await processor.process({ data: {} } as never);
     const rows = await db.select().from(taskLog)

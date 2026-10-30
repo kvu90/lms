@@ -10,7 +10,7 @@ import { renderAuthMail } from './auth-mail.js';
  * chuyển nguyên vẹn (chỉ dịch mô tả) khi bề mặt dùng chung được trích
  * xuất vào package này.
  */
-describe('renderAuthMail', () => {
+describe('Khối renderAuthMail', () => {
   it('dựng mail đặt lại mật khẩu mang liên kết dùng một lần và hạn 1 giờ', () => {
     const url = 'http://localhost:3100/api/v1/auth/reset-password/abc123?callbackURL=%2Freset-password';
     const mail = renderAuthMail({ kind: 'password_reset', to: 'a@example.com', url });

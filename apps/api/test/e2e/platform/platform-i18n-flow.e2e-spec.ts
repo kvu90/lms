@@ -15,7 +15,7 @@ import { createCategory, createCourse } from '../../support/course-enrolment-hel
  * issue code → khoá catalog `validation.*` bởi pipe Standard Schema có i18n.
  * Mã lỗi ổn định (`code`) luôn giữ tiếng Anh ở cả hai ngôn ngữ.
  */
-describe('Platform i18n flow (e2e)', () => {
+describe('Luồng i18n platform (e2e)', () => {
   let app: INestApplication;
   let admin: string;
   let externalToken: string;
@@ -38,7 +38,7 @@ describe('Platform i18n flow (e2e)', () => {
   });
   afterAll(async () => { await app.close(); });
 
-  it('returns the Vietnamese detail by default and the English detail with Accept-Language: en for the token capability 403', async () => {
+  it('trả detail tiếng Việt mặc định và detail tiếng Anh với Accept-Language: en cho 403 năng lực token', async () => {
     const call = (headers: Record<string, string>) =>
       http(app).post('/api/v1/webservice/call').set(headers)
         .send({ token: externalToken, functionName: 'core_grades_update_grades', args: { courseId } });
@@ -52,7 +52,7 @@ describe('Platform i18n flow (e2e)', () => {
     expect(en.body.detail).toBe('The token owner lacks the capability to perform this function');
   });
 
-  it('localizes error details of the older modules by stable code (course.not_found) in Vietnamese by default and English on request', async () => {
+  it('bản địa hoá detail lỗi của module cũ theo mã ổn định (course.not_found) sang tiếng Việt mặc định và tiếng Anh khi yêu cầu', async () => {
     const auth = { Authorization: `Bearer ${admin}` };
     const missingCourseId = '01999999-9999-7000-8000-000000000000';
 
@@ -65,7 +65,7 @@ describe('Platform i18n flow (e2e)', () => {
     expect(en.body.detail).toBe('Course not found');
   });
 
-  it('returns localized Zod validation messages for payments in Vietnamese by default and English on request', async () => {
+  it('trả thông báo kiểm chứng Zod đã bản địa hoá cho thanh toán bằng tiếng Việt mặc định và tiếng Anh khi yêu cầu', async () => {
     const auth = { Authorization: `Bearer ${admin}` };
     const bad = (headers: Record<string, string>) =>
       http(app).post('/api/v1/payments/accounts').set(auth).set(headers).send({});

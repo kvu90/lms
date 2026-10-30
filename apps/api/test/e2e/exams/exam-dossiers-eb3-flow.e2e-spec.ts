@@ -64,7 +64,7 @@ function cellsOf(spec: SpecBody): SpecCell[] {
   return cells;
 }
 
-describe('EB-3 dossier approval + paper specification + periodic paper security', () => {
+describe('EB-3 duyệt hồ sơ + đặc tả đề + bảo mật đề định kỳ', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;

@@ -244,7 +244,7 @@ async function goToUploadStep() {
   expect(await screen.findByLabelText('Chọn file .xlsx đã điền')).toBeInTheDocument();
 }
 
-describe('Matrix import wizard (I-3)', () => {
+describe('Trình hướng dẫn nhập ma trận (I-3)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();

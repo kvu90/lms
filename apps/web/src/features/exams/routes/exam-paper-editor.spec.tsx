@@ -83,7 +83,7 @@ describe('Exam paper editor (F-01 của #133)', () => {
     vi.unstubAllGlobals();
   });
 
-  it('initializes the form from the paper view, adds a discovered question and saves slots only via PUT', async () => {
+  it('khởi tạo form từ view đề, thêm câu hỏi đã phát hiện và chỉ lưu slot qua PUT', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderPage();
@@ -169,13 +169,13 @@ function stubPinFetch(calls: RecordedCall[], opts: { deploy: boolean; status?: s
   );
 }
 
-describe('Exam paper editor — pin into a course from the editor', () => {
+describe('Trình sửa đề — ghim vào khoá học từ trình sửa', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
   });
 
-  it('pins the ready paper into the picked course and shows the new pin in place', async () => {
+  it('ghim đề đã sẵn sàng vào khoá học đã chọn và hiện ghim mới tại chỗ', async () => {
     const calls: RecordedCall[] = [];
     stubPinFetch(calls, { deploy: true });
     renderPage();
@@ -197,7 +197,7 @@ describe('Exam paper editor — pin into a course from the editor', () => {
     await waitFor(() => expect(document.body.textContent).toContain('Khoá Toán 5 · v3'));
   });
 
-  it('hides the pin form when the viewer lacks the deploy capability', async () => {
+  it('ẩn form ghim khi người xem thiếu năng lực deploy', async () => {
     const calls: RecordedCall[] = [];
     stubPinFetch(calls, { deploy: false });
     renderPage();
@@ -209,7 +209,7 @@ describe('Exam paper editor — pin into a course from the editor', () => {
     expect(screen.queryByText('Các lần ghim của đề')).not.toBeInTheDocument();
   });
 
-  it('hides the pin form while the paper is not ready', async () => {
+  it('ẩn form ghim khi đề chưa sẵn sàng', async () => {
     const calls: RecordedCall[] = [];
     stubPinFetch(calls, { deploy: true, status: 'draft' });
     renderPage();
@@ -219,7 +219,7 @@ describe('Exam paper editor — pin into a course from the editor', () => {
     expect(screen.queryByRole('button', { name: 'Ghim vào khoá' })).not.toBeInTheDocument();
   });
 
-  it('reports the API reason when pinning is rejected and creates no pin', async () => {
+  it('báo lý do của API khi ghim bị từ chối và không tạo ghim nào', async () => {
     const calls: RecordedCall[] = [];
     stubPinFetch(calls, { deploy: true, failPin: true });
     renderPage();

@@ -70,14 +70,14 @@ function renderPage() {
   );
 }
 
-describe('Admin site config page', () => {
+describe('Trang cấu hình site của admin', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('renders settings from the stub grouped by component with source badges', async () => {
+  it('render cài đặt từ stub nhóm theo component kèm huy hiệu nguồn', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderPage();
@@ -90,7 +90,7 @@ describe('Admin site config page', () => {
     expect(calls.some((c) => c.url === '/api/v1/site-config' && c.method === 'GET')).toBe(true);
   });
 
-  it('saves a boolean via PUT { value: true } to the exact setting URL', async () => {
+  it('lưu boolean qua PUT { value: true } tới đúng URL cài đặt', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderPage();
@@ -111,7 +111,7 @@ describe('Admin site config page', () => {
     expect(put?.body).toEqual({ value: true });
   });
 
-  it('renders the notifications policy section with provider labels and a locked mandatory type (NB-7)', async () => {
+  it('render mục chính sách thông báo kèm nhãn provider và loại bắt buộc bị khoá (NB-7)', async () => {
     const calls: RecordedCall[] = [];
     const notifSettings: SiteSetting[] = [
       {
@@ -151,7 +151,7 @@ describe('Admin site config page', () => {
     expect(put?.body).toEqual({ value: false });
   });
 
-  it('resets an overridden setting via DELETE to the exact setting URL', async () => {
+  it('đặt lại cài đặt đã ghi đè qua DELETE tới đúng URL cài đặt', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderPage();
