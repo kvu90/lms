@@ -20,8 +20,13 @@ import type {
 const MESSAGES_TAB_STORAGE_KEY = 'lms.messages.tab';
 /** Khoá localStorage của hội thoại Tin nhắn đang mở gần nhất (lát MSG-T3). */
 const MESSAGES_CONVERSATION_STORAGE_KEY = 'lms.messages.conversationId';
-/** Các tab khung trái hợp lệ — giá trị lưu hỏng thì lùi về tab Trò chuyện. */
-const MESSAGES_TABS = ['chats', 'groups', 'archived'] as const;
+/**
+ * Các tab khung trái hợp lệ — giá trị lưu hỏng thì lùi về tab Trò
+ * chuyện. Từ issue #564, mục Đã lưu trữ không còn là tab riêng mà
+ * là một mục thu gọn trong tab Trò chuyện, nên giá trị lưu cũ
+ * "archived" rơi về "chats" theo đúng luật lùi về mặc định này.
+ */
+const MESSAGES_TABS = ['chats', 'groups'] as const;
 
 /**
  * Đọc tab khung trái đã lưu bền; chưa lưu hoặc giá trị hỏng thì về

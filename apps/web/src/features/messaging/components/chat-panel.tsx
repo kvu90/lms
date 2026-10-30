@@ -1,5 +1,5 @@
 import { useEffect, useState, type Dispatch, type FormEvent, type ReactNode, type RefObject, type SetStateAction } from 'react';
-import { ArrowLeft, Ellipsis, Eraser, Info, MessageCircle, Reply, Search, Trash, Undo2 } from 'lucide-react';
+import { ArrowLeft, Ellipsis, Eraser, MessageCircle, Reply, Search, Smile, Trash, Undo2, X } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Bubble, BubbleContent } from '@lms/ui/components/bubble';
 import { Button } from '@lms/ui/components/button';
@@ -7,6 +7,9 @@ import {
   DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@lms/ui/components/dropdown-menu';
+import {
+  Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle,
+} from '@lms/ui/components/empty';
 import { Input } from '@lms/ui/components/input';
 import { Textarea } from '@lms/ui/components/textarea';
 import {
@@ -141,27 +144,69 @@ export function ChatPanel({
 
   if (!active) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
-        <MessageCircle className="size-10 text-muted-foreground" aria-hidden />
-        <p className="font-medium">{t('selectConversation')}</p>
-        <p className="text-sm text-muted-foreground">{t('pickConversation')}</p>
-      </div>
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <MessageCircle aria-hidden />
+          </EmptyMedia>
+          <EmptyTitle>{t('selectConversation')}</EmptyTitle>
+          <EmptyDescription>{t('pickConversation')}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 
   const others = active.members.filter((memberId) => memberId !== myId);
   const isGroup = active.type === 2;
   const otherId = !isGroup ? others[0] : undefined;
-  const otherOnline = otherId ? Boolean(onlineUsers[otherId]) : false;
-  const title = active.name ?? t('conversationWithUser', { members: active.members.map((id) => nameOf(id)).join(', ') });
+  /**
+   * Trạng thái hiện diện của đối tác có BA trạng thái theo dữ
+   * kiện client: `true` khi đã có sự kiện hiện diện xác nhận
+   * trực tuyến, `false` khi đã có sự kiện xác nhận ngoại tuyến,
+   * `undefined` khi CHƯA BIẾT — chưa nhận sự kiện nào của đối
+   * tác. Client không nhận được ảnh chụp hiện diện ban đầu từ
+   * máy chủ: đối tác đã trực tuyến hay ngoại tuyến sẵn từ
+   * trước khi trang tải thì bản đồ không có bản ghi của họ,
+   * nên `undefined` tuyệt đối không được gộp thành ngoại
+   * tuyến — bề mặt hiện chữ trạng thái chỉ được khẳng định
+   * khi đã có sự kiện xác nhận. `otherOnline` (chấm/chữ "đang
+   * trực tuyến") chỉ cần nhánh `true`: vắng chấm khi chưa
+   * biết không khẳng định điều gì sai.
+   */
+  const otherPresence = otherId ? onlineUsers[otherId] : undefined;
+  const otherOnline = otherPresence === true;
+  /**
+   * Tiêu đề đầu khung — panel thông tin dùng lại đúng biến này:
+   * hội thoại có tên thì dùng tên; hội thoại 1–1 không có tên
+   * (backend không đặt tên cho 1–1) thì hiện tên đối tác; chỉ khi
+   * không xác định được đối tác mới rơi về nhãn dự phòng liệt kê
+   * mọi thành viên.
+   */
+  const title = active.name !== null
+    ? active.name
+    : otherId
+      ? nameOf(otherId)
+      : t('conversationWithUser', { members: active.members.map((id) => nameOf(id)).join(', ') });
   const avatarLabel = active.name ?? (otherId ? nameOf(otherId) : title);
+  /**
+   * Dòng phụ đầu khung: đang nhập → nhóm hiện số thành viên →
+   * 1–1 hiện trạng thái của đối tác theo đúng ba trạng thái
+   * hiện diện: đã xác nhận trực tuyến thì hiện nhãn trực
+   * tuyến, đã xác nhận ngoại tuyến thì hiện "Ngoại tuyến",
+   * chưa biết (chưa có sự kiện nào của đối tác — gồm cả ca
+   * đối tác đã ngoại tuyến sẵn từ trước khi trang tải) thì
+   * KHÔNG hiện dòng trạng thái, vì client không có dữ kiện
+   * để khẳng định.
+   */
   const subtitle = typingNames.length > 0
     ? t('typingIndicator', { userId: nameOf(typingNames[0]!) })
     : isGroup
       ? t('conversationMembersCount', { count: active.members.length })
-      : otherOnline
+      : otherPresence === true
         ? t('onlineNow')
-        : '';
+        : otherPresence === false
+          ? t('messagesOfflineNow')
+          : '';
   /** Seq tin mới nhất đang có — mốc so "đã xem" của từng thành viên ở panel thông tin. */
   const newestSeq = visibleMessages.reduce((max, m) => Math.max(max, m.seq), 0) || active.lastMessageSeq || 0;
   /**
@@ -426,8 +471,21 @@ export function ChatPanel({
     );
   }
 
+  /**
+   * Cột thứ ba của khung chat (issue #564, theo mẫu demo): panel
+   * thông tin đối tác mở theo yêu cầu, không chèn ép cột chính.
+   * Nhóm dùng nguyên MemberPanel hiện có; chat 1–1 dùng panel nhẹ
+   * chỉ hiển thị dữ kiện đã có (tên, trạng thái trực tuyến, dòng
+   * đã chặn) — không nhân đôi nút chặn/báo cáo vốn đã nằm ở hàng
+   * hành động của header, để tránh trùng tên truy cập.
+   */
+  const showInfoAside = infoOpen && ((isGroup && memberPanelBundle !== null) || (!isGroup && otherId !== undefined));
+  /** Tập ký tự emoji văn bản cho nút chèn emoji ở composer (issue #564): không thêm thư viện picker. */
+  const emojiOptions = ['👍', '❤️', '😂', '🎉', '👏', '🙏'];
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="relative flex min-h-0 flex-1">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b px-3 py-2">
         <Button
           type="button"
@@ -439,14 +497,27 @@ export function ChatPanel({
         >
           <ArrowLeft aria-hidden />
         </Button>
-        <span className="relative shrink-0">
+        {/*
+          Avatar header là nút mở panel duy nhất (theo mẫu demo:
+          bấm avatar mở panel thông tin) — thay nút Info icon riêng
+          của nhóm trước đây, để cả hai loại hội thoại chỉ có đúng
+          một nút mang tên này. Tên truy cập cố ý KHÔNG chứa tiêu đề
+          hội thoại để không đụng tên nút dòng hội thoại trong test.
+        */}
+        <button
+          type="button"
+          aria-label={t('conversationInfoTitle')}
+          aria-pressed={infoOpen}
+          className="relative shrink-0 rounded-full"
+          onClick={() => setInfoOpen((prev) => !prev)}
+        >
           <Avatar>
             <AvatarFallback>{initialsOf(avatarLabel)}</AvatarFallback>
           </Avatar>
           {otherOnline ? (
             <span className="absolute right-0 bottom-0 size-2.5 rounded-full bg-emerald-500 ring-2 ring-background" />
           ) : null}
-        </span>
+        </button>
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{title}</p>
           {subtitle ? <p className="truncate text-xs text-muted-foreground">{subtitle}</p> : null}
@@ -461,18 +532,6 @@ export function ChatPanel({
         >
           <Search aria-hidden />
         </Button>
-        {isGroup ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={t('conversationInfoTitle')}
-            aria-pressed={infoOpen}
-            onClick={() => setInfoOpen((prev) => !prev)}
-          >
-            <Info aria-hidden />
-          </Button>
-        ) : null}
       </div>
       <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
         {/*
@@ -522,17 +581,6 @@ export function ChatPanel({
         {reportMessage ? <p role="status">{reportMessage}</p> : null}
         {actionMessage ? <p role="alert">{actionMessage}</p> : null}
       </div>
-      {isGroup && infoOpen && memberPanelBundle ? (
-        <MemberPanel
-          conversation={active}
-          bundle={memberPanelBundle}
-          myId={myId}
-          onlineUsers={onlineUsers}
-          readMarkers={readMarkers}
-          newestSeq={newestSeq}
-          onViewProfile={memberProfile.open}
-        />
-      ) : null}
       <MemberProfileSheet
         entry={memberProfile.entry}
         contextName={memberPanel?.context.name ?? title}
@@ -661,6 +709,31 @@ export function ChatPanel({
               </div>
             ) : null}
             <form onSubmit={(e) => void send(e)} className="flex gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={t('emojiPickerLabel')}
+                    />
+                  }
+                >
+                  <Smile aria-hidden />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" sideOffset={4} className={CHAT_MENU_CONTENT_CLASS}>
+                  {emojiOptions.map((emoji) => (
+                    <DropdownMenuItem
+                      key={emoji}
+                      className={CHAT_MENU_ITEM_CLASS}
+                      onClick={() => { setDrafts((prev) => ({ ...prev, [active.id]: `${prev[active.id] ?? ''}${emoji}` })); noteTyping(); }}
+                    >
+                      {emoji}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Textarea
                 aria-label={t('messageText')}
                 value={draft}
@@ -683,7 +756,7 @@ export function ChatPanel({
                   }
                 }}
               />
-              <Button type="submit" disabled={sendInFlight}>{t('send')}</Button>
+              <Button type="submit" disabled={sendInFlight || !draft.trim()}>{t('send')}</Button>
             </form>
             <div className="flex items-center justify-between gap-2">
               {sendError ? (
@@ -703,6 +776,64 @@ export function ChatPanel({
           </>
         )}
       </div>
+      </div>
+      {showInfoAside ? (
+        <aside
+          data-testid="info-aside"
+          className="absolute inset-y-0 right-0 z-20 flex w-[85vw] max-w-[320px] flex-col overflow-y-auto border-l bg-background shadow-xl md:static md:z-auto md:w-[320px] md:shrink-0 md:shadow-none"
+        >
+          <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
+            <p className="truncate text-sm font-medium">{t('conversationInfoTitle')}</p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={t('closeDialog')}
+              onClick={() => setInfoOpen(false)}
+            >
+              <X aria-hidden />
+            </Button>
+          </div>
+          {isGroup && memberPanelBundle ? (
+            <MemberPanel
+              conversation={active}
+              bundle={memberPanelBundle}
+              myId={myId}
+              onlineUsers={onlineUsers}
+              readMarkers={readMarkers}
+              newestSeq={newestSeq}
+              onViewProfile={memberProfile.open}
+            />
+          ) : null}
+          {!isGroup && otherId ? (
+            <div data-testid="partner-panel" className="space-y-2 px-3 py-3">
+              <div className="flex items-center gap-3">
+                <Avatar>
+                  <AvatarFallback>{initialsOf(avatarLabel)}</AvatarFallback>
+                </Avatar>
+                <p className="min-w-0 flex-1 truncate font-medium">{title}</p>
+              </div>
+              {/*
+                Dòng trạng thái ở panel dùng cùng luật ba trạng
+                thái với đầu khung: chỉ hiện khi đã có sự kiện
+                hiện diện xác nhận; chưa biết thì không hiện
+                dòng nào, tránh khẳng định "Ngoại tuyến" khi
+                client chưa có dữ kiện.
+              */}
+              {otherPresence !== undefined ? (
+                <p className="text-sm text-muted-foreground">
+                  {otherPresence ? t('onlineNow') : t('messagesOfflineNow')}
+                </p>
+              ) : null}
+              {blocked.includes(otherId) ? (
+                <p className="text-sm">
+                  {nameOf(otherId)} {t('blockedSuffix')}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </aside>
+      ) : null}
     </div>
   );
 }
