@@ -6,6 +6,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '#lib/auth';
 import { createQueryClient } from '#lib/query-client';
 import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
+import { formatTime } from '#utils/date-format';
 import { MessagesPage } from './messages';
 
 /**
@@ -122,6 +123,16 @@ async function openNewMessageSheet() {
   return screen.findByRole('dialog');
 }
 
+/**
+ * Mở menu hành động ở đầu khung chat (issue #591): các hành
+ * động phụ của header (chặn, báo cáo, tắt tiếng, tắt chat)
+ * nằm trong menu này thay cho hàng nút thứ hai trước đây.
+ */
+async function openHeaderActionsMenu() {
+  await userEvent.click(screen.getByTestId('header-actions'));
+  await screen.findByRole('menu');
+}
+
 /** Render trang tin nhắn trong AuthProvider như ứng dụng thật (cây provider như root: QueryClientProvider bọc ngoài). */
 function renderMessages(entry = '/messages') {
   const router = createMemoryRouter([{ path: '/messages', element: <MessagesPage /> }], {
@@ -151,9 +162,12 @@ describe('Trang tin nhắn — chặn và bỏ chặn liên hệ', () => {
     const convButton = await screen.findByRole('button', { name: new RegExp(OTHER_ID) });
     await userEvent.click(convButton);
 
-    // Nút chặn ở header chat 1–1 mang kèm TÊN người đối thoại
-    // (quyết 23:16 ngày 26/10/2026 — sửa bug nút chặn không tên).
-    await userEvent.click(await screen.findByRole('button', { name: /^Chặn liên lạc / }));
+    // Mục chặn trong menu hành động ở đầu khung mang kèm TÊN
+    // người đối thoại (giữ quyết 23:16 ngày 26/10/2026 — sửa
+    // bug nút chặn không tên; issue #591 chuyển nút thành
+    // mục menu trong cùng một hàng header).
+    await openHeaderActionsMenu();
+    await userEvent.click(await screen.findByRole('menuitem', { name: /^Chặn liên lạc / }));
     await waitFor(() =>
       expect(calls.some((c) => c.url === `/api/v1/messages/contacts/${OTHER_ID}/block` && c.method === 'POST')).toBe(
         true,
@@ -166,8 +180,13 @@ describe('Trang tin nhắn — chặn và bỏ chặn liên hệ', () => {
     const blockedRow = await within(sheet).findByTestId(`blocked-${OTHER_ID}`);
     expect(blockedRow).toHaveTextContent(OTHER_ID);
     expect(await screen.findByText('Đã chặn liên hệ này.')).toBeInTheDocument();
-    // Trong cuộc trò chuyện, nút chặn đã thay bằng trạng thái đã chặn + bỏ chặn.
+    // Trong cuộc trò chuyện, mục chặn ở menu header đã thay
+    // bằng trạng thái đã chặn + mục bỏ chặn kèm tên.
     expect(screen.queryByRole('button', { name: /^Chặn liên lạc / })).not.toBeInTheDocument();
+    await openHeaderActionsMenu();
+    expect(await screen.findByRole('menuitem', { name: /^Bỏ chặn / })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /^Chặn liên lạc / })).not.toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
 
     await userEvent.click(within(blockedRow).getByRole('button', { name: 'Bỏ chặn' }));
     await waitFor(() =>
@@ -608,8 +627,10 @@ describe('Messages page — Lớp B conversation actions (soft delete + report)'
     await waitFor(() => expect(within(thread).queryByText('tin của tôi sẽ xoá')).not.toBeInTheDocument());
     expect(within(thread).getByText('tin của bạn học')).toBeInTheDocument();
 
-    // Báo cáo cuộc trò chuyện qua đúng endpoint và có xác nhận hiển thị.
-    await userEvent.click(screen.getByRole('button', { name: 'Báo cáo cuộc trò chuyện' }));
+    // Báo cáo cuộc trò chuyện qua đúng endpoint và có xác nhận hiển thị
+    // (mục báo cáo nằm trong menu hành động ở đầu khung từ issue #591).
+    await openHeaderActionsMenu();
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Báo cáo cuộc trò chuyện' }));
     await waitFor(() =>
       expect(calls.some((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}/report` && c.method === 'POST')).toBe(true),
     );
@@ -760,8 +781,10 @@ describe('Trang tin nhắn — hợp đồng tạo cuộc trò chuyện', () => 
     });
 
     // Conversation vừa tạo mở ra với người được chỉ định là một thành viên:
-    // nút chặn dành cho thành viên đó xuất hiện trong khung trò chuyện.
-    expect(await screen.findByRole('button', { name: /^Chặn liên lạc / })).toBeInTheDocument();
+    // mục chặn dành cho thành viên đó có trong menu hành động ở đầu khung.
+    await openHeaderActionsMenu();
+    expect(await screen.findByRole('menuitem', { name: /^Chặn liên lạc / })).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
   });
 
   it('hiện nút Nhắn tin trực tiếp trên dòng danh sách gắn cờ canDirectMessage (giáo viên → học viên đã ghi danh, không cần kết bạn trước)', async () => {
@@ -820,7 +843,11 @@ describe('Trang tin nhắn — hợp đồng tạo cuộc trò chuyện', () => 
       expect(create).toBeDefined();
       expect(create?.body).toEqual({ memberIds: [OTHER_ID] });
     });
-    expect(await screen.findByRole('button', { name: /^Chặn liên lạc / })).toBeInTheDocument();
+    // Hội thoại vừa tạo mở ra: menu hành động ở đầu khung có mục
+    // chặn kèm tên thành viên đó (issue #591).
+    await openHeaderActionsMenu();
+    expect(await screen.findByRole('menuitem', { name: /^Chặn liên lạc / })).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
   });
 });
 
@@ -1081,7 +1108,7 @@ describe('Messages page — M2: trần ký tự + lỗi gửi rõ ràng', () => 
     localStorage.clear();
   });
 
-  it('hiện bộ đếm và chặn gửi ở client khi nháp vượt trần 10.000 ký tự', async () => {
+  it('chặn gửi ở client khi nháp vượt trần 10.000 ký tự và ô soạn không còn bộ đếm ký tự', async () => {
     const calls: RecordedCall[] = [];
     stubFetchM1(calls);
     renderMessages();
@@ -1090,7 +1117,9 @@ describe('Messages page — M2: trần ký tự + lỗi gửi rõ ràng', () => 
     const composer = (await screen.findByLabelText('Nội dung tin nhắn')) as HTMLTextAreaElement;
 
     fireEvent.change(composer, { target: { value: 'a'.repeat(10001) } });
-    expect(screen.getByTestId('message-char-count')).toHaveTextContent('10001/10000');
+    // Bản demo không có bộ đếm ký tự ở ô soạn (issue #591 bỏ
+    // hẳn); trần ký tự vẫn được cổng gửi chặn như cũ.
+    expect(screen.queryByTestId('message-char-count')).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Gửi' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Tin nhắn quá dài — tối đa 10000 ký tự.');
@@ -2221,9 +2250,13 @@ describe('Messages page — MSG-T4: panel thành viên + menu avatar', () => {
     await openT4CourseChat();
     await openT4InfoPanel(`member-panel-row-${OTHER_ID}`);
 
-    // Thông tin nhóm: loại Khoá học + công tắc Tắt chat (canManage).
+    // Thông tin nhóm: loại Khoá học + công tắc Tắt chat cho
+    // người quản lý (issue #591: công tắc nằm trong menu hành
+    // động ở đầu khung thay cho nút ở hàng thứ hai).
     expect(screen.getByText('Khoá học')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Tắt chat' })).toBeInTheDocument();
+    await openHeaderActionsMenu();
+    expect(await screen.findByRole('menuitem', { name: 'Tắt chat' })).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
     // Roster được nạp hết trang từ endpoint roster của khoá.
     expect(calls.some((c) => c.method === 'GET' && c.url === `/api/v1/messages/courses/${COURSE_ID}/members?limit=100`)).toBe(true);
     // Phân nhóm đúng vai: đồng GV ở nhóm Giáo viên, hai HS ở nhóm
@@ -2633,7 +2666,7 @@ describe('Messages page — sửa dứt điểm trình bày (toolbar nổi + gi�
     expect(peerActions!.className).toContain('left-full');
   });
 
-  it('dòng thời gian chỉ hiện ở tin cuối: thread hai tin chỉ còn đúng một footer, nằm ở tin cuối', async () => {
+  it('mỗi bong bóng đều mang giờ của chính nó trong bong bóng, không còn dòng giờ chung ở tin cuối', async () => {
     const calls: RecordedCall[] = [];
     stubDomainFetch(calls);
     renderMessages();
@@ -2642,16 +2675,24 @@ describe('Messages page — sửa dứt điểm trình bày (toolbar nổi + gi�
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin của bạn học')).toBeInTheDocument();
 
-    const footers = thread.querySelectorAll('[data-slot="message-footer"]');
-    expect(footers).toHaveLength(1);
-    expect(footers[0]!.textContent).toContain(new Date('2026-01-01T00:01:00.000Z').toLocaleString());
-    const lastRow = within(thread).getByText('tin của bạn học').closest('[data-slot="message"]')!;
-    expect(lastRow.querySelector('[data-slot="message-footer"]')).not.toBeNull();
+    // Cả hai tin đều có dòng giờ riêng NẰM TRONG bong bóng của
+    // chính tin đó (issue #591, như bản demo) — giờ lấy theo
+    // đúng mốc tạo của từng tin.
     const firstRow = within(thread).getByText('tin của tôi sẽ xoá').closest('[data-slot="message"]')!;
-    expect(firstRow.querySelector('[data-slot="message-footer"]')).toBeNull();
+    const lastRow = within(thread).getByText('tin của bạn học').closest('[data-slot="message"]')!;
+    const firstTime = firstRow.querySelector('[data-testid^="message-time-"]');
+    const lastTime = lastRow.querySelector('[data-testid^="message-time-"]');
+    expect(firstTime).not.toBeNull();
+    expect(lastTime).not.toBeNull();
+    expect(firstTime!.closest('[data-slot="bubble"]')).not.toBeNull();
+    expect(lastTime!.closest('[data-slot="bubble"]')).not.toBeNull();
+    expect(lastTime!.textContent).toContain(formatTime('2026-01-01T00:01:00.000Z'));
+    // Không tin nào mang ghi chú trạng thái nên không còn
+    // footer dòng tin nào trong luồng.
+    expect(thread.querySelectorAll('[data-slot="message-footer"]')).toHaveLength(0);
   });
 
-  it('header chat nhóm không còn nút Chặn/Bỏ chặn nào', async () => {
+  it('header chat nhóm không còn nút hay mục menu Chặn/Bỏ chặn nào', async () => {
     const calls: RecordedCall[] = [];
     stubDomainFetch(calls);
     renderMessages();
@@ -2660,9 +2701,16 @@ describe('Messages page — sửa dứt điểm trình bày (toolbar nổi + gi�
     expect(await screen.findByLabelText('Tin nhắn')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Chặn liên lạc/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Bỏ chặn/ })).not.toBeInTheDocument();
+    // Cả trong menu hành động ở đầu khung cũng không có mục
+    // chặn cho chat nhóm (chặn ở nhóm đi qua menu của từng
+    // thành viên).
+    await openHeaderActionsMenu();
+    expect(screen.queryByRole('menuitem', { name: /^Chặn liên lạc/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /^Bỏ chặn/ })).not.toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
   });
 
-  it('header chat 1–1 có đúng một nút Chặn kèm tên người đối thoại', async () => {
+  it('header chat 1–1: menu hành động chứa đúng một mục Chặn kèm tên người đối thoại và không còn nút Chặn riêng', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderMessages();
@@ -2670,8 +2718,11 @@ describe('Messages page — sửa dứt điểm trình bày (toolbar nổi + gi�
     const convButton = await screen.findByRole('button', { name: new RegExp(OTHER_ID) });
     await userEvent.click(convButton);
 
-    const blockButtons = await screen.findAllByRole('button', { name: /^Chặn liên lạc / });
-    expect(blockButtons).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: /^Chặn liên lạc / })).not.toBeInTheDocument();
+    await openHeaderActionsMenu();
+    const blockItems = await screen.findAllByRole('menuitem', { name: /^Chặn liên lạc / });
+    expect(blockItems).toHaveLength(1);
+    await userEvent.keyboard('{Escape}');
   });
 
   it('chặn một thành viên nhóm qua menu hành động trong panel: gọi đúng POST contacts/:userId/block của trang', async () => {
@@ -3284,5 +3335,195 @@ describe('Trang tin nhắn — vòng sửa hẹp PR #576 (tiêu đề 1–1 và 
     expect(within(header).queryByText('Ngoại tuyến')).not.toBeInTheDocument();
     expect(await within(panel).findByText('đang trực tuyến')).toBeInTheDocument();
     expect(within(panel).queryByText('Ngoại tuyến')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Issue #591 — đợt UI dựng lại trang chat giống hệt demo:
+ * các ca dưới đây kiểm chứng từng hạng mục trình bày mới
+ * (vị trí dòng Đã xem, khung xương lúc tải lần đầu, lưới
+ * emoji, chữ viết tắt avatar nhóm chỉ gồm chữ cái, xem trước
+ * tin cuối ở dòng nhóm, panel hồ sơ đối tác, chip Yêu thích
+ * chỉ là hình dạng).
+ */
+const SEEN_MINE_ID = '01900000-0000-7000-8000-000000000591';
+const SEEN_PEER_ID = '01900000-0000-7000-8000-000000000592';
+const KT_GROUP_ID = '01900000-0000-7000-8000-000000000593';
+
+/** Stub cho các ca #591: 1–1 có mốc đã xem của đối tác dừng ở seq 1, nhóm tự do tên bắt đầu bằng ký tự đặc biệt. */
+function stub591Fetch(calls: RecordedCall[], gateList?: Promise<void>) {
+  // Trạng thái tắt tiếng của hội thoại 1–1 do "server" của stub
+  // giữ: PATCH .../state ghi lại để các lần nạp lại danh sách
+  // (invalidate sau đột biến) vẫn thấy trạng thái mới.
+  const serverState = { mutedDm: false };
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const respond = (payload: unknown) =>
+        new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/messages/conversations' && method === 'GET') {
+        if (gateList) await gateList;
+        return respond([
+          {
+            id: CONV_ID, type: 1, name: null, members: [ME_ID, OTHER_ID],
+            unread: 1, lastReadSeq: 0, lastMessageSeq: 2, muted: serverState.mutedDm,
+            lastMessage: { id: SEEN_PEER_ID, conversationId: CONV_ID, userIdFrom: OTHER_ID, subject: '', fullMessage: 'tin mới của bạn học', createdAt: '2026-01-01T00:05:00.000Z', seq: 2, clientMessageId: null },
+            memberProfiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } },
+          },
+          {
+            id: KT_GROUP_ID, type: 2, name: '[KT] Nhóm kiểm chứng', members: [ME_ID, OTHER_ID],
+            unread: 0, lastReadSeq: 1, lastMessageSeq: 1, muted: true,
+            lastMessage: { id: '01900000-0000-7000-8000-000000000594', conversationId: KT_GROUP_ID, userIdFrom: OTHER_ID, subject: '', fullMessage: 'nội dung tin nhóm cuối', createdAt: '2026-01-01T00:03:00.000Z', seq: 1, clientMessageId: null },
+            memberProfiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } },
+          },
+        ]);
+      }
+      if (url === '/api/v1/messages/group-tree')
+        return respond({
+          classes: [],
+          coursesOutsideClasses: [],
+          freeGroups: [{ id: KT_GROUP_ID, name: '[KT] Nhóm kiểm chứng', myRole: 'staff', conversationId: KT_GROUP_ID, unread: 0 }],
+          canCreateFreeGroup: false,
+        });
+      if (url === '/api/v1/messages/unread-count') return respond({ conversations: 1, notifications: 0 });
+      if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [] });
+      if (url === `/api/v1/messages/conversations/${CONV_ID}`)
+        return respond({
+          id: CONV_ID, type: 1, name: null, members: [ME_ID, OTHER_ID], muted: serverState.mutedDm,
+          messages: [
+            { id: SEEN_MINE_ID, conversationId: CONV_ID, userIdFrom: ME_ID, subject: '', fullMessage: 'tin của tôi đã được xem', createdAt: '2026-01-01T00:04:00.000Z', seq: 1, clientMessageId: null },
+            { id: SEEN_PEER_ID, conversationId: CONV_ID, userIdFrom: OTHER_ID, subject: '', fullMessage: 'tin mới của bạn học', createdAt: '2026-01-01T00:05:00.000Z', seq: 2, clientMessageId: null },
+          ],
+          hasMoreBefore: false,
+          memberReadMarkers: [
+            { userId: ME_ID, lastReadSeq: 2 },
+            { userId: OTHER_ID, lastReadSeq: 1 },
+          ],
+          memberProfiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } },
+        });
+      if (url === `/api/v1/messages/conversations/${CONV_ID}/read`) return respond({ marked: 2, lastReadSeq: 2 });
+      if (url === `/api/v1/messages/conversations/${CONV_ID}/state` && method === 'PATCH') {
+        const patch = (init?.body ? JSON.parse(String(init.body)) : {}) as { muted?: boolean };
+        if (typeof patch.muted === 'boolean') serverState.mutedDm = patch.muted;
+        return respond({ conversationId: CONV_ID, pinnedAt: null, archivedAt: null, muted: serverState.mutedDm });
+      }
+      return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
+}
+
+describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  it('dòng Đã xem nằm ngay dưới tin của tôi mà đối tác đã xem, không nằm ở cuối luồng khi còn tin mới hơn chưa xem', async () => {
+    const calls: RecordedCall[] = [];
+    stub591Fetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Học/ }));
+    const thread = await screen.findByLabelText('Tin nhắn');
+    const seen = await within(thread).findByTestId('seen-status');
+    const mineRow = within(thread).getByText('tin của tôi đã được xem').closest('[data-slot="message"]')!;
+    const peerRow = within(thread).getByText('tin mới của bạn học').closest('[data-slot="message"]')!;
+    // Thứ tự trong DOM: tin của tôi → dòng Đã xem → tin mới của đối tác.
+    expect(mineRow.compareDocumentPosition(seen) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(seen.compareDocumentPosition(peerRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Bong bóng tin của tôi mang dấu đã xem kép, và tin đó có giờ riêng trong bong bóng.
+    expect(within(thread).getByTestId(`message-time-${SEEN_MINE_ID}`)).toBeInTheDocument();
+  });
+
+  it('lúc danh sách đang tải lần đầu hiện khung xương đúng hình dạng trang và không hiện trạng thái rỗng giả', async () => {
+    const calls: RecordedCall[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    stub591Fetch(calls, gate);
+    renderMessages();
+
+    expect(await screen.findByTestId('conversations-loading')).toBeInTheDocument();
+    expect(screen.queryByText('Chưa có cuộc trò chuyện nào.')).not.toBeInTheDocument();
+    release();
+    expect(await screen.findByRole('button', { name: /Bạn Học/ })).toBeInTheDocument();
+    expect(screen.queryByTestId('conversations-loading')).not.toBeInTheDocument();
+  });
+
+  it('bộ chọn emoji ở ô soạn là lưới 20 biểu tượng như demo và chip Yêu thích chỉ là hình dạng vô hiệu', async () => {
+    const calls: RecordedCall[] = [];
+    stub591Fetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Học/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Chèn biểu tượng cảm xúc' }));
+    const menu = await screen.findByRole('menu');
+    expect(within(menu).getAllByRole('menuitem')).toHaveLength(20);
+    await userEvent.keyboard('{Escape}');
+
+    const favouritesChip = screen.getByRole('button', { name: 'Yêu thích' });
+    expect(favouritesChip).toBeDisabled();
+  });
+
+  it('avatar nhóm chỉ gồm chữ cái đầu của các từ chữ trong tên, bỏ ký tự đặc biệt ở đầu tên', async () => {
+    const calls: RecordedCall[] = [];
+    stub591Fetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
+    const groupRow = await screen.findByRole('button', { name: /Nhóm kiểm chứng/ });
+    // Tên "[KT] Nhóm kiểm chứng": các từ chữ là KT / Nhóm /
+    // kiểm / chứng → chữ viết tắt trong avatar là "KC", ký tự
+    // đặc biệt ở đầu tên không lọt vào avatar như lỗi "N[".
+    const fallback = groupRow.querySelector('[data-slot="avatar-fallback"]');
+    expect(fallback).not.toBeNull();
+    expect(fallback!.textContent).toBe('KC');
+  });
+
+  it('dòng nhóm ở tab Nhóm hiện xem trước tin cuối kèm tên người gửi và biểu tượng đã tắt tiếng', async () => {
+    const calls: RecordedCall[] = [];
+    stub591Fetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
+    const groupRow = await screen.findByRole('button', { name: /Nhóm kiểm chứng/ });
+    expect(within(groupRow).getByText(/Bạn Học: nội dung tin nhóm cuối/)).toBeInTheDocument();
+    expect(within(groupRow).getByTestId(`conversation-muted-${KT_GROUP_ID}`)).toBeInTheDocument();
+  });
+
+  it('panel thông tin 1–1 là hồ sơ người theo hình dạng demo: đủ nhãn trường hồ sơ với dấu gạch ngang chờ backend và hành động Tắt tiếng thật', async () => {
+    const calls: RecordedCall[] = [];
+    stub591Fetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Học/ }));
+    // Mở panel bằng nút avatar ở đầu khung.
+    await userEvent.click(await screen.findByLabelText('Thông tin cuộc trò chuyện'));
+    const panel = await screen.findByTestId('partner-panel');
+    for (const label of ['Giới thiệu', 'Email', 'Số điện thoại', 'Website', 'Công ty', 'Quốc gia', 'Múi giờ', 'Địa điểm', 'Trạng thái sẵn sàng', 'Thẻ', 'Tệp đã chia sẻ']) {
+      expect(within(panel).getByText(label)).toBeInTheDocument();
+    }
+    // Trường backend chưa có hiện dấu gạch ngang ở đúng vị trí, không bịa giá trị.
+    expect(within(panel).getAllByText('—').length).toBeGreaterThanOrEqual(9);
+    // Hành động Tắt tiếng trong panel là hành động thật: bấm
+    // xong biểu tượng tắt tiếng hiện ở đầu khung.
+    await userEvent.click(within(panel).getByRole('button', { name: 'Tắt tiếng' }));
+    expect(await screen.findByTestId('header-muted-icon')).toBeInTheDocument();
+  });
+
+  it('hộp thoại mời là hộp thoại ở giữa màn hình và khối liên kết mời chỉ là hình dạng vô hiệu', async () => {
+    const calls: RecordedCall[] = [];
+    stub591Fetch(calls);
+    renderMessages();
+
+    const dialog = await openNewMessageSheet();
+    expect(dialog.className).toContain('sm:max-w-lg');
+    const inviteInput = within(dialog).getByPlaceholderText('Liên kết mời sẽ hiện ở đây');
+    expect(inviteInput).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Sao chép' })).toBeDisabled();
   });
 });
