@@ -6,8 +6,11 @@ import {
   deleteAdminUser,
   fetchAdminUser,
   fetchAdminUsers,
+  fetchAdminUsersList,
+  fetchAllAdminUsers,
   toggleUserSuspended,
   updateAdminUser,
+  type ListAdminUsersParams,
 } from '../api/admin-users';
 import type { NewUserDraft, UpdateUserDraft } from '../types/admin-users';
 import { queryKeys } from './keys';
@@ -30,6 +33,44 @@ export function adminUsersQueryOptions(page: number, pageSize: number, search: s
   return queryOptions({
     queryKey: sharedQueryKeys.adminUsers(page, pageSize, search),
     queryFn: () => fetchAdminUsers(page, pageSize, search),
+  });
+}
+
+/**
+ * Tuỳ chọn truy vấn một trang danh sách người dùng theo hợp đồng đầy
+ * đủ của đợt 1 (lọc trạng thái + sắp xếp + trần cỡ trang) — trang
+ * danh sách dùng tuỳ chọn này; các bề mặt khác vẫn dùng
+ * `adminUsersQueryOptions` gọn ở trên.
+ */
+export function adminUsersListQueryOptions(params: ListAdminUsersParams) {
+  return queryOptions({
+    queryKey: queryKeys.adminUsersList(params),
+    queryFn: () => fetchAdminUsersList(params),
+  });
+}
+
+/**
+ * Tuỳ chọn truy vấn toàn bộ tập người dùng khớp bộ lọc/sắp xếp —
+ * chỉ bật ở đường lọc theo vai trò ở ngữ cảnh hệ thống, nơi trang
+ * giao tập này với tập người giữ vai rồi tự cắt trang hiển thị.
+ */
+export function adminUsersAllQueryOptions(params: Omit<ListAdminUsersParams, 'page' | 'pageSize'>) {
+  return queryOptions({
+    queryKey: queryKeys.adminUsersAll(params),
+    queryFn: () => fetchAllAdminUsers(params),
+  });
+}
+
+/**
+ * Tuỳ chọn truy vấn số đếm của một nhóm trạng thái cho thẻ thống kê:
+ * đọc đúng một dòng (cỡ trang 1) và lấy tổng server công bố theo bộ
+ * lọc trạng thái của đợt 1 — số đếm là số thật của server, không suy
+ * từ trang đang hiển thị.
+ */
+export function adminUserStatQueryOptions(status: 'active' | 'suspended' | 'deleted') {
+  return queryOptions({
+    queryKey: queryKeys.adminUserStat(status),
+    queryFn: () => fetchAdminUsersList({ page: 1, pageSize: 1, status }),
   });
 }
 
@@ -89,10 +130,13 @@ export function useUpdateAdminUser() {
 }
 
 /**
- * Nạp trước cho route danh sách người dùng: trang đầu với cỡ trang
- * mặc định và từ khoá rỗng — đúng trạng thái đầu của trang.
+ * Nạp trước cho route danh sách người dùng: trang đầu ở trạng thái
+ * đầu của trang (cỡ trang mặc định 10, không tìm kiếm, không lọc,
+ * không sắp xếp) — đúng khoá truy vấn trang dùng ở lần render đầu.
  */
 export async function adminUsersPageClientLoader() {
-  await queryClient.ensureQueryData(adminUsersQueryOptions(1, 20, '')).catch(() => undefined);
+  await queryClient
+    .ensureQueryData(adminUsersListQueryOptions({ page: 1, pageSize: 10 }))
+    .catch(() => undefined);
   return null;
 }
