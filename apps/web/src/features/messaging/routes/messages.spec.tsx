@@ -3146,7 +3146,11 @@ describe('Trang tin nhắn — dựng lại theo mẫu demo (issue #564)', () =>
     await userEvent.click(screen.getByRole('button', { name: 'Thông tin cuộc trò chuyện' }));
     const panel = await screen.findByTestId('partner-panel');
     expect(panel).toHaveTextContent('Bạn Một');
-    expect(panel).toHaveTextContent('Ngoại tuyến');
+    // Test này không phát sự kiện hiện diện nào của đối tác:
+    // trạng thái CHƯA BIẾT — panel không được khẳng định
+    // "Ngoại tuyến" (luật ba trạng thái hiện diện, vòng sửa 3
+    // của PR #576: chưa biết khác hẳn đã xác nhận ngoại tuyến).
+    expect(panel).not.toHaveTextContent('Ngoại tuyến');
     expect(screen.getByTestId('info-aside')).toContainElement(panel);
 
     await userEvent.click(screen.getByRole('button', { name: 'Đóng' }));
@@ -3212,8 +3216,11 @@ function stubNamelessDmFetch(calls: RecordedCall[]) {
 /**
  * Vòng sửa hẹp PR #576 sau nghiệm thu preview: hai hành vi trình
  * bày của hội thoại 1–1 không có tên — tiêu đề hiện tên đối tác
- * (thay nhãn dự phòng liệt kê mọi thành viên) và dòng phụ đầu
- * khung luôn hiện trạng thái của đối tác, kể cả khi ngoại tuyến.
+ * (thay nhãn dự phòng liệt kê mọi thành viên) và trạng thái
+ * hiện diện theo BA trạng thái: đã có sự kiện xác nhận trực
+ * tuyến / đã có sự kiện xác nhận ngoại tuyến / chưa biết (chưa
+ * có sự kiện nào — client không nhận ảnh chụp hiện diện ban
+ * đầu từ máy chủ) thì không hiện dòng trạng thái.
  */
 describe('Trang tin nhắn — vòng sửa hẹp PR #576 (tiêu đề 1–1 và dòng phụ trạng thái)', () => {
   afterEach(() => {
@@ -3240,7 +3247,7 @@ describe('Trang tin nhắn — vòng sửa hẹp PR #576 (tiêu đề 1–1 và 
     expect(screen.queryByText(/Hội thoại với người dùng/)).not.toBeInTheDocument();
   });
 
-  it('đầu khung 1–1 hiện "Ngoại tuyến" khi đối tác ngoại tuyến và đổi sang "đang trực tuyến" khi đối tác lên mạng', async () => {
+  it('trạng thái hiện diện 1–1 theo ba trạng thái: chưa có sự kiện thì đầu khung và panel không hiện dòng trạng thái, sự kiện ngoại tuyến hiện "Ngoại tuyến" ở cả hai bề mặt, chuyển trực tuyến đổi sang "đang trực tuyến"', async () => {
     const calls: RecordedCall[] = [];
     stubNamelessDmFetch(calls);
     renderMessages();
@@ -3249,12 +3256,33 @@ describe('Trang tin nhắn — vòng sửa hẹp PR #576 (tiêu đề 1–1 và 
     await screen.findByLabelText('Tin nhắn');
     const infoButton = await screen.findByRole('button', { name: 'Thông tin cuộc trò chuyện' });
     const header = infoButton.parentElement as HTMLElement;
-    expect(within(header).getByText('Ngoại tuyến')).toBeInTheDocument();
+    // (a) Chưa có sự kiện hiện diện nào của đối tác: trạng thái
+    // CHƯA BIẾT — đầu khung không hiện dòng trạng thái nào.
+    // Khẳng định này ĐỎ trên code vòng sửa 2 (vòng 2 gộp
+    // chưa-biết thành "Ngoại tuyến" ngay khi mở hội thoại).
+    expect(within(header).queryByText('Ngoại tuyến')).not.toBeInTheDocument();
+    expect(within(header).queryByText('đang trực tuyến')).not.toBeInTheDocument();
 
+    // (b) Sự kiện xác nhận ngoại tuyến: đầu khung hiện "Ngoại tuyến".
+    act(() => {
+      realtime.handlers?.onPresence({ userId: OTHER_ID, online: false } as never);
+    });
+    expect(await within(header).findByText('Ngoại tuyến')).toBeInTheDocument();
+
+    // Panel thông tin dùng cùng luật ba trạng thái: mở panel
+    // sau sự kiện ngoại tuyến thì panel cũng hiện "Ngoại tuyến".
+    await userEvent.click(infoButton);
+    const panel = await screen.findByTestId('partner-panel');
+    expect(within(panel).getByText('Ngoại tuyến')).toBeInTheDocument();
+
+    // (c) Chuyển ngoại tuyến → trực tuyến: cả đầu khung lẫn
+    // panel đổi sang "đang trực tuyến", hết "Ngoại tuyến".
     act(() => {
       realtime.handlers?.onPresence({ userId: OTHER_ID, online: true } as never);
     });
     expect(await within(header).findByText('đang trực tuyến')).toBeInTheDocument();
     expect(within(header).queryByText('Ngoại tuyến')).not.toBeInTheDocument();
+    expect(await within(panel).findByText('đang trực tuyến')).toBeInTheDocument();
+    expect(within(panel).queryByText('Ngoại tuyến')).not.toBeInTheDocument();
   });
 });

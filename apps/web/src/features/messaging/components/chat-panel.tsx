@@ -159,7 +159,22 @@ export function ChatPanel({
   const others = active.members.filter((memberId) => memberId !== myId);
   const isGroup = active.type === 2;
   const otherId = !isGroup ? others[0] : undefined;
-  const otherOnline = otherId ? Boolean(onlineUsers[otherId]) : false;
+  /**
+   * Trạng thái hiện diện của đối tác có BA trạng thái theo dữ
+   * kiện client: `true` khi đã có sự kiện hiện diện xác nhận
+   * trực tuyến, `false` khi đã có sự kiện xác nhận ngoại tuyến,
+   * `undefined` khi CHƯA BIẾT — chưa nhận sự kiện nào của đối
+   * tác. Client không nhận được ảnh chụp hiện diện ban đầu từ
+   * máy chủ: đối tác đã trực tuyến hay ngoại tuyến sẵn từ
+   * trước khi trang tải thì bản đồ không có bản ghi của họ,
+   * nên `undefined` tuyệt đối không được gộp thành ngoại
+   * tuyến — bề mặt hiện chữ trạng thái chỉ được khẳng định
+   * khi đã có sự kiện xác nhận. `otherOnline` (chấm/chữ "đang
+   * trực tuyến") chỉ cần nhánh `true`: vắng chấm khi chưa
+   * biết không khẳng định điều gì sai.
+   */
+  const otherPresence = otherId ? onlineUsers[otherId] : undefined;
+  const otherOnline = otherPresence === true;
   /**
    * Tiêu đề đầu khung — panel thông tin dùng lại đúng biến này:
    * hội thoại có tên thì dùng tên; hội thoại 1–1 không có tên
@@ -175,16 +190,21 @@ export function ChatPanel({
   const avatarLabel = active.name ?? (otherId ? nameOf(otherId) : title);
   /**
    * Dòng phụ đầu khung: đang nhập → nhóm hiện số thành viên →
-   * 1–1 hiện trạng thái của đối tác ở CẢ hai nhánh (trực tuyến /
-   * ngoại tuyến), để đầu khung 1–1 luôn có dòng phụ như đặc tả.
+   * 1–1 hiện trạng thái của đối tác theo đúng ba trạng thái
+   * hiện diện: đã xác nhận trực tuyến thì hiện nhãn trực
+   * tuyến, đã xác nhận ngoại tuyến thì hiện "Ngoại tuyến",
+   * chưa biết (chưa có sự kiện nào của đối tác — gồm cả ca
+   * đối tác đã ngoại tuyến sẵn từ trước khi trang tải) thì
+   * KHÔNG hiện dòng trạng thái, vì client không có dữ kiện
+   * để khẳng định.
    */
   const subtitle = typingNames.length > 0
     ? t('typingIndicator', { userId: nameOf(typingNames[0]!) })
     : isGroup
       ? t('conversationMembersCount', { count: active.members.length })
-      : otherOnline
+      : otherPresence === true
         ? t('onlineNow')
-        : otherId
+        : otherPresence === false
           ? t('messagesOfflineNow')
           : '';
   /** Seq tin mới nhất đang có — mốc so "đã xem" của từng thành viên ở panel thông tin. */
@@ -793,9 +813,18 @@ export function ChatPanel({
                 </Avatar>
                 <p className="min-w-0 flex-1 truncate font-medium">{title}</p>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {otherOnline ? t('onlineNow') : t('messagesOfflineNow')}
-              </p>
+              {/*
+                Dòng trạng thái ở panel dùng cùng luật ba trạng
+                thái với đầu khung: chỉ hiện khi đã có sự kiện
+                hiện diện xác nhận; chưa biết thì không hiện
+                dòng nào, tránh khẳng định "Ngoại tuyến" khi
+                client chưa có dữ kiện.
+              */}
+              {otherPresence !== undefined ? (
+                <p className="text-sm text-muted-foreground">
+                  {otherPresence ? t('onlineNow') : t('messagesOfflineNow')}
+                </p>
+              ) : null}
               {blocked.includes(otherId) ? (
                 <p className="text-sm">
                   {nameOf(otherId)} {t('blockedSuffix')}
