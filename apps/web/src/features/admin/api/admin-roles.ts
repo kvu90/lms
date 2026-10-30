@@ -1,4 +1,11 @@
-import type { CreateRole, ReplaceRoleCapabilities, Role, UpdateRole } from '@lms/contracts';
+import type {
+  AssignRole,
+  AssignmentListResponse,
+  CreateRole,
+  ReplaceRoleCapabilities,
+  Role,
+  UpdateRole,
+} from '@lms/contracts';
 import { apiJson } from '#lib/api';
 
 /**
@@ -60,4 +67,66 @@ export function replaceRoleCapabilities(input: { roleId: string; payload: Replac
  */
 export function deleteRole(roleId: string) {
   return apiJson<{ deleted: boolean }>(`/api/v1/access/roles/${roleId}`, { method: 'DELETE' });
+}
+
+/**
+ * Tham số liệt kê dòng gán vai của đợt 3 — mọi lọc, tìm và phân trang
+ * của bảng đều đi qua các tham số server này, không lọc phía client
+ * trên tập đã tải toàn bộ. Bộ lọc/lượt tìm rỗng được bỏ khỏi chuỗi
+ * truy vấn để backend hiểu là không lọc theo tiêu chí đó.
+ */
+export interface ListAssignmentsParams {
+  /** Chỉ giữ dòng của vai trò này; bỏ qua thì không lọc theo vai trò. */
+  roleId?: string;
+  /** Chỉ giữ dòng tại ngữ cảnh này; bỏ qua thì không lọc theo ngữ cảnh. */
+  contextId?: string;
+  /** Từ khoá khớp tên hoặc email người dùng; bỏ qua khi rỗng. */
+  search?: string;
+  /** Số trang (bắt đầu từ 1). */
+  page: number;
+  /** Số dòng mỗi trang. */
+  pageSize: number;
+}
+
+/**
+ * Liệt kê dòng gán vai đã phân trang phía server
+ * (GET /access/assignments) — phản hồi kèm tổng số dòng khớp bộ lọc để
+ * bảng tính số trang; mỗi dòng đã ghép sẵn tên và email người dùng.
+ *
+ * @param params - Bộ lọc, từ khoá và phân trang của trang hiện tại.
+ * @returns Trang dòng gán kèm tổng số dòng khớp.
+ */
+export function listAssignments(params: ListAssignmentsParams) {
+  const query = new URLSearchParams();
+  if (params.roleId) query.set('roleId', params.roleId);
+  if (params.contextId) query.set('contextId', params.contextId);
+  if (params.search) query.set('search', params.search);
+  query.set('page', String(params.page));
+  query.set('pageSize', String(params.pageSize));
+  return apiJson<AssignmentListResponse>(`/api/v1/access/assignments?${query.toString()}`);
+}
+
+/**
+ * Gán một vai trò cho một người dùng tại một ngữ cảnh
+ * (POST /access/assignments) — backend giữ nguyên các chốt chặn: gán
+ * trùng cùng nguồn là no-op lặng, gán vai giảng dạy trúng chốt gói số
+ * chỗ hoặc chốt tách vai bị từ chối với mã lỗi riêng; tầng hiển thị
+ * dịch mã lỗi thành lý do, không báo thành công giả.
+ *
+ * @param input - Bộ ba người dùng × vai trò × ngữ cảnh cần gán.
+ */
+export function createAssignment(input: AssignRole) {
+  return apiJson('/api/v1/access/assignments', { method: 'POST', body: JSON.stringify(input) });
+}
+
+/**
+ * Gỡ một dòng gán (DELETE /access/assignments/:id) — dòng do ghi danh
+ * quản lý (`component = 'enrol'`) bị backend từ chối với mã
+ * `access.assignment_enrol_managed`; tầng hiển thị phân biệt dòng này
+ * ngay trên bảng và dịch mã lỗi khi gặp trường hợp đua dữ kiện.
+ *
+ * @param assignmentId - Định danh dòng gán cần gỡ.
+ */
+export function deleteAssignment(assignmentId: string) {
+  return apiJson<{ deleted: boolean }>(`/api/v1/access/assignments/${assignmentId}`, { method: 'DELETE' });
 }

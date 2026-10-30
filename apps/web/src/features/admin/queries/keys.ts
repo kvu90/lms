@@ -5,8 +5,27 @@
  * khoá của mình ở tầng queries/; khoá dùng chung nhiều feature ở lại
  * src/lib/query-keys.ts. Cấu trúc phân cấp: thực thể → định danh → tham số.
  */
+import type { ListAssignmentsParams } from '../api/admin-roles';
+
 export const queryKeys = {
   adminUsersRoot: ['admin', 'users'] as const,
+  /** Gốc khoá bảng dòng gán vai — tiền tố làm mới bảng sau gán/gỡ. */
+  roleAssignmentsRoot: ['admin', 'role-assignments'] as const,
+  /**
+   * Khoá trang dòng gán vai theo đúng bộ lọc/tìm/phân trang đang hiển
+   * thị — mỗi tổ hợp tham số là một trang cache riêng, đổi lọc/tìm/
+   * trang là đổi khoá và gọi lại server với tham số tương ứng.
+   */
+  roleAssignments: (params: ListAssignmentsParams) =>
+    [
+      'admin',
+      'role-assignments',
+      params.roleId ?? '',
+      params.contextId ?? '',
+      params.search ?? '',
+      params.page,
+      params.pageSize,
+    ] as const,
   adminUserDetail: (userId: string) => ['admin', 'users', 'detail', userId] as const,
   tenantsRoot: ['admin', 'tenants'] as const,
   tenants: ['admin', 'tenants', 'list'] as const,
