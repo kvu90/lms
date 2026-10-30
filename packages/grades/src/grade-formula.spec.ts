@@ -23,7 +23,7 @@ import {
  * khác 0, nhánh thứ ba khi điều kiện bằng 0 — ví dụ 4 của tài liệu:
  * `=if([[midtermexam]]>=5, [[midtermexam]]+[[lab]], 0)`.
  */
-describe('GradeFormula — golden parser/evaluator (MoodleDocs Grade calculations)', () => {
+describe('GradeFormula — bộ phân tích/đánh giá chuẩn (tính toán điểm MoodleDocs)', () => {
   const grades: Record<string, number | null> = { a: 80, b: 60, c: 100, empty: null };
   const resolve = (idNumber: string): number | null => grades[idNumber] ?? null;
 
@@ -36,7 +36,7 @@ describe('GradeFormula — golden parser/evaluator (MoodleDocs Grade calculation
     expect(calculateFromFormula('=average([[a]],[[b]],[[c]])', resolve)).toBeCloseTo(80, 9);
   });
 
-  it('min/max: =min([[a]],[[b]],[[c]]) = 60, =max([[a]],[[b]],100) = 100', () => {
+  it('hàm min/max: =min([[a]],[[b]],[[c]]) = 60, =max([[a]],[[b]],100) = 100', () => {
     expect(calculateFromFormula('=min([[a]],[[b]],[[c]])', resolve)).toBe(60);
     expect(calculateFromFormula('=max([[a]],[[b]],100)', resolve)).toBe(100);
   });

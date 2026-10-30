@@ -26,8 +26,8 @@ import {
  * không soi chi tiết nội bộ plugin/transaction của TipTap: thứ tự
  * nội dung giữ nguyên, id phân biệt nhau, đều là chuỗi không rỗng.
  */
-describe('unique id invariant in authoring documents', () => {
-  it('multipleChoice: choices lacking attrs.id all gain distinct string ids, content order unchanged', () => {
+describe('Bất biến id duy nhất trong tài liệu soạn thảo', () => {
+  it('multipleChoice: lựa chọn thiếu attrs.id đều nhận id chuỗi riêng biệt, thứ tự nội dung không đổi', () => {
     const element = document.createElement('div');
     document.body.appendChild(element);
     const editor = new Editor({
@@ -73,7 +73,7 @@ describe('unique id invariant in authoring documents', () => {
     }
   });
 
-  it('trueFalse: statements lacking attrs.id all gain distinct string ids, content order unchanged', () => {
+  it('trueFalse: mệnh đề thiếu attrs.id đều nhận id chuỗi riêng biệt, thứ tự nội dung không đổi', () => {
     const element = document.createElement('div');
     document.body.appendChild(element);
     const editor = new Editor({

@@ -30,8 +30,8 @@ function item(partial: Partial<CalcItemInput> & { grade: number | null }): CalcI
 }
 function resetIds(): void { nextId = 1; }
 
-describe('GradeCalculator — golden gradebook (MoodleDocs Grade aggregation)', () => {
-  it('Natural without weight overrides is the sum over the sum of maxes: (70+20+10)/(100+80+10) = 100/190', () => {
+describe('GradeCalculator — sổ điểm chuẩn (tổng hợp điểm MoodleDocs)', () => {
+  it('Natural không ghi đè trọng số là tổng trên tổng các max: (70+20+10)/(100+80+10) = 100/190', () => {
     resetIds();
     const r = calculateCategory({
       aggregation: 'natural', gradeMin: 0, gradeMax: 100,
@@ -41,7 +41,7 @@ describe('GradeCalculator — golden gradebook (MoodleDocs Grade aggregation)', 
     expect(r.finalGrade).toBeCloseTo(100, 9);
   });
 
-  it('Natural extra credit: max is NOT added to the denominator and the total is capped at the category max (20 extra + 70/75 ⇒ 75/75)', () => {
+  it('Natural điểm cộng thêm: max KHÔNG cộng vào mẫu số và tổng bị chặn ở max của danh mục (20 điểm cộng + 70/75 ⇒ 75/75)', () => {
     resetIds();
     const r = calculateCategory({
       aggregation: 'natural', gradeMin: 0, gradeMax: 100,
@@ -54,7 +54,7 @@ describe('GradeCalculator — golden gradebook (MoodleDocs Grade aggregation)', 
     expect(r.finalGrade).toBeCloseTo(75, 9);
   });
 
-  it('Natural with an overridden weight redistributes the rest to exactly 100% by relative max', () => {
+  it('Natural có trọng số ghi đè sẽ phân bổ lại phần còn lại về đúng 100% theo max tương đối', () => {
     resetIds();
     const a = item({ grade: 80, gradeMax: 100, weightOverride: true, weight: 25 });
     const b = item({ grade: 40, gradeMax: 100 });
@@ -70,7 +70,7 @@ describe('GradeCalculator — golden gradebook (MoodleDocs Grade aggregation)', 
     expect(r.finalGrade).toBeCloseTo(172.5, 9);
   });
 
-  it('drop-the-lowest removes the lowest normalised grade before aggregation', () => {
+  it('drop-the-lowest loại điểm chuẩn hoá thấp nhất trước khi tổng hợp', () => {
     resetIds();
     const r = calculateCategory({
       aggregation: 'mean', gradeMin: 0, gradeMax: 100, dropLow: 1,
@@ -79,7 +79,7 @@ describe('GradeCalculator — golden gradebook (MoodleDocs Grade aggregation)', 
     expect(r.finalGrade).toBeCloseTo(85, 9); // (0.8 + 0.9) / 2
   });
 
-  it('keep-the-highest keeps only the best N normalised grades', () => {
+  it('keep-the-highest chỉ giữ N điểm chuẩn hoá tốt nhất', () => {
     resetIds();
     const r = calculateCategory({
       aggregation: 'mean', gradeMin: 0, gradeMax: 100, keepHigh: 2,
@@ -88,7 +88,7 @@ describe('GradeCalculator — golden gradebook (MoodleDocs Grade aggregation)', 
     expect(r.finalGrade).toBeCloseTo(85, 9);
   });
 
-  it('exclude empty grades: an empty item leaves the denominator (empty is not zero)', () => {
+  it('loại điểm trống: hạng mục trống rời khỏi mẫu số (trống không phải là 0)', () => {
     resetIds();
     const items = () => [item({ grade: 50, gradeMax: 100 }), item({ grade: null, gradeMax: 100 })];
     const excluded = calculateCategory({ aggregation: 'natural', gradeMin: 0, gradeMax: 100, aggregateOnlyGraded: true, items: items() });
@@ -100,7 +100,7 @@ describe('GradeCalculator — golden gradebook (MoodleDocs Grade aggregation)', 
     expect(included.finalGrade).toBeCloseTo(50, 9);
   });
 
-  it('freeze with multiplicator: a frozen grade ignores the multiplicator; an unfrozen one applies it', () => {
+  it('đóng băng với hệ số nhân: điểm đã đóng băng bỏ qua hệ số nhân; điểm chưa đóng băng thì áp dụng nó', () => {
     resetIds();
     const unfrozen = calculateCategory({
       aggregation: 'natural', gradeMin: 0, gradeMax: 100,
@@ -115,7 +115,7 @@ describe('GradeCalculator — golden gradebook (MoodleDocs Grade aggregation)', 
     expect(frozen.finalGrade).toBeCloseTo(50, 9); // final grade đã đóng băng được dùng nguyên văn
   });
 
-  it('multiplicator and offset adjust before normalisation and clamp to the item range', () => {
+  it('hệ số nhân và độ lệch điều chỉnh trước khi chuẩn hoá và chặn trong khoảng của hạng mục', () => {
     resetIds();
     const r = calculateCategory({
       aggregation: 'mean', gradeMin: 0, gradeMax: 100,
@@ -125,7 +125,7 @@ describe('GradeCalculator — golden gradebook (MoodleDocs Grade aggregation)', 
     expect(r.finalGrade).toBeCloseTo(95, 9);
   });
 
-  it('Mean of grades over the MoodleDocs set: (0.7 + 0.25 + 1.0)/3 = 65/100', () => {
+  it('Trung bình điểm trên tập MoodleDocs: (0.7 + 0.25 + 1.0)/3 = 65/100', () => {
     resetIds();
     const r = calculateCategory({
       aggregation: 'mean', gradeMin: 0, gradeMax: 100,
@@ -134,7 +134,7 @@ describe('GradeCalculator — golden gradebook (MoodleDocs Grade aggregation)', 
     expect(r.finalGrade).toBeCloseTo(65, 9);
   });
 
-  it('Lowest grade (MoodleDocs): min(0.7, 0.25, 1.0) = 0.25 ⇒ 25/100', () => {
+  it('Điểm thấp nhất (MoodleDocs): min(0.7, 0.25, 1.0) = 0.25 ⇒ 25/100', () => {
     resetIds();
     const r = calculateCategory({
       aggregation: 'lowest', gradeMin: 0, gradeMax: 100,
@@ -143,7 +143,7 @@ describe('GradeCalculator — golden gradebook (MoodleDocs Grade aggregation)', 
     expect(r.finalGrade).toBeCloseTo(25, 9);
   });
 
-  it('Highest grade (MoodleDocs): max(0.7, 0.25, 1.0) = 1.0 ⇒ 100/100', () => {
+  it('Điểm cao nhất (MoodleDocs): max(0.7, 0.25, 1.0) = 1.0 ⇒ 100/100', () => {
     resetIds();
     const r = calculateCategory({
       aggregation: 'highest', gradeMin: 0, gradeMax: 100,
@@ -152,7 +152,7 @@ describe('GradeCalculator — golden gradebook (MoodleDocs Grade aggregation)', 
     expect(r.finalGrade).toBeCloseTo(100, 9);
   });
 
-  it('Median of the MoodleDocs set is the middle normalised grade 0.7 ⇒ 70/100', () => {
+  it('Trung vị của tập MoodleDocs là điểm chuẩn hoá ở giữa 0.7 ⇒ 70/100', () => {
     resetIds();
     const r = calculateCategory({
       aggregation: 'median', gradeMin: 0, gradeMax: 100,
@@ -161,7 +161,7 @@ describe('GradeCalculator — golden gradebook (MoodleDocs Grade aggregation)', 
     expect(r.finalGrade).toBeCloseTo(70, 9);
   });
 
-  it('Mode (MoodleDocs verbatim): mode(0.7, 0.7, 0.25, 1.0, 0.7) = 0.7 ⇒ 70/100', () => {
+  it('Mode (nguyên văn MoodleDocs): mode(0.7, 0.7, 0.25, 1.0, 0.7) = 0.7 ⇒ 70/100', () => {
     resetIds();
     const r = calculateCategory({
       aggregation: 'mode', gradeMin: 0, gradeMax: 100,
@@ -174,7 +174,7 @@ describe('GradeCalculator — golden gradebook (MoodleDocs Grade aggregation)', 
     expect(r.finalGrade).toBeCloseTo(70, 9);
   });
 
-  it('Weighted mean (MoodleDocs worked example): 90,70,85,89 with weights 1,2,1,2 ⇒ 493/6 = 82.167', () => {
+  it('Trung bình có trọng số (ví dụ mẫu MoodleDocs): 90,70,85,89 với trọng số 1,2,1,2 ⇒ 493/6 = 82.167', () => {
     resetIds();
     const r = calculateCategory({
       aggregation: 'weightedmean', gradeMin: 0, gradeMax: 100,
@@ -186,7 +186,7 @@ describe('GradeCalculator — golden gradebook (MoodleDocs Grade aggregation)', 
     expect(r.finalGrade).toBeCloseTo(493 / 6, 6);
   });
 
-  it('Simple weighted mean weights by max like Natural but scales onto the category range', () => {
+  it('Trung bình có trọng số đơn giản cân theo max như Natural nhưng co giãn theo khoảng danh mục', () => {
     resetIds();
     const r = calculateCategory({
       aggregation: 'simpleweightedmean', gradeMin: 0, gradeMax: 100,
@@ -195,7 +195,7 @@ describe('GradeCalculator — golden gradebook (MoodleDocs Grade aggregation)', 
     expect(r.finalGrade).toBeCloseTo((100 / 190) * 100, 6);
   });
 
-  it('Sum (legacy) adds adjusted grades and caps at the sum of maxes', () => {
+  it('Tổng (cũ) cộng điểm đã điều chỉnh và chặn ở tổng các max', () => {
     resetIds();
     const r = calculateCategory({
       aggregation: 'sum', gradeMin: 0, gradeMax: 100,
@@ -205,7 +205,7 @@ describe('GradeCalculator — golden gradebook (MoodleDocs Grade aggregation)', 
     expect(r.finalGrade).toBeCloseTo(100, 9);
   });
 
-  it('excluded grades never participate, and an all-empty category has no grade', () => {
+  it('điểm bị loại không bao giờ tham gia, và danh mục toàn trống thì không có điểm', () => {
     resetIds();
     const r = calculateCategory({
       aggregation: 'mean', gradeMin: 0, gradeMax: 100,
@@ -220,7 +220,7 @@ describe('GradeCalculator — golden gradebook (MoodleDocs Grade aggregation)', 
     expect(empty.finalGrade).toBeNull();
   });
 
-  it('recalculation is idempotent: same inputs give the same outputs', () => {
+  it('tính lại có tính lũy đẳng: cùng đầu vào cho cùng đầu ra', () => {
     resetIds();
     const mk = () => calculateCategory({
       aggregation: 'natural', gradeMin: 0, gradeMax: 100,
@@ -229,7 +229,7 @@ describe('GradeCalculator — golden gradebook (MoodleDocs Grade aggregation)', 
     expect(mk().finalGrade).toBe(mk().finalGrade);
   });
 
-  it('grade letters map by percentage boundary (highest boundary at or below the percentage)', () => {
+  it('chữ điểm ánh xạ theo ngưỡng phần trăm (ngưỡng cao nhất bằng hoặc dưới phần trăm)', () => {
     const letters = [
       { letter: 'A', lowerBoundary: 90 }, { letter: 'B', lowerBoundary: 80 },
       { letter: 'C', lowerBoundary: 70 }, { letter: 'F', lowerBoundary: 0 },
