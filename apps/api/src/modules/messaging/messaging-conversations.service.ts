@@ -48,6 +48,58 @@ export class MessagingConversationsService {
   // --- conversation & message ---------------------------------------------------
 
   /**
+   * Cổng tạo NHÓM TỰ DO dùng chung cho mọi bề mặt: chỉ ba nhóm người
+   * được tạo nhóm thủ công trong hệ thống —
+   *
+   * 1. Quản trị viên hệ thống ({@link PermissionEvaluator.isSiteAdmin});
+   * 2. Chủ trung tâm: người giữ capability `tenant:manage` tại context
+   *    của TENANT HIỆN HÀNH (đọc từ `tenantAls` của request) — nhánh
+   *    "quản lý của chính tenant đó" trong predicate mà TenantsService
+   *    dùng (`assertTenantManager`);
+   * 3. Quản trị viên nền tảng: người giữ `tenant:manage` tại context
+   *    HỆ THỐNG — nhánh dự phòng `assertPlatformManager` của cùng
+   *    predicate trên. Nhánh 2 và 3 gộp lại mới tương đương trọn
+   *    `assertTenantManager`.
+   *
+   * Hai nhánh 2 và 3 phải kiểm riêng tại hai context khác nhau vì
+   * cổng tenant của evaluator KHÔNG thừa hưởng gán vai từ context hệ
+   * thống xuống tenant: tại context đích nằm trong cây của một tenant
+   * school/center, chỉ gán vai neo TRONG cây tenant đó mới hiệu lực,
+   * người dùng phải có tư cách thành viên đang hoạt động tại tenant
+   * đó, và lối tắt quản trị viên hệ thống cũng không áp dụng trong
+   * cây tenant. Vì vậy gán vai manager ở context hệ thống KHÔNG tự
+   * thoả tại context tenant — nó chỉ qua cổng khi kiểm trực tiếp tại
+   * context hệ thống ở nhánh 3.
+   *
+   * Giáo viên, nhân viên và học viên KHÔNG tạo nhóm tự do: nhóm của
+   * họ chỉ sinh theo cấu trúc lớp/khoá (đường
+   * {@link createGroupConversation} và các conversation gắn cấu trúc
+   * khác). Không có tenant hiện hành trong ngữ cảnh chạy (đường gọi
+   * ngoài request) thì nhánh chủ trung tâm và nhánh quản trị viên
+   * nền tảng không thoả — chỉ quản trị viên hệ thống qua được,
+   * fail-closed.
+   *
+   * @param actorId - Người gọi cần kiểm quyền tạo nhóm tự do.
+   * @returns `true` khi người gọi thuộc một trong ba nhóm trên.
+   */
+  async canCreateFreeGroup(actorId: string): Promise<boolean> {
+    if (await this.evaluator.isSiteAdmin(actorId)) return true;
+    const tenantId = tenantAls.getStore()?.tenantId;
+    if (!tenantId) return false;
+    const tenantCtx = await this.contexts.getByLevelInstance(20, tenantId);
+    if (!tenantCtx) return false;
+    if (await this.evaluator.hasCapability(actorId, 'tenant:manage', tenantCtx.id)) return true;
+    // Nhánh dự phòng quản trị nền tảng (assertPlatformManager của
+    // TenantsService): gán vai ở context hệ thống không chảy vào cây
+    // tenant nên phải kiểm `tenant:manage` ngay tại context hệ
+    // thống — người giữ quyền quản trị tenant ở tầng nền tảng qua
+    // được cổng của tenant hiện hành mà không cần gán vai trong cây
+    // tenant đó.
+    const systemCtx = await this.contexts.ensureSystemContext();
+    return this.evaluator.hasCapability(actorId, 'tenant:manage', systemCtx.id);
+  }
+
+  /**
    * Tạo conversation (nhóm hoặc 1-1; 1-1 đã tồn tại thì dùng lại). Tạo MỚI
    * conversation 1-1 phải qua cổng liên lạc (xem {@link assertCanContact});
    * việc trả lại conversation đã tồn tại là truy hồi idempotent, còn việc
@@ -73,16 +125,16 @@ export class MessagingConversationsService {
       await this.contacts.assertCanContact(actorId, other);
     }
     if (type === 2) {
-      // Cổng lập nhóm tự do (Lớp B, chính sách đã chốt): học sinh KHÔNG
-      // tự lập nhóm trong hệ thống — nhóm tự do chỉ do giáo viên/staff
-      // (có ít nhất một gán vai trò staff ở bất kỳ context nào) hoặc
-      // quản trị viên tạo; nhóm của lớp/khoá đi đường cấu trúc riêng
+      // Cổng lập nhóm tự do: nhóm thủ công chỉ do quản trị viên hệ
+      // thống, chủ trung tâm của tenant hiện hành hoặc quản trị
+      // viên nền tảng tạo (xem {@link canCreateFreeGroup}); giáo
+      // viên, nhân viên và học viên đều bị từ chối — nhóm của
+      // lớp/khoá sinh theo cấu trúc qua đường riêng
       // (createGroupConversation). Chặn TẠI TẦNG SERVICE này để mọi
       // client đều bị chặn như nhau, không chỉ ẩn ở giao diện.
-      const isAdmin = await this.evaluator.isSiteAdmin(actorId);
-      if (!isAdmin && !(await this.repo.hasStaffRoleAssignment(actorId))) {
+      if (!(await this.canCreateFreeGroup(actorId))) {
         throw new ForbiddenException({
-          message: 'Only teachers or staff can create group conversations; students cannot create their own groups',
+          message: 'Only site administrators or centre owners can create group conversations',
           code: 'messaging.group_creation_forbidden',
         });
       }

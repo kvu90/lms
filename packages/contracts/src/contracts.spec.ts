@@ -192,8 +192,14 @@ describe('Hợp đồng engagement', () => {
       }],
       coursesOutsideClasses: [],
       freeGroups: [{ conversationId: '01900000-0000-7000-8000-000000000030', name: 'Nhóm ôn thi', myRole: 'learning', unread: 0 }],
+      canCreateFreeGroup: true,
     });
     expect(tree.classes[0]!.courses[0]!.groups[0]!.conversationId).toBeNull();
+    // Cờ tạo nhóm tự do là trường BẮT BUỘC do server tính theo cổng
+    // tạo nhóm (chỉ quản trị viên hệ thống/chủ trung tâm mới true):
+    // thiếu cờ thì schema từ chối, tránh client tự suy quyền từ vai.
+    expect(tree.canCreateFreeGroup).toBe(true);
+    expect(() => conversationGroupTreeSchema.parse({ classes: [], coursesOutsideClasses: [], freeGroups: [] })).toThrow();
     // Vai ngoài tập chốt (teaching/learning/staff) và unread âm đều bị từ chối.
     expect(() => conversationGroupTreeSchema.parse({ ...tree, freeGroups: [{ conversationId: '01900000-0000-7000-8000-000000000030', name: 'X', myRole: 'owner', unread: 0 }] })).toThrow();
     expect(() => conversationGroupTreeSchema.parse({ ...tree, freeGroups: [{ conversationId: '01900000-0000-7000-8000-000000000030', name: 'X', myRole: 'staff', unread: -1 }] })).toThrow();

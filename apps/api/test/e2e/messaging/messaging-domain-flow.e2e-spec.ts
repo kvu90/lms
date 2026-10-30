@@ -17,7 +17,10 @@ import { addGroupMember, contextIdByLevelInstance, createGroupViaApi } from '../
  *     `core/messagingallusers` mất hiệu lực với tin nhắn (kiểm chứng
  *     đầy đủ ở messaging-roster-flow + messaging-calendar-flow);
  *     khám phá bạn bè đi qua roster thành viên khoá.
- *  2. Học sinh KHÔNG tự lập nhóm — chặn tại tầng service.
+ *  2. Nhóm tự do CHỈ do quản trị viên hệ thống hoặc chủ trung tâm
+ *     (manager tại context của tenant hiện hành) tạo thủ công —
+ *     giáo viên, nhân viên và học sinh đều bị chặn tại tầng service;
+ *     nhóm còn lại chỉ sinh theo cấu trúc lớp/khoá.
  *  3. Nhóm lớp chat hai chiều mặc định; giáo viên tắt được qua cột
  *     `enabled` (đường gửi phải tôn trọng); tắt thì học sinh dừng gửi,
  *     giáo viên vẫn gửi được.
@@ -73,6 +76,7 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
   let adminId: string;
   let teacher: Person;
   let otherTeacher: Person;
+  let owner: Person;
   let s1: Person;
   let s2: Person;
   let groupConvId: string;
@@ -133,6 +137,20 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     const course2Ctx = await contextIdByLevelInstance(app, admin, 50, course2.id);
     await assignRole(app, admin, otherTeacher.id, editingTeacher, course2Ctx);
 
+    // Chủ trung tâm của tenant hiện hành (tenant mặc định của môi
+    // trường test): thành viên của tenant + vai manager tại context
+    // của tenant — đúng predicate `tenant:manage` tại context tenant
+    // mà cổng tạo nhóm tự do dùng cho nhánh chủ trung tâm.
+    owner = await person();
+    const currentTenant = await http(app).get('/api/v1/tenants/current').set('Authorization', `Bearer ${admin}`);
+    const tenantId = (currentTenant.body as { id: string }).id;
+    const addMember = await http(app).post(`/api/v1/tenants/${tenantId}/members`)
+      .set('Authorization', `Bearer ${admin}`).send({ userId: owner.id });
+    if (addMember.status !== 201) throw new Error(`add tenant member failed: ${addMember.status} ${JSON.stringify(addMember.body)}`);
+    const tenantCtx = await contextIdByLevelInstance(app, admin, 20, tenantId);
+    const managerRole = await roleIdByShortname(app, admin, 'manager');
+    await assignRole(app, admin, owner.id, managerRole, tenantCtx);
+
     // Nhóm lớp (course group) gồm giáo viên + 2 học sinh; conversation
     // gắn group do một học sinh là thành viên group tạo (đường cấu trúc
     // lớp/khoá — khác với nhóm tự do bị cấm ở test 2).
@@ -181,7 +199,7 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     expect(reqBlocked.body.code).toBe('messaging.contact_blocked');
   });
 
-  it('2. học viên không thể tạo nhóm tự do ở tầng service; giáo viên thì có thể', async () => {
+  it('2. tạo nhóm tự do: học viên, người không vai và giáo viên đều bị từ chối ở tầng service; quản trị viên hệ thống và chủ trung tâm tạo được', async () => {
     const extra = await person();
     // Học sinh (dù đang ghi danh một khoá thật) tạo nhóm tự do → 403.
     const byStudent = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${s1.token}`)
@@ -193,12 +211,25 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
       .send({ type: 2, memberIds: [s1.id, s2.id], name: 'Nhóm của người lạ' });
     expect(byNobody.status).toBe(403);
     expect(byNobody.body.code).toBe('messaging.group_creation_forbidden');
-    // Giáo viên (có gán vai trò staff) tạo được, thành viên đúng như khai.
+    // Giáo viên (có gán vai trò staff tại context khoá) cũng bị từ
+    // chối: nhóm của giáo viên chỉ sinh theo cấu trúc lớp/khoá, không
+    // tạo thủ công.
     const byTeacher = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${teacher.token}`)
       .send({ type: 2, memberIds: [s1.id, s2.id], name: 'Nhóm giáo viên tạo' });
-    expect(byTeacher.status).toBe(201);
-    expect(new Set(byTeacher.body.members as string[])).toEqual(new Set([teacher.id, s1.id, s2.id]));
-    expect(byTeacher.body.createdBy).toBe(teacher.id);
+    expect(byTeacher.status).toBe(403);
+    expect(byTeacher.body.code).toBe('messaging.group_creation_forbidden');
+    // Quản trị viên hệ thống tạo được, thành viên đúng như khai.
+    const byAdmin = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${admin}`)
+      .send({ type: 2, memberIds: [s1.id, s2.id], name: 'Nhóm quản trị viên tạo' });
+    expect(byAdmin.status).toBe(201);
+    expect(new Set(byAdmin.body.members as string[])).toEqual(new Set([adminId, s1.id, s2.id]));
+    expect(byAdmin.body.createdBy).toBe(adminId);
+    // Chủ trung tâm (manager tại context tenant hiện hành) tạo được.
+    const byOwner = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${owner.token}`)
+      .send({ type: 2, memberIds: [s1.id, s2.id], name: 'Nhóm chủ trung tâm tạo' });
+    expect(byOwner.status).toBe(201);
+    expect(new Set(byOwner.body.members as string[])).toEqual(new Set([owner.id, s1.id, s2.id]));
+    expect(byOwner.body.createdBy).toBe(owner.id);
   });
 
   it('3. chat nhóm lớp hai chiều mặc định; khi giáo viên tắt, học viên ngừng gửi nhưng giáo viên vẫn gửi được', async () => {
@@ -241,20 +272,25 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     const again = await send(s2.token, groupConvId, 'lớp mở lại rồi');
     expect(again.status).toBe(201);
 
-    // Nhóm tự do do giáo viên tạo: người tạo quản lý được nhóm của
-    // mình (tắt → học sinh dừng, giáo viên gửi được).
-    const freeGroup = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${teacher.token}`)
-      .send({ type: 2, memberIds: [s1.id], name: 'Nhóm ôn tập' });
+    // Nhóm tự do do chủ trung tâm tạo: người tạo quản lý được nhóm
+    // của mình (tắt → mọi thành viên thường dừng gửi, kể cả giáo
+    // viên chỉ là thành viên thường trong nhóm này; người tạo vẫn
+    // gửi được).
+    const freeGroup = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${owner.token}`)
+      .send({ type: 2, memberIds: [teacher.id, s1.id], name: 'Nhóm ôn tập' });
     expect(freeGroup.status).toBe(201);
     const freeId = freeGroup.body.id as string;
     const freeOff = await http(app).patch(`/api/v1/messages/conversations/${freeId}`)
-      .set('Authorization', `Bearer ${teacher.token}`).send({ enabled: false });
+      .set('Authorization', `Bearer ${owner.token}`).send({ enabled: false });
     expect(freeOff.status).toBe(200);
     const studentFree = await send(s1.token, freeId, 'em gửi vào nhóm ôn tập');
     expect(studentFree.status).toBe(403);
     expect(studentFree.body.code).toBe('messaging.conversation_disabled');
     const teacherFree = await send(teacher.token, freeId, 'giáo viên gửi vào nhóm ôn tập');
-    expect(teacherFree.status).toBe(201);
+    expect(teacherFree.status).toBe(403);
+    expect(teacherFree.body.code).toBe('messaging.conversation_disabled');
+    const ownerFree = await send(owner.token, freeId, 'chủ trung tâm gửi vào nhóm ôn tập');
+    expect(ownerFree.status).toBe(201);
   });
 
   it('4. vòng đời theo vai: xoá-phía-mình chỉ ẩn với chính chủ; moderator gỡ cho mọi người bằng xoá cứng có lý do', async () => {
@@ -459,9 +495,10 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
   }, 120000);
 
   it('6. gỡ thành viên nhóm tự do (MSG-T4): chỉ người quản lý gỡ được; nhóm cấu trúc bị từ chối để về roster; người bị gỡ mất quyền ngay', async () => {
-    // Giáo viên tạo nhóm tự do với hai học sinh — người tạo là chủ nhóm.
-    const created = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${teacher.token}`)
-      .send({ type: 2, memberIds: [s1.id, s2.id], name: 'Nhóm gỡ thành viên' });
+    // Chủ trung tâm tạo nhóm tự do với giáo viên và hai học sinh —
+    // người tạo là chủ nhóm.
+    const created = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${owner.token}`)
+      .send({ type: 2, memberIds: [teacher.id, s1.id, s2.id], name: 'Nhóm gỡ thành viên' });
     expect(created.status).toBe(201);
     const freeId = created.body.id as string;
 
@@ -472,23 +509,23 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     expect(byMember.body.code).toBe('messaging.conversation_manage_forbidden');
 
     // Người tạo không tự gỡ chính mình và không bị gỡ khỏi nhóm của mình.
-    const removeSelf = await http(app).delete(`/api/v1/messages/conversations/${freeId}/members/${teacher.id}`)
-      .set('Authorization', `Bearer ${teacher.token}`);
+    const removeSelf = await http(app).delete(`/api/v1/messages/conversations/${freeId}/members/${owner.id}`)
+      .set('Authorization', `Bearer ${owner.token}`);
     expect(removeSelf.status).toBe(400);
     expect(removeSelf.body.code).toBe('messaging.member_remove_self');
     // Kể cả quản trị viên site (có thẩm quyền quản lý qua kiểm duyệt)
     // cũng không gỡ được NGƯỜI TẠO nhóm — nhóm không mất chủ sở hữu
     // qua đường này.
-    const removeCreator = await http(app).delete(`/api/v1/messages/conversations/${freeId}/members/${teacher.id}`)
+    const removeCreator = await http(app).delete(`/api/v1/messages/conversations/${freeId}/members/${owner.id}`)
       .set('Authorization', `Bearer ${admin}`);
     expect(removeCreator.status).toBe(403);
     expect(removeCreator.body.code).toBe('messaging.member_remove_creator');
 
     // Gỡ thật: người tạo gỡ s2 — response mang danh sách thành viên mới.
     const removed = await http(app).delete(`/api/v1/messages/conversations/${freeId}/members/${s2.id}`)
-      .set('Authorization', `Bearer ${teacher.token}`);
+      .set('Authorization', `Bearer ${owner.token}`);
     expect(removed.status).toBe(200);
-    expect(new Set(removed.body.members as string[])).toEqual(new Set([teacher.id, s1.id]));
+    expect(new Set(removed.body.members as string[])).toEqual(new Set([owner.id, teacher.id, s1.id]));
 
     // Người bị gỡ mất quyền NGAY: đọc lại conversation bị cổng thành
     // viên của đường đọc chặn 403 messaging.not_member (đúng hành vi
@@ -503,7 +540,7 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
 
     // Gỡ lại người đã không còn là thành viên → 404 member_not_found.
     const removeAgain = await http(app).delete(`/api/v1/messages/conversations/${freeId}/members/${s2.id}`)
-      .set('Authorization', `Bearer ${teacher.token}`);
+      .set('Authorization', `Bearer ${owner.token}`);
     expect(removeAgain.status).toBe(404);
     expect(removeAgain.body.code).toBe('messaging.member_not_found');
 

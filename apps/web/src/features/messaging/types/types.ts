@@ -195,6 +195,12 @@ export interface ConversationGroupTreeView {
   /** Khoá tôi thuộc về mà lớp chứa chúng tôi không có quan hệ trực tiếp. */
   coursesOutsideClasses: ConversationTreeCourseView[];
   freeGroups: ConversationTreeFreeGroupView[];
+  /**
+   * Server tính theo ĐÚNG cổng tạo nhóm tự do của API cho tenant hiện
+   * hành (chỉ quản trị viên hệ thống hoặc chủ trung tâm mới true) —
+   * nút tạo nhóm hiện theo cờ này, không tự suy từ vai trên cây.
+   */
+  canCreateFreeGroup: boolean;
 }
 
 /**
