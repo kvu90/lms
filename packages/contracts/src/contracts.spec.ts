@@ -23,6 +23,9 @@ import {
   createCouponSchema, purchasePlanSchema, updateCouponSchema,
   exportGradesSchema, exportGradesVneduSchema, gradeExportProviderSchema,
   createRefundSchema, paymentRefundStatusSchema, rejectRefundSchema, resolvePaymentReviewSchema, settleRefundSchema,
+  createSpaceRegistrationSchema, updateSpaceRegistrationSchema, changeSpaceStatusSchema,
+  updateSpaceSchemaRegistrySchema, recordSpaceSchemaMigrationRunSchema,
+  SPACE_KINDS, SPACE_STATUSES, SPACE_STORAGE_MODES,
 } from './index.js';
 
 describe('Khối contracts', () => {
@@ -1251,5 +1254,70 @@ describe('refund lifecycle + review queue contracts (lát 3, #189)', () => {
     expect(() => resolvePaymentReviewSchema.parse({ decision: 'ignored', reason: 'x' })).toThrow();
     expect(() => resolvePaymentReviewSchema.parse({ decision: 'matched' })).toThrow();
     expect(() => resolvePaymentReviewSchema.parse({ decision: 'matched', reason: '' })).toThrow();
+  });
+});
+
+describe('Hợp đồng control plane (sổ đăng ký không gian, #580)', () => {
+  const validCreate = {
+    slug: 'trung-tam-abc',
+    name: 'Trung tâm ABC',
+    kind: 'center',
+    databaseName: 'lms_centre_abc',
+    storageMode: 'dedicated',
+    connectionRoleRef: 'lms_centre_abc_app',
+    secretRef: 'env:CENTRE_ABC_DATABASE_URL',
+    plan: 'standard',
+  };
+
+  it('tập loại không gian, trạng thái vòng đời và chế độ kho là tập đóng đúng quyết định', () => {
+    expect(SPACE_KINDS).toEqual(['center', 'platform']);
+    expect(SPACE_STATUSES).toEqual(['provisioning', 'active', 'suspended', 'closed']);
+    expect(SPACE_STORAGE_MODES).toEqual(['shared', 'dedicated']);
+  });
+
+  it('tạo dòng đăng ký hợp lệ thì qua, trạng thái vòng đời là tuỳ chọn (mặc định ở service)', () => {
+    expect(createSpaceRegistrationSchema.parse(validCreate)).toMatchObject({ slug: 'trung-tam-abc' });
+    expect(createSpaceRegistrationSchema.parse({ ...validCreate, status: 'active' }).status).toBe('active');
+  });
+
+  it('slug phải theo khuôn định danh địa chỉ: chữ thường, số và gạch nối, không biên gạch nối', () => {
+    for (const slug of ['Trung-tam', 'trung_tam', '-trung-tam', 'trung-tam-', 'a', 'trung tam']) {
+      expect(() => createSpaceRegistrationSchema.parse({ ...validCreate, slug })).toThrow();
+    }
+    expect(createSpaceRegistrationSchema.parse({ ...validCreate, slug: 'trang-chinh' }).slug).toBe('trang-chinh');
+  });
+
+  it('loại không gian và chế độ kho ngoài tập đóng bị từ chối', () => {
+    expect(() => createSpaceRegistrationSchema.parse({ ...validCreate, kind: 'school' })).toThrow();
+    expect(() => createSpaceRegistrationSchema.parse({ ...validCreate, storageMode: 'pooled' })).toThrow();
+  });
+
+  it('schema tạo là strict: trường lạ (ví dụ trường bí mật dạng giá trị) bị từ chối', () => {
+    expect(() => createSpaceRegistrationSchema.parse({ ...validCreate, password: 'secret-value' })).toThrow();
+    expect(() => createSpaceRegistrationSchema.parse({ ...validCreate, billingEmail: 'a@b.c' })).toThrow();
+  });
+
+  it('cập nhật không cho sửa slug và loại không gian (định danh)', () => {
+    expect(() => updateSpaceRegistrationSchema.parse({ slug: 'slug-khac' })).toThrow();
+    expect(() => updateSpaceRegistrationSchema.parse({ kind: 'platform' })).toThrow();
+    expect(updateSpaceRegistrationSchema.parse({ plan: null, secretRef: null })).toEqual({ plan: null, secretRef: null });
+  });
+
+  it('đổi trạng thái chỉ nhận đúng bốn trạng thái vòng đời đã chốt', () => {
+    expect(changeSpaceStatusSchema.parse({ status: 'suspended' })).toEqual({ status: 'suspended' });
+    expect(() => changeSpaceStatusSchema.parse({ status: 'archived' })).toThrow();
+  });
+
+  it('registry phiên bản schema: mốc thời gian sao lưu/khôi phục phải là ISO datetime có offset', () => {
+    expect(updateSpaceSchemaRegistrySchema.parse({ lastBackupAt: '2026-10-30T10:00:00+07:00' }).lastBackupAt)
+      .toBe('2026-10-30T10:00:00+07:00');
+    expect(() => updateSpaceSchemaRegistrySchema.parse({ lastBackupAt: '2026-10-30' })).toThrow();
+    expect(() => updateSpaceSchemaRegistrySchema.parse({ lastBackupAt: '30/10/2026 10:00' })).toThrow();
+  });
+
+  it('ghi lượt migration: trạng thái lượt chỉ thuộc tập đóng và steps mặc định rỗng', () => {
+    const parsed = recordSpaceSchemaMigrationRunSchema.parse({ runId: 'run-1', status: 'success', toVersion: 'v2' });
+    expect(parsed.steps).toEqual([]);
+    expect(() => recordSpaceSchemaMigrationRunSchema.parse({ runId: 'run-1', status: 'passed' })).toThrow();
   });
 });
