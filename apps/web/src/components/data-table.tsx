@@ -125,7 +125,10 @@ function pageNumberList(pageCount: number, current: number): (number | 'ellipsis
  * chế độ dữ liệu: mặc định trang gọi đưa toàn bộ hàng và bảng tự sắp
  * xếp/lọc/phân trang phía client; khi dữ liệu đã phân trang phía server
  * thì bật manualPagination và giữ trạng thái trang ở trang gọi (bảng
- * không tự cắt trang). Dữ liệu và cột do trang gọi cung cấp — luôn là
+ * không tự cắt trang). Tương tự, khi thứ tự dòng do server quyết định
+ * theo hợp đồng sắp xếp thì bật manualSorting và giữ trạng thái sắp xếp
+ * ở trang gọi (bảng không tự sắp xếp lại trang đơn lẻ — sắp xếp một
+ * trang sẽ gây hiểu nhầm là sắp xếp toàn cục). Dữ liệu và cột do trang gọi cung cấp — luôn là
  * dữ liệu thật của vai trò tương ứng; component không biết nghiệp vụ.
  * Chân bảng có hai biến thể do nhãn của trang gọi chọn: mặc định hiện
  * "Trang X / Y" và chỉ bày cụm nút khi có từ hai trang; khi trang gọi
@@ -149,6 +152,9 @@ export function DataTable<T extends Record<string, any>>({
   pageCount,
   pagination: paginationProp,
   onPaginationChange,
+  manualSorting = false,
+  sorting: sortingProp,
+  onSortingChange,
   rowTestId,
   totalRows,
 }: {
@@ -176,6 +182,16 @@ export function DataTable<T extends Record<string, any>>({
   /** Trạng thái phân trang do trang gọi giữ (bắt buộc khi manualPagination). */
   pagination?: PaginationState;
   onPaginationChange?: OnChangeFn<PaginationState>;
+  /**
+   * Sắp xếp phía server: dữ liệu truyền vào đã được server sắp xếp
+   * theo hợp đồng, bảng chỉ giữ trạng thái sắp xếp và báo lên trang
+   * gọi qua onSortingChange; id của trạng thái sắp xếp là id cột của
+   * trang gọi, trang gọi tự ánh xạ sang tham số hợp đồng của API.
+   */
+  manualSorting?: boolean;
+  /** Trạng thái sắp xếp do trang gọi giữ (bắt buộc khi manualSorting). */
+  sorting?: SortingState;
+  onSortingChange?: OnChangeFn<SortingState>;
   /** data-testid cho từng hàng — giữ tay cầm kiểm thử/điều hướng của trang gọi. */
   rowTestId?: (row: T) => string;
 }) {
@@ -184,7 +200,9 @@ export function DataTable<T extends Record<string, any>>({
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = React.useState('');
-  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [internalSorting, setInternalSorting] = React.useState<SortingState>([]);
+  const sorting = sortingProp ?? internalSorting;
+  const handleSortingChange: OnChangeFn<SortingState> = onSortingChange ?? setInternalSorting;
   const [internalPagination, setInternalPagination] = React.useState<PaginationState>({
     pageIndex: 0,
     pageSize,
@@ -242,12 +260,13 @@ export function DataTable<T extends Record<string, any>>({
     getRowId: (row) => getRowId(row as T),
     enableRowSelection: true,
     manualPagination,
+    manualSorting,
     pageCount,
     onRowSelectionChange: setRowSelection,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
     onColumnVisibilityChange: setColumnVisibility,
-    onSortingChange: setSorting,
+    onSortingChange: handleSortingChange,
     onPaginationChange: handlePaginationChange,
   });
 

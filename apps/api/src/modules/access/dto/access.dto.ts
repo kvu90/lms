@@ -6,6 +6,7 @@ import {
   createRoleSchema,
   hasCapabilityQuerySchema,
   listAssignmentsQuerySchema,
+  listUsersWithAssignmentsQuerySchema,
   overrideCapabilitySchema,
   replaceRoleCapabilitiesSchema,
   updateRoleSchema,
@@ -14,6 +15,7 @@ import {
   type CreateContext,
   type CreateRole,
   type ListAssignmentsQuery,
+  type ListUsersWithAssignmentsQuery,
   type OverrideCapability,
   type ReplaceRoleCapabilities,
   type UpdateRole,
@@ -48,6 +50,23 @@ export const listAssignmentsQueryServerSchema = listAssignmentsQuerySchema.exten
 });
 export type ListAssignmentsQueryDto = z.infer<typeof listAssignmentsQueryServerSchema>;
 export type ListAssignmentsFilter = Pick<ListAssignmentsQuery, 'userId' | 'contextId' | 'roleId' | 'search'>;
+
+/**
+ * Schema phía server cho query liệt kê người dùng kèm gán vai — EXTEND từ
+ * schema nền ở contracts theo đúng khuôn của query liệt kê gán vai:
+ * `page`/`pageSize` ép kiểu bằng `z.coerce` và nhận mặc định (trang 1, 20
+ * người mỗi trang, trần 100), `search` cắt khoảng trắng hai đầu và chuỗi
+ * rỗng sau khi cắt coi như không tìm kiếm. Các trường lọc còn lại
+ * (`roleId`, `status`) giữ nguyên validation của schema nền — status
+ * ngoài tập đóng bị chặn ở đây trước khi vào tầng service.
+ */
+export const listUsersWithAssignmentsQueryServerSchema = listUsersWithAssignmentsQuerySchema.extend({
+  search: z.string().trim().transform((value) => (value === '' ? undefined : value)).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+export type ListUsersWithAssignmentsQueryDto = z.infer<typeof listUsersWithAssignmentsQueryServerSchema>;
+export type ListUsersWithAssignmentsFilter = Pick<ListUsersWithAssignmentsQuery, 'search' | 'roleId' | 'status'>;
 
 /**
  * Schema phía server cho query kiểm tra quyền — EXTEND từ schema nền ở

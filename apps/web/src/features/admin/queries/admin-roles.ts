@@ -12,6 +12,7 @@ import {
   createRole,
   deleteAssignment,
   deleteRole,
+  fetchRoleHolderUserIds,
   getCapabilityMatrix,
   listAssignments,
   replaceRoleCapabilities,
@@ -113,6 +114,34 @@ export function roleAssignmentsQueryOptions(params: ListAssignmentsParams) {
   return queryOptions({
     queryKey: queryKeys.roleAssignments(params),
     queryFn: () => listAssignments(params),
+  });
+}
+
+/**
+ * Tuỳ chọn truy vấn các dòng gán vai của đúng một người dùng cho cột
+ * Vai trò của trang danh sách người dùng: dùng lọc `userId` của đợt 1
+ * ở cỡ trang 100 — một người giữ vai ở nhiều ngữ cảnh vẫn nằm trong
+ * một trang này trong thực tế (số dòng gán của một người bị chặn bởi
+ * số vai trò × số ngữ cảnh họ thật sự tham gia), và tổng server công
+ * bố đi kèm để trang biết khi nào tập dòng chưa đủ.
+ */
+export function userAssignmentsQueryOptions(userId: string) {
+  return queryOptions({
+    queryKey: queryKeys.userAssignments(userId),
+    queryFn: () => listAssignments({ userId, page: 1, pageSize: 100 }),
+  });
+}
+
+/**
+ * Tuỳ chọn truy vấn tập người giữ một vai trò tại ngữ cảnh hệ thống
+ * cho bộ lọc theo vai trò của trang danh sách người dùng — phép lọc
+ * chạy phía server trên endpoint gán vai, trang chỉ giao tập định
+ * danh trả về với tập người dùng của chính nó.
+ */
+export function roleHoldersQueryOptions(roleId: string, contextId: string) {
+  return queryOptions({
+    queryKey: queryKeys.roleHolders(roleId, contextId),
+    queryFn: () => fetchRoleHolderUserIds(roleId, contextId),
   });
 }
 
