@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundEx
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
@@ -18,6 +19,7 @@ import { BetterAuthService } from './better-auth/better-auth.service';
 import { CredentialBridgeService } from './better-auth/credential-bridge.service';
 import { SessionService } from './session.service';
 import { TotpService } from './totp.service';
+import { tenantAls } from '../tenants/tenant-als';
 import { TenantsService } from '../tenants/tenants.service';
 
 export interface TokenPair { accessToken: string; refreshToken: string; expiresIn: number }
@@ -119,6 +121,7 @@ export class AuthService {
     private readonly lockout: LoginLockoutService,
     private readonly betterAuth: BetterAuthService,
     private readonly credentialBridge: CredentialBridgeService,
+    private readonly spaceDb: SpaceDatabaseService,
   ) {}
 
   private readonly logger = new Logger(AuthService.name);
@@ -319,7 +322,11 @@ export class AuthService {
    * Phát hành cặp token: claim `tid` ghi tenant hiệu lực của phiên
    * (TENANT-0, #168) — không truyền `tenantId` thì phân giải tenant mặc
    * định xác định của user; family refresh lưu lại tid để refresh giữ
-   * đúng tenant, switch-tenant cấp family mới.
+   * đúng tenant, switch-tenant cấp family mới. Khi tenant hiệu lực là
+   * một trung tâm ở kho riêng, access token còn mang claim `centre_id`
+   * (định danh đăng ký của trung tâm — issue #582) để
+   * `SpaceContextGuard` đối chiếu phiên với trung tâm tại địa chỉ
+   * request ở mọi request sau đó.
    */
   private async issueTokens(user: UserRow, client?: SessionClientInfo, tenantId?: string): Promise<TokenPair> {
     const familyId = randomUUID();
@@ -333,11 +340,36 @@ export class AuthService {
       expiresAt: new Date(Date.now() + ttlDays * 86_400_000),
     });
     const accessTtl = this.config.get<number>('ACCESS_TOKEN_TTL_SECONDS') ?? 900;
+    const centreId = await this.centreClaimForTenant(tid);
     const accessToken = await this.jwt.signAsync(
-      { sub: user.id, username: user.username, sid: familyId, tid },
+      { sub: user.id, username: user.username, sid: familyId, tid, ...(centreId ? { centre_id: centreId } : {}) },
       { expiresIn: accessTtl },
     );
     return { accessToken, refreshToken, expiresIn: accessTtl };
+  }
+
+  /**
+   * Định danh đăng ký của trung tâm cho claim `centre_id` của access
+   * token sắp cấp cho một phiên thuộc tenant `tenantId` (issue #582):
+   * chỉ phiên của trung tâm ở KHO RIÊNG mới mang claim — định danh là
+   * khoá chính của dòng đăng ký trong sổ control plane, lấy qua bộ
+   * phân giải của khung định tuyến từ slug của tenant (slug của
+   * tenant và slug đăng ký của trung tâm là một, xem SeedService).
+   * Tenant ở kho chung, tenant chưa có dòng đăng ký, hoặc tầng định
+   * tuyến chưa cấu hình/không đọc được lúc cấp token → không mang
+   * claim: việc cấp token không bao giờ được hỏng vì tầng định tuyến,
+   * và phiên thiếu claim vẫn bị `SpaceContextGuard` đối chiếu bằng
+   * slug của tenant hiệu lực ở địa chỉ kho riêng, nên thiếu claim
+   * không nới lỏng được việc gắn phiên vào trung tâm.
+   */
+  private async centreClaimForTenant(tenantId: string): Promise<string | undefined> {
+    try {
+      const tenant = await tenantAls.run({ platform: true }, () => this.tenants.getTenant(tenantId));
+      const target = await this.spaceDb.resolveTarget(tenant.slug);
+      return target.mode === 'dedicated' ? target.spaceId : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   /** Xoay vòng: token được trình ra phải là token hiện tại của family. Trình ra token trước đó (đã bị xoay vòng) = dùng lại ⇒ thu hồi family. */
@@ -379,7 +411,11 @@ export class AuthService {
       if (tid !== family.tenantId) await this.repo.setFamilyTenant(family.id, tid);
     }
     const accessTtl = this.config.get<number>('ACCESS_TOKEN_TTL_SECONDS') ?? 900;
-    const accessToken = await this.jwt.signAsync({ sub: user.id, username: user.username, sid: family.familyId, tid }, { expiresIn: accessTtl });
+    const centreId = await this.centreClaimForTenant(tid);
+    const accessToken = await this.jwt.signAsync(
+      { sub: user.id, username: user.username, sid: family.familyId, tid, ...(centreId ? { centre_id: centreId } : {}) },
+      { expiresIn: accessTtl },
+    );
     return { accessToken, refreshToken: newRefresh, expiresIn: accessTtl };
   }
 
