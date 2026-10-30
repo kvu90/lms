@@ -27,7 +27,7 @@ import { createCategory, createCourse, createCm, createEnrolInstance, createSect
  *   duyệt, duyệt thì thành Approved, từ chối thì thành Rejected (thao tác
  *   hàng loạt trên UI được dịch thành quyết định cho từng yêu cầu qua API).
  */
-describe('Platform user journeys (Behat-derived): search, restore, privacy requests', () => {
+describe('Hành trình người dùng platform (dẫn từ Behat): tìm kiếm, khôi phục, yêu cầu riêng tư', () => {
   let app: INestApplication;
   let admin: string;
 
@@ -37,7 +37,7 @@ describe('Platform user journeys (Behat-derived): search, restore, privacy reque
   });
   afterAll(async () => { await app.close(); });
 
-  it('search journey: a matching query returns the visible matches, a non-matching query returns none, and another course stays invisible', async () => {
+  it('hành trình tìm kiếm: truy vấn khớp trả các kết quả nhìn thấy được, truy vấn không khớp trả rỗng, và khoá khác vẫn vô hình', async () => {
     const cat = await createCategory(app, admin);
     const tokenA = uniqueName('amphibian');
     const tokenB = uniqueName('zombie');
@@ -71,7 +71,7 @@ describe('Platform user journeys (Behat-derived): search, restore, privacy reque
     expect(none.body).toEqual([]);
   });
 
-  it('restore journey: merging into an existing course keeps the target identity and adds the source content; replacing into a fresh course copies exactly the source structure', async () => {
+  it('hành trình khôi phục: hợp nhất vào khoá sẵn có giữ định danh đích và thêm nội dung nguồn; thay thế vào khoá mới sao chép đúng cấu trúc nguồn', async () => {
     const cat = await createCategory(app, admin);
     const source = await createCourse(app, admin, cat.id, { fullName: uniqueName('JourneySource') });
     const section = await createSection(app, admin, source.id, { name: 'Journey Week' });
@@ -113,7 +113,7 @@ describe('Platform user journeys (Behat-derived): search, restore, privacy reque
     expect(newModuleNames).toContain('Journey Reading');
   });
 
-  it('privacy journey: two users submit export requests, the officer sees both awaiting approval, approving completes them and denying rejects', async () => {
+  it('hành trình riêng tư: hai người gửi yêu cầu xuất, cán bộ thấy cả hai đang chờ duyệt, duyệt hoàn tất chúng và từ chối bác bỏ', async () => {
     const userA = await createUserViaApi(app, admin);
     const userB = await createUserViaApi(app, admin);
     const userC = await createUserViaApi(app, admin);

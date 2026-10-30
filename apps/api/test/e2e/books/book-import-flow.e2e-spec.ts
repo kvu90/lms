@@ -141,7 +141,7 @@ describe('K0b book import (verified Toán 1 TOC → book tree + programme mappin
   }, 120_000);
   afterAll(async () => { await app.close(); });
 
-  it('reports book dataset status and denies users without curriculum capabilities', async () => {
+  it('báo trạng thái dataset sách và từ chối người thiếu năng lực chương trình', async () => {
     const status = await http(app).get('/api/v1/books/dataset-import').set(bearer(admin));
     expect(status.status).toBe(200);
     const rows = status.body as { datasetKey: string; totalRecords: number; mappedRecords: number }[];
@@ -165,7 +165,7 @@ describe('K0b book import (verified Toán 1 TOC → book tree + programme mappin
     expect(bogus.body.code).toBe('book.dataset_not_found');
   });
 
-  it('refuses to import when the programme dataset is missing, then imports after it', async () => {
+  it('từ chối nhập khi thiếu dataset chương trình, rồi nhập sau khi có', async () => {
     // Thứ tự spec trong cùng DB không bảo đảm: nếu dataset chương trình
     // chưa từng được nạp ở DB này, lượt nạp SGK phải lỗi cứng
     // book_mapping_unresolved và KHÔNG ghi dở; nếu đã nạp rồi thì
@@ -195,7 +195,7 @@ describe('K0b book import (verified Toán 1 TOC → book tree + programme mappin
     if (result.created === 42) expect(result.mappingsWritten).toBe(expectedMappings);
   }, 300_000);
 
-  it('book tree matches the verified dataset record by record, with programme outcomes resolved through mappings', async () => {
+  it('cây sách khớp dataset đã kiểm chứng từng bản ghi, với outcome chương trình phân giải qua ánh xạ', async () => {
     const treeRes = await http(app).get(`/api/v1/books/${bookId}/tree`).set(bearer(admin));
     expect(treeRes.status).toBe(200);
     const tree = treeRes.body as BookTreeBody;
@@ -241,7 +241,7 @@ describe('K0b book import (verified Toán 1 TOC → book tree + programme mappin
     expect(unmapped[0]!.lesson.outcomes).toEqual([]);
   }, 120_000);
 
-  it('no book node leaks into the standard programme tree', async () => {
+  it('không node sách nào lọt vào cây chương trình chuẩn', async () => {
     const subjects = await http(app).get(`/api/v1/curriculum/subjects?contextId=${systemCtxId}`).set(bearer(admin));
     const subject = (subjects.body as { id: string; slug: string }[]).find((s) => s.slug === 'toan');
     const curricula = await http(app).get(`/api/v1/curriculum/curricula?subjectId=${subject!.id}`).set(bearer(admin));
@@ -258,7 +258,7 @@ describe('K0b book import (verified Toán 1 TOC → book tree + programme mappin
     }
   });
 
-  it('re-importing the book dataset is a no-op: every record skipped', async () => {
+  it('nhập lại dataset sách là no-op: mọi bản ghi đều bỏ qua', async () => {
     const res = await http(app).post('/api/v1/books/dataset-import').set(bearer(admin)).send({ datasetKey: 'sgk-toan-1' });
     expect(res.status).toBe(201);
     const result = res.body as { created: number; updated: number; skipped: number };

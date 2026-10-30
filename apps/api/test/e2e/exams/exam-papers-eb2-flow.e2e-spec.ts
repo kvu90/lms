@@ -17,7 +17,7 @@ import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstS
  *  - mã đề (variant_code) sinh ở tầng GHIM kèm seed; in đề kèm mã đề
  *    theo pin.
  */
-describe('EB-2 generated snapshot exams + variant codes (post-merge)', () => {
+describe('EB-2 đề snapshot sinh ra + mã biến thể (sau merge)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;
@@ -147,7 +147,7 @@ describe('EB-2 generated snapshot exams + variant codes (post-merge)', () => {
     return { a, b };
   }
 
-  it('generate: one fixed snapshot exam; the same exam pinned into two courses serves every student the SAME set; variant codes live on the pin', async () => {
+  it('generate: một đề snapshot cố định; cùng đề ghim vào hai khoá phục vụ mọi học viên CÙNG một bộ; mã biến thể nằm trên ghim', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx);
 
@@ -211,7 +211,7 @@ describe('EB-2 generated snapshot exams + variant codes (post-merge)', () => {
     expect([mine1[0]!.variants.length, mine2[0]!.variants.length].sort()).toEqual([1, 2]);
   }, 120_000);
 
-  it('generated exam is a plain snapshot: same-cell swap makes a new version, earlier attempts and the original pin stay intact, print follows the pin variant', async () => {
+  it('đề đã sinh là snapshot thuần: hoán đổi cùng ô tạo phiên bản mới, lượt làm trước và ghim gốc còn nguyên, in theo biến thể của ghim', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx);
     const gen = await generate(ctx, matrix.id, ctx.course1, 'Đề sinh từ ma trận');
@@ -283,7 +283,7 @@ describe('EB-2 generated snapshot exams + variant codes (post-merge)', () => {
     expect(new Set((beforeAgain.body as AttemptViewBody).questions.map((q) => q.questionId))).toEqual(beforeSet);
   }, 120_000);
 
-  it('generate: one-step works, and the generated paper is a ready snapshot carrying the drawn set', async () => {
+  it('generate: một bước chạy được, và đề đã sinh là snapshot sẵn sàng mang bộ đã rút', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx);
     const gen = await generate(ctx, matrix.id, ctx.course1, 'Đề cố định');

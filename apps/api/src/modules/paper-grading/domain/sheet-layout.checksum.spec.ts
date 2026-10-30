@@ -46,8 +46,8 @@ function mutations(code: string): string[] {
   return out;
 }
 
-describe('CAM-0 check digit — exhaustive single-digit mutation coverage', () => {
-  it('student codes (4-digit): every mutation of every valid code is rejected', LONG, () => {
+describe('Chữ số kiểm CAM-0 — bao phủ đột biến một chữ số toàn diện', () => {
+  it('mã học viên (4 chữ số): mọi đột biến của mọi mã hợp lệ đều bị từ chối', LONG, () => {
     let checked = 0;
     let leaks = 0;
     for (let index = 0; index <= 998; index++) {
@@ -64,7 +64,7 @@ describe('CAM-0 check digit — exhaustive single-digit mutation coverage', () =
     expect(leaks).toBe(0);
   });
 
-  it('SBD codes (8-digit): every mutation across full (position, from-digit, to-digit) coverage is rejected', LONG, () => {
+  it('mã SBD (8 chữ số): mọi đột biến trên toàn bộ bao phủ (vị trí, chữ số nguồn, chữ số đích) đều bị từ chối', LONG, () => {
     let checked = 0;
     let leaks = 0;
     const checkCode = (code: string) => {
@@ -92,7 +92,7 @@ describe('CAM-0 check digit — exhaustive single-digit mutation coverage', () =
     expect(leaks).toBe(0);
   });
 
-  it('roster collision: mutations at the previously-leaking positions never become another roster member code', LONG, () => {
+  it('va chạm danh sách: đột biến tại các vị trí từng rò rỉ không bao giờ thành mã thành viên khác trong danh sách', LONG, () => {
     // Mã lớp: vị trí 1 (trọng số 5 cũ), delta +2 → thân tăng 20. Roster
     // liên tiếp 1..45 như ca đội đánh giá đã chứng minh gán nhầm.
     const classRoster = new Set(Array.from({ length: 45 }, (_, i) => studentCodeForIndex(i)));
@@ -123,7 +123,7 @@ describe('CAM-0 check digit — exhaustive single-digit mutation coverage', () =
     console.log(`[CAM-0 checksum] roster collision: class ${classChecked} + SBD ${sbdChecked} targeted mutations, 0 collisions`);
   });
 
-  it('adjacent transposition: the only escaping class is a digit pair differing by exactly 5 (declared limit)', LONG, () => {
+  it('hoán vị kề: lớp thoát duy nhất là cặp chữ số lệch đúng 5 (giới hạn đã khai)', LONG, () => {
     const checkTranspositions = (code: string, ok: (c: string) => boolean) => {
       // MỌI cặp kề: pos chạy tới cặp biên (chữ số thân cuối ↔ số kiểm
       // tra) — vòng cũ dừng ở code.length - 2 nên bỏ sót đúng cặp này.
@@ -139,7 +139,7 @@ describe('CAM-0 check digit — exhaustive single-digit mutation coverage', () =
     for (let index = 0; index < 10_000; index++) checkTranspositions(sbdCodeForIndex(index), sbdCodeChecksumOk);
   });
 
-  it('roster edge pair: transposing the last two digits never lands on another roster code unless the digits differ by exactly 5', LONG, () => {
+  it('cặp biên danh sách: hoán vị hai chữ số cuối không bao giờ rơi vào mã khác trong danh sách trừ khi hai chữ số lệch đúng 5', LONG, () => {
     // Đúng ca của phán quyết 6394453120: với trọng số thân cuối cũ 9,
     // sbdCodeForIndex(0) = 00000019 hoán vị cuối thành 00000091 — mã
     // THẬT của thí sinh chỉ số 8 — và checksum vẫn nhận. Nay mã của

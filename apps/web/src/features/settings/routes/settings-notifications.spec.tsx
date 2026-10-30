@@ -114,14 +114,14 @@ function prefPuts(calls: RecordedCall[]) {
   return calls.filter((c) => c.url === '/api/v1/messages/preferences' && c.method === 'PUT');
 }
 
-describe('Settings — notification preferences, two-layer model (#288)', () => {
+describe('Cài đặt — tuỳ chọn thông báo, mô hình hai lớp (#288)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('layer 1 shows group state derived from the real rows; per-type table stays collapsed', async () => {
+  it('lớp 1 hiện trạng thái nhóm suy từ dòng thật; bảng theo loại vẫn gập', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls, { rows: teacherRows(), courses: [] });
     renderPage();
@@ -139,7 +139,7 @@ describe('Settings — notification preferences, two-layer model (#288)', () => 
     expect(screen.getByText('Tuỳ chỉnh từng loại')).toBeInTheDocument();
   });
 
-  it('a group left empty by the API audience filter renders no section in either layer (issue #288)', async () => {
+  it('nhóm bị bộ lọc audience của API làm rỗng thì không render mục nào ở cả hai lớp (issue #288)', async () => {
     const calls: RecordedCall[] = [];
     // API đã lọc theo vai + context: chỉ còn nhóm Lớp & mọi người.
     // Hai nhóm rỗng không được dựng section nào — cả ở lớp tổng hợp
@@ -162,7 +162,7 @@ describe('Settings — notification preferences, two-layer model (#288)', () => 
     expect(screen.queryByText('Hệ thống', { selector: 'h3' })).not.toBeInTheDocument();
   });
 
-  it('turning a group popup off PUTs every provider in the group except the mandatory one', async () => {
+  it('tắt popup của nhóm sẽ PUT mọi provider trong nhóm trừ loại bắt buộc', async () => {
     const calls: RecordedCall[] = [];
     const state = { rows: teacherRows(), courses: [] as CourseOverrideState[] };
     stubFetch(calls, state);
@@ -182,7 +182,7 @@ describe('Settings — notification preferences, two-layer model (#288)', () => 
     expect(screen.getByText(/Các loại trong nhóm đang có giá trị khác nhau/)).toBeInTheDocument();
   });
 
-  it('changing a group email frequency PUTs the frequency for every provider in the group', async () => {
+  it('đổi tần suất email của nhóm sẽ PUT tần suất cho mọi provider trong nhóm', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls, { rows: teacherRows(), courses: [] });
     renderPage();
@@ -199,7 +199,7 @@ describe('Settings — notification preferences, two-layer model (#288)', () => 
     await waitFor(() => expect(screen.getByLabelText('Học tập — Email')).toHaveValue('immediate'));
   });
 
-  it('a per-type change PUTs exactly one provider and wins over the group setting', async () => {
+  it('thay đổi theo loại sẽ PUT đúng một provider và thắng cài đặt nhóm', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls, { rows: teacherRows(), courses: [] });
     renderPage();
@@ -220,7 +220,7 @@ describe('Settings — notification preferences, two-layer model (#288)', () => 
     expect(screen.getByLabelText('Bài nộp mới — Trong ứng dụng')).toBeChecked();
   });
 
-  it('mandatory type stays locked on in layer 2 with the Required badge (P2)', async () => {
+  it('loại bắt buộc vẫn khoá bật ở lớp 2 kèm huy hiệu Required (P2)', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls, { rows: teacherRows(), courses: [] });
     renderPage();
@@ -235,7 +235,7 @@ describe('Settings — notification preferences, two-layer model (#288)', () => 
     expect(screen.getByLabelText('Sắp hết hạn ghi danh — Email')).not.toBeDisabled();
   });
 
-  it('admin-disabled type shows the site-off badge, locks its controls, and group writes skip it (NB-7)', async () => {
+  it('loại admin đã tắt hiện huy hiệu site-off, khoá điều khiển, và ghi nhóm bỏ qua nó (NB-7)', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls, { rows: teacherRows(), courses: [] });
     renderPage();
@@ -253,7 +253,7 @@ describe('Settings — notification preferences, two-layer model (#288)', () => 
     expect(prefPuts(calls)[0]!.body).toEqual({ provider: 'message_new', popupEnabled: false });
   });
 
-  it('course exceptions still work on this page: list, muted badge, toggle PUTs the new mode (NB-4/P3)', async () => {
+  it('ngoại lệ khoá học vẫn chạy trên trang này: danh sách, huy hiệu tắt tiếng, bật/tắt PUT chế độ mới (NB-4/P3)', async () => {
     const calls: RecordedCall[] = [];
     const state = {
       rows: teacherRows(),
@@ -280,7 +280,7 @@ describe('Settings — notification preferences, two-layer model (#288)', () => 
     await waitFor(() => expect(screen.getAllByText('Đã tắt tiếng')).toHaveLength(2));
   });
 
-  it('student minimal surface: no group rows, no per-type layer, course exceptions remain (NB-7)', async () => {
+  it('bề mặt tối thiểu của học viên: không dòng nhóm, không lớp theo loại, ngoại lệ khoá học vẫn còn (NB-7)', async () => {
     const calls: RecordedCall[] = [];
     const state = {
       rows: [] as PrefRow[],

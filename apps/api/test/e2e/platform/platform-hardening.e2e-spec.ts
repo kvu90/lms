@@ -14,7 +14,7 @@ vi.hoisted(() => {
   process.env.RATE_LIMIT_AUTH_PER_MINUTE = '3';
 });
 
-describe('Platform hardening: security headers and rate limiting', () => {
+describe('Cứng hoá platform: header bảo mật và giới hạn tốc độ', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
@@ -25,7 +25,7 @@ describe('Platform hardening: security headers and rate limiting', () => {
     await app.close();
   });
 
-  it('responses carry the standard security headers, with a strict CSP on versioned API routes', async () => {
+  it('response mang header bảo mật chuẩn, với CSP nghiêm ngặt trên route API có phiên bản', async () => {
     const res = await http(app).get('/api/v1/health');
     expect(res.status).toBe(200);
     expect(res.headers['x-content-type-options']).toBe('nosniff');
@@ -35,7 +35,7 @@ describe('Platform hardening: security headers and rate limiting', () => {
     expect(res.headers['content-security-policy']).toContain("default-src 'none'");
   });
 
-  it('credential routes are throttled per IP: the 4th login attempt inside a minute is a 429 Problem Details', async () => {
+  it('route thông tin đăng nhập bị giới hạn theo IP: lần đăng nhập thứ 4 trong một phút trả 429 Problem Details', async () => {
     const statuses: number[] = [];
     let lastBody: { status?: number; code?: string } = {};
     for (let i = 0; i < 4; i += 1) {

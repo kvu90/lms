@@ -135,7 +135,7 @@ function renderPage() {
   );
 }
 
-describe('Teacher curriculum page', () => {
+describe('Trang chương trình của giáo viên', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();

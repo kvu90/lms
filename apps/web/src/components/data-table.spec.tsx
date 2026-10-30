@@ -71,7 +71,7 @@ afterEach(() => {
   cleanup();
 });
 
-describe('DataTable (TanStack Table)', () => {
+describe('Khối DataTable (TanStack Table)', () => {
   it('phân trang: trang đầu 10 hàng, nút Sau chuyển trang và cập nhật thông tin trang', async () => {
     const { container } = renderTable();
     expect(bodyRows(container)).toHaveLength(10);

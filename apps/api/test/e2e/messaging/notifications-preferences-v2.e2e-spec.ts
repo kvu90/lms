@@ -30,7 +30,7 @@ import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, r
  *    hộ hiệu lực thấy thêm loại phụ huynh; site admin đủ 20. PUT
  *    ngoài audience bị server từ chối 403 — không chỉ giấu giao diện.
  */
-describe('Notification preferences v2 (NB-2, issue #174)', () => {
+describe('Tuỳ chọn thông báo v2 (NB-2, issue #174)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;
@@ -108,7 +108,7 @@ describe('Notification preferences v2 (NB-2, issue #174)', () => {
     return (res.body as { channels: { popup?: string; email?: string } }).channels;
   }
 
-  it('GET returns one labelled v2 row per provider in the pure-teacher audience — no raw keys, no push, no login-state axis', async () => {
+  it('GET trả một dòng v2 có nhãn cho mỗi provider trong audience giáo viên thuần — không khoá thô, không push, không trục trạng thái đăng nhập', async () => {
     const { token } = await freshUser();
     const rows = await preferencesOf(token);
     // Audience theo vai (issue #288): giáo viên THUẦN chỉ thấy phía
@@ -151,7 +151,7 @@ describe('Notification preferences v2 (NB-2, issue #174)', () => {
     expect(byName.get('admin_announcement')).toMatchObject({ group: 'system', popupEnabled: true, emailFrequency: 'immediate' });
   });
 
-  it('audience prototypes (issue #288): dual role sees the student side, guardian staff sees guardian types, admin sees all 20', async () => {
+  it('nguyên mẫu audience (issue #288): vai kép thấy phía học viên, staff phụ huynh thấy loại phụ huynh, admin thấy cả 20', async () => {
     // Hai vai dạy + học: thấy cả phía học sinh (18 loại), chưa có
     // phía phụ huynh.
     const dual = await freshDualUser();
@@ -183,7 +183,7 @@ describe('Notification preferences v2 (NB-2, issue #174)', () => {
     expect(await preferencesOf(admin)).toHaveLength(20);
   });
 
-  it('audience gate on PUT (issue #288): a pure teacher is refused 403 for student-only and guardian types', async () => {
+  it('cổng audience trên PUT (issue #288): giáo viên thuần bị từ chối 403 với loại chỉ-học-viên và loại phụ huynh', async () => {
     const { token } = await freshUser();
     for (const provider of ['grade_updated', 'guardian_digest']) {
       const refused = await http(app).put('/api/v1/messages/preferences').set('Authorization', `Bearer ${token}`)
@@ -193,7 +193,7 @@ describe('Notification preferences v2 (NB-2, issue #174)', () => {
     }
   });
 
-  it('changes take effect on the very next dispatch; email off keeps popup independent', async () => {
+  it('thay đổi hiệu lực ngay ở lần phân phối tiếp theo; tắt email giữ popup độc lập', async () => {
     // Hai vai: grade_updated là loại phía học sinh (#288).
     const { id, token } = await freshDualUser();
     // Mặc định: popup giao thật, email xếp hàng (tần suất daily vẫn
@@ -222,7 +222,7 @@ describe('Notification preferences v2 (NB-2, issue #174)', () => {
     expect((list.body as { items: unknown[] }).items).toHaveLength(3);
   });
 
-  it('mandatory providers refuse popup off (400) but allow email off, and popup still delivers', async () => {
+  it('provider bắt buộc từ chối tắt popup (400) nhưng cho tắt email, và popup vẫn phân phối', async () => {
     // Hai vai: enrol_expiry_warning là loại phía học sinh (#288).
     const { id, token } = await freshDualUser();
     for (const provider of ['enrol_expiry_warning', 'admin_announcement']) {
@@ -240,7 +240,7 @@ describe('Notification preferences v2 (NB-2, issue #174)', () => {
     }
   });
 
-  it('legacy v1 rows are honoured by derivation, never rewritten; a v2 write wins over legacy', async () => {
+  it('dòng v1 cũ được tôn trọng qua suy dẫn, không bao giờ viết lại; ghi v2 thắng legacy', async () => {
     // Hai vai: grade_updated là loại phía học sinh (#288).
     const { id, token } = await freshDualUser();
     // Gieo đúng hình dạng dữ liệu cũ: khoá provider × kênh × trạng thái.
@@ -269,7 +269,7 @@ describe('Notification preferences v2 (NB-2, issue #174)', () => {
     ]);
   });
 
-  it('validation: unknown provider, empty patch, and email frequency on a provider without email are 400', async () => {
+  it('kiểm chứng: provider lạ, patch rỗng, và tần suất email trên provider không có email đều 400', async () => {
     // Hai vai để các ca kiểm chứng payload tới được đúng tầng
     // validation (provider phía học sinh ngoài audience của giáo
     // viên thuần sẽ dừng ở 403 audience trước — ca đó ở ca PUT gate).

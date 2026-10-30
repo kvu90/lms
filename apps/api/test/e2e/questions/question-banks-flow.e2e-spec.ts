@@ -55,7 +55,7 @@ const tfBody = (stem: string) => ({
     solution: { answers: [1, 2, 3, 4].map((i) => ({ statementId: `s${i}`, value: true })) },
   });
 
-describe('Shared question bank (feat #70)', () => {
+describe('Ngân hàng câu hỏi dùng chung (feat #70)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;

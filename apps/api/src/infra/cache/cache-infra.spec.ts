@@ -9,7 +9,7 @@ import { validateEnv } from '../../config/env';
 import { CacheInfraModule } from './cache-infra.module';
 import { SessionCacheService } from './session-cache.service';
 
-describe('CacheInfraModule (2 MUC modes, real Redis)', () => {
+describe('CacheInfraModule (2 chế độ MUC, Redis thật)', () => {
   let app: INestApplication;
   let appCache: Cache;
   let sessionCache: SessionCacheService;
@@ -35,12 +35,12 @@ describe('CacheInfraModule (2 MUC modes, real Redis)', () => {
     redis.disconnect();
   });
 
-  it('application cache stores and reads values', async () => {
+  it('cache ứng dụng lưu và đọc giá trị', async () => {
     await appCache.set('infra:app-key', 'app-value');
     await expect(appCache.get('infra:app-key')).resolves.toBe('app-value');
   });
 
-  it('session cache is namespace-isolated from the application cache', async () => {
+  it('cache phiên tách biệt namespace với cache ứng dụng', async () => {
     await appCache.set('infra:shared-key', 'from-app');
     await sessionCache.set('infra:shared-key', 'from-session');
     await expect(appCache.get('infra:shared-key')).resolves.toBe('from-app');
@@ -50,7 +50,7 @@ describe('CacheInfraModule (2 MUC modes, real Redis)', () => {
     await expect(appCache.get('infra:shared-key')).resolves.toBe('from-app');
   });
 
-  it('application cache applies the default TTL when set without one, and honors an explicit TTL', async () => {
+  it('cache ứng dụng áp TTL mặc định khi set không kèm TTL, và tôn trọng TTL tường minh', async () => {
     // Set không truyền TTL: khoá trong Redis phải mang hạn mặc định
     // của module (300 giây) thay vì tồn tại vô hạn (pttl = -1).
     await appCache.set('infra:default-ttl-key', 'defaulted');

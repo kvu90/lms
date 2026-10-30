@@ -18,7 +18,7 @@ import { addExamSlot, createExamDraft, pinExam } from '../../support/exam-pin-he
  *  - review options: bitmask 4 cửa sổ của Moodle cổng ở tầng server —
  *    khía cạnh bị tắt thì dữ liệu không rời server cho chủ lượt.
  */
-describe('Quiz access rules + overrides (stage 2)', () => {
+describe('Quy tắc truy cập quiz + ghi đè (giai đoạn 2)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;
@@ -121,7 +121,7 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     return submit.body as AttemptViewBody;
   }
 
-  it('password gate: required/incorrect/correct, hash never exposed', async () => {
+  it('cổng mật khẩu: bắt buộc/sai/đúng, hash không bao giờ lộ', async () => {
     const ctx = await setup();
     const quizId = await createQuizWithSlot(ctx, { password: 'secret1' });
     const missing = await startAttempt(ctx.student, quizId);
@@ -141,7 +141,7 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     expect(rows.rows[0].password_hash).toMatch(/^\$argon2/);
   });
 
-  it('subnet gate: denied outside the list, allowed inside, invalid list rejected, re-checked on response', async () => {
+  it('cổng subnet: từ chối ngoài danh sách, cho phép trong danh sách, danh sách không hợp lệ bị từ chối, kiểm tra lại khi trả lời', async () => {
     const ctx = await setup();
     const badDraft = await createExamDraft(app, ctx.teacher, 'Bad subnet');
     await addExamSlot(app, ctx.teacher, badDraft, { questionId: ctx.qMc });
@@ -171,7 +171,7 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     expect(ans.body.code).toBe('quiz.subnet_denied');
   });
 
-  it('no inter-attempt delay in the pin model: a finished attempt never blocks the next one', async () => {
+  it('không có trễ giữa các lượt trong mô hình ghim: lượt đã xong không bao giờ chặn lượt tiếp theo', async () => {
     const ctx = await setup();
     // delay1/delay2 của quiz cũ đã bỏ hẳn khỏi mô hình pin (hồ sơ gộp
     // #226): làm xong một lượt thì bắt đầu lượt mới được ngay, không
@@ -185,7 +185,7 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     expect(ok.status === 200 || ok.status === 201).toBe(true);
   });
 
-  it('user override widens the open window for that student only; CRUD guards hold', async () => {
+  it('ghi đè người dùng mở rộng cửa sổ mở chỉ cho học viên đó; guard CRUD giữ vững', async () => {
     const ctx = await setup();
     const future = new Date(Date.now() + 3600_000).toISOString();
     const quizId = await createQuizWithSlot(ctx, { timeOpen: future });
@@ -230,7 +230,7 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     expect(new Date(info.body.effective.timeOpen).getTime()).toBe(new Date(future).getTime());
   });
 
-  it('group override limits attempts; a user override beats the group value per field', async () => {
+  it('ghi đè nhóm giới hạn lượt làm; ghi đè người dùng thắng giá trị nhóm theo từng trường', async () => {
     const ctx = await setup();
     const quizId = await createQuizWithSlot(ctx, { attemptsAllowed: 5 });
     const groupRes = await http(app).post(`/api/v1/courses/${ctx.courseId}/groups`).set('Authorization', `Bearer ${ctx.teacher}`)
@@ -260,7 +260,7 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     expect(ok.status === 200 || ok.status === 201).toBe(true);
   });
 
-  it('user override timeClose in the past finalizes an in-progress attempt (effective deadline)', async () => {
+  it('ghi đè người dùng có timeClose trong quá khứ chốt lượt làm đang dở (hạn chót hiệu dụng)', async () => {
     const ctx = await setup();
     const quizId = await createQuizWithSlot(ctx, {});
     const start = await startAttempt(ctx.student, quizId);
@@ -277,7 +277,7 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     expect(blocked.body.code).toBe('quiz.closed');
   });
 
-  it('review options gate aspects per window for the owner; teachers are not gated', async () => {
+  it('tuỳ chọn xem lại cổng các khía cạnh theo cửa sổ cho chủ sở hữu; giáo viên không bị cổng', async () => {
     const ctx = await setup();
     // Cửa sổ hiện tại ngay sau nộp = "ngay sau" (2 phút): correctness/marks
     // chỉ bật ở cửa sổ SAU ĐÓ → ẩn; rightAnswer bật mọi cửa sổ → hiện;
@@ -304,7 +304,7 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     expect(submitted2.questions).toHaveLength(0);
   });
 
-  it('exam-kind presets fill the rule fields; explicit fields win over the preset', async () => {
+  it('preset loại đề điền trường quy tắc; trường tường minh thắng preset', async () => {
     const ctx = await setup();
     const mock = await createPinWithSlot(ctx, { name: 'Thi thử', preset: 'mock' });
     expect(mock.preset).toBe('mock');
@@ -321,7 +321,7 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     expect(regular.reviewRightAnswer).toBe(4368); // ngay sau nộp
   });
 
-  it('late entry: starting after timeOpen + lateEntryMinutes is refused even while the window is open', async () => {
+  it('vào muộn: bắt đầu sau timeOpen + lateEntryMinutes bị từ chối ngay cả khi cửa sổ đang mở', async () => {
     const ctx = await setup();
     const past = new Date(Date.now() - 20 * 60_000).toISOString();
     const future = new Date(Date.now() + 60 * 60_000).toISOString();
@@ -333,7 +333,7 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     expect(info.body.canAttempt).toBe(false);
   });
 
-  it('makeup session: user override opens a private window, attempt is labelled makeup with a pinned settings snapshot; reason is mandatory', async () => {
+  it('phiên thi bù: ghi đè người dùng mở cửa sổ riêng, lượt làm gắn nhãn makeup kèm snapshot cài đặt đã ghim; lý do bắt buộc', async () => {
     const ctx = await setup();
     const later = new Date(Date.now() + 2 * 60 * 60_000).toISOString();
     const laterClose = new Date(Date.now() + 3 * 60 * 60_000).toISOString();
@@ -362,7 +362,7 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     expect(other.status).toBe(403);
   });
 
-  it('override reason rule also binds PATCH: extending time or stripping the reason on the merged state is refused', async () => {
+  it('quy tắc lý do ghi đè cũng ràng buộc PATCH: kéo dài thời gian hoặc gỡ lý do khỏi trạng thái đã hợp nhất bị từ chối', async () => {
     const ctx = await setup();
     const quizId = await createQuizWithSlot(ctx, {});
     // Override lành tính lúc tạo: chỉ đổi số lượt — không cần reason.
@@ -395,7 +395,7 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     expect(cleared.body.reason).toBeNull();
   });
 
-  it('review after-close uses the LATEST close of the whole session (anti-leak across override-shifted sittings)', async () => {
+  it('xem lại sau đóng dùng lần đóng MỚI NHẤT của toàn phiên (chống rò rỉ qua ca thi lệch ghi đè)', async () => {
     const ctx = await setup();
     const past = new Date(Date.now() - 60 * 60_000).toISOString();
     const future = new Date(Date.now() + 60 * 60_000).toISOString();
@@ -428,7 +428,7 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     expect(view2.body.questions[0].rightAnswer).not.toBeNull();
   });
 
-  it('attempt events are record-only and only when monitoring is enabled', async () => {
+  it('sự kiện lượt làm chỉ ghi nhận và chỉ khi giám sát được bật', async () => {
     const ctx = await setup();
     const monitored = await createQuizWithSlot(ctx, { monitorEvents: true });
     const start = await startAttempt(ctx.student, monitored);

@@ -90,8 +90,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('Pin page — pinned exam surface (#226)', () => {
-  it('shows the frozen slots with marks, links to the exam editor and updates the pin version through the diff-first flow (#254)', async () => {
+describe('Trang ghim — bề mặt đề đã ghim (#226)', () => {
+  it('hiện slot đã đóng băng kèm điểm, liên kết tới trình sửa đề và cập nhật phiên bản ghim qua luồng diff-first (#254)', async () => {
     const calls: RecordedCall[] = [];
     const EXAM_ID = '01900000-0000-7000-8000-0000000000cc';
     const OLD_VERSION_ID = '01900000-0000-7000-8000-0000000000cd';
@@ -207,8 +207,8 @@ describe('Pin page — pinned exam surface (#226)', () => {
   });
 });
 
-describe('Quiz attempt page — real endpoints', () => {
-  it('saves an answer per question and submits to reveal the graded result', async () => {
+describe('Trang làm bài quiz — endpoint thật', () => {
+  it('lưu một đáp án cho mỗi câu hỏi và nộp để hiện kết quả đã chấm', async () => {
     const calls: RecordedCall[] = [];
     let submitted = false;
     let savedResponse: string | null = null;
@@ -654,8 +654,8 @@ describe('Quiz attempt page — hướng dẫn & lời giải theo mô hình gia
   });
 });
 
-describe('Quiz results page — manual grading', () => {
-  it('grades a pending essay and the queue empties after reload', async () => {
+describe('Trang kết quả quiz — chấm thủ công', () => {
+  it('chấm câu tự luận đang chờ và hàng đợi rỗng sau khi tải lại', async () => {
     const calls: RecordedCall[] = [];
     let graded = false;
     const results = () => ({
@@ -732,7 +732,7 @@ describe('Quiz results page — manual grading', () => {
     expect(await screen.findByText('Không có câu nào đang chờ chấm.')).toBeInTheDocument();
   });
 
-  it('shows per-question wrong statistics with the students who missed each question', async () => {
+  it('hiện thống kê sai theo từng câu hỏi kèm học viên làm sai mỗi câu', async () => {
     const STUDENT2_ID = '01900000-0000-7000-8000-0000000000cc';
     const results = {
       quiz: { ...quizView([]), sumGrades: 6 },
@@ -800,7 +800,7 @@ describe('Quiz results page — manual grading', () => {
   });
 });
 
-describe('Quiz overrides — teacher surface (#182)', () => {
+describe('Ghi đè quiz — bề mặt giáo viên (#182)', () => {
   const GROUP_ID = '01900000-0000-7000-8000-0000000000d1';
   const OVERRIDE_GROUP_ID = '01900000-0000-7000-8000-0000000000d2';
   const OVERRIDE_USER_ID = '01900000-0000-7000-8000-0000000000d3';
@@ -882,7 +882,7 @@ describe('Quiz overrides — teacher surface (#182)', () => {
     return { calls };
   }
 
-  it('blocks a student override that opens a window without a reason, then creates it once the reason is given', async () => {
+  it('chặn ghi đè học viên mở cửa sổ mà không có lý do, rồi tạo nó khi đã có lý do', async () => {
     const { calls } = setup();
     // Ghi đè nhóm có sẵn hiện với tên nhóm + lý do.
     const groupRow = await screen.findByTestId(`override-${OVERRIDE_GROUP_ID}`);
@@ -922,7 +922,7 @@ describe('Quiz overrides — teacher surface (#182)', () => {
     expect(userRow).toHaveTextContent('Kiểm tra bù');
   });
 
-  it('edits an override (PATCH) and deletes it (DELETE)', async () => {
+  it('sửa ghi đè (PATCH) và xoá nó (DELETE)', async () => {
     const { calls } = setup();
     const groupRow = await screen.findByTestId(`override-${OVERRIDE_GROUP_ID}`);
     await userEvent.click(within(groupRow).getByRole('button', { name: 'Sửa' }));
@@ -955,8 +955,8 @@ describe('Quiz overrides — teacher surface (#182)', () => {
   });
 });
 
-describe('Quiz page — student sees their effective (overridden) settings (#182)', () => {
-  it('shows the effective window/limits from the API, not the quiz-wide ones', async () => {
+describe('Trang quiz — học viên thấy cài đặt hiệu dụng (đã ghi đè) của mình (#182)', () => {
+  it('hiện cửa sổ/giới hạn hiệu dụng từ API, không phải giới hạn toàn quiz', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string) => {
@@ -996,8 +996,8 @@ describe('Quiz page — student sees their effective (overridden) settings (#182
   });
 });
 
-describe('Quiz results page — makeup badge (#182)', () => {
-  it('labels makeup attempts for the teacher and leaves normal attempts unlabelled', async () => {
+describe('Trang kết quả quiz — huy hiệu thi bù (#182)', () => {
+  it('gắn nhãn lượt thi bù cho giáo viên và để lượt thường không nhãn', async () => {
     const ATTEMPT2_ID = '01900000-0000-7000-8000-0000000000d5';
     const baseAttempt = {
       quizId: QUIZ_ID, userId: STUDENT_ID, attemptNumber: 1, state: 'finished', preview: false,

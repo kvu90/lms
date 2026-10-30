@@ -81,7 +81,7 @@ function buildFakeI18n() {
   };
 }
 
-describe('Worker notification email channel + daily digest (NB-5, issue #174)', () => {
+describe('Kênh email thông báo của worker + digest hàng ngày (NB-5, issue #174)', () => {
   let context: INestApplicationContext;
   let harness: OrdinaryWorkerModuleHarness;
   let db: any;
@@ -149,7 +149,7 @@ describe('Worker notification email channel + daily digest (NB-5, issue #174)', 
     return rows[0];
   }
 
-  it('immediate frequency sends one real email with the minimized content and logs sent', async () => {
+  it('tần suất immediate gửi một email thật với nội dung tối thiểu và ghi log sent', async () => {
     const before = mail.sent.length;
     const result = await dispatch.process(emailJob(userActive, `nb5-imm-${suffix}`, { emailFrequency: 'immediate' }));
     expect(result.status).toBe('sent');
@@ -161,7 +161,7 @@ describe('Worker notification email channel + daily digest (NB-5, issue #174)', 
     expect((await logRow(`nb5-imm-${suffix}`)).status).toBe('sent');
   });
 
-  it('daily frequency does not send — the dispatch is queued for the daily digest', async () => {
+  it('tần suất daily không gửi — lượt gửi xếp hàng chờ digest hàng ngày', async () => {
     const before = mail.sent.length;
     const result = await dispatch.process(emailJob(userActive, `nb5-daily-${suffix}`, { emailFrequency: 'daily' }));
     expect(result.status).toBe('digest-queued');
@@ -169,7 +169,7 @@ describe('Worker notification email channel + daily digest (NB-5, issue #174)', 
     expect((await logRow(`nb5-daily-${suffix}`)).status).toBe('digest-queued');
   });
 
-  it('a v2 email opt-out set after enqueueing still suppresses the dispatch (P2)', async () => {
+  it('opt-out email v2 đặt sau khi xếp hàng vẫn chặn lượt gửi (P2)', async () => {
     const before = mail.sent.length;
     const result = await dispatch.process(emailJob(userPrefOff, `nb5-off-${suffix}`, { emailFrequency: 'immediate' }));
     expect(result.status).toBe('skipped-preference');
@@ -184,7 +184,7 @@ describe('Worker notification email channel + daily digest (NB-5, issue #174)', 
     }).onConflictDoNothing();
   }
 
-  it('the digest sweep sends ONE summary email per user, closes items as digest-sent, and never resends', async () => {
+  it('lượt quét digest gửi ĐÚNG MỘT email tổng hợp cho mỗi người dùng, đóng các mục thành digest-sent, và không bao giờ gửi lại', async () => {
     await seedQueued(userDigest, `nb5-dg1-${suffix}`, 'Có điểm mới: Toán 6');
     await seedQueued(userDigest, `nb5-dg2-${suffix}`, 'Có điểm mới: Văn 6');
     await seedQueued(userDigest, `nb5-dg3-${suffix}`, 'Bài tập mới: Hình học');
@@ -226,7 +226,7 @@ describe('Worker notification email channel + daily digest (NB-5, issue #174)', 
     expect((await logRow(`nb5-dg1-${suffix}`)).status).toBe('digest-sent');
   });
 
-  it('an unconfigured transport leaves queued items pending for a later sweep', async () => {
+  it('transport chưa cấu hình để các mục đã xếp hàng chờ lượt quét sau', async () => {
     await seedQueued(userDeferred, `nb5-dg5-${suffix}`, 'Có điểm mới: Anh 6');
     mail.mode = 'skipped';
     try {
@@ -239,7 +239,7 @@ describe('Worker notification email channel + daily digest (NB-5, issue #174)', 
     }
   });
 
-  it('the digest respects a per-provider email opt-out set after queueing (send-time law)', async () => {
+  it('digest tôn trọng opt-out email theo provider đặt sau khi xếp hàng (luật lúc gửi)', async () => {
     // Hai mục của grade_updated đã xếp hàng chờ; người nhận tắt
     // email của grade_updated ở tuỳ chọn v2 → lượt tổng hợp phải
     // chốt các mục skipped-preference và KHÔNG gửi mail nào cho họ.
@@ -252,7 +252,7 @@ describe('Worker notification email channel + daily digest (NB-5, issue #174)', 
     expect(mail.sent.some((m) => m.to === `nb5-o-${suffix}@x.io`)).toBe(false);
   });
 
-  it('the digest respects the site policy (NB-7) at send time, with the P2 mandatory exemption', async () => {
+  it('digest tôn trọng chính sách site (NB-7) lúc gửi, kèm ngoại lệ bắt buộc P2', async () => {
     // Admin tắt grade_updated và cả admin_announcement ở cấp site
     // SAU khi các mục đã xếp hàng: mục grade_updated bị chặn ở lúc
     // tổng hợp; mục admin_announcement là loại bắt buộc P2 — chính
@@ -279,7 +279,7 @@ describe('Worker notification email channel + daily digest (NB-5, issue #174)', 
     }
   });
 
-  it('a transport error leaves the items queued for the next sweep and does not fail the sweep', async () => {
+  it('lỗi transport để các mục xếp hàng chờ lượt quét sau và không làm hỏng lượt quét', async () => {
     await seedQueued(userThrow, `nb5-dg10-${suffix}`, 'Nhắc lịch: Lớp học bù', 'calendar_reminder');
     mail.mode = 'throw';
     try {

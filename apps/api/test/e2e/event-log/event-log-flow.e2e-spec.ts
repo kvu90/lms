@@ -22,7 +22,7 @@ interface LogPage { items: LogItem[]; total: number; page: number; pageSize: num
  * phản chiếu chúng vào event_log; API đọc sau đó phục vụ chúng kèm bộ lọc
  * và kiểm tra quyền theo phạm vi context (tương đương report_log của Moodle).
  */
-describe('Event log: outbox actions are mirrored and queryable with filters + permissions', () => {
+describe('Nhật ký sự kiện: action outbox được nhân bản và truy vấn được bằng bộ lọc + quyền', () => {
   let app: INestApplication;
   let admin: string;
   let adminId: string;
@@ -109,7 +109,7 @@ describe('Event log: outbox actions are mirrored and queryable with filters + pe
   }, 120000);
   afterAll(async () => { await closeWorkerRelayDriver(); await app.close(); });
 
-  it('course_created is logged with actor, course and resolved course context', async () => {
+  it('course_created được ghi kèm actor, khoá học và ngữ cảnh khoá học đã phân giải', async () => {
     const { status, body } = await queryLogs(admin, { eventType: 'course_created', courseId });
     expect(status).toBe(200);
     const row = body.items.find((i) => i.courseId === courseId);
@@ -121,7 +121,7 @@ describe('Event log: outbox actions are mirrored and queryable with filters + pe
     expect(row!.objectId).toBe(courseId);
   });
 
-  it('user_logged_in carries the actor and the client IP', async () => {
+  it('user_logged_in mang actor và IP client', async () => {
     const { body } = await queryLogs(admin, { eventType: 'user_logged_in', userId: adminId });
     expect(body.total).toBeGreaterThanOrEqual(1);
     const row = body.items[0];
@@ -131,14 +131,14 @@ describe('Event log: outbox actions are mirrored and queryable with filters + pe
     expect(row.payload?.method).toBe('password');
   });
 
-  it('filter by actor (userId) returns only that actor\u2019s events', async () => {
+  it('lọc theo actor (userId) chỉ trả sự kiện của actor đó', async () => {
     const { body } = await queryLogs(admin, { userId: teacherId });
     expect(body.total).toBeGreaterThanOrEqual(1);
     expect(body.items.every((i) => i.userId === teacherId)).toBe(true);
     expect(body.items.some((i) => i.eventType === 'grade_updated')).toBe(true);
   });
 
-  it('filter by related user returns events where the user was acted upon', async () => {
+  it('lọc theo người liên quan trả sự kiện mà người đó là đối tượng bị tác động', async () => {
     const { body } = await queryLogs(admin, { relatedUserId: studentId });
     const types = body.items.map((i) => i.eventType);
     expect(types).toContain('user_enrolled');
@@ -153,7 +153,7 @@ describe('Event log: outbox actions are mirrored and queryable with filters + pe
     expect(grade!.courseId).toBe(courseId);
   });
 
-  it('filter by component and by event type narrows the result', async () => {
+  it('lọc theo component và theo loại sự kiện thu hẹp kết quả', async () => {
     const byComponent = await queryLogs(admin, { component: 'enrol', courseId });
     expect(byComponent.body.total).toBeGreaterThanOrEqual(2);
     expect(byComponent.body.items.every((i) => i.component === 'enrol')).toBe(true);
@@ -164,14 +164,14 @@ describe('Event log: outbox actions are mirrored and queryable with filters + pe
     expect(roleAssigned.body.items[0].component).toBe('access');
   });
 
-  it('time-range filter: future window is empty, past window matches', async () => {
+  it('lọc theo khoảng thời gian: cửa sổ tương lai rỗng, cửa sổ quá khứ khớp', async () => {
     const future = await queryLogs(admin, { courseId, from: new Date(Date.now() + 3600_000).toISOString() });
     expect(future.body.total).toBe(0);
     const past = await queryLogs(admin, { courseId, from: new Date(Date.now() - 3600_000).toISOString(), to: new Date(Date.now() + 60_000).toISOString() });
     expect(past.body.total).toBeGreaterThanOrEqual(3);
   });
 
-  it('pagination is consistent: pages are disjoint and total is stable', async () => {
+  it('phân trang nhất quán: các trang rời nhau và tổng ổn định', async () => {
     const page1 = await queryLogs(admin, { courseId, page: '1', pageSize: '2' });
     const page2 = await queryLogs(admin, { courseId, page: '2', pageSize: '2' });
     expect(page1.body.pageSize).toBe(2);
@@ -181,14 +181,14 @@ describe('Event log: outbox actions are mirrored and queryable with filters + pe
     expect(page2.body.items.every((i) => !ids1.has(i.id))).toBe(true);
   });
 
-  it('a user without the capability is denied, site-wide and per course', async () => {
+  it('người thiếu năng lực bị từ chối, toàn site và theo từng khoá', async () => {
     const siteWide = await queryLogs(studentToken, {});
     expect(siteWide.status).toBe(403);
     const perCourse = await queryLogs(studentToken, { courseId });
     expect(perCourse.status).toBe(403);
   });
 
-  it('a teacher with the role at the course context can read that course\u2019s log but not the site log', async () => {
+  it('giáo viên có vai trò tại ngữ cảnh khoá học đọc được log của khoá đó nhưng không đọc được log site', async () => {
     const perCourse = await queryLogs(teacherToken, { courseId });
     expect(perCourse.status).toBe(200);
     expect(perCourse.body.total).toBeGreaterThanOrEqual(3);

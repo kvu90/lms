@@ -73,7 +73,7 @@ function sessionCookieFrom(setCookie: string[] | undefined): string {
   return raw.split(';')[0]!;
 }
 
-describe('Better Auth foundation (issue #7 phase 1)', () => {
+describe('Nền tảng Better Auth (issue #7 giai đoạn 1)', () => {
   let app: INestApplication;
   let bridge: CredentialBridgeService;
   let pg: Client;
@@ -106,7 +106,7 @@ describe('Better Auth foundation (issue #7 phase 1)', () => {
     await app?.close();
   });
 
-  it('rejects a weak password at the bridge (project policy runs inside the hash step)', async () => {
+  it('từ chối mật khẩu yếu tại bridge (chính sách dự án chạy trong bước hash)', async () => {
     const weakName = helpers.uniqueName('baweak');
     await expect(
       bridge.createUserWithCredential({
@@ -121,7 +121,7 @@ describe('Better Auth foundation (issue #7 phase 1)', () => {
     expect(rows.rows[0].n).toBe(0);
   });
 
-  it('rejects a malformed username at the bridge (the plugin username rules run in the bridge)', async () => {
+  it('từ chối username sai định dạng tại bridge (quy tắc username của plugin chạy trong bridge)', async () => {
     // Điểm chặn vòng review của điểm 2.1: internalAdapter dựng trong
     // transaction KHÔNG mang database hook của plugin username, nên
     // cầu nối tự validate theo đúng luật plugin. Username chứa khoảng
@@ -166,7 +166,7 @@ describe('Better Auth foundation (issue #7 phase 1)', () => {
     expect(leftovers.rows[0].n).toBe(0);
   });
 
-  it('accepts a valid mixed-case username, stores it lowercased, and blocks duplicates', async () => {
+  it('chấp nhận username hoa-thường hợp lệ, lưu dạng chữ thường, và chặn trùng lặp', async () => {
     const suffix = helpers.uniqueName('case');
     const mixed = `Ba${suffix}`;
     const created = await bridge.createUserWithCredential({
@@ -204,7 +204,7 @@ describe('Better Auth foundation (issue #7 phase 1)', () => {
     expect(count.rows[0].n).toBe(1);
   });
 
-  it('sign-in with a wrong password is refused', async () => {
+  it('đăng nhập bằng mật khẩu sai bị từ chối', async () => {
     const res = await http(app)
       .post('/api/v1/auth/sign-in/username')
       .set('Origin', TRUSTED_ORIGIN)
@@ -212,7 +212,7 @@ describe('Better Auth foundation (issue #7 phase 1)', () => {
     expect(res.status).toBe(401);
   });
 
-  it('signs in by username and records IP + User-Agent on the session row', async () => {
+  it('đăng nhập bằng username và ghi IP + User-Agent vào dòng phiên', async () => {
     const res = await http(app)
       .post('/api/v1/auth/sign-in/username')
       .set('Origin', TRUSTED_ORIGIN)
@@ -229,20 +229,20 @@ describe('Better Auth foundation (issue #7 phase 1)', () => {
     expect(rows.rows[0].ip_address).toBe('203.0.113.9');
   });
 
-  it('get-session resolves the signed cookie', async () => {
+  it('get-session phân giải cookie đã ký', async () => {
     const res = await http(app).get('/api/v1/auth/get-session').set('Cookie', sessionCookie);
     expect(res.status).toBe(200);
     expect(res.body.user.username).toBe(username);
     expect(res.body.session.userId).toBe(userId);
   });
 
-  it('the thin guard authenticates a business route with only the Better Auth cookie', async () => {
+  it('guard mỏng xác thực route nghiệp vụ chỉ bằng cookie Better Auth', async () => {
     const res = await http(app).get('/api/v1/users/me').set('Cookie', sessionCookie);
     expect(res.status).toBe(200);
     expect(res.body.username).toBe(username);
   });
 
-  it('blocks a suspended user even though the session is still live', async () => {
+  it('chặn người bị đình chỉ ngay cả khi phiên vẫn còn sống', async () => {
     await pg.query('update users set suspended = true where id = $1', [userId]);
     try {
       const res = await http(app).get('/api/v1/users/me').set('Cookie', sessionCookie);
@@ -254,7 +254,7 @@ describe('Better Auth foundation (issue #7 phase 1)', () => {
     expect(again.status).toBe(200);
   });
 
-  it('a state-changing Better Auth endpoint without Origin (but with cookie) is 403', async () => {
+  it('endpoint Better Auth đổi trạng thái thiếu Origin (nhưng có cookie) trả 403', async () => {
     const res = await http(app).post('/api/v1/auth/sign-out').set('Cookie', sessionCookie).send({});
     expect(res.status).toBe(403);
     // Phiên chưa bị huỷ bởi request bị từ chối đó.
@@ -262,7 +262,7 @@ describe('Better Auth foundation (issue #7 phase 1)', () => {
     expect(stillThere.status).toBe(200);
   });
 
-  it('sign-out revokes the session immediately', async () => {
+  it('đăng xuất thu hồi phiên ngay', async () => {
     const res = await http(app)
       .post('/api/v1/auth/sign-out')
       .set('Cookie', sessionCookie)
@@ -276,7 +276,7 @@ describe('Better Auth foundation (issue #7 phase 1)', () => {
     expect(business.status).toBe(401);
   });
 
-  it('accepts a programmatic session (login-as foundation) only with the signed cookie value', async () => {
+  it('chấp nhận phiên lập trình (nền login-as) chỉ với giá trị cookie đã ký', async () => {
     const created = await bridge.createProgrammaticSession(userId);
     const signed = await http(app)
       .get('/api/v1/users/me')
@@ -289,12 +289,12 @@ describe('Better Auth foundation (issue #7 phase 1)', () => {
     expect(raw.status).toBe(401);
   });
 
-  it('the legacy auth routes keep working while the flag is on', async () => {
+  it('route xác thực cũ vẫn chạy khi cờ đang bật', async () => {
     const token = await helpers.adminToken(app);
     expect(token).toBeTruthy();
   });
 
-  it('bridges an existing user: the current argon2 hash signs in through Better Auth unchanged', async () => {
+  it('bridge người dùng sẵn có: hash argon2 hiện tại đăng nhập qua Better Auth không đổi', async () => {
     const token = await helpers.adminToken(app);
     const legacy = await helpers.createUserViaApi(app, token);
     // Từ chặng 2.6 (issue #7), tạo user qua API đã TỰ đồng bộ
@@ -314,7 +314,7 @@ describe('Better Auth foundation (issue #7 phase 1)', () => {
     expect(res.body.user.username).toBe(legacy.username);
   });
 
-  it('two concurrent linkExistingPasswordHash calls yield exactly one credential row', async () => {
+  it('hai lời gọi linkExistingPasswordHash đồng thời cho đúng một dòng credential', async () => {
     const token = await helpers.adminToken(app);
     const legacy = await helpers.createUserViaApi(app, token);
     // Trạng thái "user có hash nhưng chưa có credential" như ca trên.
@@ -335,7 +335,7 @@ describe('Better Auth foundation (issue #7 phase 1)', () => {
     expect(rows.rows[0].n).toBe(1);
   });
 
-  it('a failure at account creation rolls the user back (no orphan user)', async () => {
+  it('lỗi khi tạo tài khoản rollback người dùng (không còn user mồ côi)', async () => {
     const orphanName = helpers.uniqueName('baorphan');
     // Ép lỗi tại đúng bước chèn account BÊN TRONG transaction của cầu
     // nối: trigger chặn INSERT vào account khi user của nó mang
@@ -385,7 +385,7 @@ describe('Better Auth foundation (issue #7 phase 1)', () => {
     expect(users.rows[0].n).toBe(0);
   });
 
-  it('public sign-up stays closed', async () => {
+  it('đăng ký công khai vẫn đóng', async () => {
     const name = helpers.uniqueName('basignup');
     const res = await http(app)
       .post('/api/v1/auth/sign-up/email')

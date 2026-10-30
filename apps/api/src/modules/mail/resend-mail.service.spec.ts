@@ -19,12 +19,12 @@ const MESSAGE = {
  * outbox thử lại; thiếu cấu hình thì fail-soft ghi log (không gọi
  * Resend, không ném) để app vẫn chạy ở môi trường chưa cấp khoá.
  */
-describe('ResendMailService', () => {
+describe('Khối ResendMailService', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it('sends through the Resend HTTP API with the configured sender', async () => {
+  it('gửi qua Resend HTTP API với người gửi đã cấu hình', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       status: 200,
@@ -54,7 +54,7 @@ describe('ResendMailService', () => {
     });
   });
 
-  it('throws when Resend rejects the request, so the outbox consumer can retry', async () => {
+  it('ném lỗi khi Resend từ chối request, để consumer outbox thử lại được', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: false,
       status: 422,
@@ -68,7 +68,7 @@ describe('ResendMailService', () => {
     await expect(service.send(MESSAGE)).rejects.toThrow(/Resend API trả 422/);
   });
 
-  it('skips without calling Resend when RESEND_API_KEY is missing (declared fail-soft)', async () => {
+  it('bỏ qua không gọi Resend khi thiếu RESEND_API_KEY (fail-soft đã khai báo)', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     const service = new ResendMailService(configStub({ MAIL_FROM: 'no-reply@example.com' }));
@@ -78,7 +78,7 @@ describe('ResendMailService', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('skips without calling Resend when MAIL_FROM is missing', async () => {
+  it('bỏ qua không gọi Resend khi thiếu MAIL_FROM', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     const service = new ResendMailService(configStub({ RESEND_API_KEY: 'rk_test_key' }));

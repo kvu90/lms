@@ -122,7 +122,7 @@ describe('Messaging — ẩn hội thoại/liên hệ khi có quan hệ chặn (
     await app.close();
   });
 
-  it('block hides the 1-1 conversation and the contact from BOTH sides; unblock restores them', async () => {
+  it('chặn ẩn cuộc trò chuyện 1-1 và liên hệ khỏi CẢ hai phía; bỏ chặn khôi phục chúng', async () => {
     // Đối chứng trước khi chặn: cả hai phía đều thấy hội thoại + liên hệ.
     expect(await conversationIds(a.token)).toContain(conversationId);
     expect(await conversationIds(b.token)).toContain(conversationId);
@@ -195,7 +195,7 @@ describe('Messaging — ẩn hội thoại/liên hệ khi có quan hệ chặn (
     expect((await send(b.token, 'gửi lại sau bỏ chặn')).status).toBe(201);
   });
 
-  it('direct-read gate leaves a shared group untouched and realtime sync withholds the blocked 1-1 history', async () => {
+  it('cổng đọc trực tiếp để nguyên nhóm chung và đồng bộ realtime giữ lại lịch sử 1-1 bị chặn', async () => {
     // Phần nhóm dùng một cặp RIÊNG (C, D): nhóm chung của cặp A/B
     // sẽ thành đường presence hợp lệ giữa hai người (nhóm không bị
     // luật chặn chạm) và làm đổi giả định của test presence phía
@@ -267,7 +267,7 @@ describe('Messaging — ẩn hội thoại/liên hệ khi có quan hệ chặn (
     }
   });
 
-  it('deleting a message of a blocked 1-1 conversation returns 404 and emits nothing to the other side', async () => {
+  it('xoá tin nhắn của cuộc trò chuyện 1-1 bị chặn trả 404 và không phát gì sang phía kia', async () => {
     // Tin mới của A làm mốc xoá — lấy id từ chính phản hồi tạo tin.
     const createdMsg = await send(a.token, 'tin sẽ xoá khi đang chặn');
     expect(createdMsg.status).toBe(201);
@@ -317,7 +317,7 @@ describe('Messaging — ẩn hội thoại/liên hệ khi có quan hệ chặn (
   });
 
 
-  it('presence of the blocker does not reach the blocked peer while blocked, and flows again after unblock', async () => {
+  it('presence của người chặn không tới được phía bị chặn trong lúc bị chặn, và chảy lại sau khi bỏ chặn', async () => {
     const bSocket = await connectSocket(b.token);
     const presenceEvents: { userId: string; online: boolean }[] = [];
     bSocket.on('presence.changed', (payload: { userId: string; online: boolean }) => {

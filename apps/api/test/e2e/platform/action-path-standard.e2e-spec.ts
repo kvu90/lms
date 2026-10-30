@@ -27,7 +27,7 @@ import { createCategory, createCm, createCourse, createSection } from '../../sup
  *   không hỗ trợ bị từ chối 400 với mã lỗi ổn định; nội dung file xuất
  *   qua canonical và qua alias là một.
  */
-describe('Action path standard (issue #345)', () => {
+describe('Chuẩn đường dẫn action (issue #345)', () => {
   let app: INestApplication;
   let admin: string;
 
@@ -43,7 +43,7 @@ describe('Action path standard (issue #345)', () => {
 
 
 
-  it('serves legacy aliases with deprecation headers and structured logs while canonical routes stay unmarked', async () => {
+  it('phục vụ alias cũ kèm header deprecation và log có cấu trúc trong khi route chuẩn không bị đánh dấu', async () => {
     // Dựng dữ liệu hoàn toàn bằng path canonical / bề mặt không đổi tên.
     const badgeRes = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Alias probe badge', type: 1 });
@@ -139,7 +139,7 @@ describe('Action path standard (issue #345)', () => {
     expect(loggedPairs).toContain('users/:id/unsuspend -> users/:id/reactivate');
   });
 
-  it('serves the file-export destinations with format as request data and identical content on alias and canonical', async () => {
+  it('phục vụ đích xuất file với format dạng dữ liệu request và nội dung giống hệt trên alias và chuẩn', async () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
 

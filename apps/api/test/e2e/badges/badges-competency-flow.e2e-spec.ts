@@ -32,7 +32,7 @@ import {
  *    test_observe_course_completed. Báo cáo §2#15: mức thành thạo (proficiency) đến từ
  *    THANG (SCALE) của framework, không bao giờ từ điểm số.
  */
-describe('Badges & competencies', () => {
+describe('Huy hiệu và năng lực', () => {
   let app: INestApplication;
   let admin: string;
 
@@ -66,7 +66,7 @@ describe('Badges & competencies', () => {
     return { category, course, instance, cm };
   }
 
-  it('badge criteria tree: ALL requires every leaf, ANY requires one; activation needs criteria and locks them (badgeslib + §2#14)', async () => {
+  it('cây tiêu chí huy hiệu: ALL cần mọi lá, ANY cần một lá; kích hoạt cần tiêu chí và khoá chúng (badgeslib + §2#14)', async () => {
     const badgeRes = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Finisher', type: 1, issuerName: 'LMS HQ' });
     const badgeId = badgeRes.body.id as string;
@@ -105,7 +105,7 @@ describe('Badges & competencies', () => {
     expect((notifications.body.items as { eventType: string }[]).some((n) => n.eventType === 'badge_awarded')).toBe(true);
   });
 
-  it('badge freeze after issuance + duplicate-to-edit + revoke keeps the assertion (§2#14)', async () => {
+  it('đóng băng huy hiệu sau khi cấp + nhân bản để sửa + thu hồi giữ assertion (§2#14)', async () => {
     const { competency } = await frameworkWithCompetency();
     const badgeRes = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Competent', type: 1 });
@@ -146,7 +146,7 @@ describe('Badges & competencies', () => {
     expect(fetched.body.uniqueHash).toHaveLength(64);
   });
 
-  it('manual award: requires the awardbadge capability and a manual criterion; ALL with an unmet leaf does not issue', async () => {
+  it('trao thủ công: cần năng lực awardbadge và tiêu chí thủ công; ALL có lá chưa đạt thì không cấp', async () => {
     const badgeRes = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Mentor pick', type: 1 });
     const badgeId = badgeRes.body.id as string;
@@ -190,7 +190,7 @@ describe('Badges & competencies', () => {
     return (mine.body as { badgeId: string }[]).map((r) => r.badgeId);
   }
 
-  it('cohort leaf: members of the named cohort are awarded, non-members are not (Behat criteria_cohort.feature)', async () => {
+  it('lá cohort: thành viên của cohort nêu tên được trao, người ngoài không (Behat criteria_cohort.feature)', async () => {
     const cohort = await createCohortViaApi(app, admin, `badge-cohort-${Date.now()}-${Math.random()}`);
     const member = await createUserViaApi(app, admin);
     const outsider = await createUserViaApi(app, admin);
@@ -214,7 +214,7 @@ describe('Badges & competencies', () => {
     expect(await issuedBadgeIdsFor(outsider.id, outsiderToken)).not.toContain(badgeId);
   });
 
-  it('profile leaf: a custom profile field meeting the condition awards; a different or missing value does not (Behat criteria_profile.feature)', async () => {
+  it('lá hồ sơ: trường hồ sơ tuỳ chỉnh đạt điều kiện thì trao; giá trị khác hoặc thiếu thì không (Behat criteria_profile.feature)', async () => {
     const suffix = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
     const shortName = `badgedept${suffix.replaceAll('-', '')}`.slice(0, 32);
     const cat = await http(app).post('/api/v1/custom-fields/categories').set('Authorization', `Bearer ${admin}`)
@@ -256,7 +256,7 @@ describe('Badges & competencies', () => {
     expect((await evaluateLeaves(stdMissBadgeId, matching.id)).satisfied).toBe(false);
   });
 
-  it('coursecompletion by-date: completion on/before the by-date awards, completion after it does not (Behat award_badge.feature by-date)', async () => {
+  it('coursecompletion theo by-date: hoàn thành vào/trước by-date thì trao, hoàn thành sau thì không (Behat award_badge.feature by-date)', async () => {
     const { course, instance, cm } = await completableCourse();
     const student = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, instance.id, student.id);
@@ -280,7 +280,7 @@ describe('Badges & competencies', () => {
     expect(issuedIds).not.toContain(tooLateBadgeId);
   });
 
-  it('competency course links: ruleOutcome complete sets proficiency from the scale; attach-evidence only logs evidence (§2#15)', async () => {
+  it('liên kết năng lực khoá học: ruleOutcome complete đặt proficiency theo thang; attach-evidence chỉ ghi evidence (§2#15)', async () => {
     const { competency } = await frameworkWithCompetency();
     const { competency: competency2 } = await frameworkWithCompetency();
     const a = await completableCourse();
@@ -307,7 +307,7 @@ describe('Badges & competencies', () => {
     expect((evidence.body as { action: string }[]).some((e) => e.action === 'course_completed')).toBe(true);
   });
 
-  it('learning plans from template + cohort: members get active plans with the template competencies (api_test template_cohort + create_plan_from_template)', async () => {
+  it('kế hoạch học tập từ mẫu + cohort: thành viên nhận kế hoạch đang hoạt động với năng lực của mẫu (api_test template_cohort + create_plan_from_template)', async () => {
     const { competency } = await frameworkWithCompetency();
     const template = await http(app).post('/api/v1/competencies/templates').set('Authorization', `Bearer ${admin}`)
       .send({ shortName: 'Onboarding plan' });
@@ -333,7 +333,7 @@ describe('Badges & competencies', () => {
     expect(view.body.competencies[0].usercomp).toBeTruthy();
   });
 
-  it('learning plan review lifecycle: draft → active → request → start → approve → back to active → complete, with a review history (api_test plan review family)', async () => {
+  it('vòng đời duyệt kế hoạch học tập: draft → active → request → start → approve → về active → complete, kèm lịch sử duyệt (api_test plan review family)', async () => {
     const owner = await createUserViaApi(app, admin);
     const ownerToken = (await login(app, owner.username, STRONG_PASSWORD)).accessToken;
     const plan = await http(app).post('/api/v1/competencies/plans').set('Authorization', `Bearer ${ownerToken}`)
@@ -361,7 +361,7 @@ describe('Badges & competencies', () => {
     expect(actions).toEqual(['activate', 'request-review', 'start-review', 'approve', 'complete']);
   });
 
-  it('user competency review: evidence → waiting → in review → reject keeps proficiency unset; approve sets it per the scale; grades outside the scale are refused', async () => {
+  it('duyệt năng lực người dùng: evidence → waiting → in review → reject giữ proficiency chưa đặt; approve đặt theo thang; điểm ngoài thang bị từ chối', async () => {
     const { competency } = await frameworkWithCompetency();
     const learner = await createUserViaApi(app, admin);
     const learnerToken = (await login(app, learner.username, STRONG_PASSWORD)).accessToken;
@@ -428,7 +428,7 @@ describe('Badges & competencies', () => {
     return { framework: fw.body, parent, childA, childB };
   }
 
-  it('competency rule points: parent auto-attains proficiency when the children reach the required points, not before (Moodle competency_rule_points; config shape from api_test test_duplicate_framework)', async () => {
+  it('điểm quy tắc năng lực: cha tự đạt proficiency khi con đủ điểm yêu cầu, không sớm hơn (Moodle competency_rule_points; hình dạng config từ api_test test_duplicate_framework)', async () => {
     const { framework, parent, childA, childB } = await parentChildFramework(`${Date.now()}-pts`);
     const ruleUrl = `/api/v1/competencies/frameworks/${framework.id}/competencies/${parent.id}/rule`;
     // Luật không thể đạt (điểm yêu cầu cao hơn tổng của các con) bị từ chối tại thời điểm đặt (validate_config).
@@ -472,7 +472,7 @@ describe('Badges & competencies', () => {
     expect((evidence.body as { action: string }[]).filter((e) => e.action === 'rule_points_met')).toHaveLength(1);
   });
 
-  it('framework export → import: tree/scale/rule preserved with brand-new ids; duplicate mirrors Moodle test_duplicate_framework', async () => {
+  it('xuất khung → nhập: cây/thang/quy tắc giữ nguyên với id hoàn toàn mới; nhân bản theo Moodle test_duplicate_framework', async () => {
     const { framework, parent, childA, childB } = await parentChildFramework(`${Date.now()}-exp`);
     await http(app).post(`/api/v1/competencies/frameworks/${framework.id}/competencies/${parent.id}/rule`).set('Authorization', `Bearer ${admin}`)
       .send({ outcome: 'complete', pointsRequired: 4, entries: [{ competencyId: childA.id, points: 3, required: false }, { competencyId: childB.id, points: 2, required: true }] });
@@ -517,7 +517,7 @@ describe('Badges & competencies', () => {
     expect(duplicate2.body.idNumber).toBe(`${framework.idNumber}_2`);
   });
 
-  it('framework import: malformed documents are refused with 400 and create no framework at all', async () => {
+  it('nhập khung: tài liệu sai định dạng bị từ chối bằng 400 và không tạo khung nào', async () => {
     const before = await http(app).get('/api/v1/competencies/frameworks').set('Authorization', `Bearer ${admin}`);
     const countBefore = (before.body as unknown[]).length;
     const scale = { values: ['Not competent', 'Competent'], proficient: [1] };

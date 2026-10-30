@@ -25,8 +25,8 @@ import {
   createRefundSchema, paymentRefundStatusSchema, rejectRefundSchema, resolvePaymentReviewSchema, settleRefundSchema,
 } from './index.js';
 
-describe('contracts', () => {
-  it('validates a ProblemDetails payload', () => {
+describe('Khối contracts', () => {
+  it('chấp nhận payload ProblemDetails hợp lệ', () => {
     const parsed = problemDetailsSchema.parse({
       type: 'about:blank', title: 'Not Found', status: 404, code: 'http.not_found',
     });
@@ -52,11 +52,11 @@ describe('contracts', () => {
     })).toThrow();
   });
 
-  it('rejects an invalid health payload', () => {
+  it('từ chối payload health không hợp lệ', () => {
     expect(() => healthStatusSchema.parse({ status: 'ok' })).toThrow();
   });
 
-  it('validates a health payload', () => {
+  it('chấp nhận payload health hợp lệ', () => {
     const parsed = healthStatusSchema.parse({
       status: 'ok', timestamp: new Date().toISOString(),
       checks: { database: 'up', redis: 'up' },
@@ -65,8 +65,8 @@ describe('contracts', () => {
   });
 });
 
-describe('engagement contracts', () => {
-  it('parses a conversation, a notification and a preference row', () => {
+describe('Hợp đồng engagement', () => {
+  it('phân tích một cuộc trò chuyện, một thông báo và một dòng tuỳ chọn', () => {
     const conv = conversationSchema.parse({ id: '01900000-0000-7000-8000-000000000001', type: 2, name: 'Study group', members: ['01900000-0000-7000-8000-000000000002', '01900000-0000-7000-8000-000000000003', '01900000-0000-7000-8000-000000000004'], component: null, itemType: null, itemId: null });
     expect(conv.members).toHaveLength(3);
     const notif = notificationSchema.parse({
@@ -142,7 +142,7 @@ describe('engagement contracts', () => {
     expect(() => markNotificationsReadSchema.parse({ scope: 'all', eventType: 'x' })).toThrow();
   });
 
-  it('parses calendar events, badges and rejects impossible shapes', () => {
+  it('phân tích sự kiện lịch, huy hiệu và từ chối các hình dạng không thể có', () => {
     const ev = calendarEventSchema.parse({
       id: '01900000-0000-7000-8000-000000000005', name: 'Deadline', eventType: 'course', timeStart: new Date().toISOString(),
       timeDuration: 3600, repeatId: '01900000-0000-7000-8000-000000000005', isException: false,
@@ -157,7 +157,7 @@ describe('engagement contracts', () => {
     expect(issued.uniqueHash).toHaveLength(64);
   });
 
-  it('parses learning plans, user competencies, rating aggregates and notes', () => {
+  it('phân tích kế hoạch học tập, năng lực người dùng, tổng hợp đánh giá và ghi chú', () => {
     const plan = learningPlanSchema.parse({ id: '01900000-0000-7000-8000-000000000004', name: 'Plan A', userId: '01900000-0000-7000-8000-000000000007', templateId: null, status: 1 });
     expect(plan.status).toBe(1);
     const uc = userCompetencySchema.parse({ id: '01900000-0000-7000-8000-000000000001', userId: '01900000-0000-7000-8000-000000000007', competencyId: '01900000-0000-7000-8000-000000000003', grade: 1, proficiency: true, status: 0 });
@@ -200,8 +200,8 @@ describe('engagement contracts', () => {
   });
 });
 
-describe('course contracts', () => {
-  it('parses a nested category tree and a course content payload with a locked module', () => {
+describe('Hợp đồng khoá học', () => {
+  it('phân tích cây danh mục lồng nhau và payload nội dung khoá học có module bị khoá', () => {
     const tree = courseCategoryTreeSchema.parse([
       {
         id: '01900000-0000-7000-8000-000000000001', name: 'Science', idNumber: null, description: '', parent: null, sortOrder: 0, path: '/1', depth: 1, visible: true,
@@ -263,7 +263,7 @@ describe('course contracts', () => {
   });
 });
 
-describe('assessment contracts', () => {
+describe('Hợp đồng đánh giá', () => {
   const item = {
     id: '01900000-0000-7000-8000-000000000005', courseId: '01900000-0000-7000-8000-000000000010', itemName: 'Quiz 1', itemType: 'mod', itemModule: 'mod_quiz',
     itemInstance: '01900000-0000-7000-8000-000000000003', gradeMax: 100, gradeMin: 0, gradePass: 50,
@@ -273,7 +273,7 @@ describe('assessment contracts', () => {
     id: '01900000-0000-7000-8000-000000000002', itemId: '01900000-0000-7000-8000-000000000005', userId: '01900000-0000-7000-8000-000000000007', rawGrade: 70, finalGrade: 70, hidden: false, locked: false,
     overridden: false, excluded: false, frozen: false, feedback: 'ok', aggregationWeight: null,
   };
-  it('parses per-activity grades with publication states (no course total anywhere)', () => {
+  it('phân tích điểm theo hoạt động kèm trạng thái công bố (không có tổng khoá học ở đâu)', () => {
     const mine = myActivityGradesSchema.parse({
       courseId: '01900000-0000-7000-8000-000000000010', userId: '01900000-0000-7000-8000-000000000007',
       activities: [{ item, grade, publication: { policy: 'auto', published: true } }],
@@ -283,7 +283,7 @@ describe('assessment contracts', () => {
     expect(() => myActivityGradesSchema.parse({ courseId: 'x' })).toThrow();
   });
 
-  it('parses the read-only student x activity grid for teachers', () => {
+  it('phân tích lưới học viên × hoạt động chỉ đọc cho giáo viên', () => {
     const grid = courseActivityGridSchema.parse({
       courseId: '01900000-0000-7000-8000-000000000010',
       items: [item],
@@ -294,7 +294,7 @@ describe('assessment contracts', () => {
     expect(grid.publications[item.id]?.published).toBe(false);
   });
 
-  it('parses grade item payloads (manual/mod) and rejects shapes of the removed aggregate model', () => {
+  it('phân tích payload hạng mục điểm (thủ công/mod) và từ chối hình dạng của mô hình tổng hợp đã bỏ', () => {
     const manual = createGradeItemSchema.parse({ itemName: 'Kiểm tra 15 phút', gradeMax: 10, multiplicator: 0.5 });
     expect(manual.multiplicator).toBe(0.5);
     // Mô hình tổng hợp đã gỡ (issue #224): strictObject từ chối các trường chết.
@@ -303,7 +303,7 @@ describe('assessment contracts', () => {
     expect(() => createGradeItemSchema.parse({ itemName: 'X', categoryId: '01900000-0000-7000-8000-000000000001' })).toThrow();
   });
 
-  it('parses a question usage with attempts, pinned versions and steps', () => {
+  it('phân tích lượt dùng câu hỏi kèm lượt làm, phiên bản đã ghim và các bước', () => {
     const usage = questionUsageSchema.parse({
       usage: { id: '01900000-0000-7000-8000-000000000001', component: 'mod_quiz', instanceId: '01900000-0000-7000-8000-000000000003', preferredBehaviour: 'deferredfeedback' },
       state: 'finished',
@@ -321,7 +321,7 @@ describe('assessment contracts', () => {
     expect(usage.attempts[0]?.steps).toHaveLength(3);
   });
 
-  it('matrix cells anchor a knowledge unit, never an outcome (issue #249, CV 7991)', () => {
+  it('ô ma trận neo vào một đơn vị kiến thức, không bao giờ neo vào outcome (issue #249, CV 7991)', () => {
     const nodeId = '01900000-0000-7000-8000-000000000030';
     const cell = createExamMatrixCellSchema.parse({
       curriculumNodeId: nodeId, cognitiveLevel: 'biet', qtype: 'multichoice', questionCount: 2, cellScore: 2,
@@ -350,8 +350,8 @@ describe('assessment contracts', () => {
   });
 });
 
-describe('identity contracts', () => {
-  it('accepts an empty TOTP setup payload and a 6-digit current code, rejects malformed codes and unknown fields', async () => {
+describe('Hợp đồng định danh', () => {
+  it('chấp nhận payload thiết lập TOTP rỗng và mã hiện tại 6 chữ số, từ chối mã sai định dạng và trường lạ', async () => {
     const { mfaTotpSetupSchema } = await import('./identity.js');
     // Thân không bắt buộc: client hiện tại gọi setup không kèm thân vẫn hợp lệ.
     expect(mfaTotpSetupSchema.parse(undefined)).toBeUndefined();
@@ -451,7 +451,7 @@ describe('identity contracts', () => {
     })).toThrow();
   });
 
-  it('parses a login response and a profile without email (identity field hidden)', () => {
+  it('phân tích đáp ứng đăng nhập và hồ sơ không có email (trường định danh bị ẩn)', () => {
     expect(loginResponseSchema.parse({
       accessToken: 'a', refreshToken: 'r', expiresIn: 900,
       user: { id: '01900000-0000-7000-8000-000000000001', username: 'admin', forcePasswordChange: false },
@@ -466,15 +466,15 @@ describe('identity contracts', () => {
   });
 });
 
-describe('platform contracts (platform services)', () => {
-  it('parses a search document and an external token creation (raw token only at creation)', async () => {
+describe('Hợp đồng platform (dịch vụ platform)', () => {
+  it('phân tích tài liệu tìm kiếm và lệnh tạo token ngoài (token thô chỉ có lúc tạo)', async () => {
     const { searchDocumentSchema, externalTokenCreatedSchema } = await import('./platform.js');
     expect(searchDocumentSchema.parse({ id: '01900000-0000-7000-8000-000000000001', area: 'courses', itemId: '01900000-0000-7000-8000-000000000002', contextId: '01900000-0000-7000-8000-000000000003', title: 'T', content: 'C' }).area).toBe('courses');
     expect(externalTokenCreatedSchema.parse({ token: 'a'.repeat(64), id: '01900000-0000-7000-8000-000000000001', userId: '01900000-0000-7000-8000-000000000002', serviceId: '01900000-0000-7000-8000-000000000003' }).token).toHaveLength(64);
     expect(() => externalTokenCreatedSchema.parse({ token: 'short', id: '01900000-0000-7000-8000-000000000001', userId: '01900000-0000-7000-8000-000000000002', serviceId: '01900000-0000-7000-8000-000000000003' })).toThrow();
   });
 
-  it('rejects a backup id mapping that keeps the original id, and a payment with a float amount', async () => {
+  it('từ chối ánh xạ id sao lưu giữ nguyên id gốc, và khoản thanh toán có số tiền thực', async () => {
     const { backupIdMappingSchema, paymentSchema } = await import('./platform.js');
     expect(backupIdMappingSchema.parse({ id: '01900000-0000-7000-8000-000000000001', jobId: '01900000-0000-7000-8000-000000000002', itemType: 'cm', oldId: '01900000-0000-7000-8000-000000000010', newId: '01900000-0000-7000-8000-000000000099' }).newId).toBe('01900000-0000-7000-8000-000000000099');
     expect(() => backupIdMappingSchema.parse({ id: '01900000-0000-7000-8000-000000000001', jobId: '01900000-0000-7000-8000-000000000002', itemType: 'cm', oldId: '01900000-0000-7000-8000-000000000010', newId: '01900000-0000-7000-8000-000000000010' })).toThrow();
@@ -486,7 +486,7 @@ describe('platform contracts (platform services)', () => {
     expect(paymentSchema.parse({ id: '01900000-0000-7000-8000-000000000001', accountId: '01900000-0000-7000-8000-000000000001', userId: '01900000-0000-7000-8000-000000000001', amount: 50000, currency: 'VND', status: 'needs_review', gateway: 'sepay' }).status).toBe('needs_review');
   });
 
-  it('parses report, content bank, insight and privacy request shapes', async () => {
+  it('phân tích hình dạng báo cáo, ngân hàng nội dung, insight và yêu cầu riêng tư', async () => {
     const { reportSchema, contentBankContentSchema, insightSchema, privacyRequestSchema } = await import('./platform.js');
     expect(reportSchema.parse({ id: '01900000-0000-7000-8000-000000000001', name: 'R', dataSource: 'grades', columns: ['userId'], createdBy: '01900000-0000-7000-8000-000000000001' }).dataSource).toBe('grades');
     expect(contentBankContentSchema.parse({ id: '01900000-0000-7000-8000-000000000001', name: 'C', contentType: 'file-based', contextId: '01900000-0000-7000-8000-000000000002', creatorId: '01900000-0000-7000-8000-000000000003', visibility: 'draft', fileId: null, resourceType: 'question_set', scope: 'org', spaceId: '01900000-0000-7000-8000-000000000004', subjectId: null, grade: 6, level: 'lower_secondary', curriculumNodeId: null, outcomeIds: null, questionCategoryId: null, externalUrl: null, description: null, keywords: null, targetAudience: null, lessonPosition: null, techFormat: null, sizeBytes: null, durationSeconds: null, language: 'vi', originalAuthor: null, sourceKind: null, sourceCitation: null, license: null, derivedFromId: null, reviewStatus: 'pending', reviewedBy: null, reviewNote: null, reviewChecklist: null }).reviewStatus).toBe('pending');
@@ -496,22 +496,22 @@ describe('platform contracts (platform services)', () => {
   });
 });
 
-describe('platform request schemas (Zod — single source of truth for API and React forms)', () => {
-  it('rejects a non-integer or non-positive payment amount and unknown fields', () => {
+describe('Schema yêu cầu platform (Zod — nguồn sự thật duy nhất cho API và form React)', () => {
+  it('từ chối số tiền thanh toán không nguyên hoặc không dương và trường lạ', () => {
     expect(createPaymentSchema.safeParse({ accountId: '01900000-0000-7000-8000-000000000001', amount: 10.5, currency: 'VND' }).success).toBe(false);
     expect(createPaymentSchema.safeParse({ accountId: '01900000-0000-7000-8000-000000000001', amount: 0, currency: 'VND' }).success).toBe(false);
     expect(createPaymentSchema.safeParse({ accountId: '01900000-0000-7000-8000-000000000001', amount: 1000, currency: 'VND' }).success).toBe(true);
     expect(createPaymentSchema.safeParse({ accountId: '01900000-0000-7000-8000-000000000001', amount: 1000, currency: 'VND', evil: 1 }).success).toBe(false);
   });
 
-  it('accepts only the three explicit restore modes and the registered report datasources', () => {
+  it('chỉ chấp nhận ba chế độ khôi phục tường minh và các nguồn dữ liệu báo cáo đã đăng ký', () => {
     expect(restoreCourseSchema.safeParse({ backupJobId: '01900000-0000-7000-8000-000000000001', mode: 'merge', targetCourseId: '01900000-0000-7000-8000-000000000002' }).success).toBe(true);
     expect(restoreCourseSchema.safeParse({ backupJobId: '01900000-0000-7000-8000-000000000001', mode: 'overwrite' }).success).toBe(false);
     expect(createReportSchema.safeParse({ name: 'R', dataSource: 'grades' }).success).toBe(true);
     expect(createReportSchema.safeParse({ name: 'R', dataSource: 'users' }).success).toBe(false);
   });
 
-  it('keeps the privacy self-service schema free of the admin-only userId field', () => {
+  it('giữ schema tự phục vụ riêng tư không có trường userId chỉ dành cho admin', () => {
     expect(createPrivacyRequestSchema.safeParse({ type: 'export' }).success).toBe(true);
     expect(createPrivacyRequestSchema.safeParse({ type: 'export', userId: '01900000-0000-7000-8000-000000000005' }).success).toBe(false);
     expect(createExternalTokenSchema.safeParse({ userId: '01900000-0000-7000-8000-000000000001', serviceId: '01900000-0000-7000-8000-000000000002' }).success).toBe(true);
@@ -519,7 +519,7 @@ describe('platform request schemas (Zod — single source of truth for API and R
   });
 });
 
-describe('rich text contracts', () => {
+describe('Hợp đồng rich text', () => {
   const doc = {
     type: 'doc' as const,
     content: [
@@ -528,14 +528,14 @@ describe('rich text contracts', () => {
     ],
   };
 
-  it('accepts a plain-text document with basic marks and an empty paragraph', () => {
+  it('chấp nhận tài liệu văn bản thuần có dấu cơ bản và một đoạn trống', () => {
     const parsed = richTextDocumentSchema.parse(doc);
     expect(parsed.content[0]?.content?.[0]?.marks?.[0]?.type).toBe('bold');
     expect(richTextInputSchema.parse('chuỗi thuần')).toBe('chuỗi thuần');
     expect(richTextInputSchema.parse(doc)).toEqual(doc);
   });
 
-  it('rejects nodes outside the slice (heading, orderedList), malformed math/image and unknown marks', () => {
+  it('từ chối node ngoài lát cắt (heading, orderedList), math/image sai định dạng và dấu lạ', () => {
     expect(() => richTextDocumentSchema.parse({ type: 'doc', content: [{ type: 'image' }] })).toThrow();
     expect(() => richTextDocumentSchema.parse({ type: 'doc', content: [{ type: 'image', attrs: { src: '' } }] })).toThrow();
     expect(() => richTextDocumentSchema.parse({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'inlineMath' }] }] })).toThrow();
@@ -546,7 +546,7 @@ describe('rich text contracts', () => {
     expect(() => richTextDocumentSchema.parse({ type: 'doc', content: [] })).toThrow();
   });
 
-  it('wraps strings into a one-paragraph document and the empty string into the empty document', () => {
+  it('gói chuỗi thành tài liệu một đoạn và chuỗi rỗng thành tài liệu rỗng', () => {
     expect(toRichTextDocument('Một cộng một bằng mấy?')).toEqual({
       type: 'doc',
       content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Một cộng một bằng mấy?' }] }],
@@ -556,7 +556,7 @@ describe('rich text contracts', () => {
     expect(() => toRichTextDocument({ type: 'doc', content: [{ type: 'image' }] } as never)).toThrow();
   });
 
-  it('accepts a document with inline/block math, a bullet list and an image', () => {
+  it('chấp nhận tài liệu có math nội dòng/khối, danh sách dấu đầu dòng và hình ảnh', () => {
     const rich = {
       type: 'doc' as const,
       content: [
@@ -594,7 +594,7 @@ describe('rich text contracts', () => {
     expect(richTextInputSchema.parse(rich)).toEqual(rich);
   });
 
-  it('extracts plain text with math contributing its LaTeX and list items on their own lines', () => {
+  it('trích văn bản thuần trong đó math đóng góp LaTeX của nó và mỗi mục danh sách nằm trên dòng riêng', () => {
     const rich = {
       type: 'doc' as const,
       content: [
@@ -623,7 +623,7 @@ describe('rich text contracts', () => {
     );
   });
 
-  it('extracts plain text joining paragraphs with newlines, empty paragraph as an empty line', () => {
+  it('trích văn bản thuần nối các đoạn bằng xuống dòng, đoạn trống thành dòng trống', () => {
     const multi = {
       type: 'doc' as const,
       content: [
@@ -647,7 +647,7 @@ describe('question payload contracts (port giaokhoa: cờ đúng/sai, không tê
     { text: 'Cần Thơ' },
   ];
 
-  it('accepts a multichoice payload: exactly 4 choices, exactly one correct, questionText as string or document', () => {
+  it('chấp nhận payload multichoice: đúng 4 lựa chọn, đúng một đáp án đúng, questionText là chuỗi hoặc tài liệu', () => {
     const parsed = createQuestionSchema.parse({
       categoryId, qtype: 'multichoice', questionText: 'Thủ đô của Việt Nam là?',
       stimulusId,
@@ -694,7 +694,7 @@ describe('question payload contracts (port giaokhoa: cờ đúng/sai, không tê
     })).toThrow();
   });
 
-  it('locks truefalse to the TF-A cluster shape: stem + exactly 4 statements in the text, per-statement answers via solution (D-1)', () => {
+  it('khoá truefalse theo hình dạng chùm TF-A: thân + đúng 4 mệnh đề trong văn bản, đáp án từng mệnh đề qua solution (D-1)', () => {
     const tfDoc = (statementIds: string[]) => ({
       type: 'doc' as const,
       content: [
@@ -753,7 +753,7 @@ describe('question payload contracts (port giaokhoa: cờ đúng/sai, không tê
     })).toThrow();
   });
 
-  it('locks shortanswer to listed accepted answers only (no wildcard semantics, no partial answers)', () => {
+  it('khoá shortanswer chỉ nhận đáp án đã liệt kê (không ngữ nghĩa ký tự đại diện, không đáp án từng phần)', () => {
     const sa = createQuestionSchema.parse({
       categoryId, qtype: 'shortanswer', questionText: '2 + 2 = ?',
       answers: [{ text: '4' }, { text: 'bốn' }],
@@ -774,7 +774,7 @@ describe('question payload contracts (port giaokhoa: cờ đúng/sai, không tê
     })).toThrow();
   });
 
-  it('rejects answer rows on essay, a question name anywhere, and the removed multichoice options (D-5)', () => {
+  it('từ chối dòng đáp án trên essay, tên câu hỏi ở bất cứ đâu, và các tuỳ chọn multichoice đã bỏ (D-5)', () => {
     expect(() => createQuestionSchema.parse({
       categoryId, qtype: 'essay', questionText: '?', answers: [{ text: 'x' }],
     })).toThrow();
@@ -799,13 +799,13 @@ describe('question payload contracts (port giaokhoa: cờ đúng/sai, không tê
     expect(updateQuestionSchema.parse({ answers: [{ text: 'x', correct: true }] }).answers).toHaveLength(1);
   });
 
-  it('rejects an unknown qtype and unknown payload fields', () => {
+  it('từ chối qtype lạ và trường payload lạ', () => {
     expect(() => createQuestionSchema.parse({ categoryId, qtype: 'matching', questionText: '?' })).toThrow();
     expect(() => createQuestionSchema.parse({ categoryId, qtype: 'essay', questionText: '?', evil: 1 })).toThrow();
     expect(() => createQuestionSchema.parse({ categoryId, qtype: 'multichoice', questionText: '?', answers: mcAnswers, options: { bogus: true } })).toThrow();
   });
 
-  it('accepts stimulus create/update payloads and parses a stimulus view', () => {
+  it('chấp nhận payload tạo/cập nhật stimulus và phân tích khung nhìn stimulus', () => {
     const created = createStimulusSchema.parse({ categoryId, content: 'Đọc đoạn văn sau và trả lời câu hỏi.' });
     expect(created.categoryId).toBe(categoryId);
     expect(updateStimulusSchema.parse({ content: { type: 'doc', content: [{ type: 'paragraph' }] } }).content).toBeDefined();
@@ -818,8 +818,8 @@ describe('question payload contracts (port giaokhoa: cờ đúng/sai, không tê
   });
 });
 
-describe('question view contracts', () => {
-  it('parses a question view: no name, answers carry isCorrect, answerKey carries guidance + solution', () => {
+describe('Hợp đồng khung nhìn câu hỏi', () => {
+  it('phân tích khung nhìn câu hỏi: không có tên, đáp án mang isCorrect, answerKey mang guidance + solution', () => {
     const questionText = { type: 'doc' as const, content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: 'Thủ đô của Việt Nam là?' }] }] };
     const guidanceDoc = { type: 'doc' as const, content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: 'Nhớ lại bản đồ hành chính' }] }] };
     const view = questionViewSchema.parse({
@@ -857,7 +857,7 @@ describe('question view contracts', () => {
     expect(essayKey.solution).toBeDefined();
   });
 
-  it('rejects the old view shapes: fraction answers, guidance on the version, missing answerKey', () => {
+  it('từ chối hình dạng khung nhìn cũ: đáp án phân số, guidance trên phiên bản, thiếu answerKey', () => {
     // Đáp án kiểu cũ (fraction, không isCorrect) -> từ chối.
     expect(() => questionAnswerViewSchema.parse({
       id: '01900000-0000-7000-8000-000000000011', questionVersionId: '01900000-0000-7000-8000-000000000008',
@@ -877,7 +877,7 @@ describe('question view contracts', () => {
   });
 });
 
-describe('class overview contracts (CLASS-2, #184)', () => {
+describe('Hợp đồng tổng quan lớp (CLASS-2, #184)', () => {
   const overview = {
     class: {
       id: '01900000-0000-7000-8000-0000000000c1', tenantId: '01900000-0000-7000-8000-0000000000a1',
@@ -915,7 +915,7 @@ describe('class overview contracts (CLASS-2, #184)', () => {
   });
 });
 
-describe('class fee contracts (CLASS-3, #184)', () => {
+describe('Hợp đồng học phí lớp (CLASS-3, #184)', () => {
   const classView = {
     id: '01900000-0000-7000-8000-0000000000c1', tenantId: '01900000-0000-7000-8000-0000000000a1',
     name: 'Lớp 10A1', code: '10A1', schoolYear: '2026-2027',
@@ -995,7 +995,7 @@ describe('mcp question contracts (biên AI: không fraction, không tên)', () =
   const bankId = '01900000-0000-7000-8000-000000000050';
   const categoryId = '01900000-0000-7000-8000-000000000001';
 
-  it('accepts a create_question input with correct-flag answers and no name', () => {
+  it('chấp nhận đầu vào create_question có đáp án gắn cờ đúng và không có tên', () => {
     const parsed = mcpCreateQuestionInputSchema.parse({
       bankId, categoryId, qtype: 'multichoice', questionText: 'Thủ đô của Việt Nam là?',
       answers: [
@@ -1009,7 +1009,7 @@ describe('mcp question contracts (biên AI: không fraction, không tên)', () =
     expect(parsed.answers?.filter((a) => a.correct === true)).toHaveLength(1);
   });
 
-  it('rejects fraction on an MCP answer and a question name on MCP create/batch/stimulus inputs', () => {
+  it('từ chối phân số trên đáp án MCP và tên câu hỏi trên đầu vào MCP create/batch/stimulus', () => {
     expect(() => mcpAnswerInputSchema.parse({ text: 'Hà Nội', fraction: 1 })).toThrow();
     expect(() => mcpCreateQuestionInputSchema.parse({
       bankId, categoryId, qtype: 'essay', name: 'Tự luận', questionText: '?', idempotencyKey: 'k',
@@ -1158,28 +1158,28 @@ describe('grade export contracts (chuẩn đường dẫn module điểm, #342)'
     semester: 1 as const,
   };
 
-  it('accepts the canonical export payload with the provider carried in the body', () => {
+  it('chấp nhận payload xuất chuẩn khi provider nằm trong thân', () => {
     const parsed = exportGradesSchema.parse({ provider: 'vnedu', ...vneduPayload });
     expect(parsed.provider).toBe('vnedu');
     expect(parsed.regularItemIds).toEqual(vneduPayload.regularItemIds);
     expect(parsed.semester).toBe(1);
   });
 
-  it('rejects the canonical export payload when the provider is missing', () => {
+  it('từ chối payload xuất chuẩn khi thiếu provider', () => {
     expect(() => exportGradesSchema.parse(vneduPayload)).toThrow();
   });
 
-  it('rejects providers outside the closed provider set', () => {
+  it('từ chối provider ngoài tập provider đóng', () => {
     expect(gradeExportProviderSchema.parse('vnedu')).toBe('vnedu');
     expect(() => exportGradesSchema.parse({ provider: 'smas', ...vneduPayload })).toThrow();
     expect(() => gradeExportProviderSchema.parse('')).toThrow();
   });
 
-  it('rejects unknown extra fields in the canonical export payload', () => {
+  it('từ chối trường thừa lạ trong payload xuất chuẩn', () => {
     expect(() => exportGradesSchema.parse({ provider: 'vnedu', ...vneduPayload, format: 'pdf' })).toThrow();
   });
 
-  it('keeps the legacy vnedu payload shape provider-less for the alias path', () => {
+  it('giữ hình dạng payload vnedu cũ không có provider cho đường alias', () => {
     const parsed = exportGradesVneduSchema.parse(vneduPayload);
     expect(parsed.midtermItemId).toBe(vneduPayload.midtermItemId);
     expect(() => exportGradesVneduSchema.parse({ provider: 'vnedu', ...vneduPayload })).toThrow();

@@ -40,13 +40,13 @@ function stubFetch(handler: (url: string, init?: RequestInit) => unknown) {
   );
 }
 
-describe('Badges page', () => {
+describe('Trang huy hiệu', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
   });
 
-  it('renders my issued badges with their assertion hashes, including revoked ones', async () => {
+  it('render các huy hiệu đã cấp của tôi kèm hash assertion của chúng, kể cả huy hiệu đã thu hồi', async () => {
     stubFetch((url) => {
       if (isGetSessionUrl(url)) return baSessionBody({ id: PROFILE.id, username: PROFILE.username });
       if (url === '/api/v1/users/me') return PROFILE;

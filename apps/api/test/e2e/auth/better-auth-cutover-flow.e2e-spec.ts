@@ -81,7 +81,7 @@ function sessionCookieFrom(setCookie: string[] | undefined): string {
   return raw.split(';')[0]!;
 }
 
-describe('Better Auth cutover prep — bake window (issue #7 phases 2.6 + 2.7-prep)', () => {
+describe('Chuẩn bị cutover Better Auth — cửa sổ bake (issue #7 giai đoạn 2.6 + 2.7-prep)', () => {
   let app: INestApplication;
   let bridge: CredentialBridgeService;
   let pg: Client;
@@ -162,7 +162,7 @@ describe('Better Auth cutover prep — bake window (issue #7 phases 2.6 + 2.7-pr
     await app?.close();
   });
 
-  it('login-as in the bake window issues a Better Auth session cookie and no tokens', async () => {
+  it('login-as trong cửa sổ bake cấp cookie phiên Better Auth và không cấp token', async () => {
     const adminAccess = await helpers.adminToken(app);
     const adminMe = await http(app).get('/api/v1/users/me').set('Authorization', `Bearer ${adminAccess}`);
     const target = await helpers.createUserViaApi(app, adminAccess);
@@ -199,7 +199,7 @@ describe('Better Auth cutover prep — bake window (issue #7 phases 2.6 + 2.7-pr
     expect(raw.status).toBe(401);
   });
 
-  it('login-as without the capability is denied and creates no session', async () => {
+  it('login-as thiếu năng lực bị từ chối và không tạo phiên', async () => {
     const adminAccess = await helpers.adminToken(app);
     const actor = await helpers.createUserViaApi(app, adminAccess);
     const target = await helpers.createUserViaApi(app, adminAccess);
@@ -216,7 +216,7 @@ describe('Better Auth cutover prep — bake window (issue #7 phases 2.6 + 2.7-pr
     expect(after.rows[0].n).toBe(before.rows[0].n);
   });
 
-  it('a user created through the admin API signs in through Better Auth immediately', async () => {
+  it('người dùng tạo qua admin API đăng nhập qua Better Auth ngay', async () => {
     const adminAccess = await helpers.adminToken(app);
     const created = await helpers.createUserViaApi(app, adminAccess);
     const res = await signInByUsername(created.username, helpers.STRONG_PASSWORD);
@@ -228,7 +228,7 @@ describe('Better Auth cutover prep — bake window (issue #7 phases 2.6 + 2.7-pr
     expect(hashes.credential).toBe(hashes.legacy);
   });
 
-  it('an admin password reset propagates to the credential: new password works in both systems, old one dies in both', async () => {
+  it('đặt lại mật khẩu bởi admin lan tới credential: mật khẩu mới chạy ở cả hai hệ, mật khẩu cũ chết ở cả hai', async () => {
     const adminAccess = await helpers.adminToken(app);
     const created = await helpers.createUserViaApi(app, adminAccess);
     const reset = await http(app)
@@ -246,7 +246,7 @@ describe('Better Auth cutover prep — bake window (issue #7 phases 2.6 + 2.7-pr
     expect(hashes.credential).toBe(hashes.legacy);
   });
 
-  it('seed linking entry point: syncCredentialPassword links once, then no-ops, and repairs a stale credential', async () => {
+  it('điểm vào liên kết seed: syncCredentialPassword liên kết một lần, rồi no-op, và sửa credential cũ', async () => {
     const adminAccess = await helpers.adminToken(app);
     const created = await helpers.createUserViaApi(app, adminAccess);
     // Trạng thái của tài khoản mẫu đã tồn tại từ lần seed trước thời
@@ -267,7 +267,7 @@ describe('Better Auth cutover prep — bake window (issue #7 phases 2.6 + 2.7-pr
     expect((await signInByUsername(created.username, helpers.STRONG_PASSWORD)).status).toBe(401);
   });
 
-  it('rollback rehearsal: a password changed through Better Auth in the bake window signs in through the legacy system', async () => {
+  it('diễn tập rollback: mật khẩu đổi qua Better Auth trong cửa sổ bake đăng nhập được qua hệ cũ', async () => {
     const adminAccess = await helpers.adminToken(app);
     const created = await helpers.createUserViaApi(app, adminAccess);
 
@@ -310,7 +310,7 @@ describe('Better Auth cutover prep — bake window (issue #7 phases 2.6 + 2.7-pr
     expect((await legacyLogin(created.username, helpers.STRONG_PASSWORD)).status).toBe(401);
   });
 
-  it('rollback rehearsal: a password reset through the mail link in the bake window also syncs back to the legacy store', async () => {
+  it('diễn tập rollback: mật khẩu đặt lại qua liên kết mail trong cửa sổ bake cũng đồng bộ ngược về kho cũ', async () => {
     const adminAccess = await helpers.adminToken(app);
     const created = await helpers.createUserViaApi(app, adminAccess);
 

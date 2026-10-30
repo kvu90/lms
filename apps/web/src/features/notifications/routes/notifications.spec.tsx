@@ -141,14 +141,14 @@ function renderPage() {
   );
 }
 
-describe('Notifications page — TanStack invalidation (F-01)', () => {
+describe('Trang thông báo — vô hiệu TanStack (F-01)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('mark-all-read invalidates the shared unread-count query so the badge drops to 0', async () => {
+  it('đánh dấu-tất-cả-đã-đọc vô hiệu query số chưa đọc dùng chung để huy hiệu về 0', async () => {
     const calls: RecordedCall[] = [];
     const state = { unread: 3, allRead: false, prefEnabled: true, courses: [] as CourseOverrideState[] };
     stubFetch(calls, state);
@@ -171,7 +171,7 @@ describe('Notifications page — TanStack invalidation (F-01)', () => {
     ).toBeGreaterThan(1);
   });
 
-  it('centre only after #288: no preferences UI here and no preferences API calls', async () => {
+  it('chỉ trung tâm sau #288: không có UI tuỳ chọn ở đây và không gọi API tuỳ chọn', async () => {
     const calls: RecordedCall[] = [];
     const state = { unread: 0, allRead: true, prefEnabled: true, courses: [] as CourseOverrideState[] };
     stubFetch(calls, state);

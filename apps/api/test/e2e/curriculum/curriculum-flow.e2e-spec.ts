@@ -23,7 +23,7 @@ interface NodeView {
   children: NodeView[];
 }
 
-describe('Curriculum flow (subjects → curricula → node tree → outcomes)', () => {
+describe('Luồng chương trình (môn học → chương trình → cây node → outcome)', () => {
   let app: INestApplication;
   let admin: string;
   let systemCtxId: string;
@@ -51,7 +51,7 @@ describe('Curriculum flow (subjects → curricula → node tree → outcomes)', 
 
   const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
-  it('builds a full GDPT programme tree and reads it back', async () => {
+  it('dựng đầy đủ cây chương trình GDPT và đọc lại', async () => {
     // Môn học neo vào context hệ thống.
     const slug = uniqueName('toan');
     const subjectRes = await http(app).post('/api/v1/curriculum/subjects').set(bearer(admin))
@@ -171,7 +171,7 @@ describe('Curriculum flow (subjects → curricula → node tree → outcomes)', 
     expect(goneCurr.status).toBe(404);
   });
 
-  it('gates reads and writes by capability at the subject context', async () => {
+  it('cổng đọc và ghi theo năng lực tại ngữ cảnh môn học', async () => {
     // Kiểm tra thẳng qua evaluator API: user thường không có cả view lẫn manage;
     // editingteacher được view theo archetype nhưng không có manage.
     expect(await hasCapability(app, admin, plainId, 'curriculum:view', systemCtxId)).toBe(false);

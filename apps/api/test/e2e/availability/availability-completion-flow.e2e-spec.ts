@@ -11,7 +11,7 @@ import { createCategory, createCm, createCourse, createEnrolInstance, enrolUser,
  * (test_update_state, test_set_module_viewed, test_aggregate_completions trong
  * completion/tests + các kiểm thử tiêu chí trong completion/tests/api_test.php).
  */
-describe('Availability & completion', () => {
+describe('Khả dụng và hoàn thành', () => {
   let app: INestApplication;
   let admin: string;
 
@@ -29,7 +29,7 @@ describe('Availability & completion', () => {
     return { cat, course, sectionId, instance, student, studentToken };
   }
 
-  it('date condition in the future blocks cm ACCESS at the API (403), while show=true keeps it listed with its restriction', async () => {
+  it('điều kiện ngày trong tương lai chặn ACCESS của cm tại API (403), trong khi show=true vẫn liệt kê kèm hạn chế', async () => {
     const { course, sectionId, studentToken } = await setup();
     const future = Math.floor(new Date('2100-01-01').getTime() / 1000);
     const cm = await createCm(app, admin, course.id, sectionId, {
@@ -47,7 +47,7 @@ describe('Availability & completion', () => {
     expect(listed.availabilityResult.visible).toBe(true);
   });
 
-  it('show=false: an unavailable cm is hidden from the list entirely, and access is still 403', async () => {
+  it('show=false: cm không khả dụng bị ẩn khỏi danh sách hoàn toàn, và truy cập vẫn 403', async () => {
     const { course, sectionId, studentToken } = await setup();
     const future = Math.floor(new Date('2100-01-01').getTime() / 1000);
     const cm = await createCm(app, admin, course.id, sectionId, {
@@ -61,7 +61,7 @@ describe('Availability & completion', () => {
     expect(access.status).toBe(403);
   });
 
-  it('completion leaf: cm B stays locked until cm A is complete, then opens (completionlib + tree combination)', async () => {
+  it('lá hoàn thành: cm B vẫn khoá cho tới khi cm A hoàn thành, rồi mở (completionlib + tổ hợp cây)', async () => {
     const { course, sectionId, student, studentToken } = await setup();
     const cmA = await createCm(app, admin, course.id, sectionId, { name: 'First', completion: 1, completionManual: true });
     const cmB = await createCm(app, admin, course.id, sectionId, {
@@ -77,7 +77,7 @@ describe('Availability & completion', () => {
     expect((await http(app).get(`/api/v1/courses/${course.id}/modules/${cmB.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(200);
   });
 
-  it('group leaf + nested tree: AND inside NOT-OR gates access by group membership (golden combination, API level)', async () => {
+  it('lá nhóm + cây lồng: AND trong NOT-OR cổng truy cập theo thành viên nhóm (tổ hợp golden, cấp API)', async () => {
     const { course, sectionId, student, studentToken } = await setup();
     const groupRes = await http(app).post(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ name: 'Gate group' });
     const groupId = groupRes.body.id as string;
@@ -93,7 +93,7 @@ describe('Availability & completion', () => {
     expect((await http(app).get(`/api/v1/courses/${course.id}/modules/${cm.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(403);
   });
 
-  it('grade leaf is declared but unmet without grade data (Grades hook): access stays blocked', async () => {
+  it('lá điểm đã khai nhưng chưa đạt khi thiếu dữ liệu điểm (hook Grades): truy cập vẫn bị chặn', async () => {
     const { course, sectionId, studentToken } = await setup();
     const cm = await createCm(app, admin, course.id, sectionId, {
       name: 'Needs grade',
@@ -102,7 +102,7 @@ describe('Availability & completion', () => {
     expect((await http(app).get(`/api/v1/courses/${course.id}/modules/${cm.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(403);
   });
 
-  it('section availability also blocks: a cm inside a date-locked section is inaccessible even with no cm tree', async () => {
+  it('khả dụng của section cũng chặn: cm trong section khoá theo ngày không truy cập được ngay cả khi không có cây cm', async () => {
     const { course, studentToken } = await setup();
     const future = Math.floor(new Date('2100-01-01').getTime() / 1000);
     const sectionRes = await http(app).post(`/api/v1/courses/${course.id}/sections`).set('Authorization', `Bearer ${admin}`)
@@ -112,7 +112,7 @@ describe('Availability & completion', () => {
     expect((await http(app).get(`/api/v1/courses/${course.id}/sections/${sectionRes.body.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(403);
   });
 
-  it('completionView: viewing a cm records viewed and completes it (completionlib::test_set_module_viewed + test_update_state)', async () => {
+  it('completionView: xem cm ghi viewed và hoàn thành nó (completionlib::test_set_module_viewed + test_update_state)', async () => {
     const { course, sectionId, student, studentToken } = await setup();
     const cm = await createCm(app, admin, course.id, sectionId, { name: 'Read me', completion: 2, completionView: true });
     const before = await http(app).get(`/api/v1/courses/${course.id}/completion/users/${student.id}`).set('Authorization', `Bearer ${admin}`);
@@ -125,7 +125,7 @@ describe('Availability & completion', () => {
     expect(record.state).toBe(1);
   });
 
-  it('manual completion by a teacher for another user requires markothers; a student cannot mark others', async () => {
+  it('hoàn thành thủ công bởi giáo viên cho người khác cần markothers; học viên không thể đánh dấu cho người khác', async () => {
     const { course, sectionId, student, studentToken } = await setup();
     const cm = await createCm(app, admin, course.id, sectionId, { name: 'Manual task', completion: 1, completionManual: true });
     const other = await createUserViaApi(app, admin);
@@ -137,7 +137,7 @@ describe('Availability & completion', () => {
     expect(byAdmin.body.state).toBe(1);
   });
 
-  it('course completion aggregates module criteria with AND, and with ANY after the method changes', async () => {
+  it('hoàn thành khoá học tổng hợp tiêu chí module bằng AND, và bằng ANY sau khi đổi phương thức', async () => {
     const { course, sectionId, student, studentToken } = await setup();
     const cmA = await createCm(app, admin, course.id, sectionId, { name: 'A', completion: 1, completionManual: true });
     const cmB = await createCm(app, admin, course.id, sectionId, { name: 'B', completion: 1, completionManual: true });
@@ -155,7 +155,7 @@ describe('Availability & completion', () => {
     expect(mine.body.course.timeCompleted).toBeTruthy();
   });
 
-  it('date criterion: a course with only a past date criterion completes on reaggregation', async () => {
+  it('tiêu chí ngày: khoá học chỉ có tiêu chí ngày quá khứ hoàn thành khi tổng hợp lại', async () => {
     const { course, student, studentToken } = await setup();
     await http(app).put(`/api/v1/courses/${course.id}/completion/criteria`).set('Authorization', `Bearer ${admin}`)
       .send({ method: 1, criteria: [{ criteriaType: 'date', date: '2020-01-01T00:00:00.000Z' }] });
@@ -164,7 +164,7 @@ describe('Availability & completion', () => {
     expect(mine.body.course.status).toBe('complete');
   });
 
-  it('changing criteria after data exists triggers controlled recalculation: previously complete course reopens when a new criterion is added', async () => {
+  it('đổi tiêu chí sau khi đã có dữ liệu kích hoạt tính lại có kiểm soát: khoá đã hoàn thành mở lại khi thêm tiêu chí mới', async () => {
     const { course, sectionId, student, studentToken } = await setup();
     const cmA = await createCm(app, admin, course.id, sectionId, { name: 'A2', completion: 1, completionManual: true });
     const cmB = await createCm(app, admin, course.id, sectionId, { name: 'B2', completion: 1, completionManual: true });
@@ -186,7 +186,7 @@ describe('Availability & completion', () => {
     expect(mine.body.course.status).toBe('complete');
   });
 
-  it('unenrol keeps completion data: the UE row is soft-withdrawn (status=2) instead of deleted', async () => {
+  it('huỷ ghi danh giữ dữ liệu hoàn thành: dòng UE rút mềm (status=2) thay vì xoá', async () => {
     const { course, sectionId, instance, student, studentToken } = await setup();
     const cm = await createCm(app, admin, course.id, sectionId, { name: 'Keep my data', completion: 1, completionManual: true });
     await http(app).post(`/api/v1/courses/${course.id}/modules/${cm.id}/completion/manual`).set('Authorization', `Bearer ${studentToken}`).send({ userId: student.id, complete: true });
@@ -202,7 +202,7 @@ describe('Availability & completion', () => {
     expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(403);
   });
 
-  it('GOLDEN end-to-end: category → course → section/cm → group/cohort → enrol with role → availability blocks → completion records', async () => {
+  it('GOLDEN đầu-cuối: danh mục → khoá học → section/cm → nhóm/cohort → ghi danh kèm vai → khả dụng chặn → ghi nhận hoàn thành', async () => {
     const cat = await createCategory(app, admin, { name: 'Golden' });
     const course = await createCourse(app, admin, cat.id, { fullName: 'Golden course' });
     const sectionId = await getFirstSectionId(app, admin, course.id);

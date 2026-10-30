@@ -120,7 +120,7 @@ async function createMountedMcpApp(mountDeps?: (app: INestApplication) => McpMou
   return app;
 }
 
-describe('MCP server (MCP-0, issue #110)', () => {
+describe('Máy chủ MCP (MCP-0, issue #110)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;
