@@ -51,16 +51,14 @@ export class ControlPlaneRepository {
     return this.db().transaction(fn);
   }
 
-  /** Thêm một dòng đăng ký; trùng slug sẽ vấp ràng buộc unique của cột slug. */
-  async insertSpace(values: NewSpaceRegistration, db: CpDb = this.db()): Promise<SpaceRegistryRow> {
-    const [row] = await db.insert(spaceRegistry).values(values).returning();
-    return row!;
-  }
-
   /**
    * Thêm dòng đăng ký nếu slug chưa có; trả về dòng vừa thêm, hoặc
-   * undefined khi slug đã tồn tại (đường gieo dữ kiện idempotent dùng
-   * nhánh này — chạy lại không tạo trùng, không ghi đè dữ kiện đã có).
+   * undefined khi slug đã tồn tại. Cả hai đường ghi dùng nhánh này:
+   * đường gieo dữ kiện (chạy lại không tạo trùng, không ghi đè dữ
+   * kiện đã có) và đường tạo qua API — insert-bỏ-qua-khi-trùng ngay
+   * trong transaction khiến hai lượt tạo đồng thời cùng slug chỉ
+   * một lượt thành công, lượt còn lại được báo xung đột thay vì vấp
+   * ràng buộc unique thành lỗi máy chủ.
    */
   async insertSpaceIfAbsent(values: NewSpaceRegistration, db: CpDb = this.db()): Promise<SpaceRegistryRow | undefined> {
     const [row] = await db.insert(spaceRegistry).values(values).onConflictDoNothing({ target: spaceRegistry.slug }).returning();
@@ -79,6 +77,18 @@ export class ControlPlaneRepository {
 
   async findSpaceById(id: string, db: CpDb = this.db()): Promise<SpaceRegistryRow | undefined> {
     const [row] = await db.select().from(spaceRegistry).where(eq(spaceRegistry.id, id)).limit(1);
+    return row;
+  }
+
+  /**
+   * Đọc một dòng đăng ký KÈM KHOÁ DÒNG (`FOR UPDATE`) — chỉ dùng
+   * bên trong transaction: thao tác ghi nào đọc dòng này để hợp nhất
+   * / chụp ảnh `before` đều phải đọc qua đây, để hai thao tác ghi
+   * đồng thời trên cùng một dòng nối tiếp nhau thay vì cùng đọc một
+   * ảnh cũ rồi ghi đè lẫn nhau (mất dữ kiện, chuỗi lịch sử đứt).
+   */
+  async findSpaceByIdForUpdate(id: string, db: CpDb): Promise<SpaceRegistryRow | undefined> {
+    const [row] = await db.select().from(spaceRegistry).where(eq(spaceRegistry.id, id)).limit(1).for('update');
     return row;
   }
 

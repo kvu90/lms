@@ -115,14 +115,21 @@ export class ControlPlaneRegistryService {
     };
   }
 
-  /** Tạo dòng đăng ký không gian mới + dòng lịch sử `create` trong cùng transaction. */
+  /**
+   * Tạo dòng đăng ký không gian mới + dòng lịch sử `create` trong
+   * cùng transaction. Kiểm tra trùng slug có hai lớp: kiểm tra nhanh
+   * ngoài transaction cho đường thường, và insert-bỏ-qua-khi-trùng
+   * ngay trong transaction để hai lượt tạo đồng thời cùng slug chỉ
+   * một lượt thành công — lượt còn lại nhận lỗi xung đột (409),
+   * không vấp ràng buộc unique thành lỗi 500.
+   */
   async createRegistration(actorId: string, dto: CreateSpaceRegistration): Promise<SpaceRegistration> {
     await this.assertPlatformManager(actorId);
     if (await this.repo.findSpaceBySlug(dto.slug)) {
       throw new ConflictException({ message: `Space slug ${dto.slug} is already registered`, code: 'control_plane.slug_taken' });
     }
     const created = await this.repo.transaction(async (tx) => {
-      const row = await this.repo.insertSpace(
+      const row = await this.repo.insertSpaceIfAbsent(
         {
           slug: dto.slug,
           name: dto.name,
@@ -137,20 +144,30 @@ export class ControlPlaneRegistryService {
         },
         tx,
       );
+      if (!row) {
+        throw new ConflictException({ message: `Space slug ${dto.slug} is already registered`, code: 'control_plane.slug_taken' });
+      }
       await this.repo.insertHistory({ spaceId: row.id, actorId, action: 'create', before: null, after: this.snapshot(row) }, tx);
       return row;
     });
     return this.toRegistration(created);
   }
 
-  /** Cập nhật các trường sửa được của một dòng đăng ký + dòng lịch sử `update` trong cùng transaction. */
+  /**
+   * Cập nhật các trường sửa được của một dòng đăng ký + dòng lịch
+   * sử `update` trong cùng transaction. Dòng hiện tại được đọc LẠI
+   * bên trong transaction kèm khoá dòng: ảnh `before` của lịch sử
+   * vì vậy luôn là giá trị ngay trước lần ghi này kể cả khi có
+   * thao tác ghi khác chạy đồng thời (đọc ngoài transaction sẽ
+   * chụp phải ảnh cũ và làm chuỗi lịch sử đứt).
+   */
   async updateRegistration(actorId: string, id: string, dto: UpdateSpaceRegistration): Promise<SpaceRegistration> {
     await this.assertPlatformManager(actorId);
-    const existing = await this.repo.findSpaceById(id);
-    if (!existing) {
-      throw new NotFoundException({ message: `Space registration ${id} not found`, code: 'control_plane.space_not_found' });
-    }
     const updated = await this.repo.transaction(async (tx) => {
+      const existing = await this.repo.findSpaceByIdForUpdate(id, tx);
+      if (!existing) {
+        throw new NotFoundException({ message: `Space registration ${id} not found`, code: 'control_plane.space_not_found' });
+      }
       const row = await this.repo.updateSpace(id, { ...dto }, tx);
       await this.repo.insertHistory(
         { spaceId: id, actorId, action: 'update', before: this.snapshot(existing), after: this.snapshot(row) },
@@ -165,16 +182,19 @@ export class ControlPlaneRegistryService {
    * Đổi trạng thái vòng đời của không gian + dòng lịch sử
    * `status_change` trong cùng transaction. Đổi sang chính trạng
    * thái hiện tại là thao tác rỗng: trả dòng hiện tại, không ghi
-   * lịch sử (lịch sử chỉ ghi thay đổi thật).
+   * lịch sử (lịch sử chỉ ghi thay đổi thật). Quyết định "có phải
+   * thao tác rỗng" và ảnh `before` đều lấy từ dòng đã đọc kèm khoá
+   * bên trong transaction — cùng lý do với đường cập nhật: trạng
+   * thái thật ngay trước lần ghi này mới là căn cứ đúng.
    */
   async changeStatus(actorId: string, id: string, dto: ChangeSpaceStatus): Promise<SpaceRegistration> {
     await this.assertPlatformManager(actorId);
-    const existing = await this.repo.findSpaceById(id);
-    if (!existing) {
-      throw new NotFoundException({ message: `Space registration ${id} not found`, code: 'control_plane.space_not_found' });
-    }
-    if (existing.status === dto.status) return this.toRegistration(existing);
     const updated = await this.repo.transaction(async (tx) => {
+      const existing = await this.repo.findSpaceByIdForUpdate(id, tx);
+      if (!existing) {
+        throw new NotFoundException({ message: `Space registration ${id} not found`, code: 'control_plane.space_not_found' });
+      }
+      if (existing.status === dto.status) return existing;
       const row = await this.repo.updateSpace(id, { status: dto.status }, tx);
       await this.repo.insertHistory(
         { spaceId: id, actorId, action: 'status_change', before: this.snapshot(existing), after: this.snapshot(row) },
@@ -237,8 +257,17 @@ export class ControlPlaneRegistryService {
   /**
    * Ghi trạng thái schema của một kho (khung trường của issue này):
    * hợp nhất với trạng thái đã có rồi ghi đè một dòng; khi
-   * `currentVersion` được đặt, phiên bản trên dòng đăng ký cũng được
-   * đồng bộ trong cùng transaction để hai nơi không lệch nhau.
+   * `currentVersion` có mặt trong yêu cầu — kể cả giá trị `null`
+   * (xoá phiên bản) — phiên bản trên dòng đăng ký cũng được đồng bộ
+   * trong cùng transaction để hai nơi không lệch nhau; trường không
+   * có mặt (`undefined`) mới là "không đụng".
+   *
+   * Việc hợp nhất đọc trạng thái hiện tại BÊN TRONG transaction,
+   * sau khi khoá dòng đăng ký của không gian: khoá này nối tiếp mọi
+   * thao tác ghi của không gian đó, nên hai lượt ghi đồng thời vào
+   * các trường độc lập (ví dụ trạng thái sao lưu và trạng thái khôi
+   * phục do hai tác vụ vận hành báo về) không còn cùng đọc một ảnh
+   * cũ rồi ghi đè mất giá trị của nhau.
    */
   async updateSchemaRegistry(actorId: string, spaceId: string, dto: UpdateSpaceSchemaRegistry): Promise<SpaceSchemaRegistry> {
     await this.assertPlatformManager(actorId);
@@ -246,20 +275,24 @@ export class ControlPlaneRegistryService {
     if (!space) {
       throw new NotFoundException({ message: `Space registration ${spaceId} not found`, code: 'control_plane.space_not_found' });
     }
-    const existing = await this.repo.findSchemaRegistry(spaceId);
-    const merged = {
-      spaceId,
-      currentVersion: dto.currentVersion !== undefined ? dto.currentVersion : (existing?.currentVersion ?? null),
-      lastBackupStatus: dto.lastBackupStatus !== undefined ? dto.lastBackupStatus : (existing?.lastBackupStatus ?? null),
-      lastBackupAt:
-        dto.lastBackupAt !== undefined ? (dto.lastBackupAt ? new Date(dto.lastBackupAt) : null) : (existing?.lastBackupAt ?? null),
-      lastRestoreStatus: dto.lastRestoreStatus !== undefined ? dto.lastRestoreStatus : (existing?.lastRestoreStatus ?? null),
-      lastRestoreAt:
-        dto.lastRestoreAt !== undefined ? (dto.lastRestoreAt ? new Date(dto.lastRestoreAt) : null) : (existing?.lastRestoreAt ?? null),
-    };
     const row = await this.repo.transaction(async (tx) => {
+      // Khoá dòng đăng ký trước (nối tiếp các thao tác ghi của
+      // không gian), rồi mới đọc trạng thái schema hiện tại để hợp
+      // nhất — thứ tự khoá thống nhất với các đường ghi khác.
+      await this.repo.findSpaceByIdForUpdate(spaceId, tx);
+      const existing = await this.repo.findSchemaRegistry(spaceId, tx);
+      const merged = {
+        spaceId,
+        currentVersion: dto.currentVersion !== undefined ? dto.currentVersion : (existing?.currentVersion ?? null),
+        lastBackupStatus: dto.lastBackupStatus !== undefined ? dto.lastBackupStatus : (existing?.lastBackupStatus ?? null),
+        lastBackupAt:
+          dto.lastBackupAt !== undefined ? (dto.lastBackupAt ? new Date(dto.lastBackupAt) : null) : (existing?.lastBackupAt ?? null),
+        lastRestoreStatus: dto.lastRestoreStatus !== undefined ? dto.lastRestoreStatus : (existing?.lastRestoreStatus ?? null),
+        lastRestoreAt:
+          dto.lastRestoreAt !== undefined ? (dto.lastRestoreAt ? new Date(dto.lastRestoreAt) : null) : (existing?.lastRestoreAt ?? null),
+      };
       const saved = await this.repo.upsertSchemaRegistry(merged, tx);
-      if (dto.currentVersion) {
+      if (dto.currentVersion !== undefined) {
         await this.repo.updateSpace(spaceId, { schemaVersion: dto.currentVersion }, tx);
       }
       return saved;
