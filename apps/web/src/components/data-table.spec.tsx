@@ -11,6 +11,9 @@ import { DataTable, type DataColumn } from '#components/data-table';
  * bảng: mặc định hiện "Trang X / Y" và ẩn cụm nút khi chỉ có một
  * trang; biến thể khoảng dòng (trang gọi truyền rangeInfo) hiện
  * khoảng dòng đang hiển thị và luôn bày cụm nút kèm nút số trang.
+ * Kèm ca hồi quy chống tràn ở màn hẹp: với 7 trang, hàng chân bảng
+ * và cụm nút phải mang class cho phép xuống dòng để không nút nào
+ * bị cắt khuất khỏi bề rộng khả dụng.
  */
 
 interface Row {
@@ -147,6 +150,43 @@ describe('DataTable (TanStack Table)', () => {
     expect(bodyRows(container)).toHaveLength(5);
     expect(screen.getByText('Hiển thị 21–25 trong 25 dòng')).toBeInTheDocument();
     expect(screen.getByText('Học viên 21')).toBeInTheDocument();
+  });
+
+  it('biến thể khoảng dòng: 7 trang vẫn bày đủ nút số trang và hàng chân bảng cùng cụm nút mang class cho phép xuống dòng để không tràn ở màn hẹp', () => {
+    const rows65: Row[] = Array.from({ length: 65 }, (_, i) => ({
+      id: `r${i + 1}`,
+      name: `Học viên ${String(i + 1).padStart(2, '0')}`,
+      score: (i * 7) % 100,
+    }));
+    render(
+      <DataTable
+        title="Bảng điểm"
+        data={rows65}
+        columns={COLUMNS}
+        labels={RANGE_LABELS}
+        getRowId={(r) => r.id}
+        totalRows={65}
+      />,
+    );
+    // 65 dòng ở cỡ trang 10 cho đúng 7 trang: khoảng dòng hiện tổng 65
+    // và đủ 7 nút số trang cùng các nút Trước/Sau — không nút nào bị
+    // lược khỏi cụm phân trang.
+    expect(screen.getByText('Hiển thị 1–10 trong 65 dòng')).toBeInTheDocument();
+    for (const page of ['1', '2', '3', '4', '5', '6', '7']) {
+      expect(screen.getByRole('button', { name: page })).toBeInTheDocument();
+    }
+    expect(screen.getAllByRole('button', { name: 'Trước' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Sau' }).length).toBeGreaterThan(0);
+    // Ghim cơ chế chống tràn: hàng chân bảng và cụm nút phân trang đều
+    // mang class cho phép xuống dòng. jsdom không có engine bố cục nên
+    // ca này chỉ ghim cơ chế class, không khẳng định số đo px thật —
+    // bề rộng ở khung nhìn 320/360 px được kiểm ở nghiệm thu trình
+    // duyệt, không bịa số đo tại đây.
+    const footerRow = screen.getByText('Hiển thị 1–10 trong 65 dòng').parentElement;
+    expect(footerRow?.className).toContain('flex-wrap');
+    expect(footerRow?.className).toContain('gap-2');
+    const paginationCluster = screen.getByRole('button', { name: '1' }).parentElement;
+    expect(paginationCluster?.className).toContain('flex-wrap');
   });
 
   it('ẩn/hiện cột: bỏ chọn một cột trong menu Cột thì cột biến mất khỏi bảng', async () => {

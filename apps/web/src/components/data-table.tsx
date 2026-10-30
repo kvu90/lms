@@ -356,7 +356,7 @@ export function DataTable<T extends Record<string, any>>({
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-sm font-medium">
           {labels.rangeInfo
             ? labels.rangeInfo(rangeFrom, rangeTo, totalForRange)
@@ -368,9 +368,12 @@ export function DataTable<T extends Record<string, any>>({
             mẫu data-table chuẩn. Biến thể khoảng dòng (rangeInfo) thì
             LUÔN hiện kèm nút số trang như các bảng quản trị mẫu: một
             trang vẫn bày cụm nút ở trạng thái tắt để bố cục chân bảng
-            ổn định. */}
+            ổn định. Hàng chân bảng và chính cụm nút đều cho phép
+            xuống dòng (flex-wrap): ở khung nhìn hẹp, khi có nhiều
+            trang thì cụm nút tự xuống hàng trong bề rộng khả dụng
+            thay vì tràn ngang và bị cắt khuất ở mép thẻ chứa. */}
         {labels.rangeInfo || table.getPageCount() > 1 ? (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               className="hidden size-8 lg:flex"
