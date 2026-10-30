@@ -1,4 +1,4 @@
-import type { UserListResponse, UserProfile } from '@lms/contracts';
+import type { UserListResponse, UserListSortBy, UserListStatus, UserProfile } from '@lms/contracts';
 import { apiJson } from '#lib/api';
 import type { NewUserDraft, UpdateUserDraft } from '../types/admin-users';
 
@@ -21,9 +21,76 @@ import type { NewUserDraft, UpdateUserDraft } from '../types/admin-users';
  * @returns Trang danh sách người dùng kèm tổng số dòng.
  */
 export function fetchAdminUsers(page: number, pageSize: number, search: string) {
-  return apiJson<UserListResponse>(
-    `/api/v1/users?search=${encodeURIComponent(search)}&page=${page}&pageSize=${pageSize}`,
-  );
+  return fetchAdminUsersList({ page, pageSize, search });
+}
+
+/**
+ * Tham số liệt kê người dùng đầy đủ theo hợp đồng truy vấn của đợt 1:
+ * lọc trạng thái, sắp xếp và phân trang đều chạy phía server; tham số
+ * tuỳ chọn vắng mặt được bỏ khỏi chuỗi truy vấn để server giữ hành vi
+ * mặc định vốn có của nó (ẩn tài khoản đã xoá, thứ tự theo id).
+ */
+export interface ListAdminUsersParams {
+  /** Số trang (bắt đầu từ 1). */
+  page: number;
+  /** Số dòng mỗi trang (server chặn trần 100). */
+  pageSize: number;
+  /** Từ khoá tìm kiếm; bỏ qua khi rỗng. */
+  search?: string;
+  /** Nhóm trạng thái cần lấy; bỏ qua thì server chỉ trả tài khoản chưa xoá. */
+  status?: UserListStatus;
+  /** Trường sắp xếp theo hợp đồng (`name`/`createdAt`/`lastLogin`); bỏ qua thì server giữ thứ tự theo id. */
+  sortBy?: UserListSortBy;
+  /** Chiều sắp xếp; chỉ có hiệu lực khi có `sortBy`. */
+  sortDirection?: 'asc' | 'desc';
+}
+
+/**
+ * Đọc một trang danh sách người dùng theo hợp đồng truy vấn đầy đủ
+ * (GET /users) — lọc trạng thái, sắp xếp, tìm kiếm và cắt trang đều
+ * do server thực hiện.
+ *
+ * @param params - Bộ lọc, sắp xếp và phân trang của trang cần đọc.
+ * @returns Trang danh sách người dùng kèm tổng số dòng khớp bộ lọc.
+ */
+export function fetchAdminUsersList(params: ListAdminUsersParams) {
+  const query = new URLSearchParams();
+  if (params.search) query.set('search', params.search);
+  if (params.status) query.set('status', params.status);
+  if (params.sortBy) query.set('sortBy', params.sortBy);
+  if (params.sortBy && params.sortDirection) query.set('sortDirection', params.sortDirection);
+  query.set('page', String(params.page));
+  query.set('pageSize', String(params.pageSize));
+  return apiJson<UserListResponse>(`/api/v1/users?${query.toString()}`);
+}
+
+/** Cỡ trang của lượt quét toàn bộ cho đường lọc theo vai trò — đúng trần server của hợp đồng danh sách. */
+const ALL_USERS_PAGE_SIZE = 100;
+
+/**
+ * Đọc TOÀN BỘ người dùng khớp bộ lọc/sắp xếp (GET /users, quét lần
+ * lượt các trang ở cỡ trần 100). Chỉ dùng cho đường lọc theo vai trò
+ * ở ngữ cảnh hệ thống: hợp đồng danh sách không có tham số vai trò,
+ * nên trang lấy đủ tập người dùng đã lọc/sắp xếp phía server rồi giao
+ * với tập người giữ vai (cũng do server lọc qua endpoint gán vai) —
+ * mọi phép lọc vẫn chạy phía server, phía client chỉ giao hai tập
+ * định danh và cắt trang để hiển thị.
+ *
+ * @param params - Bộ lọc và sắp xếp (không gồm phân trang hiển thị).
+ * @returns Toàn bộ người dùng khớp, giữ đúng thứ tự server đã sắp.
+ */
+export async function fetchAllAdminUsers(params: Omit<ListAdminUsersParams, 'page' | 'pageSize'>) {
+  const users: UserProfile[] = [];
+  let page = 1;
+  let total = Number.POSITIVE_INFINITY;
+  while (users.length < total) {
+    const result = await fetchAdminUsersList({ ...params, page, pageSize: ALL_USERS_PAGE_SIZE });
+    users.push(...result.users);
+    total = result.total;
+    if (result.users.length === 0) break;
+    page += 1;
+  }
+  return { users, total };
 }
 
 /**

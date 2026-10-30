@@ -108,3 +108,30 @@ build + test của `@lms/web`, đối chiếu diff của `components.json` và
   chúng là một phần của bộ component đang dùng. Nếu lần đồng bộ
   shadcn sau sinh lại các file này, đánh giá lại theo nhu cầu dùng
   thật tại thời điểm đó thay vì giữ sẵn.
+- `src/components/dialog.tsx` (issue #561): THÊM MỚI bằng tay thay vì
+  bằng shadcn CLI. Lý do bất khả kháng: CLI `shadcn add dialog` không
+  chạy được trong môi trường thi công của đợt này (bước cài phụ thuộc
+  của CLI thất bại vì môi trường không có `pnpm` trên PATH và bản sao
+  `node_modules` không phải cây cài thật, lần chạy lại thì CLI treo
+  không ra kết quả). Nội dung file bám đúng bản Dialog của registry
+  shadcn cho preset đang dùng (base-vega, primitive
+  `@base-ui/react/dialog`) và khuôn sinh sẵn của package — cùng
+  primitive và cùng quy ước `data-slot`/nút đóng như
+  `src/components/sheet.tsx` do CLI sinh trước đó; không thêm biến thể
+  hình thức riêng nào ngoài bản upstream. Khi đồng bộ upstream lần
+  tới: chạy `shadcn add dialog --overwrite` tại thư mục này và đối
+  chiếu diff của file để thay bản viết tay bằng bản CLI sinh.
+- `src/components/native-select.tsx` (issue #561, vòng sửa theo phán
+  quyết điều phối `6518519302`): THÊM MỚI bằng shadcn CLI
+  (`shadcn add native-select`, preset base-vega) chạy trong thư mục
+  nháp riêng rồi đưa vào package — CLI trong môi trường thi công vẫn
+  cần cấu hình alias đầy đủ (tsconfig `paths` + `imports` của
+  package.json) và một lần chạy bị treo ở câu hỏi chọn thư viện
+  primitive trước khi chạy được. Nội dung file là đúng bản
+  NativeSelect của registry cho preset đang dùng, chỉ thích ứng một
+  điểm duy nhất theo khuôn các component do CLI sinh trước đó trong
+  package này: dòng import `cn` đổi từ package `cn` mà CLI hiện sinh
+  sang `#lib/utils` (cùng cài đặt `cn` bằng clsx + tailwind-merge của
+  package). Khi đồng bộ upstream lần tới: chạy
+  `shadcn add native-select --overwrite` tại thư mục này và đối chiếu
+  diff của file, đặc biệt dòng import `cn`.

@@ -76,6 +76,8 @@ export function deleteRole(roleId: string) {
  * truy vấn để backend hiểu là không lọc theo tiêu chí đó.
  */
 export interface ListAssignmentsParams {
+  /** Chỉ giữ dòng của người dùng này; bỏ qua thì không lọc theo người dùng. */
+  userId?: string;
   /** Chỉ giữ dòng của vai trò này; bỏ qua thì không lọc theo vai trò. */
   roleId?: string;
   /** Chỉ giữ dòng tại ngữ cảnh này; bỏ qua thì không lọc theo ngữ cảnh. */
@@ -98,12 +100,44 @@ export interface ListAssignmentsParams {
  */
 export function listAssignments(params: ListAssignmentsParams) {
   const query = new URLSearchParams();
+  if (params.userId) query.set('userId', params.userId);
   if (params.roleId) query.set('roleId', params.roleId);
   if (params.contextId) query.set('contextId', params.contextId);
   if (params.search) query.set('search', params.search);
   query.set('page', String(params.page));
   query.set('pageSize', String(params.pageSize));
   return apiJson<AssignmentListResponse>(`/api/v1/access/assignments?${query.toString()}`);
+}
+
+/** Cỡ trang của lượt quét toàn bộ tập người giữ vai — khớp trần phía server của danh sách gán vai. */
+const ALL_ASSIGNMENTS_PAGE_SIZE = 100;
+
+/**
+ * Đọc tập định danh người dùng đang giữ một vai trò tại một ngữ cảnh
+ * (GET /access/assignments lọc theo vai trò + ngữ cảnh, quét lần lượt
+ * các trang ở cỡ 100 cho tới khi đủ tổng server công bố). Phục vụ bộ
+ * lọc theo vai trò của trang danh sách người dùng: phép lọc chạy phía
+ * server trên endpoint gán vai, trang người dùng giao tập định danh
+ * này với tập người dùng đã lọc/sắp xếp phía server của chính nó.
+ *
+ * @param roleId - Vai trò cần lọc.
+ * @param contextId - Ngữ cảnh của vai trò (bộ lọc vai trò của trang người dùng luôn là ngữ cảnh hệ thống).
+ * @returns Tập định danh người dùng giữ vai trò tại ngữ cảnh đó.
+ */
+export async function fetchRoleHolderUserIds(roleId: string, contextId: string) {
+  const userIds = new Set<string>();
+  let page = 1;
+  let total = Number.POSITIVE_INFINITY;
+  let fetched = 0;
+  while (fetched < total) {
+    const result = await listAssignments({ roleId, contextId, page, pageSize: ALL_ASSIGNMENTS_PAGE_SIZE });
+    for (const row of result.assignments) userIds.add(row.userId);
+    fetched += result.assignments.length;
+    total = result.total;
+    if (result.assignments.length === 0) break;
+    page += 1;
+  }
+  return userIds;
 }
 
 /**
