@@ -115,6 +115,7 @@ export class SpaceDatabaseService implements OnModuleDestroy {
         const [row] = await db.select().from(spaceRegistry).where(eq(spaceRegistry.slug, slug)).limit(1);
         return row
           ? {
+              id: row.id,
               slug: row.slug,
               status: row.status,
               databaseName: row.databaseName,

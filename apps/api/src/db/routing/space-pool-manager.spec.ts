@@ -178,6 +178,24 @@ describe('Trình quản lý pool theo database', () => {
     expect(created()).toBe(3);
   });
 
+  it('pool ném lỗi khi đóng ở vòng quét: vẫn nhận thông báo đã đóng, không tính là đóng thành công, và các pool còn lại vẫn được đóng ở cùng vòng', async () => {
+    const { manager, create, closedNotifications, advance } = makeManager();
+    const brokenPool = new FakePool();
+    brokenPool.end = async () => {
+      throw new Error('không đóng được pool');
+    };
+    manager.getHandle('kho_a', (databaseName) => ({
+      databaseName,
+      pool: brokenPool,
+      db: `db:${databaseName}`,
+    }));
+    manager.getHandle('kho_b', create);
+    advance(2_000);
+    await expect(manager.closeIdlePools()).resolves.toEqual(['kho_b']);
+    expect(closedNotifications).toEqual(['kho_a', 'kho_b']);
+    expect(manager.size).toBe(0);
+  });
+
   it('closeAll đóng mọi pool đang sống và dọn sổ về rỗng', async () => {
     const { manager, create } = makeManager();
     const a = manager.getHandle('kho_a', create);
