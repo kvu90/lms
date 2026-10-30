@@ -15,6 +15,7 @@ import {
 } from '@lms/ui/components/dropdown-menu';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
+import { NativeSelect, NativeSelectOption } from '@lms/ui/components/native-select';
 import { Ellipsis, Plus } from 'lucide-react';
 import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
@@ -62,16 +63,6 @@ function UserFormScreen({
 
 /** Các lựa chọn cỡ trang của bảng người dùng (hợp đồng đợt 1 chặn trần 100 phía server). */
 const USER_PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
-
-/**
- * Kiểu ô chọn native của thanh công cụ — cùng chuỗi class với thanh
- * lọc của bảng gán vai trên trang vai trò để các ô chọn của hai trang
- * quản trị nhìn nhất quán; dùng select native thay cho Select của
- * Base UI vì select native mới điều khiển được bằng selectOptions
- * trong test component như bảng gán vai đã chốt.
- */
-const SELECT_CLASS =
-  'h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 /** Giá trị bộ lọc trạng thái: chuỗi rỗng nghĩa là giữ mặc định của API (chỉ tài khoản chưa xoá). */
 type StatusFilterValue = '' | UserListStatus;
@@ -454,7 +445,10 @@ export function AdminUsersPage() {
           {/* Thanh công cụ một thẻ hai hàng (điểm 2 của luồng): hàng
               một là tìm kiếm + hai bộ lọc, hàng hai là cỡ trang và
               nút thêm người dùng; mỗi điều khiển co theo nội dung
-              như thanh lọc của bảng gán vai. */}
+              như thanh lọc của bảng gán vai. Ba ô chọn dùng component
+              NativeSelect của `@lms/ui` (bọc đúng thẻ select gốc nên
+              test component vẫn điều khiển bằng selectOptions, khác
+              với Select của Base UI). */}
           <div className="flex flex-wrap items-end gap-2">
             <Field className="w-72 max-w-full">
               <FieldLabel htmlFor="users-search">{t('searchUsers')}</FieldLabel>
@@ -470,47 +464,44 @@ export function AdminUsersPage() {
             </Field>
             <Field className="w-auto">
               <FieldLabel htmlFor="users-status-filter">{t('userFilterStatus')}</FieldLabel>
-              <select
+              <NativeSelect
                 id="users-status-filter"
-                className={SELECT_CLASS}
                 value={statusFilter}
                 onChange={(e) => {
                   setStatusFilter(e.target.value as StatusFilterValue);
                   setPagination((p) => ({ ...p, pageIndex: 0 }));
                 }}
               >
-                <option value="">{t('userFilterStatusDefault')}</option>
-                <option value="active">{t('statusActive')}</option>
-                <option value="suspended">{t('userStatusSuspended')}</option>
-                <option value="deleted">{t('userStatusDeleted')}</option>
-              </select>
+                <NativeSelectOption value="">{t('userFilterStatusDefault')}</NativeSelectOption>
+                <NativeSelectOption value="active">{t('statusActive')}</NativeSelectOption>
+                <NativeSelectOption value="suspended">{t('userStatusSuspended')}</NativeSelectOption>
+                <NativeSelectOption value="deleted">{t('userStatusDeleted')}</NativeSelectOption>
+              </NativeSelect>
             </Field>
             <Field className="w-auto">
               <FieldLabel htmlFor="users-role-filter">{t('userFilterRole')}</FieldLabel>
-              <select
+              <NativeSelect
                 id="users-role-filter"
-                className={SELECT_CLASS}
                 value={roleFilter}
                 onChange={(e) => {
                   setRoleFilter(e.target.value);
                   setPagination((p) => ({ ...p, pageIndex: 0 }));
                 }}
               >
-                <option value="">{t('userFilterRoleAll')}</option>
+                <NativeSelectOption value="">{t('userFilterRoleAll')}</NativeSelectOption>
                 {roles.map((r) => (
-                  <option key={r.id} value={r.id}>
+                  <NativeSelectOption key={r.id} value={r.id}>
                     {r.name}
-                  </option>
+                  </NativeSelectOption>
                 ))}
-              </select>
+              </NativeSelect>
             </Field>
           </div>
           <div className="flex flex-wrap items-end justify-between gap-2">
             <Field className="w-auto">
               <FieldLabel htmlFor="users-pagesize">{t('userPageSize')}</FieldLabel>
-              <select
+              <NativeSelect
                 id="users-pagesize"
-                className={SELECT_CLASS}
                 value={String(pagination.pageSize)}
                 onChange={(e) => {
                   const next = Number(e.target.value);
@@ -521,11 +512,11 @@ export function AdminUsersPage() {
                 }}
               >
                 {USER_PAGE_SIZE_OPTIONS.map((n) => (
-                  <option key={n} value={String(n)}>
+                  <NativeSelectOption key={n} value={String(n)}>
                     {String(n)}
-                  </option>
+                  </NativeSelectOption>
                 ))}
-              </select>
+              </NativeSelect>
             </Field>
             <Button type="button" render={<Link to="/admin/users/new" />}>
               <Plus aria-hidden />

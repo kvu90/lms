@@ -121,3 +121,17 @@ build + test của `@lms/web`, đối chiếu diff của `components.json` và
   hình thức riêng nào ngoài bản upstream. Khi đồng bộ upstream lần
   tới: chạy `shadcn add dialog --overwrite` tại thư mục này và đối
   chiếu diff của file để thay bản viết tay bằng bản CLI sinh.
+- `src/components/native-select.tsx` (issue #561, vòng sửa theo phán
+  quyết điều phối `6518519302`): THÊM MỚI bằng shadcn CLI
+  (`shadcn add native-select`, preset base-vega) chạy trong thư mục
+  nháp riêng rồi đưa vào package — CLI trong môi trường thi công vẫn
+  cần cấu hình alias đầy đủ (tsconfig `paths` + `imports` của
+  package.json) và một lần chạy bị treo ở câu hỏi chọn thư viện
+  primitive trước khi chạy được. Nội dung file là đúng bản
+  NativeSelect của registry cho preset đang dùng, chỉ thích ứng một
+  điểm duy nhất theo khuôn các component do CLI sinh trước đó trong
+  package này: dòng import `cn` đổi từ package `cn` mà CLI hiện sinh
+  sang `#lib/utils` (cùng cài đặt `cn` bằng clsx + tailwind-merge của
+  package). Khi đồng bộ upstream lần tới: chạy
+  `shadcn add native-select --overwrite` tại thư mục này và đối chiếu
+  diff của file, đặc biệt dòng import `cn`.

@@ -118,7 +118,7 @@ const FIXTURE_ASSIGNMENTS = [
   { id: 'as3', userId: USER_B_ID, roleId: ROLE_TEACHER_ID, contextId: SYSTEM_CONTEXT_ID },
 ];
 
-function stubFetch(calls: RecordedCall[], users: FixtureUser[]) {
+function stubFetch(calls: RecordedCall[], users: FixtureUser[], assignments = FIXTURE_ASSIGNMENTS) {
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
     const method = (init?.method ?? (typeof input !== 'string' && !(input instanceof URL) ? input.method : 'GET') ?? 'GET').toUpperCase();
@@ -139,9 +139,14 @@ function stubFetch(calls: RecordedCall[], users: FixtureUser[]) {
         return !u.deleted;
       });
       if (search !== '') {
-        filtered = filtered.filter((u) =>
-          `${u.username} ${u.firstName} ${u.lastName} ${u.email ?? ''}`.toLowerCase().includes(search),
-        );
+        // Ngữ nghĩa tìm kiếm của bộ giả lập khớp API thật: ilike riêng
+        // từng trường, khớp khi BẤT KỲ trường nào chứa từ khoá — không
+        // ghép các trường thành một chuỗi (chuỗi ghép sẽ khớp cả truy
+        // vấn xuyên trường mà API thật không khớp).
+        filtered = filtered.filter((u) => {
+          const fields = [u.username, u.firstName, u.lastName, `${u.firstName} ${u.lastName}`, u.email ?? ''];
+          return fields.some((field) => field.toLowerCase().includes(search));
+        });
       }
       const direction = sortDirection === 'desc' ? -1 : 1;
       const sorted = [...filtered].sort((a, b) => {
@@ -200,7 +205,7 @@ function stubFetch(calls: RecordedCall[], users: FixtureUser[]) {
       const contextId = query.get('contextId');
       const page = Number(query.get('page') ?? 1);
       const pageSize = Number(query.get('pageSize') ?? 100);
-      const filtered = FIXTURE_ASSIGNMENTS.filter(
+      const filtered = assignments.filter(
         (a) =>
           (userId === null || a.userId === userId) &&
           (roleId === null || a.roleId === roleId) &&
@@ -232,10 +237,10 @@ function renderPage() {
   );
 }
 
-function setup() {
+function setup(overrides?: { users?: FixtureUser[]; assignments?: typeof FIXTURE_ASSIGNMENTS }) {
   const calls: RecordedCall[] = [];
-  const users = fixtureUsers();
-  vi.stubGlobal('fetch', stubFetch(calls, users));
+  const users = overrides?.users ?? fixtureUsers();
+  vi.stubGlobal('fetch', stubFetch(calls, users, overrides?.assignments));
   renderPage();
   return { calls, users };
 }
@@ -319,6 +324,71 @@ describe('Trang danh sách người dùng — trình bày đợt 2', () => {
           c.url.includes(`roleId=${ROLE_ADMIN_ID}`) &&
           c.url.includes(`contextId=${SYSTEM_CONTEXT_ID}`),
       ),
+    ).toBe(true);
+  });
+
+  it('kết hợp đồng thời tìm kiếm, lọc trạng thái, lọc vai trò hệ thống và cỡ trang chỉ hiện đúng người khớp cả bốn điều kiện', async () => {
+    const { calls } = setup();
+    await screen.findByText('An Nguyễn');
+    // Đặt cỡ trang trước khi bật lọc vai trò để lời gọi danh sách
+    // mang đúng cỡ trang mới; các bước sau vẫn giữ cỡ trang đó.
+    await userEvent.selectOptions(screen.getByLabelText('Số dòng mỗi trang'), '25');
+    await waitFor(() => {
+      expect(userListCalls(calls).some((c) => c.url.includes('pageSize=25'))).toBe(true);
+    });
+    // Từ khoá 'n' khớp A, B, D theo từng trường; lọc trạng thái đang
+    // hoạt động còn A, D; lọc vai trò quản trị tại hệ thống còn A.
+    await userEvent.type(screen.getByLabelText('Tìm người dùng'), 'n');
+    await userEvent.selectOptions(screen.getByLabelText('Trạng thái'), 'active');
+    await userEvent.selectOptions(screen.getByLabelText('Vai trò hệ thống'), ROLE_ADMIN_ID);
+    await waitFor(() => {
+      expect(screen.getByText('Đang hiện 1 đến 1 trong 1')).toBeTruthy();
+    });
+    expect(screen.getByText('An Nguyễn')).toBeTruthy();
+    expect(screen.queryByText('Bình Trần')).toBeNull();
+    expect(screen.queryByText('Dũng Phạm')).toBeNull();
+    expect(
+      userListCalls(calls).some((c) => c.url.includes('search=n') && c.url.includes('status=active')),
+    ).toBe(true);
+    expect(
+      calls.some(
+        (c) =>
+          c.url.startsWith('/api/v1/access/assignments') &&
+          c.url.includes(`roleId=${ROLE_ADMIN_ID}`) &&
+          c.url.includes(`contextId=${SYSTEM_CONTEXT_ID}`),
+      ),
+    ).toBe(true);
+  });
+
+  it('lọc vai trò hệ thống quét đủ các trang cỡ 100: người giữ vai nằm sau bản ghi thứ 100 vẫn hiện đúng', async () => {
+    const users: FixtureUser[] = Array.from({ length: 105 }, (_, i) => ({
+      id: `user-${String(i).padStart(3, '0')}`,
+      username: `nguoidung${i}`,
+      firstName: 'Người',
+      lastName: `Dùng ${String(i).padStart(3, '0')}`,
+      email: `user${i}@example.com`,
+      suspended: false,
+      deleted: false,
+      isGuest: false,
+      forcePasswordChange: false,
+      lastLogin: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      customFields: [],
+    }));
+    const { calls } = setup({
+      users,
+      assignments: [{ id: 'as-x', userId: 'user-102', roleId: ROLE_ADMIN_ID, contextId: SYSTEM_CONTEXT_ID }],
+    });
+    await screen.findByText('Người Dùng 000');
+    await userEvent.selectOptions(screen.getByLabelText('Vai trò hệ thống'), ROLE_ADMIN_ID);
+    await waitFor(() => {
+      expect(screen.getByText('Người Dùng 102')).toBeTruthy();
+    });
+    expect(screen.getByText('Đang hiện 1 đến 1 trong 1')).toBeTruthy();
+    expect(screen.queryByText('Người Dùng 000')).toBeNull();
+    // Lượt quét đã chạm tới trang 2 ở cỡ trần 100 thì mới thấy người giữ vai ở vị trí 102.
+    expect(
+      userListCalls(calls).some((c) => c.url.includes('page=2') && c.url.includes('pageSize=100')),
     ).toBe(true);
   });
 
