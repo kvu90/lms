@@ -1,7 +1,12 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/inter";
+/* Font toàn hệ nạp tại đây (Fontsource bản Variable, tự host). Tên font
+   chỉ xuất hiện ở hai dòng import này và ở hai token --font-sans /
+   --font-mono trong khối @theme bên dưới — đổi họ font lần sau chỉ
+   sửa đúng chỗ này, không sửa component nào. */
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
 
 /* Tailwind v4 tự quét nguồn theo vị trí file CSS; file này sống trong
    package ui nên phải khai báo tường minh cả hai cây nguồn dùng chung
@@ -44,7 +49,8 @@
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
   --font-heading: var(--font-sans);
-  --font-sans: 'Inter Variable', sans-serif;
+  --font-sans: 'Geist Variable', sans-serif;
+  --font-mono: 'Geist Mono Variable', monospace;
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
