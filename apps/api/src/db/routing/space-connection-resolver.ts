@@ -29,7 +29,12 @@ import { onSpaceRegistryChanged } from './space-routing-events';
  * 4. Kết quả được đệm lại kèm hạn TTL. Đệm bị vô hiệu hoá theo hai
  *    đường: sự kiện đổi sổ (trạng thái/phiên bản/cấu hình định
  *    tuyến của chính slug đó — xem `space-routing-events.ts`) và
- *    hết TTL.
+ *    hết TTL. Mỗi lần vô hiệu hoá còn tăng số thế hệ của slug:
+ *    lần đọc sổ đang bay khi thế hệ đổi thì kết quả nó mang về
+ *    (có thể là ảnh chụp trước thay đổi) KHÔNG được đệm — bộ
+ *    phân giải đọc lại dưới thế hệ mới rồi mới đệm, để sự kiện
+ *    đã giao đúng trong tiến trình không bao giờ bị một lần đọc
+ *    bắt đầu trước thay đổi ghi đè.
  *
  * Trạng thái vòng đời (`suspended`/`closed`) KHÔNG chặn phân giải:
  * đích vẫn phải phân giải được để đường vận hành (xuất dữ kiện,
@@ -115,6 +120,14 @@ interface CacheEntry {
 
 export class SpaceConnectionResolver {
   private readonly cache = new Map<string, CacheEntry>();
+  /**
+   * Số thế hệ vô hiệu hoá theo slug — tăng mỗi lần slug đó bị vô
+   * hiệu hoá (theo slug hoặc toàn bộ). Đây là dấu vết duy nhất mà
+   * sự kiện vô hiệu hoá để lại cho một lần đọc sổ đang bay: khi sự
+   * kiện tới, mục đệm của slug vốn đang trống nên thao tác xoá đệm
+   * không để lại gì để lần đọc đó nhận biết lúc nó hoàn tất.
+   */
+  private readonly invalidationGenerations = new Map<string, number>();
   private readonly resolveSecretRef: (secretRef: string) => string | undefined;
   private readonly unsubscribe: () => void;
 
@@ -135,10 +148,26 @@ export class SpaceConnectionResolver {
    * Xoá đệm: truyền slug thì xoá đúng mục của slug đó, không truyền
    * thì xoá toàn bộ (đường vận hành khi nghi ngờ sổ đã đổi hàng loạt
    * ngoài kênh sự kiện).
+   *
+   * Mọi lần vô hiệu hoá đều tăng số thế hệ của (các) slug liên quan:
+   * số thế hệ là dấu vết mà một lần đọc sổ đang bay đối chiếu được
+   * sau khi đọc xong — xem chốt thế hệ trong `resolve`.
    */
   invalidate(slug?: string): void {
-    if (slug) this.cache.delete(slug);
-    else this.cache.clear();
+    if (slug) {
+      this.cache.delete(slug);
+      this.invalidationGenerations.set(slug, this.generationOf(slug) + 1);
+      return;
+    }
+    this.cache.clear();
+    for (const [knownSlug, generation] of this.invalidationGenerations) {
+      this.invalidationGenerations.set(knownSlug, generation + 1);
+    }
+  }
+
+  /** Số thế hệ vô hiệu hoá hiện tại của một slug (0 khi slug chưa từng bị vô hiệu hoá). */
+  private generationOf(slug: string): number {
+    return this.invalidationGenerations.get(slug) ?? 0;
   }
 
   /**
@@ -159,13 +188,30 @@ export class SpaceConnectionResolver {
   async resolve(slug: string): Promise<ResolvedSpaceConnection> {
     const cached = this.cache.get(slug);
     if (cached && cached.expiresAt > Date.now()) return cached.target;
-    const entry = await this.deps.readRegistry(slug);
-    if (!entry) {
-      throw new SpaceRoutingError('space_routing.space_not_found', `Space slug ${slug} is not registered`);
+    // Chốt thế hệ chống đua vô hiệu hoá: sự kiện đổi sổ có thể tới
+    // TRONG LÚC lần đọc sổ dưới đây còn đang chờ — lần đọc bắt đầu
+    // trước khi thay đổi được commit thì trả ảnh chụp cũ (ngữ nghĩa
+    // READ COMMITTED), và lúc sự kiện tới, mục đệm của slug vốn đang
+    // trống nên thao tác xoá đệm không ngăn được kết quả cũ bị đệm
+    // lại khi lần đọc hoàn tất (đích cũ sống lại tới hết TTL). Vì
+    // vậy: ghi slug vào bản đồ thế hệ rồi chụp số thế hệ ngay trước
+    // khi đọc (việc ghi trước bảo đảm đường vô hiệu hoá toàn bộ
+    // cũng chạm được slug này); sau khi đọc xong mà thế hệ đã đổi
+    // thì bỏ kết quả vừa đọc và đọc lại dưới thế hệ mới, lặp cho
+    // tới khi một lần đọc trọn vẹn không bị sự kiện nào xen vào
+    // mới đệm và trả kết quả đó.
+    if (!this.invalidationGenerations.has(slug)) this.invalidationGenerations.set(slug, 0);
+    for (;;) {
+      const generation = this.generationOf(slug);
+      const entry = await this.deps.readRegistry(slug);
+      if (this.generationOf(slug) !== generation) continue;
+      if (!entry) {
+        throw new SpaceRoutingError('space_routing.space_not_found', `Space slug ${slug} is not registered`);
+      }
+      const target = this.toTarget(entry);
+      this.cache.set(slug, { target, expiresAt: Date.now() + this.deps.cacheTtlMs });
+      return target;
     }
-    const target = this.toTarget(entry);
-    this.cache.set(slug, { target, expiresAt: Date.now() + this.deps.cacheTtlMs });
-    return target;
   }
 
   /** Chốt đích kết nối từ một dòng đăng ký — riêng chế độ kho riêng mới cần giải bí mật và kiểm chứng role. */

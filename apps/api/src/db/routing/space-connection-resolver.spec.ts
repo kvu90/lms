@@ -150,6 +150,48 @@ describe('Bộ phân giải đích kết nối theo trung tâm', () => {
     resolver.dispose();
   });
 
+  it('sự kiện vô hiệu hoá tới trong lúc lần đọc sổ còn đang chờ thì kết quả cũ không được đệm: lần phân giải kế tiếp đọc lại sổ và trả đích mới', async () => {
+    // Hình đua đã phân xử ở vòng chấm lại của PR #594: lần đọc sổ
+    // bắt đầu TRƯỚC khi thay đổi được commit nên nó trả ảnh chụp
+    // cũ; nếu kết quả đó vẫn bị đệm lại, đích cũ sống tiếp sau sự
+    // kiện vô hiệu hoá cho tới hết TTL. Ca này giữ lần đọc đầu
+    // treo bằng một promise điều khiển bằng tay, phát sự kiện qua
+    // đúng kênh thật trong lúc đọc còn chờ, rồi mới thả lần đọc
+    // với dòng trước thay đổi.
+    const slug = 'trung-tam-a';
+    let currentEntry: SpaceRegistryEntry = { ...DEDICATED_ENTRY };
+    let reads = 0;
+    let releaseFirstRead: ((entry: SpaceRegistryEntry | undefined) => void) | undefined;
+    const resolver = new SpaceConnectionResolver({
+      cacheTtlMs: 60_000,
+      readRegistry: () => {
+        reads += 1;
+        if (reads === 1) {
+          return new Promise<SpaceRegistryEntry | undefined>((resolveRead) => {
+            releaseFirstRead = resolveRead;
+          });
+        }
+        return Promise.resolve(currentEntry);
+      },
+      resolveSecretRef: (ref) =>
+        ref === 'env:CENTRE_A_URL' ? 'postgres://centre_a_app:pw@db.internal:5432/postgres' : undefined,
+    });
+    const firstResolve = resolver.resolve(slug);
+    // Sổ đổi trạng thái và sự kiện vô hiệu hoá tới trong lúc lần
+    // đọc đầu còn đang chờ.
+    currentEntry = { ...DEDICATED_ENTRY, status: 'suspended' };
+    emitSpaceRegistryChanged(slug);
+    // Lần đọc treo trả dòng TRƯỚC thay đổi (ảnh chụp cũ).
+    releaseFirstRead!({ ...DEDICATED_ENTRY });
+    await firstResolve;
+    // Lần phân giải kế tiếp phải đọc lại sổ (lượt đọc tăng lên 2)
+    // và thấy đích sau thay đổi, không phục vụ kết quả cũ từ đệm.
+    const second = await resolver.resolve(slug);
+    expect(second.status).toBe('suspended');
+    expect(reads).toBe(2);
+    resolver.dispose();
+  });
+
   it('sau khi dispose, bộ phân giải không còn nhận sự kiện vô hiệu hoá', async () => {
     const { resolver, reads } = makeResolver({ 'trung-tam-a': DEDICATED_ENTRY });
     await resolver.resolve('trung-tam-a');
