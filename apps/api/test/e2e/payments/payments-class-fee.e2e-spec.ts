@@ -9,7 +9,7 @@ import { createCategory, createCourse, grantActiveTeacherPlan } from '../../supp
 import { createGradeItem, setGrade } from '../../support/assessment-helpers';
 // Từ issue #539, nhịp quét matching chạy ở worker nên tiến trình API trong test
 // không còn tự quét: mỗi vòng chờ dẫn một nhịp qua cầu dẫn này rồi mới đọc trạng thái.
-import { closeSepaySweepDriver, driveSepaySweep } from '../../support/sepay-sweep-driver';
+import { closeSepaySweepDriver, driveCohortSync, driveSepaySweep } from '../../support/sepay-sweep-driver';
 
 /**
  * CLASS-3 — HỌC PHÍ THEO LỚP (issue #184, lát cuối của feat lớp học
@@ -122,6 +122,8 @@ describe('CLASS-3: học phí theo lớp qua pipeline class_fee (issue #184)', (
     const deadline = Date.now() + timeoutMs;
     for (;;) {
       await driveSepaySweep();
+      // Nhịp quét vừa ghi dòng cohort — dẫn tiếp nhịp đồng bộ cohort để ghi danh vật chất hoá trước khi đọc trạng thái.
+      await driveCohortSync();
       let settled = (await rosterIds(classId)).includes(userId);
       for (const courseId of courseIds) {
         if (!settled) break;

@@ -1,11 +1,15 @@
 import 'reflect-metadata';
+import { and, asc, gt, inArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { outboxEvents } from '@lms/db';
 import {
   OutboxWriterService,
   PaymentsRepository,
   PlanEntitlementsService,
   SepayMatchingService,
 } from '@lms/payments';
+import { CohortSyncService } from '../../../worker/src/cohort-sync.service';
 import { SepayMatchingScheduler } from '../../../worker/src/sepay-matching.scheduler';
 import { TenantAwarePool } from '../../../worker/src/db/tenant-pool';
 import { relations } from '../../../worker/src/db/relations';
@@ -44,6 +48,19 @@ import { WorkerPaymentSettlementService } from '../../../worker/src/worker-payme
  * tầng worker (`sepay-matching-sweep.int-spec.ts` boot module thật
  * và chờ nhịp tự chạy).
  *
+ * Nhịp đồng bộ cohort (hệ quả của #550 × #539): từ #528, consumer
+ * đồng bộ cohort chạy ở worker, còn consumer polling phía API đã gỡ
+ * khỏi tiến trình API — nên trong e2e không còn ai tiêu thụ các dòng
+ * `cohort_member_added`/`cohort_member_removed` mà nhịp quét matching
+ * vừa ghi. `driveCohortSync()` đóng đúng vai consumer cũ: quét bảng
+ * outbox theo watermark riêng của file, gọi bề mặt vật chất hoá dùng
+ * chung qua `CohortSyncService` của worker cho từng dòng, bỏ qua riêng
+ * lẻ dòng lỗi như consumer cũ (vòng chờ của spec sẽ timeout nếu lệch
+ * còn tồn tại). Watermark khởi từ 0 — bề mặt vật chất hoá đã
+ * idempotent theo trạng thái hiện tại của `cohort_members` nên phát
+ * lại lịch sử cũ là an toàn (đúng mẫu neo lại về 0 khi DB dựng lại
+ * của consumer cũ).
+ *
  * Vòng đời: pool dựng lười ở lần dẫn đầu tiên của file spec và được
  * đóng ở `afterAll` của file đó qua `closeSepaySweepDriver()` — mỗi
  * file e2e chạy trong module registry riêng nên singleton này là
@@ -51,11 +68,21 @@ import { WorkerPaymentSettlementService } from '../../../worker/src/worker-payme
  */
 let scheduler: SepayMatchingScheduler | null = null;
 let pool: TenantAwarePool | null = null;
+let sharedDb: NodePgDatabase<typeof relations> | null = null;
+let cohortSync: CohortSyncService | null = null;
+let cohortWatermark = 0;
+
+function getSharedDb(): NodePgDatabase<typeof relations> {
+  if (!sharedDb) {
+    pool = new TenantAwarePool({ connectionString: process.env.DATABASE_URL });
+    sharedDb = drizzle({ client: pool, relations });
+  }
+  return sharedDb;
+}
 
 function getScheduler(): SepayMatchingScheduler {
   if (!scheduler) {
-    pool = new TenantAwarePool({ connectionString: process.env.DATABASE_URL });
-    const db = drizzle({ client: pool, relations });
+    const db = getSharedDb();
     const repo = new PaymentsRepository(db);
     const writer = new OutboxWriterService(db);
     const plans = new PlanEntitlementsService(repo);
@@ -81,9 +108,45 @@ export async function driveSepaySweep(): Promise<void> {
   await getScheduler().sweepTick();
 }
 
+/** Các loại sự kiện cohort mà nhịp đồng bộ phải vật chất hoá — đúng tập của consumer polling phía API đã gỡ (issue #528). */
+const COHORT_SYNC_TYPES = ['cohort_member_added', 'cohort_member_removed'] as const;
+
+/**
+ * Dẫn một nhịp đồng bộ cohort của worker (tối đa 200 sự kiện một
+ * nhịp, đúng hợp đồng nhịp của consumer cũ): tiêu thụ mọi dòng
+ * cohort mới sau watermark rồi vật chất hoá qua bề mặt dùng chung.
+ */
+export async function driveCohortSync(): Promise<void> {
+  if (!cohortSync) cohortSync = new CohortSyncService(getSharedDb());
+  const rows = await getSharedDb()
+    .select({ seq: outboxEvents.seq, type: outboxEvents.type, payload: outboxEvents.payload })
+    .from(outboxEvents)
+    .where(and(gt(outboxEvents.seq, cohortWatermark), inArray(outboxEvents.type, [...COHORT_SYNC_TYPES])))
+    .orderBy(asc(outboxEvents.seq))
+    .limit(200);
+  for (const row of rows) {
+    try {
+      const payload = row.payload as Record<string, unknown>;
+      const cohortId = typeof payload.cohortId === 'string' ? payload.cohortId : null;
+      const userId = typeof payload.userId === 'string' ? payload.userId : null;
+      if (cohortId && userId) {
+        if (row.type === 'cohort_member_added') await cohortSync.materializeMemberAdded({ cohortId, userId });
+        else if (row.type === 'cohort_member_removed') await cohortSync.materializeMemberRemoved({ cohortId, userId });
+      }
+    } catch (error) {
+      // Bỏ qua riêng lẻ như consumer cũ: một sự kiện lỗi không được chặn các sự kiện sau.
+      console.warn(`Nhịp đồng bộ cohort bỏ qua seq=${row.seq} (${row.type}): ${(error as Error).message}`);
+    }
+    cohortWatermark = row.seq;
+  }
+}
+
 /** Đóng pool của cầu dẫn — gọi ở `afterAll` của file spec dùng nó. */
 export async function closeSepaySweepDriver(): Promise<void> {
   scheduler = null;
+  cohortSync = null;
+  cohortWatermark = 0;
+  sharedDb = null;
   if (pool) {
     const closing = pool;
     pool = null;

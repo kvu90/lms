@@ -8,7 +8,7 @@ import {
 import { createCategory, createCourse, createEnrolInstance, grantActiveTeacherPlan } from '../../support/course-enrolment-helpers';
 // Từ issue #539, nhịp quét matching chạy ở worker nên tiến trình API trong test
 // không còn tự quét: mỗi vòng chờ dẫn một nhịp qua cầu dẫn này rồi mới đọc trạng thái.
-import { closeSepaySweepDriver, driveSepaySweep } from '../../support/sepay-sweep-driver';
+import { closeSepaySweepDriver, driveCohortSync, driveSepaySweep } from '../../support/sepay-sweep-driver';
 
 /**
  * Chốt chặn component cấp quyền ở pipeline thanh toán (issue #419) —
@@ -347,6 +347,8 @@ describe('Chốt chặn component cấp quyền: endpoint chung bị cấm + đ�
     const deadline = Date.now() + 12000;
     for (;;) {
       await driveSepaySweep();
+      // Nhịp quét vừa ghi dòng cohort — dẫn tiếp nhịp đồng bộ cohort để ghi danh vật chất hoá trước khi đọc trạng thái.
+      await driveCohortSync();
       if ((await rosterIds(feeClassId)).includes(buyer.id) && await enrolmentActive(feeClassCourseId, buyer.token)) return;
       if (Date.now() > deadline) throw new Error('class enrolment was not materialised in time');
       await new Promise((r) => setTimeout(r, 250));
