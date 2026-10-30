@@ -79,7 +79,8 @@ export class SpaceContextGuard implements CanActivate {
       spaceSlug?: string;
       headers: Record<string, string | string[] | undefined>;
     }>();
-    const slug = extractSpaceSlugFromHost(request.headers?.host);
+    const hostHeader = request.headers?.host;
+    const slug = extractSpaceSlugFromHost(Array.isArray(hostHeader) ? hostHeader[0] : hostHeader);
     if (!slug) return true;
 
     let target: ResolvedSpaceConnection;

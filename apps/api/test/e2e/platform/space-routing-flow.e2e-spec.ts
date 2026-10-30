@@ -377,6 +377,7 @@ describe('Định tuyến theo trung tâm ở tầng API (đầu-cuối)', () =>
     await app?.close().catch(() => undefined);
     delete process.env.SPACE_TEST_A_582_URL;
     delete process.env.SPACE_TEST_B_582_URL;
+    delete process.env.CONTROL_PLANE_DATABASE_URL;
     await withClient(clusterUrl('postgres'), async (admin) => {
       for (const database of [CP_DATABASE, CENTRE_A_DATABASE, CENTRE_B_DATABASE]) {
         await admin.query(`DROP DATABASE IF EXISTS ${quoted(database)} WITH (FORCE)`);
