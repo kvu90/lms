@@ -3,6 +3,15 @@ import { z } from 'zod';
 
 export const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
+  /**
+   * URL kết nối của database CONTROL PLANE (issue #580): database
+   * riêng trên cùng cụm Postgres với kho nghiệp vụ, role kết nối
+   * riêng, bộ migration riêng. TUỲ CHỌN ở tầng env: hệ chưa cấu hình
+   * biến này vẫn khởi động như cũ (module control plane báo chưa cấu
+   * hình khi được gọi); môi trường triển khai bằng compose luôn đặt
+   * biến này. Giá trị là bí mật kết nối — không ghi ra log.
+   */
+  CONTROL_PLANE_DATABASE_URL: z.string().min(1).optional(),
   // Bật TLS cho kết nối PostgreSQL khi nhà cung cấp bắt buộc (một số
   // nhà cung cấp PostgreSQL chỉ nhận kết nối có mã hoá). Mặc định tắt:
   // môi trường local và CI chạy PostgreSQL thường không có TLS.

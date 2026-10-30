@@ -36,5 +36,11 @@ lớp–khoá, tenant của mọi bản ghi, vết audit.
 
 - Nguồn theo miền: `src/<miền>.schema.ts`, hạ tầng chung ở
   `src/infrastructure.schema.ts`, xuất qua `src/index.ts`.
+- Ngoại lệ có chủ đích: schema control plane (`src/control-plane.schema.ts`,
+  issue #580) thuộc **database riêng** trên cùng cụm Postgres với bộ migration
+  riêng ở `apps/api/drizzle-control-plane/`, nên xuất qua subpath
+  `@lms/db/control-plane` (`src/control-plane.ts`) và KHÔNG qua `src/index.ts` —
+  đưa vào barrel chung sẽ làm bộ migration của kho nghiệp vụ sinh lệnh cho các
+  bảng control plane và ngược lại.
 - App tiêu thụ dùng bản `dist` — sửa schema xong phải build lại package trước khi
   typecheck/migrate ở app (dist cũ = lỗi giả kinh điển).

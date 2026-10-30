@@ -17,7 +17,7 @@ phẩm, qua cùng một bộ component nền.
 |---|---|
 | Toàn bộ component shadcn/ui của dự án sống DUY NHẤT ở package này. `apps/web` chỉ dùng qua `@lms/ui/...`, cấm sao chép component vào app để sửa riêng. Component nghiệp vụ tự viết nằm ở `apps/web/src/components/`. | README gốc của package; README của apps/web |
 | Nhất quán hình thức là yêu cầu bắt buộc, không phải trang trí: các vỏ tương tác dùng chung (collapse/section, dialog, bảng…) dùng MỘT component/khuôn chung cho mọi trang — mỗi trang tự chế một kiểu vỏ là lỗi (đã ghi nhận 3 kiểu collapse khác nhau trên trang /questions, 25/10/2026 — lát UI-1 thống nhất vỏ). | Yêu cầu nghiệp vụ ngày 25/10/2026 23:04; issue #133 (UI-1) |
-| Font chữ của sản phẩm là Inter (bản Variable tự host qua `@fontsource-variable/inter`), áp qua preset hiện hành — không nạp font ngoài theo trang. | `globals.css` + ngoại lệ ghi ở cuối file |
+| Font chữ của sản phẩm là Geist — Geist Sans cho font sans, Geist Mono cho font mono (bản Variable tự host qua `@fontsource-variable/geist` và `@fontsource-variable/geist-mono`), áp qua preset hiện hành — không nạp font ngoài theo trang. Tên font chỉ nằm ở chỗ nạp + hai token `--font-sans`/`--font-mono` trong `globals.css`; đổi họ font lần sau chỉ sửa đúng chỗ đó. | `globals.css` + ngoại lệ ghi ở cuối file |
 
 ## Bất biến
 
@@ -135,6 +135,17 @@ build + test của `@lms/web`, đối chiếu diff của `components.json` và
   package). Khi đồng bộ upstream lần tới: chạy
   `shadcn add native-select --overwrite` tại thư mục này và đối chiếu
   diff của file, đặc biệt dòng import `cn`.
+- `src/styles/globals.css` (issue #599): đổi họ font toàn hệ từ Inter
+  sang Geist bằng cách sửa tay hai dòng `@import` font và giá trị
+  token `--font-sans`, đồng thời khai thêm token `--font-mono` (trước
+  đó file chưa khai token này nên utility `font-mono` rơi về font đơn
+  cách mặc định của Tailwind). Lý do: đổi họ font theo preset không có
+  lệnh CLI tương ứng — CLI chỉ sinh file theo preset tại thời điểm
+  init/add, không có thao tác đổi họ font; đây là thay đổi tối thiểu
+  tại đúng lớp gián tiếp duy nhất của font (chỗ nạp + token) như
+  quyết định về font ở đầu file này ghi. Khi đồng bộ upstream lần
+  tới: đối chiếu hai dòng import và hai token font để giữ Geist thay
+  vì quay về font mà bản sinh ra mặc định mang theo.
 - `src/components/popover.tsx` (issue #591, vòng sửa PR #593):
   THÊM MỚI bằng shadcn CLI (`shadcn add popover -y`, preset
   base-vega) chạy tại thư mục package này — nội dung file là đúng
