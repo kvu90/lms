@@ -5,7 +5,7 @@
  * khoá của mình ở tầng queries/; khoá dùng chung nhiều feature ở lại
  * src/lib/query-keys.ts. Cấu trúc phân cấp: thực thể → định danh → tham số.
  */
-import type { ListAssignmentsParams } from '../api/admin-roles';
+import type { ListAssignmentsParams, ListUsersWithAssignmentsParams } from '../api/admin-roles';
 import type { ListAdminUsersParams } from '../api/admin-users';
 
 export const queryKeys = {
@@ -81,6 +81,28 @@ export const queryKeys = {
       params.pageSize,
     ] as const,
   adminUserDetail: (userId: string) => ['admin', 'users', 'detail', userId] as const,
+  /**
+   * Khoá ma trận quyền toàn trang theo ngữ cảnh (trang Quyền độc lập):
+   * đổi ngữ cảnh là đổi khoá và gọi lại server; đột biến đặt một ô làm
+   * mới đúng khoá này sau khi ghi thành công.
+   */
+  capabilityMatrix: (contextId: string) => ['admin', 'capability-matrix', contextId] as const,
+  /** Gốc khoá bảng người dùng kèm vai trò — tiền tố làm mới bảng sau gán/gỡ vai. */
+  usersWithAssignmentsRoot: ['admin', 'users-with-assignments'] as const,
+  /**
+   * Khoá trang người dùng kèm vai trò theo đúng bộ lọc/tìm/phân trang
+   * đang hiển thị — mỗi tổ hợp tham số là một trang cache riêng.
+   */
+  usersWithAssignments: (params: ListUsersWithAssignmentsParams) =>
+    [
+      'admin',
+      'users-with-assignments',
+      params.search ?? '',
+      params.roleId ?? '',
+      params.status ?? '',
+      params.page,
+      params.pageSize,
+    ] as const,
   tenantsRoot: ['admin', 'tenants'] as const,
   tenants: ['admin', 'tenants', 'list'] as const,
   currentTenant: ['admin', 'tenants', 'current'] as const,

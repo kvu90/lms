@@ -1,16 +1,26 @@
-import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { AssignRole, CreateRole, ReplaceRoleCapabilities, UpdateRole } from '@lms/contracts';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type {
+  AssignRole,
+  CreateRole,
+  OverrideCapability,
+  ReplaceRoleCapabilities,
+  UpdateRole,
+} from '@lms/contracts';
 import { queryKeys as sharedQueryKeys } from '#lib/query-keys';
 import {
   createAssignment,
   createRole,
   deleteAssignment,
   deleteRole,
+  fetchCapabilityMatrix,
   fetchRoleHolderUserIds,
   listAssignments,
+  listUsersWithAssignments,
   replaceRoleCapabilities,
+  setCapabilityOverride,
   updateRole,
   type ListAssignmentsParams,
+  type ListUsersWithAssignmentsParams,
 } from '../api/admin-roles';
 import { queryKeys } from './keys';
 
@@ -114,6 +124,7 @@ export function useCreateRoleAssignment() {
     mutationFn: (input: AssignRole) => createAssignment(input),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: queryKeys.roleAssignmentsRoot });
+      void client.invalidateQueries({ queryKey: queryKeys.usersWithAssignmentsRoot });
       void client.invalidateQueries({ queryKey: sharedQueryKeys.access });
     },
   });
@@ -130,7 +141,54 @@ export function useDeleteRoleAssignment() {
     mutationFn: (assignmentId: string) => deleteAssignment(assignmentId),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: queryKeys.roleAssignmentsRoot });
+      void client.invalidateQueries({ queryKey: queryKeys.usersWithAssignmentsRoot });
       void client.invalidateQueries({ queryKey: sharedQueryKeys.access });
     },
+  });
+}
+
+/**
+ * Tuỳ chọn truy vấn ma trận quyền toàn trang tại một ngữ cảnh cho
+ * trang Quyền độc lập — khoá mang định danh ngữ cảnh nên đổi ngữ cảnh
+ * là gọi lại đúng ma trận của ngữ cảnh mới.
+ */
+export function capabilityMatrixQueryOptions(contextId: string) {
+  return queryOptions({
+    queryKey: queryKeys.capabilityMatrix(contextId),
+    queryFn: () => fetchCapabilityMatrix(contextId),
+    enabled: contextId !== '',
+  });
+}
+
+/** Hook đọc ma trận quyền toàn trang tại một ngữ cảnh. */
+export function useCapabilityMatrix(contextId: string) {
+  return useQuery(capabilityMatrixQueryOptions(contextId));
+}
+
+/**
+ * Đột biến đặt một ô của ma trận toàn trang (POST /access/overrides)
+ * — thành công thì làm mới ma trận của ngữ cảnh đó và gốc khoá
+ * `access` (số ghi đè trên thẻ vai của trang vai trò đổi theo).
+ */
+export function useSetCapabilityOverride() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: OverrideCapability) => setCapabilityOverride(input),
+    onSuccess: (_data, input) => {
+      void client.invalidateQueries({ queryKey: queryKeys.capabilityMatrix(input.contextId) });
+      void client.invalidateQueries({ queryKey: sharedQueryKeys.access });
+    },
+  });
+}
+
+/**
+ * Tuỳ chọn truy vấn một trang người dùng kèm gán vai cho bảng người
+ * dùng kèm vai trò — khoá mang đủ bộ lọc/tìm/phân trang; trang gọi
+ * giữ keepPreviousData để đổi lọc/trang không nháy rỗng bảng.
+ */
+export function usersWithAssignmentsQueryOptions(params: ListUsersWithAssignmentsParams) {
+  return queryOptions({
+    queryKey: queryKeys.usersWithAssignments(params),
+    queryFn: () => listUsersWithAssignments(params),
   });
 }

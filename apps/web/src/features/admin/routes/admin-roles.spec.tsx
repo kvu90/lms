@@ -34,10 +34,19 @@ import { AdminRolesPage } from './admin-roles';
  * với nhãn dưới số; hộp thoại vai có đúng một nút Huỷ, thêm nút × và
  * dòng mô tả phụ theo chế độ; trang không còn khối tiêu đề phía trên
  * lưới; thanh lọc của bảng co thành một hàng; chân bảng hiện khoảng
- * dòng kèm cụm nút luôn bày. Nhãn ngữ cảnh giữ nguyên chuỗi hiện tại
- * vì hạng mục nhãn ngắn của issue đã dừng theo điều kiện dừng (dữ
- * liệu API không có tên thực thể) — các assertion nhãn ngữ cảnh trong
- * spec này vì thế không đổi.
+ * dòng kèm cụm nút luôn bày.
+ *
+ * Lượt dựng lại theo demo (issue #597) ghim trạng thái mới: hộp thoại
+ * vai/gán/gỡ/xoá dựng trên component Dialog thật của `@lms/ui` (nút ×
+ * của component mang nhãn truy cập "Close"); nhãn ngữ cảnh ở mọi bề
+ * mặt là tên cấp dạng chữ qua adapter (Hệ thống / Trung tâm) — chuỗi
+ * kỹ thuật "cấp · thực thể · đường dẫn" không còn xuất hiện; lưới thẻ
+ * theo số đo mẫu (khe 20px, dải số nền xám nhạt số 14px nhãn 10px,
+ * thẻ thêm căn giữa với nút outline); thanh lọc của bảng gán đúng hai
+ * hàng; chân bảng là cụm phân trang riêng của feature (nút 36px);
+ * trang có thêm bảng người dùng kèm vai trò đọc từ endpoint gộp — vì
+ * trang nay có HAI bảng và hai nút "Gán vai trò", các test của bảng
+ * gán giới hạn truy vấn trong đúng thẻ bảng của nó.
  */
 const ROLE_ID = '01900000-0000-7000-8000-0000000000b1';
 const NEW_ROLE_ID = '01900000-0000-7000-8000-0000000000b2';
@@ -200,6 +209,73 @@ function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
             },
           ],
           total: options.assignmentsTotal ?? 2,
+          page,
+          pageSize,
+        });
+      }
+      if (url.startsWith('/api/v1/access/users-with-assignments') && method === 'GET') {
+        const query = new URLSearchParams(url.split('?')[1] ?? '');
+        const page = Number(query.get('page') ?? 1);
+        const pageSize = Number(query.get('pageSize') ?? 10);
+        const search = (query.get('search') ?? '').toLowerCase();
+        const roleId = query.get('roleId') ?? '';
+        const status = query.get('status') ?? '';
+        const allUsers = [
+          {
+            id: USER_A_ID,
+            username: 'annguyen',
+            firstName: 'An',
+            lastName: 'Nguyễn',
+            email: 'an@example.com',
+            suspended: false,
+            deleted: false,
+            createdAt: '2026-10-01T00:00:00.000Z',
+            assignments: [
+              { id: ASSIGN_A_ID, roleId: ROLE_ID, roleName: 'Giáo viên', contextId: SYSTEM_CONTEXT_ID, contextLevel: 10, component: '' },
+            ],
+          },
+          {
+            id: USER_B_ID,
+            username: 'binhtran',
+            firstName: 'Bình',
+            lastName: 'Trần',
+            email: 'binh@example.com',
+            suspended: false,
+            deleted: false,
+            createdAt: '2026-10-02T00:00:00.000Z',
+            assignments: [
+              { id: ASSIGN_B_ID, roleId: ROLE_ID, roleName: 'Giáo viên', contextId: TENANT_CONTEXT_ID, contextLevel: 20, component: 'enrol' },
+            ],
+          },
+          {
+            id: USER_C_ID,
+            username: 'colan',
+            firstName: 'Cô',
+            lastName: 'Lan',
+            email: 'co@example.com',
+            suspended: true,
+            deleted: false,
+            createdAt: '2026-10-03T00:00:00.000Z',
+            assignments: [],
+          },
+        ];
+        const filtered = allUsers.filter((user) => {
+          if (status === 'active' && (user.suspended || user.deleted)) return false;
+          if (status === 'suspended' && !user.suspended) return false;
+          if (status === 'deleted' && !user.deleted) return false;
+          if (status === '' && user.deleted) return false;
+          if (roleId !== '' && !user.assignments.some((a) => a.roleId === roleId)) return false;
+          if (
+            search !== '' &&
+            !`${user.username} ${user.firstName} ${user.lastName} ${user.email}`.toLowerCase().includes(search)
+          )
+            return false;
+          return true;
+        });
+        const start = (page - 1) * pageSize;
+        return respond({
+          users: filtered.slice(start, start + pageSize),
+          total: filtered.length,
           page,
           pageSize,
         });
@@ -550,7 +626,7 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     expect(within(createDialog).getByText('Tạo vai trò mới và cấu hình quyền của nó.')).toBeInTheDocument();
     // Chỉ đúng một nút Huỷ (ở hàng nút dưới cùng) — nút ở đầu hộp thoại đã thay bằng nút ×.
     expect(within(createDialog).getAllByRole('button', { name: 'Huỷ' })).toHaveLength(1);
-    await userEvent.click(within(createDialog).getByRole('button', { name: 'Đóng' }));
+    await userEvent.click(within(createDialog).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
     await openEditDialog();
@@ -559,7 +635,7 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
       within(editDialog).getByText('Cập nhật tên vai trò và đặt quyền theo từng resource.'),
     ).toBeInTheDocument();
     expect(within(editDialog).getAllByRole('button', { name: 'Huỷ' })).toHaveLength(1);
-    await userEvent.click(within(editDialog).getByRole('button', { name: 'Đóng' }));
+    await userEvent.click(within(editDialog).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 });
@@ -571,9 +647,19 @@ describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
     localStorage.clear();
   });
 
-  /** Mở hộp thoại gán từ bảng và chọn người dùng annguyen trong danh sách tìm kiếm. */
+  /**
+   * Thẻ bảng gán vai để giới hạn truy vấn trong thẻ — trang còn bảng
+   * người dùng kèm vai trò ở dưới với các điều khiển trùng tên.
+   */
+  function assignmentsCard(): HTMLElement {
+    const card = screen.getByText('Người dùng và vai trò của họ').closest('[data-slot="card"]');
+    if (!card) throw new Error('Không tìm thấy thẻ bảng gán vai');
+    return card as HTMLElement;
+  }
+
+  /** Mở hộp thoại gán từ bảng gán và chọn người dùng annguyen trong danh sách tìm kiếm. */
   async function openAssignDialog() {
-    await userEvent.click(screen.getByRole('button', { name: 'Gán vai trò' }));
+    await userEvent.click(within(assignmentsCard()).getByRole('button', { name: 'Gán vai trò' }));
     const dialog = await screen.findByRole('dialog', { name: 'Gán vai trò' });
     const userButton = await within(dialog).findByRole('button', { name: /annguyen/ });
     await userEvent.click(userButton);
@@ -585,7 +671,7 @@ describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
     renderPage();
 
     await screen.findByText('An Nguyễn');
-    const table = screen.getByRole('table');
+    const table = within(assignmentsCard()).getByRole('table');
     // Tiêu đề cột đúng đặc tả, không có cột Plan/Billing.
     for (const header of ['Người dùng', 'Vai trò', 'Ngữ cảnh', 'Ngày gán', 'Thao tác']) {
       expect(within(table).getByText(header)).toBeInTheDocument();
@@ -594,13 +680,14 @@ describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
     expect(within(table).queryByText('Billing')).not.toBeInTheDocument();
     // Cả hai dòng đều mang tên vai trò phân giải từ danh sách vai.
     expect(within(table).getAllByText('Giáo viên')).toHaveLength(2);
-    // Nhãn ngữ cảnh kèm cấp của từng dòng.
-    expect(within(table).getByText('cấp 10 · thực thể 0 · /1')).toBeInTheDocument();
-    expect(within(table).getByText('cấp 20 · thực thể 1 · /1/2')).toBeInTheDocument();
+    // Nhãn ngữ cảnh là tên cấp dạng chữ qua adapter — không còn chuỗi
+    // kỹ thuật cấp/thực thể/đường dẫn ở bất kỳ dòng nào của trang.
+    expect(within(table).getByText('Hệ thống')).toBeInTheDocument();
+    expect(within(table).getByText('Trung tâm')).toBeInTheDocument();
+    expect(screen.queryByText(/thực thể/)).not.toBeInTheDocument();
     // Chỉ dòng thường có nút gỡ; dòng enrol-managed hiện lý do thay cho nút.
     expect(within(table).getAllByRole('button', { name: 'Gỡ gán' })).toHaveLength(1);
     expect(within(table).getByText('Không gỡ trực tiếp được — gỡ bằng cách rút ghi danh')).toBeInTheDocument();
-    expect(screen.getByText('Tổng: 2 dòng gán')).toBeInTheDocument();
     // Bảng không có nút Export/Import.
     expect(screen.queryByText(/Export/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Import/)).not.toBeInTheDocument();
@@ -612,30 +699,29 @@ describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
     renderPage();
 
     await screen.findByText('An Nguyễn');
+    const card = within(assignmentsCard());
     const assignmentsCalls = () =>
       calls.filter((c) => c.url.startsWith('/api/v1/access/assignments') && c.method === 'GET');
 
-    await userEvent.type(screen.getByLabelText('Tìm người dùng'), 'An');
+    await userEvent.type(card.getByLabelText('Tìm người dùng'), 'An');
     await waitFor(() => expect(assignmentsCalls().some((c) => c.url.includes('search=An'))).toBe(true));
 
-    await userEvent.selectOptions(screen.getByLabelText('Lọc theo vai trò'), ROLE_ID);
+    await userEvent.selectOptions(card.getByLabelText('Lọc theo vai trò'), ROLE_ID);
     await waitFor(() => expect(assignmentsCalls().some((c) => c.url.includes(`roleId=${ROLE_ID}`))).toBe(true));
 
-    await userEvent.selectOptions(screen.getByLabelText('Lọc theo ngữ cảnh'), TENANT_CONTEXT_ID);
+    await userEvent.selectOptions(card.getByLabelText('Lọc theo ngữ cảnh'), TENANT_CONTEXT_ID);
     await waitFor(() =>
       expect(assignmentsCalls().some((c) => c.url.includes(`contextId=${TENANT_CONTEXT_ID}`))).toBe(true),
     );
 
-    await userEvent.selectOptions(screen.getByLabelText('Số dòng mỗi trang'), '10');
+    await userEvent.selectOptions(card.getByLabelText('Số dòng mỗi trang'), '10');
     await waitFor(() => expect(assignmentsCalls().some((c) => c.url.includes('pageSize=10'))).toBe(true));
     // Tổng 25 dòng với cỡ trang 10 thành 3 trang: chân bảng hiện khoảng
     // dòng của trang 1 (stub trả 2 dòng mỗi trang bất kể cỡ trang).
-    expect(screen.getByText('Hiển thị 1–2 trong 25 dòng')).toBeInTheDocument();
-    // Bảng có hai nút mang tên 'Sau' (tới trang kế và tới trang cuối, nút
-    // cuối ẩn bằng class responsive mà jsdom không tính) nên bấm nút đầu.
-    await userEvent.click(screen.getAllByRole('button', { name: 'Sau' })[0]);
+    expect(card.getByText('Hiển thị 1–2 trong 25 dòng')).toBeInTheDocument();
+    await userEvent.click(card.getByRole('button', { name: 'Sau' }));
     await waitFor(() => expect(assignmentsCalls().some((c) => c.url.includes('page=2'))).toBe(true));
-    expect(screen.getByText('Hiển thị 11–12 trong 25 dòng')).toBeInTheDocument();
+    expect(card.getByText('Hiển thị 11–12 trong 25 dòng')).toBeInTheDocument();
   });
 
   it('gán vai qua hộp thoại POST đúng bộ ba và làm mới các truy vấn access', async () => {
@@ -714,7 +800,7 @@ describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
     ).length;
     await userEvent.click(screen.getByRole('button', { name: 'Gỡ gán' }));
     const dialog = await screen.findByRole('dialog', { name: 'Gỡ gán vai trò' });
-    expect(within(dialog).getByText(/Gỡ vai trò “Giáo viên” của An Nguyễn tại cấp 10/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Gỡ vai trò “Giáo viên” của An Nguyễn tại Hệ thống/)).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Gỡ gán' }));
 
     await waitFor(() =>
@@ -750,7 +836,7 @@ describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
     renderPage();
 
     await screen.findByText('Người dùng không còn tồn tại');
-    const table = screen.getByRole('table');
+    const table = within(assignmentsCard()).getByRole('table');
     expect(within(table).getByText('Người dùng không còn tồn tại')).toBeInTheDocument();
   });
 
@@ -760,21 +846,22 @@ describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
     renderPage();
 
     await screen.findByText('Người dùng 1');
-    expect(screen.getByText('Hiển thị 1–20 trong 21 dòng')).toBeInTheDocument();
+    const card = within(assignmentsCard());
+    expect(card.getByText('Hiển thị 1–20 trong 21 dòng')).toBeInTheDocument();
     // Sang trang 2: chỉ còn dòng 21.
-    await userEvent.click(screen.getAllByRole('button', { name: 'Sau' })[0]);
-    await waitFor(() => expect(screen.getByText('Hiển thị 21–21 trong 21 dòng')).toBeInTheDocument());
-    expect(screen.getByText('Người dùng 21')).toBeInTheDocument();
+    await userEvent.click(card.getByRole('button', { name: 'Sau' }));
+    await waitFor(() => expect(card.getByText('Hiển thị 21–21 trong 21 dòng')).toBeInTheDocument());
+    expect(card.getByText('Người dùng 21')).toBeInTheDocument();
     // Gỡ dòng duy nhất của trang 2 rồi xác nhận.
-    await userEvent.click(screen.getByRole('button', { name: 'Gỡ gán' }));
+    await userEvent.click(card.getByRole('button', { name: 'Gỡ gán' }));
     const dialog = await screen.findByRole('dialog', { name: 'Gỡ gán vai trò' });
     await userEvent.click(within(dialog).getByRole('button', { name: 'Gỡ gán' }));
     // Tổng còn 20 dòng (1 trang): bảng tự về trang 1, không kẹt ở khoảng
     // dòng của trang 2; cụm phân trang vẫn hiện khi chỉ còn một trang.
-    await waitFor(() => expect(screen.getByText('Hiển thị 1–20 trong 20 dòng')).toBeInTheDocument());
-    expect(screen.getByText('Người dùng 1')).toBeInTheDocument();
-    expect(screen.queryByText('Hiển thị 21–21 trong 20 dòng')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument();
+    await waitFor(() => expect(card.getByText('Hiển thị 1–20 trong 20 dòng')).toBeInTheDocument());
+    expect(card.getByText('Người dùng 1')).toBeInTheDocument();
+    expect(card.queryByText('Hiển thị 21–21 trong 20 dòng')).not.toBeInTheDocument();
+    expect(card.getByRole('button', { name: '1' })).toBeInTheDocument();
     expect(
       calls.some(
         (c) =>
@@ -789,7 +876,7 @@ describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
     renderPage();
 
     await screen.findByText('An Nguyễn');
-    await userEvent.click(screen.getByRole('button', { name: 'Gán vai trò' }));
+    await userEvent.click(within(assignmentsCard()).getByRole('button', { name: 'Gán vai trò' }));
     const dialog = await screen.findByRole('dialog', { name: 'Gán vai trò' });
     // Đợt đầu chỉ tải 20 người: người thứ 21 chưa có, có nút tải thêm.
     await within(dialog).findByRole('button', { name: /nguoidung1@/ });
@@ -803,33 +890,151 @@ describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
     ).toBe(true);
   });
 
-  it('bảng có mô tả phụ dưới tiêu đề, thanh lọc co thành một hàng và chân bảng hiện khoảng dòng ngay cả khi một trang', async () => {
+  it('bảng có mô tả phụ dưới tiêu đề, thanh lọc đúng hai hàng và chân bảng hiện khoảng dòng ngay cả khi một trang', async () => {
     stubFetch([]);
     renderPage();
 
     await screen.findByText('An Nguyễn');
+    const card = within(assignmentsCard());
     // Dòng mô tả phụ dưới tiêu đề bảng.
-    expect(screen.getByText('Mọi người dùng đang giữ vai trò và ngữ cảnh họ được gán.')).toBeInTheDocument();
-    // Thanh lọc một hàng: các trường co chiều ngang thay vì full-width
-    // như Field mặc định — ô tìm kiếm mang bề rộng cố định, ô chọn lọc
-    // co theo nội dung. jsdom không tính layout nên hành vi quan sát
-    // được ở đây là class co chiều ngang trên đúng các trường của
-    // thanh lọc.
-    const searchField = screen.getByLabelText('Tìm người dùng').closest('[data-slot="field"]');
-    expect(searchField?.className).toContain('w-72');
-    const roleFilterField = screen.getByLabelText('Lọc theo vai trò').closest('[data-slot="field"]');
-    expect(roleFilterField?.className).toContain('w-auto');
+    expect(card.getByText('Mọi người dùng đang giữ vai trò và ngữ cảnh họ được gán.')).toBeInTheDocument();
+    // Thanh lọc hai hàng: hàng 1 là hai ô chọn có nhãn phía trên, hàng
+    // 2 là ô tìm kiếm mang bề rộng tối đa 288px như bảng mẫu. jsdom
+    // không tính layout nên hành vi quan sát được ở đây là class bề
+    // rộng trên đúng trường tìm kiếm và sự hiện diện của cả hai ô chọn.
+    const searchField = card.getByLabelText('Tìm người dùng').closest('[data-slot="field"]');
+    expect(searchField?.className).toContain('max-w-2xs');
+    expect(card.getByLabelText('Lọc theo vai trò')).toBeInTheDocument();
+    expect(card.getByLabelText('Lọc theo ngữ cảnh')).toBeInTheDocument();
     // Chân bảng: dòng khoảng dòng thay cho "Trang X / Y", và cụm nút
     // chuyển trang LUÔN hiện — dữ kiện chỉ có 1 trang nên các nút
     // Trước/Sau ở trạng thái tắt, nút số trang 1 vẫn bày.
-    expect(screen.getByText('Hiển thị 1–2 trong 2 dòng')).toBeInTheDocument();
-    expect(screen.queryByText('Trang 1 / 1')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument();
-    for (const button of screen.getAllByRole('button', { name: 'Sau' })) {
-      expect(button).toBeDisabled();
-    }
-    for (const button of screen.getAllByRole('button', { name: 'Trước' })) {
-      expect(button).toBeDisabled();
-    }
+    expect(card.getByText('Hiển thị 1–2 trong 2 dòng')).toBeInTheDocument();
+    expect(card.queryByText('Trang 1 / 1')).not.toBeInTheDocument();
+    expect(card.getByRole('button', { name: '1' })).toBeInTheDocument();
+    expect(card.getByRole('button', { name: 'Sau' })).toBeDisabled();
+    expect(card.getByRole('button', { name: 'Trước' })).toBeDisabled();
+  });
+});
+
+describe('Trang vai trò — bảng người dùng kèm vai trò', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  /** Thẻ bảng người dùng kèm vai trò để giới hạn truy vấn trong thẻ. */
+  function usersCard(): HTMLElement {
+    const card = screen.getByText('Tổng số người dùng kèm vai trò của họ').closest('[data-slot="card"]');
+    if (!card) throw new Error('Không tìm thấy thẻ bảng người dùng kèm vai trò');
+    return card as HTMLElement;
+  }
+
+  it('một người dùng một dòng kèm mọi gán và nhãn cấp dạng chữ, trạng thái dạng pill, không cột Plan/Billing và không Export/Import', async () => {
+    stubFetch([]);
+    renderPage();
+
+    const card = within(usersCard());
+    const table = await card.findByRole('table');
+    // Ba người dùng fixture thành đúng ba dòng.
+    expect(within(table).getByText('An Nguyễn')).toBeInTheDocument();
+    expect(within(table).getByText('Bình Trần')).toBeInTheDocument();
+    expect(within(table).getByText('Cô Lan')).toBeInTheDocument();
+    // Cột vai trò bày gán kèm nhãn cấp dạng chữ; không chuỗi kỹ thuật.
+    expect(within(table).getAllByText('Giáo viên')).toHaveLength(2);
+    expect(within(table).getByText(/· Hệ thống/)).toBeInTheDocument();
+    expect(within(table).getByText(/· Trung tâm/)).toBeInTheDocument();
+    expect(screen.queryByText(/thực thể/)).not.toBeInTheDocument();
+    // Trạng thái: hai người đang hoạt động, một người đã khoá.
+    expect(within(table).getAllByText('Đang hoạt động')).toHaveLength(2);
+    expect(within(table).getByText('Đã khoá')).toBeInTheDocument();
+    // Không cột Plan/Billing, không nút Export/Import, không cột chọn hàng.
+    expect(within(table).queryByText('Plan')).not.toBeInTheDocument();
+    expect(within(table).queryByText('Billing')).not.toBeInTheDocument();
+    expect(card.queryByText(/Export/)).not.toBeInTheDocument();
+    expect(card.queryByText(/Import/)).not.toBeInTheDocument();
+    expect(within(table).queryAllByRole('checkbox')).toHaveLength(0);
+    // Bộ lọc chỉ có vai trò và trạng thái — không có ô chọn gói.
+    expect(card.getByLabelText('Lọc theo vai trò')).toBeInTheDocument();
+    expect(card.getByLabelText('Trạng thái')).toBeInTheDocument();
+    expect(card.queryByLabelText(/Plan/)).not.toBeInTheDocument();
+    // Chân bảng: khoảng dòng đếm NGƯỜI DÙNG (3), không đếm dòng gán.
+    expect(card.getByText('Hiển thị 1 đến 3 trong 3 mục')).toBeInTheDocument();
+    // Cỡ trang mặc định 10 và có đủ các lựa chọn 10/25/50/100.
+    const pageSizeSelect = card.getByLabelText('Số người dùng mỗi trang') as HTMLSelectElement;
+    expect(pageSizeSelect.value).toBe('10');
+    expect([...pageSizeSelect.options].map((option) => option.value)).toEqual(['10', '25', '50', '100']);
+  });
+
+  it('lọc theo vai trò, trạng thái và tìm kiếm đều gửi tham số lên endpoint gộp', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderPage();
+
+    const card = within(usersCard());
+    await card.findByText('An Nguyễn');
+    const usersCalls = () =>
+      calls.filter((c) => c.url.startsWith('/api/v1/access/users-with-assignments') && c.method === 'GET');
+
+    await userEvent.type(card.getByLabelText('Tìm người dùng'), 'binh');
+    await waitFor(() => expect(usersCalls().some((c) => c.url.includes('search=binh'))).toBe(true));
+    await waitFor(() => expect(card.queryByText('An Nguyễn')).not.toBeInTheDocument());
+    expect(card.getByText('Bình Trần')).toBeInTheDocument();
+
+    await userEvent.selectOptions(card.getByLabelText('Trạng thái'), 'suspended');
+    await waitFor(() => expect(usersCalls().some((c) => c.url.includes('status=suspended'))).toBe(true));
+
+    await userEvent.selectOptions(card.getByLabelText('Lọc theo vai trò'), ROLE_ID);
+    await waitFor(() => expect(usersCalls().some((c) => c.url.includes(`roleId=${ROLE_ID}`))).toBe(true));
+
+    await userEvent.selectOptions(card.getByLabelText('Số người dùng mỗi trang'), '25');
+    await waitFor(() => expect(usersCalls().some((c) => c.url.includes('pageSize=25'))).toBe(true));
+  });
+
+  it('hộp thoại quản lý của một dòng liệt kê gán kèm cấp dạng chữ, gán enrol không có nút gỡ mà hiện lý do', async () => {
+    stubFetch([]);
+    renderPage();
+
+    const card = within(usersCard());
+    const table = await card.findByRole('table');
+    const manageButtons = within(table).getAllByRole('button', { name: 'Quản lý vai trò' });
+    await userEvent.click(manageButtons[1]);
+    const dialog = await screen.findByRole('dialog', { name: 'Vai trò của Bình Trần' });
+    expect(within(dialog).getByText('Giáo viên')).toBeInTheDocument();
+    expect(within(dialog).getByText('Trung tâm')).toBeInTheDocument();
+    // Gán do ghi danh cấp: không nút gỡ, hiện thẳng lý do.
+    expect(within(dialog).queryByRole('button', { name: 'Gỡ gán' })).not.toBeInTheDocument();
+    expect(within(dialog).getByText('Không gỡ trực tiếp được — gỡ bằng cách rút ghi danh')).toBeInTheDocument();
+  });
+
+  it('gỡ gán tay từ hộp thoại quản lý thì DELETE đúng id; gán thêm mở hộp thoại gán với người dùng chọn sẵn', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderPage();
+
+    const card = within(usersCard());
+    const table = await card.findByRole('table');
+    const manageButtons = within(table).getAllByRole('button', { name: 'Quản lý vai trò' });
+    await userEvent.click(manageButtons[0]);
+    const manageDialog = await screen.findByRole('dialog', { name: 'Vai trò của An Nguyễn' });
+    await userEvent.click(within(manageDialog).getByRole('button', { name: 'Gỡ gán' }));
+    const confirmDialog = await screen.findByRole('dialog', { name: 'Gỡ gán vai trò' });
+    await userEvent.click(within(confirmDialog).getByRole('button', { name: 'Gỡ gán' }));
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.url === `/api/v1/access/assignments/${ASSIGN_A_ID}` && c.method === 'DELETE'),
+      ).toBe(true),
+    );
+    // Hộp thoại xác nhận đóng; hộp thoại quản lý vẫn mở trên cùng người.
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Gỡ gán vai trò' })).not.toBeInTheDocument());
+    const manageDialogAgain = screen.getByRole('dialog', { name: 'Vai trò của An Nguyễn' });
+    // Bấm gán thêm trong hộp thoại quản lý: hộp thoại gán mở với người
+    // dùng chọn sẵn (không còn ô tìm người dùng).
+    await userEvent.click(within(manageDialogAgain).getByRole('button', { name: 'Gán thêm vai trò' }));
+    const assignDialog = await screen.findByRole('dialog', { name: 'Gán vai trò' });
+    expect(within(assignDialog).getByText('Người dùng được gán vai')).toBeInTheDocument();
+    expect(within(assignDialog).getByText('annguyen')).toBeInTheDocument();
+    expect(within(assignDialog).queryByLabelText('Tìm người dùng')).not.toBeInTheDocument();
   });
 });
