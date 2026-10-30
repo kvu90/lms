@@ -689,7 +689,7 @@ export function ChatPanel({
                     <DropdownMenuItem
                       key={emoji}
                       className={CHAT_MENU_ITEM_CLASS}
-                      onClick={() => setDrafts((prev) => ({ ...prev, [active.id]: `${prev[active.id] ?? ''}${emoji}` }))}
+                      onClick={() => { setDrafts((prev) => ({ ...prev, [active.id]: `${prev[active.id] ?? ''}${emoji}` })); noteTyping(); }}
                     >
                       {emoji}
                     </DropdownMenuItem>

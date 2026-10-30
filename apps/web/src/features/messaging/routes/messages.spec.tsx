@@ -3114,6 +3114,25 @@ describe('Trang tin nhắn — dựng lại theo mẫu demo (issue #564)', () =>
     await userEvent.click(await screen.findByRole('menuitem', { name: '👍' }));
     expect(input.value).toBe('chào👍');
   });
+  it('bấm emoji trên nháp trống vẫn phát tín hiệu đang nhập cho đúng hội thoại', async () => {
+    const calls: RecordedCall[] = [];
+    stubMsgT3Fetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Một/ }));
+    await screen.findByLabelText('Tin nhắn');
+    const input = screen.getByLabelText('Nội dung tin nhắn') as HTMLTextAreaElement;
+    expect(input.value).toBe('');
+    // Cô lập cú click emoji: xoá mọi lần gọi typing từ các test trước
+    // trong cùng file (mock socket dùng chung), để cú click này là tác
+    // nhân duy nhất có thể phát tín hiệu — assert sau click mà không
+    // xoá mock sẽ xanh ngay cả khi chưa sửa.
+    realtime.handle.typing.mockClear();
+    await userEvent.click(screen.getByRole('button', { name: 'Chèn biểu tượng cảm xúc' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '👍' }));
+    expect(input.value).toBe('👍');
+    expect(realtime.handle.typing).toHaveBeenCalledWith(T3_DM_A);
+  });
 
   it('bấm avatar header của chat 1–1 mở panel đối tác ở cột thứ ba; nút Đóng đóng panel', async () => {
     const calls: RecordedCall[] = [];
