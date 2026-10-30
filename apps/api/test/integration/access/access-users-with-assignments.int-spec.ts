@@ -189,6 +189,55 @@ describe('Access: danh sách người dùng kèm gán vai cho trang vai trò (is
     expect(usersOf(byDeleted.body)[0].deleted).toBe(true);
   });
 
+  it('lọc đồng thời tìm kiếm, vai trò và trạng thái chỉ trả người khớp giao của cả ba điều kiện', async () => {
+    const marker = uniqueName('tri568');
+    const roleX = await createRoleViaApi(app, admin);
+    const roleY = await createRoleViaApi(app, admin);
+
+    // Bốn người được dựng sao cho giao của ba điều kiện phân biệt được:
+    // mỗi người lệch đúng một điều kiện so với giao.
+    // A khớp cả ba: đúng từ khoá, giữ vai X, đang hoạt động.
+    const userA = await createUserViaApi(app, admin, { username: `${marker}a` });
+    await assignRole(app, admin, userA.id, roleX, systemId);
+    // B khớp từ khoá và vai X nhưng đang bị đình chỉ.
+    const userB = await createUserViaApi(app, admin, { username: `${marker}b` });
+    await assignRole(app, admin, userB.id, roleX, systemId);
+    await usersRepo.updateUser(userB.id, { suspended: true });
+    // C khớp từ khoá và đang hoạt động nhưng chỉ giữ vai Y.
+    const userC = await createUserViaApi(app, admin, { username: `${marker}c` });
+    await assignRole(app, admin, userC.id, roleY, systemId);
+    // D giữ vai X và đang hoạt động nhưng tên đăng nhập nằm ngoài từ khoá.
+    const userD = await createUserViaApi(app, admin, { username: `ngoai568${Date.now()}` });
+    await assignRole(app, admin, userD.id, roleX, systemId);
+
+    // Đối chứng: từng cặp bộ lọc đều trả nhiều hơn giao của cả ba, nên
+    // một kết quả bộ ba đúng không thể là trùng hợp của từng cặp.
+    const pairRole = await list({ search: marker, roleId: roleX });
+    expect(pairRole.body.total).toBe(2);
+    expect(usersOf(pairRole.body).map((u) => u.id).sort()).toEqual([userA.id, userB.id].sort());
+    const pairStatus = await list({ search: marker, status: 'active' });
+    expect(pairStatus.body.total).toBe(2);
+    expect(usersOf(pairStatus.body).map((u) => u.id).sort()).toEqual([userA.id, userC.id].sort());
+
+    // Bộ ba với trạng thái đang hoạt động: chỉ A, và mảng gán của A vẫn
+    // chứa vai X (bộ lọc vai không cắt mảng gán).
+    const tripleActive = await list({ search: marker, roleId: roleX, status: 'active' });
+    expect(tripleActive.status).toBe(200);
+    expect(tripleActive.body.total).toBe(1);
+    const rowsActive = usersOf(tripleActive.body);
+    expect(rowsActive.map((u) => u.id)).toEqual([userA.id]);
+    expect(rowsActive[0].assignments.map((a) => a.roleId)).toContain(roleX);
+
+    // Bộ ba với trạng thái đình chỉ: chỉ B; với trạng thái đã xoá: rỗng
+    // vì không người nào trong fixture đã xoá.
+    const tripleSuspended = await list({ search: marker, roleId: roleX, status: 'suspended' });
+    expect(tripleSuspended.body.total).toBe(1);
+    expect(usersOf(tripleSuspended.body).map((u) => u.id)).toEqual([userB.id]);
+    const tripleDeleted = await list({ search: marker, roleId: roleX, status: 'deleted' });
+    expect(tripleDeleted.body.total).toBe(0);
+    expect(tripleDeleted.body.users).toEqual([]);
+  });
+
   it('tìm kiếm khớp theo họ, tên đầy đủ, email và tên đăng nhập; từ khoá không khớp trả rỗng', async () => {
     const marker = uniqueName('find568');
     const user = await createUserViaApi(app, admin, {
