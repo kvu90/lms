@@ -1,10 +1,13 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { Interval } from '@nestjs/schedule';
-import { asc, eq, isNull } from 'drizzle-orm';
+import { asc, eq, inArray, isNull } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from './db/relations';
-import { outboxEvents } from '@lms/db';
+import { outboxEvents, tenants } from '@lms/db';
+import { SpaceDatabaseService } from './db/routing/space-database.service';
+import { mapWithConcurrencyLimit } from './db/routing/space-sweep';
 import { EventLogWriter } from './event-log-writer.service';
 import { TaskLogService } from './task-log.service';
 import { tenantAls } from './db/tenant-als';
@@ -57,6 +60,25 @@ type OutboxRow = typeof outboxEvents.$inferSelect;
  *    (observer logstore duy nhất; writer tự nuốt lỗi của nó nên
  *    phản chiếu không bao giờ làm đổi ngữ nghĩa phát).
  *
+ * Lượt quét theo trung tâm (issue #582): sau lượt kho chung ở
+ * trên, mỗi nhịp còn quét thêm outbox của từng trung tâm ở KHO
+ * RIÊNG — danh sách lấy từ sổ đăng ký qua
+ * `SpaceDatabaseService.listRegisteredSpaces`, bỏ qua trung tâm
+ * đã `closed` (kho có thể đã dỡ). Mỗi trung tâm được quét trong
+ * một phiên theo trung tâm của khung định tuyến
+ * (`withSpaceDatabase`), với đúng flow phát → đóng dấu → phản
+ * chiếu như trên nhưng mọi thao tác đều ở kho của chính trung
+ * tâm đó; consumer nhận job mang slug của trung tâm và mở đúng
+ * kho qua `SpaceJobRunner`. Các lượt theo trung tâm chạy song
+ * song với trần đồng thời cấu hình được
+ * (`SPACE_SWEEP_CONCURRENCY`, mặc định 3) — mỗi lượt đang chạy
+ * giữ pool của một kho riêng mở, trần này là một phần của ngân
+ * sách kết nối của cụm; bên trong MỘT trung tâm, thứ tự phát
+ * vẫn tuần tự theo id như kho chung. Trung tâm bị đình chỉ
+ * (`suspended`) vẫn được quét: đình chỉ chặn traffic nghiệp vụ
+ * ở API, còn outbox là đường nền — sự kiện đã ghi của trung tâm
+ * vẫn phải tới được consumer của nó.
+ *
  * Bất biến và hành vi khi lỗi:
  * - `publishedAt` không bao giờ xuất hiện trước khi bước phát của
  *   dòng hoàn tất: đẩy job thất bại (ví dụ Redis lỗi) thì dòng
@@ -77,6 +99,13 @@ type OutboxRow = typeof outboxEvents.$inferSelect;
  *   `outbox-event-routes.ts`).
  * - Nhịp không phát được dòng nào thì không ghi `task_log` để tránh
  *   nhiễu 5 giây; nhịp có phát hoặc có lỗi thì ghi một dòng.
+ * - Lỗi của lượt quét MỘT trung tâm (kho không mở được, phát job
+ *   lỗi giữa lượt của trung tâm đó) chỉ làm hỏng lượt của trung
+ *   tâm đó: nhịp ghi `task_log` trạng thái `failed` kèm slug của
+ *   các trung tâm lỗi và KHÔNG ném lại — phần kho chung và các
+ *   trung tâm khác đã phát xong giữ nguyên dấu của chúng, lượt
+ *   của trung tâm lỗi được thử lại ở nhịp sau (các dòng chưa đóng
+ *   dấu của nó vẫn nằm chờ trong kho của nó).
  *
  * Side-effect của một nhịp: đẩy job BullMQ (với loại đã định tuyến),
  * ghi cột `publishedAt` của `outbox_events`, chèn dòng `event_log`
@@ -86,13 +115,20 @@ type OutboxRow = typeof outboxEvents.$inferSelect;
 export class OutboxRelayScheduler {
   private readonly logger = new Logger(OutboxRelayScheduler.name);
 
+  /** Trần lượt quét outbox theo trung tâm chạy đồng thời ở mỗi nhịp (cấu hình `SPACE_SWEEP_CONCURRENCY`). */
+  private readonly sweepConcurrency: number;
+
   constructor(
     @InjectDrizzle() private readonly db: Database,
     private readonly eventLog: EventLogWriter,
     private readonly taskLog: TaskLogService,
     @Inject(OUTBOX_EVENT_ROUTES) private readonly routes: OutboxEventQueueRoutes,
     @Inject(OUTBOX_EVENT_QUEUES) private readonly queues: OutboxEventQueues,
-  ) {}
+    private readonly spaceDb: SpaceDatabaseService,
+    config: ConfigService,
+  ) {
+    this.sweepConcurrency = config.get<number>('SPACE_SWEEP_CONCURRENCY') ?? 3;
+  }
 
   /**
    * Nhịp relay theo lịch (mỗi 5 giây): phát một lô dòng outbox đang
@@ -114,7 +150,22 @@ export class OutboxRelayScheduler {
   private async relayTickInContext(): Promise<void> {
     const startedAt = new Date();
     try {
-      const published = await this.publishPending();
+      const publishedShared = await this.publishPending();
+      const centrePass = await this.publishPendingForCentres();
+      const published = publishedShared + centrePass.published;
+      if (centrePass.failedSlugs.length > 0) {
+        // Lượt của ít nhất một trung tâm lỗi: ghi failed kèm slug
+        // để vận hành thấy được, nhưng không ném — phần đã phát
+        // của nhịp (kho chung và các trung tâm khác) là sự thật
+        // đã hoàn tất, xem bất biến ở mô tả lớp.
+        await this.taskLog.recordRun(
+          'outbox-relay',
+          startedAt,
+          'failed',
+          `relayed ${published} event(s); centre outbox scan failed for: ${centrePass.failedSlugs.join(', ')}`,
+        );
+        return;
+      }
       if (published > 0) {
         await this.taskLog.recordRun('outbox-relay', startedAt, 'success', `relayed ${published} event(s)`);
       }
@@ -136,17 +187,70 @@ export class OutboxRelayScheduler {
    * dòng sau nó chưa được đóng dấu và sẽ được xử lý lại ở lượt sau.
    */
   async publishPending(limit = 50): Promise<number> {
-    const pending = await this.db
+    return this.publishPendingFrom(this.db, limit);
+  }
+
+  /**
+   * Lượt quét theo trung tâm của một nhịp: quét outbox của từng
+   * trung tâm ở kho riêng (xem mô tả lớp) với trần đồng thời
+   * `SPACE_SWEEP_CONCURRENCY`.
+   *
+   * @param limitPerCentre Số dòng tối đa xử lý cho MỘT trung tâm
+   * trong lượt này (mặc định 50, như lượt kho chung).
+   * @returns Số dòng đã đóng dấu trên mọi trung tâm và danh sách
+   * slug của các trung tâm mà lượt của chúng lỗi (lượt của một
+   * trung tâm lỗi không chặn các trung tâm còn lại).
+   */
+  async publishPendingForCentres(limitPerCentre = 50): Promise<{ published: number; failedSlugs: string[] }> {
+    let spaces;
+    try {
+      spaces = await this.spaceDb.listRegisteredSpaces();
+    } catch (err) {
+      // Không đọc được sổ ở nhịp này: bỏ qua lượt theo trung tâm
+      // của nhịp này (nhịp sau thử lại) thay vì làm hỏng cả nhịp
+      // relay — lượt kho chung không phụ thuộc sổ.
+      this.logger.warn(
+        `Không đọc được sổ đăng ký để quét outbox theo trung tâm ở nhịp này: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return { published: 0, failedSlugs: [] };
+    }
+    const dedicated = spaces.filter((space) => space.storageMode === 'dedicated' && space.status !== 'closed');
+    let published = 0;
+    const failedSlugs: string[] = [];
+    await mapWithConcurrencyLimit(dedicated, this.sweepConcurrency, async (space) => {
+      try {
+        published += await this.spaceDb.withSpaceDatabase(space.slug, (db) =>
+          this.publishPendingFrom(db, limitPerCentre),
+        );
+      } catch (err) {
+        failedSlugs.push(space.slug);
+        this.logger.warn(
+          `Quét outbox của trung tâm ${space.slug} lỗi ở nhịp này, thử lại ở nhịp sau: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    });
+    return { published, failedSlugs };
+  }
+
+  /**
+   * Thân lượt phát dùng chung cho kho chung và cho từng kho riêng
+   * của trung tâm: cùng flow phát → đóng dấu → phản chiếu trên
+   * đúng handle `db` được truyền (handle kho chung, hoặc handle
+   * của kho trung tâm trong phiên theo trung tâm).
+   */
+  private async publishPendingFrom(db: Database, limit: number): Promise<number> {
+    const pending = await db
       .select()
       .from(outboxEvents)
       .where(isNull(outboxEvents.publishedAt))
       .orderBy(asc(outboxEvents.id))
       .limit(limit);
 
+    const spaceSlugs = await this.resolveSpaceSlugs(db, pending);
     let published = 0;
     for (const row of pending) {
-      await this.dispatchRow(row);
-      await this.db
+      await this.dispatchRow(row, spaceSlugs.get(row.tenantId ?? '') ?? null);
+      await db
         .update(outboxEvents)
         .set({ publishedAt: new Date() })
         .where(eq(outboxEvents.id, row.id));
@@ -166,6 +270,25 @@ export class OutboxRelayScheduler {
   }
 
   /**
+   * Suy ra slug của trung tâm cho từng tenant có mặt trong lô:
+   * một truy vấn duy nhất trên bảng `tenants` CỦA CÙNG KHO chứa
+   * các dòng outbox (slug của tenant và slug đăng ký của trung
+   * tâm là một — xem `OutboxEventJobData.spaceSlug`). Tenant
+   * không còn dòng tương ứng thì sự kiện của nó mang slug null.
+   */
+  private async resolveSpaceSlugs(db: Database, rows: OutboxRow[]): Promise<Map<string, string>> {
+    const tenantIds = [...new Set(rows.map((row) => row.tenantId).filter((id): id is string => !!id))];
+    const slugs = new Map<string, string>();
+    if (tenantIds.length === 0) return slugs;
+    const tenantRows = await db
+      .select({ id: tenants.id, slug: tenants.slug })
+      .from(tenants)
+      .where(inArray(tenants.id, tenantIds));
+    for (const tenant of tenantRows) slugs.set(tenant.id, tenant.slug);
+    return slugs;
+  }
+
+  /**
    * Bước phát của một dòng: đẩy job BullMQ vào mọi hàng đợi đích
    * của loại sự kiện nếu loại đó đã có trong bảng định tuyến; chưa
    * có thì dòng chưa thuộc phạm vi phát job và bước phát là rỗng
@@ -179,8 +302,10 @@ export class OutboxRelayScheduler {
    *
    * @param row Dòng outbox đang phát (chưa có `publishedAt` tại thời
    * điểm hàm chạy — job được đẩy trong khi dòng còn chưa có dấu).
+   * @param spaceSlug Slug của trung tâm mà tenant của dòng thuộc
+   * về, đã suy ra cho cả lô (null khi không xác định được).
    */
-  private async dispatchRow(row: OutboxRow): Promise<void> {
+  private async dispatchRow(row: OutboxRow, spaceSlug: string | null): Promise<void> {
     const route = this.routes[row.type];
     if (!route) return;
     const data: OutboxEventJobData = {
@@ -190,6 +315,7 @@ export class OutboxRelayScheduler {
       type: row.type,
       payload: row.payload as Record<string, unknown> | null,
       tenantId: row.tenantId,
+      spaceSlug,
       occurredAt: row.occurredAt.toISOString(),
     };
     for (const queueName of queueNamesOfRoute(route)) {

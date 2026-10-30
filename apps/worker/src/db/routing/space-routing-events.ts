@@ -26,6 +26,21 @@
  * kiện và xoá đúng mục đệm của slug đó; TTL ngắn trên từng mục đệm
  * là lưới dự phòng cho mọi thay đổi không đi qua kênh này (ví dụ
  * thao tác vận hành trực tiếp trên database control plane).
+ *
+ * Giới hạn liên tiến trình và kết luận áp dụng (issue #582): kênh
+ * này chỉ tồn tại TRONG một tiến trình — API và worker mỗi tiến
+ * trình giữ bộ nghe của riêng mình, không có kênh liên tiến trình
+ * (không Redis pub/sub, không LISTEN/NOTIFY). Thay đổi sổ do tiến
+ * trình khác ghi chỉ hội tụ vào bộ đệm của tiến trình này khi TTL
+ * hết hạn (mặc định 5 giây, biến `SPACE_ROUTING_CACHE_TTL_MS`).
+ * Độ hội tụ này được kết luận là ĐỦ cho cả định tuyến request lẫn
+ * định tuyến job, vì hai lý do: job outbox idempotent theo
+ * `outboxId` nên một job bị phát/xử lý theo ảnh chụp sổ cũ trong
+ * cửa sổ TTL vẫn an toàn khi chạy lại; và việc đổi chế độ kho hay
+ * trạng thái của một trung tâm là thao tác di trú/cấp phát có kế
+ * hoạch, không phải thay đổi tức thời theo traffic. Đợt này vì
+ * vậy KHÔNG dựng kênh liên tiến trình; nhu cầu hội tụ tức thời
+ * thật (nếu phát sinh) là việc riêng có đặc tả riêng.
  */
 
 /** Hàm huỷ đăng ký nghe — gọi khi bên nghe kết thúc vòng đời. */

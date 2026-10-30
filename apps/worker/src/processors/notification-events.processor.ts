@@ -1,6 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { DelayedError, type Job } from 'bullmq';
-import { tenantAls } from '../db/tenant-als';
+import { SpaceJobRunner } from '../db/routing/space-job-runner';
 import type { OutboxEventJobData } from '../outbox-event-routes';
 import { NotificationEventsMarker } from '../notification-events-marker.service';
 import {
@@ -63,6 +63,7 @@ export class NotificationEventsProcessor extends WorkerHost {
   constructor(
     private readonly handler: NotificationEventsHandlerService,
     private readonly marker: NotificationEventsMarker,
+    private readonly jobRunner: SpaceJobRunner,
   ) {
     super();
   }
@@ -85,7 +86,7 @@ export class NotificationEventsProcessor extends WorkerHost {
     job: Job<OutboxEventJobData>,
     token?: string,
   ): Promise<{ handled: boolean; duplicate?: boolean }> {
-    return tenantAls.run({ platform: true }, async () => {
+    return this.jobRunner.runForJob(job.data, async () => {
       const { outboxId, type, payload } = job.data;
       if (!(NOTIFICATION_EVENT_TYPES as readonly string[]).includes(type)) {
         return { handled: false };

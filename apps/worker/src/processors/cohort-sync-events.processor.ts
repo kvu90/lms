@@ -1,7 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
-import { tenantAls } from '../db/tenant-als';
+import { SpaceJobRunner } from '../db/routing/space-job-runner';
 import { CohortSyncService } from '../cohort-sync.service';
 import type { OutboxEventJobData } from '../outbox-event-routes';
 
@@ -75,7 +75,10 @@ function isCohortMemberPayload(payload: unknown): payload is { cohortId: string;
 export class CohortSyncEventsProcessor extends WorkerHost {
   private readonly logger = new Logger(CohortSyncEventsProcessor.name);
 
-  constructor(private readonly cohortSync: CohortSyncService) {
+  constructor(
+    private readonly cohortSync: CohortSyncService,
+    private readonly jobRunner: SpaceJobRunner,
+  ) {
     super();
   }
 
@@ -89,7 +92,7 @@ export class CohortSyncEventsProcessor extends WorkerHost {
    * @throws Lỗi của bề mặt hoặc hạ tầng được truyền ra để BullMQ thử lại job.
    */
   async process(job: Job<OutboxEventJobData>): Promise<{ handled: boolean }> {
-    return tenantAls.run({ platform: true }, async () => {
+    return this.jobRunner.runForJob(job.data, async () => {
       const { type, payload } = job.data;
       if (type === 'cohort_member_added' || type === 'cohort_member_removed') {
         if (!isCohortMemberPayload(payload)) {
