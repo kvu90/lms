@@ -135,3 +135,18 @@ build + test của `@lms/web`, đối chiếu diff của `components.json` và
   package). Khi đồng bộ upstream lần tới: chạy
   `shadcn add native-select --overwrite` tại thư mục này và đối chiếu
   diff của file, đặc biệt dòng import `cn`.
+- `src/components/popover.tsx` (issue #591, vòng sửa PR #593):
+  THÊM MỚI bằng shadcn CLI (`shadcn add popover -y`, preset
+  base-vega) chạy tại thư mục package này — nội dung file là đúng
+  bản Popover của registry cho preset đang dùng (primitive
+  `@base-ui/react/popover`), chỉ thích ứng một điểm duy nhất như
+  native-select: dòng import `cn` đổi từ package `cn` mà CLI hiện
+  sinh sang `#lib/utils`. Bước cài phụ thuộc của CLI đòi
+  `pnpm add cn` nhưng môi trường thi công không có `pnpm` trên
+  PATH nên bước đó được bỏ qua (shim no-op chỉ cho lệnh `pnpm`
+  của CLI): `cn` không phải package npm mà là module utils nội
+  bộ của package (đã có sẵn), `package.json` không đổi, và
+  `components.json` + `src/styles/globals.css` cũng không đổi
+  sau lần chạy CLI này. Khi đồng bộ upstream lần tới: chạy
+  `shadcn add popover --overwrite` tại thư mục này và đối chiếu
+  diff của file, đặc biệt dòng import `cn`.
