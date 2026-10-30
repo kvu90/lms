@@ -2142,6 +2142,7 @@ export const enResources = {
     groupTreeSearchPlaceholder: 'Search classes, courses, groups…',
     groupTreeNoResults: 'No class, course or group matches.',
     groupTreeEmpty: 'You do not belong to any class, course or group yet.',
+    groupTreeLoadFailed: 'Could not load group tree',
     freeGroupsTitle: 'Free groups',
     freeGroupsEmpty: 'No free groups yet.',
     coursesOutsideClassesTitle: 'Courses outside my classes',

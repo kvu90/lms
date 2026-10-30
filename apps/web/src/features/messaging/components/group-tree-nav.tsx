@@ -94,6 +94,14 @@ interface GroupTreeNavProps {
    * lúc tải bị cấm, rỗng thật chỉ hiện sau khi nạp xong.
    */
   loading?: boolean;
+  /**
+   * Lỗi nạp cây nhóm lần đầu (vòng sửa 2 PR #593): khi cây
+   * chưa có dữ kiện mà query đã lỗi thì hiện thông báo lỗi
+   * thay cho câu cây rỗng — câu rỗng trên đường lỗi là trạng
+   * thái rỗng giả mà issue #591 cấm. Null khi cây đã có dữ
+   * kiện hoặc chưa lỗi.
+   */
+  treeError?: string | null;
 }
 
 /**
@@ -123,7 +131,7 @@ function TreeUnreadBadge({ count }: { count: number }) {
 export function GroupTreeNav({
   tree, filter, activeConversationId, onOpenConversationById, onOpenClassChat,
   onOpenCourseChat, onOpenGroupConversation, canCreateFreeGroup, onCreateFreeGroup,
-  conversationsById, myId, nameOf, loading,
+  conversationsById, myId, nameOf, loading, treeError,
 }: GroupTreeNavProps) {
   const { t } = useTranslation('app');
   const [expandedClasses, setExpandedClasses] = useState<ReadonlySet<string>>(new Set());
@@ -149,6 +157,14 @@ export function GroupTreeNav({
   }, [tree, activeConversationId]);
 
   if (!tree) {
+    // Lỗi tải lần đầu thì hiện thông báo lỗi thay cho câu rỗng
+    // (vòng sửa 2 PR #593) — cây chưa có dữ kiện mà đã lỗi
+    // thì câu rỗng là trạng thái rỗng giả; banner lỗi ở đây
+    // thay cho banner lỗi của tab Trò chuyện vì cây không
+    // nhận prop lỗi nào trước vòng này.
+    if (treeError) {
+      return <p role="alert" className="px-2 text-sm">{treeError}</p>;
+    }
     // Đang nạp lần đầu thì hiện khung đang tải đúng hình dạng
     // dòng cây (issue #591) — không hiện câu rỗng giả rồi mới
     // đầy dữ kiện như trước.
@@ -321,7 +337,7 @@ export function GroupTreeNav({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 space-y-3">
       {classes.map((cls) => {
         const expanded = expandedClasses.has(cls.classId);
         return (
@@ -373,14 +389,28 @@ export function GroupTreeNav({
             </Button>
           ) : null}
         </div>
-        {freeGroups.map((g) => nodeRow(
-          `free-${g.conversationId}`,
-          g.name,
-          g.myRole,
-          g.unread,
-          g.conversationId === activeConversationId,
-          () => onOpenConversationById(g.conversationId),
-          g.conversationId,
+        {freeGroups.map((g) => (
+          /*
+            Dòng nhóm tự do bọc trong cùng vỏ flex co-giãn như
+            dòng lớp/khoá (vòng sửa 2 PR #593): trước vòng này
+            dòng nhóm tự do là nút trực tiếp không có vỏ — nút
+            không bị cột danh sách chặn chiều rộng nên trích
+            đoạn dài đẩy ngày và biểu tượng tắt tiếng ra khỏi
+            mép phải cột, đúng lệch nghiệm thu trình duyệt đã
+            ghi (ngày bị cắt, biểu tượng tắt tiếng biến mất
+            khỏi hàng dù dữ kiện có cờ tắt tiếng).
+          */
+          <div key={`free-${g.conversationId}`} className="flex min-w-0 items-center">
+            {nodeRow(
+              `free-${g.conversationId}`,
+              g.name,
+              g.myRole,
+              g.unread,
+              g.conversationId === activeConversationId,
+              () => onOpenConversationById(g.conversationId),
+              g.conversationId,
+            )}
+          </div>
         ))}
         {freeGroups.length === 0 ? (
           <p className="px-2 text-sm text-muted-foreground">{t('freeGroupsEmpty')}</p>

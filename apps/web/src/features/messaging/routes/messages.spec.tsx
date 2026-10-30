@@ -3298,7 +3298,7 @@ describe('Trang tin nhắn — vòng sửa hẹp PR #576 (tiêu đề 1–1 và 
     expect(screen.queryByText(/Hội thoại với người dùng/)).not.toBeInTheDocument();
   });
 
-  it('trạng thái hiện diện 1–1 theo ba trạng thái: chưa có sự kiện thì đầu khung và panel không hiện dòng trạng thái, sự kiện ngoại tuyến hiện "Ngoại tuyến" ở cả hai bề mặt, chuyển trực tuyến đổi sang "đang trực tuyến"', async () => {
+  it('trạng thái hiện diện 1–1 theo ba trạng thái: chưa có sự kiện thì đầu khung và panel không hiện dòng trạng thái, sự kiện ngoại tuyến hiện "Ngoại tuyến" ở cả hai bề mặt, chuyển trực tuyến đổi sang "Trực tuyến"', async () => {
     const calls: RecordedCall[] = [];
     stubNamelessDmFetch(calls);
     renderMessages();
@@ -3312,7 +3312,7 @@ describe('Trang tin nhắn — vòng sửa hẹp PR #576 (tiêu đề 1–1 và 
     // Khẳng định này ĐỎ trên code vòng sửa 2 (vòng 2 gộp
     // chưa-biết thành "Ngoại tuyến" ngay khi mở hội thoại).
     expect(within(header).queryByText('Ngoại tuyến')).not.toBeInTheDocument();
-    expect(within(header).queryByText('đang trực tuyến')).not.toBeInTheDocument();
+    expect(within(header).queryByText('Trực tuyến')).not.toBeInTheDocument();
 
     // (b) Sự kiện xác nhận ngoại tuyến: đầu khung hiện "Ngoại tuyến".
     act(() => {
@@ -3327,13 +3327,13 @@ describe('Trang tin nhắn — vòng sửa hẹp PR #576 (tiêu đề 1–1 và 
     expect(within(panel).getByText('Ngoại tuyến')).toBeInTheDocument();
 
     // (c) Chuyển ngoại tuyến → trực tuyến: cả đầu khung lẫn
-    // panel đổi sang "đang trực tuyến", hết "Ngoại tuyến".
+    // panel đổi sang "Trực tuyến", hết "Ngoại tuyến".
     act(() => {
       realtime.handlers?.onPresence({ userId: OTHER_ID, online: true } as never);
     });
-    expect(await within(header).findByText('đang trực tuyến')).toBeInTheDocument();
+    expect(await within(header).findByText('Trực tuyến')).toBeInTheDocument();
     expect(within(header).queryByText('Ngoại tuyến')).not.toBeInTheDocument();
-    expect(await within(panel).findByText('đang trực tuyến')).toBeInTheDocument();
+    expect(await within(panel).findByText('Trực tuyến')).toBeInTheDocument();
     expect(within(panel).queryByText('Ngoại tuyến')).not.toBeInTheDocument();
   });
 });
@@ -3462,6 +3462,76 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     release();
     expect(await screen.findByRole('button', { name: /Bạn Học/ })).toBeInTheDocument();
     expect(screen.queryByTestId('conversations-loading')).not.toBeInTheDocument();
+  });
+
+  /**
+   * Stub fetch cho ba ca hồi quy lỗi tải lần đầu (vòng sửa 2
+   * PR #593): mỗi ca chọn riêng endpoint nào lỗi 500 — danh
+   * sách lỗi, cây nhóm lỗi, hoặc cả hai về rỗng thành công.
+   * Các endpoint còn lại của trang trả dữ kiện tối thiểu để
+   * trang dựng được (phiên, hồ sơ, số chưa đọc, danh bạ, khoá
+   * rỗng). Lưu ý: QueryClient của app thử lại lỗi 500 tối đa
+   * 2 lần nên trạng thái lỗi chỉ chốt sau vài giây — các ca
+   * dùng findByText với timeout dài thay vì timeout mặc định.
+   */
+  function stubLoadErrorFetch(opts: { conversations: 'error' | 'empty' | 'one'; groupTree: 'error' | 'empty' }) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        const respond = (payload: unknown, status = 200) =>
+          new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } });
+        if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
+        if (url === '/api/v1/users/me') return respond(PROFILE);
+        if (url === '/api/v1/messages/conversations' && method === 'GET') {
+          if (opts.conversations === 'error') return respond({ title: 'Lỗi tải' }, 500);
+          if (opts.conversations === 'empty') return respond([]);
+          return respond([
+            {
+              id: CONV_ID, type: 1, name: null, members: [ME_ID, OTHER_ID],
+              unread: 0, lastReadSeq: 0, lastMessageSeq: 0, lastMessage: null,
+              memberProfiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } },
+            },
+          ]);
+        }
+        if (url === '/api/v1/messages/group-tree') {
+          if (opts.groupTree === 'error') return respond({ title: 'Lỗi tải' }, 500);
+          return respond({ classes: [], coursesOutsideClasses: [], freeGroups: [], canCreateFreeGroup: false });
+        }
+        if (url === '/api/v1/messages/courses') return respond({ courses: [] });
+        if (url === '/api/v1/messages/unread-count') return respond({ conversations: 0, notifications: 0 });
+        if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [] });
+        return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+      }),
+    );
+  }
+
+  it('lỗi tải lần đầu ở danh sách: chỉ banner lỗi hiện, câu rỗng không hiện', async () => {
+    stubLoadErrorFetch({ conversations: 'error', groupTree: 'empty' });
+    renderMessages();
+
+    // Banner lỗi chốt sau các lần thử lại của QueryClient.
+    await screen.findByText('Không tải được cuộc hội thoại', {}, { timeout: 10000 });
+    expect(screen.queryByText('Chưa có cuộc trò chuyện nào.')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('conversations-loading')).not.toBeInTheDocument();
+  });
+
+  it('lỗi tải lần đầu ở cây nhóm: tab Nhóm hiện thông báo lỗi thay cho câu cây rỗng', async () => {
+    stubLoadErrorFetch({ conversations: 'one', groupTree: 'error' });
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
+    await screen.findByText('Không tải được cây nhóm', {}, { timeout: 10000 });
+    expect(screen.queryByText('Bạn chưa thuộc lớp, khoá hay nhóm nào.')).not.toBeInTheDocument();
+  });
+
+  it('tải thành công trả về rỗng: cả hai câu rỗng vẫn hiện (chống sửa quá tay)', async () => {
+    stubLoadErrorFetch({ conversations: 'empty', groupTree: 'empty' });
+    renderMessages();
+
+    expect(await screen.findByText('Chưa có cuộc trò chuyện nào.')).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
+    expect(await screen.findByText('Bạn chưa thuộc lớp, khoá hay nhóm nào.')).toBeInTheDocument();
   });
 
   it('bộ chọn emoji ở ô soạn là lưới 20 biểu tượng như demo và chip Yêu thích chỉ là hình dạng vô hiệu', async () => {

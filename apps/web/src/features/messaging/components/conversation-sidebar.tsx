@@ -142,6 +142,12 @@ interface ConversationSidebarProps {
    * thoại (hai query về lệch nhịp nhau).
    */
   groupTreeLoading?: boolean;
+  /**
+   * Lỗi nạp cây nhóm lần đầu (vòng sửa 2 PR #593): khung trái
+   * truyền thẳng xuống cây để cây hiện thông báo lỗi thay cho
+   * câu rỗng giả; null khi cây đã có dữ kiện hoặc chưa lỗi.
+   */
+  groupTreeError?: string | null;
 }
 
 type ConversationFilterChip = 'all' | 'unread';
@@ -163,7 +169,7 @@ export function ConversationSidebar({
   contacts, contactMessage, incomingRequests, outgoingRequests, blocked, blockMessage,
   onMessageContact, onSendContactRequest, onRespondContactRequest, onUnblockContact,
   pickerContext, onSelectPickerContext, pickerClasses, pickerCourses, pickerMembers,
-  pickerRosterError, pickerRosterCursor, onLoadMorePicker, loading, groupTreeLoading,
+  pickerRosterError, pickerRosterCursor, onLoadMorePicker, loading, groupTreeLoading, groupTreeError,
 }: ConversationSidebarProps) {
   const { t } = useTranslation('app');
   const open = onOpenConversation;
@@ -428,11 +434,11 @@ export function ConversationSidebar({
               <AvatarFallback>{initialsOf(nameOf(myId))}</AvatarFallback>
             </Avatar>
           ) : null}
-          <h2 className="truncate text-lg font-semibold">
+          <h2 className="min-w-0 truncate text-lg font-semibold">
             {t('messagesTitle')} {unread > 0 ? t('unreadSuffix', { count: unread }) : ''}
           </h2>
         </div>
-        <Button type="button" size="sm" aria-label={t('newMessage')} onClick={() => setNewMessageOpen(true)}>
+        <Button type="button" size="sm" className="shrink-0" aria-label={t('newMessage')} onClick={() => setNewMessageOpen(true)}>
           <Plus className="size-4" />
           {t('newMessage')}
           {incomingRequests.length > 0 ? (
@@ -523,7 +529,14 @@ export function ConversationSidebar({
                   </div>
                 ))}
               </div>
-            ) : visibleConversations.length === 0 ? (
+            ) : !error && visibleConversations.length === 0 ? (
+              /*
+                Nhánh rỗng chỉ hiện khi KHÔNG có lỗi tải (vòng
+                sửa 2 PR #593): tải lần đầu lỗi thì chỉ banner
+                lỗi ở trên hiện — câu "chưa có hội thoại" trên
+                đường lỗi là trạng thái rỗng giả mà issue #591
+                cấm (chưa tải xong, chưa xác nhận là rỗng thật).
+              */
               <p className="px-2 text-sm text-muted-foreground">
                 {filterNeedle
                   ? t('conversationSearchNoResults')
@@ -594,6 +607,7 @@ export function ConversationSidebar({
               myId={myId}
               nameOf={nameOf}
               loading={initialLoading || Boolean(groupTreeLoading)}
+              treeError={groupTreeError ?? null}
             />
           </div>
         </TabsContent>

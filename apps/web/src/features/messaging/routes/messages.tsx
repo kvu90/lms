@@ -270,6 +270,7 @@ export function MessagesPage() {
             onLoadMorePicker={() => void contacts.loadMorePicker()}
             loading={!list.listLoaded && !list.error}
             groupTreeLoading={list.groupTreeLoading}
+            groupTreeError={list.groupTreeError}
           />
         </div>
         <div className={activeHook.active ? 'flex min-h-0 min-w-0 flex-1 flex-col' : 'hidden min-h-0 min-w-0 flex-1 flex-col md:flex'}>
