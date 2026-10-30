@@ -170,7 +170,6 @@ describe('Định tuyến job theo trung tâm phía worker (integration)', () =>
   let sharedPool: TenantAwarePool;
   let sharedDb: SpaceDatabase;
   let marker: NotificationEventsMarker;
-  let notificationQueue: CaptureQueue;
 
   beforeAll(async () => {
     // Cấp phát control plane + kho riêng trên cụm test như ca của

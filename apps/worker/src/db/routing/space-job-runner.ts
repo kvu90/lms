@@ -59,15 +59,10 @@ export class SpaceJobRunner {
   ): Promise<T> {
     const slug = data.spaceSlug ?? null;
     if (slug) {
-      let dedicated = false;
-      try {
-        dedicated = (await this.spaceDb.resolveTarget(slug)).mode === 'dedicated';
-      } catch {
-        // Không phân giải được đích (xem bước 4 ở mô tả lớp): rơi
-        // về đường platform như hiện tại thay vì làm chết job.
-        dedicated = false;
-      }
-      if (dedicated) {
+      // Không phân giải được đích (xem bước 4 ở mô tả lớp): rơi
+      // về đường platform như hiện tại thay vì làm chết job.
+      const target = await this.spaceDb.resolveTarget(slug).catch(() => null);
+      if (target?.mode === 'dedicated') {
         return this.spaceDb.withSpaceDatabase(slug, async () => fn(), {
           tenantId: data.tenantId ?? undefined,
         });

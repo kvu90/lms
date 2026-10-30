@@ -12,7 +12,6 @@ import {
   createUserViaApi,
   http,
   login,
-  uniqueName,
 } from '../../support/identity-access-helpers';
 
 /**

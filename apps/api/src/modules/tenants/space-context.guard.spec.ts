@@ -57,11 +57,11 @@ function makeGuard(options?: {
   tenantById?: Record<string, { slug: string } | undefined>;
 }) {
   const spaceDb = {
-    resolveTarget: vi.fn(async (_slug: string) => {
+    resolveTarget: vi.fn(async () => {
       if (options?.resolveError) throw options.resolveError;
       return options?.target ?? DEDICATED_TARGET;
     }),
-    getDatabaseForSpace: vi.fn(async (_slug: string) => ({})),
+    getDatabaseForSpace: vi.fn(async () => ({})),
   };
   const repo = {
     getPlatformTenant: vi.fn(async () =>
@@ -70,7 +70,7 @@ function makeGuard(options?: {
     getTenant: vi.fn(async (id: string) => options?.tenantById?.[id]),
   };
   const evaluator = {
-    isSiteAdmin: vi.fn(async (_userId: string) => options?.isSiteAdmin ?? false),
+    isSiteAdmin: vi.fn(async () => options?.isSiteAdmin ?? false),
   };
   const guard = new SpaceContextGuard(
     spaceDb as unknown as SpaceDatabaseService,

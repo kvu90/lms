@@ -38,7 +38,7 @@ const SHARED_TARGET: ResolvedSpaceConnection = {
 function makeRunner(options?: { target?: ResolvedSpaceConnection; resolveError?: Error }) {
   const sessions: Array<{ slug: string; context?: { tenantId?: string; userId?: string } }> = [];
   const spaceDb = {
-    resolveTarget: vi.fn(async (_slug: string) => {
+    resolveTarget: vi.fn(async () => {
       if (options?.resolveError) throw options.resolveError;
       return options?.target ?? DEDICATED_TARGET;
     }),
