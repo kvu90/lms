@@ -1,8 +1,11 @@
-import { useState } from 'react';
-import { BellOff, Pin, Plus } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { BellOff, ChevronDown, Pin, Plus } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
+import {
+  Collapsible, CollapsibleContent, CollapsibleTrigger,
+} from '@lms/ui/components/collapsible';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@lms/ui/components/dropdown-menu';
@@ -33,19 +36,23 @@ import { CHAT_MENU_CONTENT_CLASS, CHAT_MENU_ITEM_CLASS, initialsOf, relativeTime
  *
  * - Tab **Trò chuyện**: CHỈ hội thoại cá nhân 1–1 (`type === 1`),
  *   giữ ô tìm theo tên hiển thị (chỉ lọc hội thoại đã có — không
- *   phải tìm người) và chip Tất cả / Chưa đọc. Chip "Nhóm" của bản
- *   cũ bị bỏ: hội thoại nhóm đã có nhà riêng ở tab Nhóm.
+ *   phải tìm người) và chip Tất cả / Chưa đọc kèm số đếm trên toàn
+ *   bộ hội thoại 1–1. Trong tab, danh sách chia thành các mục thu
+ *   gọn **Ghim** (chỉ hiện khi có hội thoại đã ghim), **Gần đây**
+ *   và **Đã lưu trữ** (issue #564 — thay tab Đã lưu trữ cũ; mục
+ *   này giữ nguyên cơ chế M5: danh sách riêng của server, nạp khi
+ *   mở mục lần đầu).
  * - Tab **Nhóm**: cây Lớp → Khoá → Nhóm con + Khoá ngoài lớp +
  *   Nhóm tự do do server dựng sẵn ({@link GroupTreeNav}); bấm một
  *   nút là mở ngay chat của nút đó ở khung phải. Tab mang huy hiệu
  *   tổng số chưa đọc của cả cây.
- * - Tab **Đã lưu trữ**: giữ nguyên cơ chế M5 — danh sách riêng của
- *   server, nạp lại mỗi khi mở tab; mọi loại hội thoại đã lưu đều
- *   về đây.
  * - Nút **Tin nhắn mới** cạnh tiêu đề mở sheet cùng tên ({@link
  *   NewMessageSheet}): nơi tab Danh bạ cũ bị hạ xuống — lời mời kết
  *   bạn (kèm huy hiệu số lượng trên chính nút này), chọn người từ
  *   liên hệ/roster lớp/khoá, và mục liên hệ đã chặn.
+ * - Tiêu đề khung trái kèm avatar của chính người xem — ánh xạ nút
+ *   Invite của bản demo (đường vào hộp thoại mời vẫn là nút Tin
+ *   nhắn mới, giữ nhãn tiếng Việt hiện có).
  *
  * Tab đang chọn do TRANG chứa giữ (và lưu bền cùng hội thoại đang
  * mở) để quay lại màn Tin nhắn là gặp đúng ngữ cảnh gần nhất; các
@@ -55,9 +62,9 @@ import { CHAT_MENU_CONTENT_CLASS, CHAT_MENU_ITEM_CLASS, initialsOf, relativeTime
 interface ConversationSidebarProps {
   /** Danh sách hội thoại CHƯA lưu của tôi (mọi loại — tab Trò chuyện tự lọc 1–1). */
   conversations: ConversationView[];
-  /** Mục ĐÃ LƯU (lát M5): danh sách riêng của server, nạp khi mở tab. */
+  /** Mục ĐÃ LƯU (lát M5): danh sách riêng của server, nạp khi mở mục Đã lưu trữ trong tab Trò chuyện. */
   archivedConversations: ConversationView[];
-  /** Nạp (lại) mục đã lưu từ server — gọi mỗi khi người dùng mở tab Đã lưu trữ. */
+  /** Nạp (lại) mục đã lưu từ server — gọi khi người dùng mở mục Đã lưu trữ. */
   onRequestArchived: () => void;
   /** Cây nhóm của tôi do server dựng (lát MSG-T1) cho tab Nhóm. */
   groupTree: ConversationGroupTreeView | null;
@@ -122,9 +129,10 @@ interface ConversationSidebarProps {
 type ConversationFilterChip = 'all' | 'unread';
 
 /**
- * Trình bày khung trái Tin nhắn: tiêu đề + nút Tin nhắn mới, ba
- * tab Trò chuyện / Nhóm / Đã lưu trữ, và hai sheet (Tin nhắn mới,
- * Tạo nhóm).
+ * Trình bày khung trái Tin nhắn: tiêu đề + avatar người xem + nút
+ * Tin nhắn mới, hai tab Trò chuyện / Nhóm (trong tab Trò chuyện là
+ * các mục thu gọn Ghim / Gần đây / Đã lưu trữ), và hai sheet (Tin
+ * nhắn mới, Tạo nhóm).
  *
  * @param props - Dữ kiện và sự kiện do trang Tin nhắn đưa xuống.
  * @returns Khung trái hoàn chỉnh của màn master–detail.
@@ -144,6 +152,15 @@ export function ConversationSidebar({
   const [chip, setChip] = useState<ConversationFilterChip>('all');
   const [newMessageOpen, setNewMessageOpen] = useState(false);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
+  /**
+   * Trạng thái mở của ba mục thu gọn trong tab Trò chuyện (issue
+   * #564): Ghim và Gần đây mở mặc định để hội thoại đã ghim không
+   * bị giấu sau một lần bấm thêm; Đã lưu trữ đóng mặc định vì nó
+   * là danh sách riêng chỉ cần khi người dùng tìm lại.
+   */
+  const [pinnedOpen, setPinnedOpen] = useState(true);
+  const [recentOpen, setRecentOpen] = useState(true);
+  const [archivedOpen, setArchivedOpen] = useState(false);
   /**
    * Lọc danh sách hội thoại theo TÊN HIỂN THỊ (lát M4, issue #237):
    * lọc ngay tại client trên danh sách đã tải — tên hiển thị là đúng
@@ -184,6 +201,22 @@ export function ConversationSidebar({
     .filter(matchesFilter)
     .filter((c) => (chip === 'unread' ? (c.unread ?? 0) > 0 : true));
   const visibleArchived = archivedConversations.filter(matchesFilter);
+  /**
+   * Tách danh sách đã lọc thành mục Ghim / Gần đây (issue #564):
+   * hội thoại mang `pinnedAt` lên mục Ghim, còn lại về Gần đây.
+   * Mục Ghim chỉ render khi có hội thoại đã ghim.
+   */
+  const pinnedConversations = visibleConversations.filter((c) => c.pinnedAt);
+  const recentConversations = visibleConversations.filter((c) => !c.pinnedAt);
+  /**
+   * Số đếm trên chip lọc: tính trên TOÀN BỘ hội thoại 1–1 (không
+   * chịu ô tìm hay chip đang chọn) để chip luôn cho biết quy mô
+   * thật của từng tập; danh sách bên dưới vẫn lọc theo ô tìm +
+   * chip như trước.
+   */
+  const allConversations = conversations.filter((c) => c.type === 1);
+  const allCount = allConversations.length;
+  const unreadCountTotal = allConversations.filter((c) => (c.unread ?? 0) > 0).length;
   // Tổng chưa đọc của cả cây — huy hiệu trên tab Nhóm (nút lớp đã
   // mang tổng của các nút con trong nó theo hợp đồng MSG-T1).
   const treeUnreadTotal = groupTree
@@ -286,17 +319,63 @@ export function ConversationSidebar({
     );
   };
 
-  const chips: { key: ConversationFilterChip; label: string }[] = [
-    { key: 'all', label: t('messagesFilterAll') },
-    { key: 'unread', label: t('messagesFilterUnread') },
+  const chips: { key: ConversationFilterChip; label: string; count: number }[] = [
+    { key: 'all', label: t('messagesFilterAll'), count: allCount },
+    { key: 'unread', label: t('messagesFilterUnread'), count: unreadCountTotal },
   ];
+
+  /**
+   * Một mục thu gọn trong tab Trò chuyện (issue #564): tiêu đề
+   * phẳng kiểu demo (nhãn + số đếm + chevron), dựng trên primitive
+   * Collapsible của @lms/ui — KHÔNG dùng vỏ Card của
+   * CollapsibleSection dùng chung (vỏ đó không khớp section phẳng
+   * của demo) và không tự chế kiểu collapse riêng. Số đếm đặt
+   * trong span `aria-hidden` để tên truy cập của nút vẫn đúng
+   * nhãn của mục, như chip lọc bên dưới.
+   *
+   * @param title - Nhãn của mục.
+   * @param count - Số dòng trong mục (hiện sau nhãn).
+   * @param open - Mục đang mở hay đóng.
+   * @param onOpenChange - Đổi trạng thái mở của mục.
+   * @param children - Nội dung mục khi mở.
+   * @returns Mục thu gọn hoàn chỉnh.
+   */
+  const renderSection = (
+    title: string,
+    count: number,
+    open: boolean,
+    onOpenChange: (next: boolean) => void,
+    children: ReactNode,
+  ) => (
+    <Collapsible open={open} onOpenChange={onOpenChange}>
+      <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium hover:bg-muted">
+        <span>{title}</span>
+        <span aria-hidden className="text-xs text-muted-foreground">{count}</span>
+        <ChevronDown aria-hidden className={cn('ml-auto size-4 shrink-0 transition-transform', open && 'rotate-180')} />
+      </CollapsibleTrigger>
+      {/*
+        Nội dung chỉ render khi mục mở: section đóng thì các dòng
+        trong đó biến khỏi cây hoàn toàn (không chỉ ẩn bằng CSS),
+        để hội thoại đã lưu/ghim không còn tính là "đang hiện" ở
+        danh sách khi mục đóng.
+      */}
+      <CollapsibleContent>{open ? children : null}</CollapsibleContent>
+    </Collapsible>
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between gap-2 px-4 pt-3">
-        <h2 className="text-base font-semibold">
-          {t('messagesTitle')} {unread > 0 ? t('unreadSuffix', { count: unread }) : ''}
-        </h2>
+        <div className="flex min-w-0 items-center gap-2">
+          {myId ? (
+            <Avatar>
+              <AvatarFallback>{initialsOf(nameOf(myId))}</AvatarFallback>
+            </Avatar>
+          ) : null}
+          <h2 className="text-base font-semibold">
+            {t('messagesTitle')} {unread > 0 ? t('unreadSuffix', { count: unread }) : ''}
+          </h2>
+        </div>
         <Button type="button" size="sm" aria-label={t('newMessage')} onClick={() => setNewMessageOpen(true)}>
           <Plus className="size-4" />
           {t('newMessage')}
@@ -314,7 +393,6 @@ export function ConversationSidebar({
         value={tab}
         onValueChange={(value) => {
           onTabChange(value);
-          if (value === 'archived') onRequestArchived();
         }}
         className="min-h-0 flex-1 px-2 pt-2"
       >
@@ -324,7 +402,6 @@ export function ConversationSidebar({
             {t('messagesTabGroups')}
             {treeUnreadTotal > 0 ? <Badge className="ml-1.5 shrink-0">{treeUnreadTotal}</Badge> : null}
           </TabsTrigger>
-          <TabsTrigger value="archived">{t('archivedConversationsTitle')}</TabsTrigger>
         </TabsList>
         <TabsContent value="chats" className="flex min-h-0 flex-1 flex-col">
           <div className="space-y-2 px-2 pt-1">
@@ -336,7 +413,7 @@ export function ConversationSidebar({
               onChange={(e) => setConversationFilter(e.target.value)}
             />
             <div className="flex flex-wrap gap-1.5">
-              {chips.map(({ key, label }) => (
+              {chips.map(({ key, label, count }) => (
                 <Button
                   key={key}
                   type="button"
@@ -347,6 +424,7 @@ export function ConversationSidebar({
                   onClick={() => setChip(key)}
                 >
                   {label}
+                  <span aria-hidden>{count}</span>
                 </Button>
               ))}
             </div>
@@ -361,7 +439,40 @@ export function ConversationSidebar({
                     : t('conversationsEmpty')}
               </p>
             ) : (
-              <ul className="space-y-0.5">{visibleConversations.map(renderConversationItem)}</ul>
+              <div className="space-y-1">
+                {pinnedConversations.length > 0 ? renderSection(
+                  t('messagesPinnedSection'),
+                  pinnedConversations.length,
+                  pinnedOpen,
+                  setPinnedOpen,
+                  <ul className="space-y-0.5">{pinnedConversations.map(renderConversationItem)}</ul>,
+                ) : null}
+                {recentConversations.length > 0 ? renderSection(
+                  t('messagesRecentSection'),
+                  recentConversations.length,
+                  recentOpen,
+                  setRecentOpen,
+                  <ul className="space-y-0.5">{recentConversations.map(renderConversationItem)}</ul>,
+                ) : null}
+              </div>
+            )}
+            {renderSection(
+              t('archivedConversationsTitle'),
+              visibleArchived.length,
+              archivedOpen,
+              (next) => {
+                // Cơ chế lười của M5 giữ nguyên: mở mục là nạp
+                // (lại) danh sách riêng từ server.
+                if (next) onRequestArchived();
+                setArchivedOpen(next);
+              },
+              visibleArchived.length === 0 ? (
+                <p className="px-2 text-sm text-muted-foreground">
+                  {filterNeedle ? t('conversationSearchNoResults') : t('archivedEmpty')}
+                </p>
+              ) : (
+                <ul className="space-y-0.5">{visibleArchived.map(renderConversationItem)}</ul>
+              ),
             )}
           </div>
         </TabsContent>
@@ -387,26 +498,6 @@ export function ConversationSidebar({
               canCreateFreeGroup={canCreateFreeGroup}
               onCreateFreeGroup={() => setCreateGroupOpen(true)}
             />
-          </div>
-        </TabsContent>
-        <TabsContent value="archived" className="flex min-h-0 flex-1 flex-col">
-          <div className="px-2 pt-1">
-            <Input
-              type="search"
-              aria-label={t('conversationSearchLabel')}
-              placeholder={t('conversationSearchPlaceholder')}
-              value={conversationFilter}
-              onChange={(e) => setConversationFilter(e.target.value)}
-            />
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-1 py-2">
-            {visibleArchived.length === 0 ? (
-              <p className="px-2 text-sm text-muted-foreground">
-                {filterNeedle ? t('conversationSearchNoResults') : t('archivedEmpty')}
-              </p>
-            ) : (
-              <ul className="space-y-0.5">{visibleArchived.map(renderConversationItem)}</ul>
-            )}
           </div>
         </TabsContent>
       </Tabs>
