@@ -3163,3 +3163,98 @@ describe('Trang tin nhắn — dựng lại theo mẫu demo (issue #564)', () =>
     expect(within(screen.getByTestId('info-aside')).getByTestId('member-panel')).toBeInTheDocument();
   });
 });
+
+const NAMELESS_DM_ID = '01900000-0000-7000-8000-0000000000f1';
+
+/**
+ * Stub fetch cho vòng sửa hẹp PR #576: MỘT hội thoại 1–1 mà
+ * backend KHÔNG đặt tên (`name: null` — đúng dữ kiện thật của
+ * hội thoại 1–1) kèm `memberProfiles` để client tra được tên
+ * từng thành viên. Các fixture cũ đặt sẵn tên cho hội thoại 1–1
+ * nên không bao giờ đi qua đường tiêu đề dự phòng — stub này
+ * khoá đúng đường đó.
+ */
+function stubNamelessDmFetch(calls: RecordedCall[]) {
+  const profiles = {
+    [ME_ID]: { userId: ME_ID, displayName: 'Tôi Đây', username: 'me' },
+    [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Một', username: 'otheruser' },
+  };
+  const summary = {
+    id: NAMELESS_DM_ID, type: 1, name: null, members: [ME_ID, OTHER_ID], memberProfiles: profiles,
+    unread: 0, lastReadSeq: 1, lastMessageSeq: 1, lastMessage: null,
+  };
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const respond = (body: unknown) =>
+        new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/messages/conversations' && method === 'GET') return respond([summary]);
+      if (url === '/api/v1/messages/conversations?archived=true') return respond([]);
+      if (url === '/api/v1/messages/group-tree')
+        return respond({ classes: [], coursesOutsideClasses: [], freeGroups: [], canCreateFreeGroup: false });
+      if (url === `/api/v1/messages/conversations/${NAMELESS_DM_ID}`)
+        return respond({ ...summary, messages: [], hasMoreBefore: false, memberReadMarkers: [] });
+      if (url === `/api/v1/messages/conversations/${NAMELESS_DM_ID}/read`) return respond({});
+      if (url === '/api/v1/messages/unread-count') return respond({ conversations: 0, notifications: 0 });
+      if (url === '/api/v1/messages/contacts') return respond({ contacts: [OTHER_ID], profiles });
+      if (url === '/api/v1/messages/contacts/requests') return respond({ incoming: [], outgoing: [], profiles: {} });
+      if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [], profiles: {} });
+      if (url === '/api/v1/messages/courses') return respond({ courses: [] });
+      return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
+}
+
+/**
+ * Vòng sửa hẹp PR #576 sau nghiệm thu preview: hai hành vi trình
+ * bày của hội thoại 1–1 không có tên — tiêu đề hiện tên đối tác
+ * (thay nhãn dự phòng liệt kê mọi thành viên) và dòng phụ đầu
+ * khung luôn hiện trạng thái của đối tác, kể cả khi ngoại tuyến.
+ */
+describe('Trang tin nhắn — vòng sửa hẹp PR #576 (tiêu đề 1–1 và dòng phụ trạng thái)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+    realtime.handlers = null;
+  });
+
+  it('hội thoại 1–1 không có tên thì hàng danh sách và đầu khung hiện tên đối tác, không hiện nhãn liệt kê mọi thành viên', async () => {
+    const calls: RecordedCall[] = [];
+    stubNamelessDmFetch(calls);
+    renderMessages();
+
+    const rowButton = await screen.findByRole('button', { name: /Bạn Một/ });
+    expect(within(rowButton).getByText('Bạn Một')).toBeInTheDocument();
+    expect(screen.queryByText(/Hội thoại với người dùng/)).not.toBeInTheDocument();
+
+    await userEvent.click(rowButton);
+    await screen.findByLabelText('Tin nhắn');
+    const infoButton = await screen.findByRole('button', { name: 'Thông tin cuộc trò chuyện' });
+    const header = infoButton.parentElement as HTMLElement;
+    expect(within(header).getByText('Bạn Một')).toBeInTheDocument();
+    expect(screen.queryByText(/Hội thoại với người dùng/)).not.toBeInTheDocument();
+  });
+
+  it('đầu khung 1–1 hiện "Ngoại tuyến" khi đối tác ngoại tuyến và đổi sang "đang trực tuyến" khi đối tác lên mạng', async () => {
+    const calls: RecordedCall[] = [];
+    stubNamelessDmFetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Một/ }));
+    await screen.findByLabelText('Tin nhắn');
+    const infoButton = await screen.findByRole('button', { name: 'Thông tin cuộc trò chuyện' });
+    const header = infoButton.parentElement as HTMLElement;
+    expect(within(header).getByText('Ngoại tuyến')).toBeInTheDocument();
+
+    act(() => {
+      realtime.handlers?.onPresence({ userId: OTHER_ID, online: true } as never);
+    });
+    expect(await within(header).findByText('đang trực tuyến')).toBeInTheDocument();
+    expect(within(header).queryByText('Ngoại tuyến')).not.toBeInTheDocument();
+  });
+});

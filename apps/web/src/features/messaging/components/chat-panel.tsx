@@ -160,15 +160,33 @@ export function ChatPanel({
   const isGroup = active.type === 2;
   const otherId = !isGroup ? others[0] : undefined;
   const otherOnline = otherId ? Boolean(onlineUsers[otherId]) : false;
-  const title = active.name ?? t('conversationWithUser', { members: active.members.map((id) => nameOf(id)).join(', ') });
+  /**
+   * Tiêu đề đầu khung — panel thông tin dùng lại đúng biến này:
+   * hội thoại có tên thì dùng tên; hội thoại 1–1 không có tên
+   * (backend không đặt tên cho 1–1) thì hiện tên đối tác; chỉ khi
+   * không xác định được đối tác mới rơi về nhãn dự phòng liệt kê
+   * mọi thành viên.
+   */
+  const title = active.name !== null
+    ? active.name
+    : otherId
+      ? nameOf(otherId)
+      : t('conversationWithUser', { members: active.members.map((id) => nameOf(id)).join(', ') });
   const avatarLabel = active.name ?? (otherId ? nameOf(otherId) : title);
+  /**
+   * Dòng phụ đầu khung: đang nhập → nhóm hiện số thành viên →
+   * 1–1 hiện trạng thái của đối tác ở CẢ hai nhánh (trực tuyến /
+   * ngoại tuyến), để đầu khung 1–1 luôn có dòng phụ như đặc tả.
+   */
   const subtitle = typingNames.length > 0
     ? t('typingIndicator', { userId: nameOf(typingNames[0]!) })
     : isGroup
       ? t('conversationMembersCount', { count: active.members.length })
       : otherOnline
         ? t('onlineNow')
-        : '';
+        : otherId
+          ? t('messagesOfflineNow')
+          : '';
   /** Seq tin mới nhất đang có — mốc so "đã xem" của từng thành viên ở panel thông tin. */
   const newestSeq = visibleMessages.reduce((max, m) => Math.max(max, m.seq), 0) || active.lastMessageSeq || 0;
   /**

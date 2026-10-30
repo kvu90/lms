@@ -188,8 +188,21 @@ export function ConversationSidebar({
       onTabChange('groups');
     }
   };
-  const labelOf = (c: ConversationView) =>
-    c.name ?? t('conversationWithUser', { members: c.members.map((id) => nameOf(id)).join(', ') });
+  /**
+   * Tên hiển thị của hội thoại: hội thoại có tên (nhóm) dùng tên
+   * đó. Hội thoại 1–1 không có tên — backend không đặt tên cho
+   * 1–1 — thì hiện tên ĐỐI TÁC suy từ danh sách thành viên; chỉ
+   * khi không xác định được đối tác mới rơi về nhãn dự phòng liệt
+   * kê mọi thành viên. Ô lọc danh sách khớp trên chính nhãn này
+   * nên tìm theo tên đối tác vẫn trúng sau thay đổi.
+   */
+  const labelOf = (c: ConversationView) => {
+    if (c.name !== null) return c.name;
+    const otherId = c.type === 1 ? c.members.find((id) => id !== myId) : undefined;
+    return otherId
+      ? nameOf(otherId)
+      : t('conversationWithUser', { members: c.members.map((id) => nameOf(id)).join(', ') });
+  };
   const filterNeedle = conversationFilter.trim().toLocaleLowerCase('vi');
   const matchesFilter = (c: ConversationView) =>
     !filterNeedle || labelOf(c).toLocaleLowerCase('vi').includes(filterNeedle);
