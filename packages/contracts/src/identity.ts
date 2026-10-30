@@ -269,6 +269,101 @@ export const listUsersQuerySchema = z.strictObject({
 });
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 
+/**
+ * Truy vấn danh sách người dùng kèm gán vai (`GET /access/users-with-assignments`)
+ * — nguồn dữ kiện cho bảng người dùng của trang vai trò, nơi mỗi người dùng
+ * chiếm đúng MỘT dòng kèm toàn bộ dòng gán của họ.
+ *
+ * Đơn vị phân trang ở đây là NGƯỜI DÙNG, khác `GET /access/assignments` phân
+ * trang theo từng dòng gán: một người giữ nhiều vai ở nhiều context vẫn chỉ
+ * chiếm một dòng, nên `page`/`pageSize` cắt trên tập người dùng đã lọc và
+ * `total` ở schema phản hồi đếm người dùng khớp lọc, không đếm dòng gán.
+ * Ba bộ lọc áp đồng thời phía server:
+ * - `search`: khớp một phần, không phân biệt hoa thường, trên firstName,
+ *   lastName, email, username và họ tên đầy đủ — cùng tập trường với tìm
+ *   kiếm của danh sách người dùng và của bảng gán vai hiện hành.
+ * - `roleId`: chỉ giữ người dùng có ÍT NHẤT MỘT dòng gán với vai này ở bất
+ *   kỳ context nào. Đây thuần là điều kiện lọc người; mảng `assignments`
+ *   trong kết quả vẫn mang TOÀN BỘ dòng gán của người đó, không bị cắt theo
+ *   vai đang lọc, để giao diện thấy đủ vai trò thật của từng người.
+ * - `status`: dùng chung tập đóng và ngữ nghĩa với
+ *   `listUsersQuerySchema.status` — không truyền thì chỉ lấy tài khoản chưa
+ *   xoá (gồm cả tài khoản đang bị đình chỉ); `active` là chưa xoá và không
+ *   bị đình chỉ; `suspended` là chưa xoá đang bị đình chỉ; `deleted` chỉ
+ *   lấy tài khoản đã xoá mềm.
+ * `pageSize` trần 100 như các danh sách quản trị khác của module. Thứ tự
+ * kết quả ổn định theo id người dùng tăng dần (không có tham số sắp xếp
+ * riêng) để các trang không chồng lấp hay bỏ sót người.
+ * Khi client phá ràng buộc đóng ở đây (status ngoài tập, pageSize vượt
+ * trần…), tầng api chặn bằng lỗi `http.validation_failed` — mã lỗi thật
+ * của cơ chế validation ProblemDetails toàn cục, không có mã riêng cho
+ * endpoint này.
+ */
+export const listUsersWithAssignmentsQuerySchema = z.strictObject({
+  search: z.string().optional(),
+  roleId: uuidIdSchema.optional(),
+  status: userListStatusSchema.optional(),
+  page: z.number().int().min(1).optional(),
+  pageSize: z.number().int().min(1).max(100).optional(),
+});
+export type ListUsersWithAssignmentsQuery = z.infer<typeof listUsersWithAssignmentsQuerySchema>;
+
+/**
+ * Một dòng gán vai nằm trong danh sách người dùng kèm gán: đủ để giao diện
+ * bày vai trò của người dùng theo từng context mà không cần gọi thêm.
+ * `roleName` là tên hiển thị của vai (bảng gán vai hiện hành chỉ trả
+ * `roleId`, giao diện phải tự tra tên). `contextLevel` là SỐ cấp của
+ * context (10 hệ thống, 20 trung tâm, 50 khoá học…) — việc giải quyết TÊN
+ * thực thể của context nằm ngoài hợp đồng này. `component` giữ nguyên cơ
+ * chế truy vết nguồn gán của bảng gán vai: rỗng là gán tay qua quản trị,
+ * `enrol` là gán do một ghi danh cấp — giao diện dựa vào đây để biết dòng
+ * gán nào gỡ trực tiếp được, dòng nào phải gỡ qua ghi danh.
+ */
+export const userAssignmentEntrySchema = z.object({
+  id: uuidIdSchema,
+  roleId: uuidIdSchema,
+  roleName: z.string(),
+  contextId: uuidIdSchema,
+  contextLevel: z.number().int(),
+  component: z.string(),
+});
+export type UserAssignmentEntry = z.infer<typeof userAssignmentEntrySchema>;
+
+/**
+ * Một người dùng trong danh sách kèm gán vai: thông tin tài khoản tối thiểu
+ * cho một dòng của bảng (định danh, họ tên, email, hai cờ trạng thái) kèm
+ * `createdAt` — thời điểm tạo tài khoản cho cột ngày tham gia; hợp đồng
+ * danh sách gán hiện hành không mang trường này nên bảng không dựng được
+ * cột đó nếu thiếu. `assignments` chứa toàn bộ dòng gán của người dùng
+ * (mảng rỗng khi người chưa giữ vai nào), thứ tự theo id dòng gán tăng dần.
+ */
+export const userWithAssignmentsListItemSchema = z.object({
+  id: uuidIdSchema,
+  username: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
+  email: z.string(),
+  suspended: z.boolean(),
+  deleted: z.boolean(),
+  createdAt: z.iso.datetime(),
+  assignments: z.array(userAssignmentEntrySchema),
+});
+export type UserWithAssignmentsListItem = z.infer<typeof userWithAssignmentsListItemSchema>;
+
+/**
+ * Phản hồi danh sách người dùng kèm gán vai: `users` là các người dùng của
+ * trang hiện tại (mỗi người đúng một phần tử), `total` là tổng số NGƯỜI
+ * DÙNG khớp bộ lọc trên toàn bộ kết quả — không phải tổng số dòng gán —
+ * kèm `page`/`pageSize` đã áp để giao diện dựng phân trang.
+ */
+export const userWithAssignmentsListResponseSchema = z.object({
+  users: z.array(userWithAssignmentsListItemSchema),
+  total: z.number().int().min(0),
+  page: z.number().int().min(1),
+  pageSize: z.number().int().min(1),
+});
+export type UserWithAssignmentsListResponse = z.infer<typeof userWithAssignmentsListResponseSchema>;
+
 /** Payload đặt một tuỳ chọn (preference) của người dùng. */
 export const setUserPreferenceSchema = z.strictObject({
   name: z.string(),
