@@ -434,8 +434,23 @@ export function ConversationSidebar({
               <AvatarFallback>{initialsOf(nameOf(myId))}</AvatarFallback>
             </Avatar>
           ) : null}
-          <h2 className="min-w-0 truncate text-lg font-semibold">
-            {t('messagesTitle')} {unread > 0 ? t('unreadSuffix', { count: unread }) : ''}
+          {/*
+            Tiêu đề KHÔNG được cắt ba chấm: hậu tố số chưa đọc là
+            một phần của tiêu đề và phải hiện trọn. Tiêu đề và hậu
+            tố là hai khối không tách rời (whitespace-nowrap) xếp
+            bằng flex-wrap — khi cột danh sách không đủ bề ngang
+            cho cả hai trên một dòng, hậu tố xuống dòng nguyên
+            khối thay vì bị truncate nuốt mất phần đuôi. (Bản
+            trước mang class truncate nên khi có số chưa đọc,
+            tiêu đề bị rút thành dạng "Tin nhắn (2 chưa…" dù nút
+            cạnh nó đã shrink-0: bề ngang thật của cả dòng vượt
+            bề ngang cột, phần thiếu dồn hết vào tiêu đề.)
+          */}
+          <h2 className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-lg font-semibold">
+            <span className="whitespace-nowrap">{t('messagesTitle')}</span>
+            {unread > 0 ? (
+              <span className="whitespace-nowrap">{t('unreadSuffix', { count: unread })}</span>
+            ) : null}
           </h2>
         </div>
         <Button type="button" size="sm" className="shrink-0" aria-label={t('newMessage')} onClick={() => setNewMessageOpen(true)}>

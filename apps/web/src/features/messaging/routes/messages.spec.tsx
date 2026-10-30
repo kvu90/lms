@@ -1024,6 +1024,43 @@ describe('Messages page — M1: sắp xếp, thời gian tương đối, nháp, 
     expect(conversationOrder()[0]).toContain('(1 chưa đọc)');
   });
 
+  it('tiêu đề danh sách hiện trọn số chưa đọc: tiêu đề không mang cơ chế cắt ba chấm và hậu tố là khối không tách rời', async () => {
+    // Khuyết tật nằm ở cơ chế CSS: class truncate trên tiêu
+    // đề rút chữ bằng dấu ba chấm khi dòng đầu cột thiếu bề
+    // ngang. jsdom không có layout thật nên không quan sát
+    // được dấu ba chấm trực tiếp; ca này ghim đúng cơ chế
+    // sinh lỗi — tiêu đề không được mang truncate, và cả
+    // tiêu đề lẫn hậu tố số chưa đọc phải là các khối
+    // whitespace-nowrap riêng để hậu tố xuống dòng nguyên
+    // khối thay vì bị cắt mất phần đuôi. Trên bản cũ tiêu đề
+    // mang truncate và hậu tố là chữ trần chung một nút chữ
+    // với tiêu đề — ca này đỏ.
+    const calls: RecordedCall[] = [];
+    stubFetchM1(calls);
+    renderMessages();
+
+    await screen.findByRole('button', { name: /Hội thoại A/ });
+    // Sự kiện realtime đẩy số chưa đọc của B lên 1: tiêu đề
+    // danh sách mang hậu tố "(1 chưa đọc)".
+    act(() => {
+      realtime.handlers?.onConversationUpdated({
+        conversationId: CONV_B,
+        message: {
+          id: 'm-b2', conversationId: CONV_B, userIdFrom: OTHER_ID, fullMessage: 'tin mới từ B',
+          createdAt: new Date().toISOString(), seq: 5, clientMessageId: null,
+        },
+        unreadCount: 1,
+      } as never);
+    });
+    await screen.findByText('tin mới từ B');
+
+    const heading = [...document.querySelectorAll('h2')].find((el) => el.textContent?.includes('Tin nhắn'));
+    expect(heading).toBeDefined();
+    expect(heading).not.toHaveClass('truncate');
+    expect(within(heading as HTMLElement).getByText('Tin nhắn')).toHaveClass('whitespace-nowrap');
+    expect(within(heading as HTMLElement).getByText('(1 chưa đọc)')).toHaveClass('whitespace-nowrap');
+  });
+
   it('giữ nháp riêng theo từng conversation và chỉ xoá nháp của conversation vừa gửi', async () => {
     const calls: RecordedCall[] = [];
     stubFetchM1(calls);
@@ -2394,6 +2431,31 @@ describe('Messages page — MSG-T4: panel thành viên + menu avatar', () => {
     await waitFor(() => {
       expect(screen.queryByTestId(`member-panel-row-${OTHER_ID}`)).not.toBeInTheDocument();
     });
+  });
+
+  it('nhóm tự do: dòng thành viên mang đủ ba huy hiệu vẫn giữ sàn bề ngang cho cột tên và huy hiệu được phép rớt dòng', async () => {
+    // Cùng họ co bề ngang với tiêu đề danh sách bị cắt ba
+    // chấm: ba huy hiệu không co lại được (người tạo nhóm +
+    // vai + đã xem) ép cột tên linh hoạt về gần 0px trong
+    // panel 320px, làm tên xếp chồng từng ký tự. jsdom
+    // không có layout thật nên ca này ghim cơ chế: phần tử
+    // dòng cho phép rớt dòng (flex-wrap) và nút mở menu của
+    // dòng mang sàn bề ngang min-w-36 cho avatar + tên.
+    // Trên bản cũ dòng là flex một hàng và nút không có
+    // sàn — ca này đỏ.
+    const calls: RecordedCall[] = [];
+    stubMsgT4Fetch(calls);
+    renderMessages();
+
+    await openGroupFromTree(/Nhóm ôn tập/);
+    await openT4InfoPanel(`member-panel-row-${OTHER_ID}`);
+
+    // Dòng của tôi mang cả ba huy hiệu: người tạo nhóm, vai
+    // quản trị viên và trạng thái đã xem/chưa xem.
+    const myRow = screen.getByTestId(`member-panel-row-${ME_ID}`);
+    expect(within(myRow).getByText('Người tạo nhóm')).toBeInTheDocument();
+    expect(myRow).toHaveClass('flex-wrap');
+    expect(within(myRow).getByRole('button', { name: /Thao tác với/ })).toHaveClass('min-w-36');
   });
 });
 

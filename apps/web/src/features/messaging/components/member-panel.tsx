@@ -406,7 +406,7 @@ export function MemberPanel({
     const seen = newestSeq > 0 && (readMarkers[entry.userId] ?? 0) >= newestSeq;
     const online = Boolean(onlineUsers[entry.userId]);
     return (
-      <li key={entry.userId} data-testid={`member-panel-row-${entry.userId}`} className="flex items-center gap-2">
+      <li key={entry.userId} data-testid={`member-panel-row-${entry.userId}`} className="flex flex-wrap items-center gap-2">
         <MemberActionMenu
           entry={entry}
           myId={myId}
@@ -414,7 +414,7 @@ export function MemberPanel({
           canManage={Boolean(conversation.canManage)}
           hasDirectConversation={bundle.directPartnerIds.has(entry.userId)}
           triggerLabel={t('memberMenuLabel', { name: entry.displayName })}
-          triggerClassName="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-muted"
+          triggerClassName="flex min-w-36 flex-1 items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-muted"
           onMessageMember={bundle.onMessageMember}
           onSendContactRequest={bundle.onSendContactRequest}
           onRespondContactRequest={bundle.onRespondContactRequest}
@@ -436,7 +436,14 @@ export function MemberPanel({
             Tên thành viên KHÔNG cắt ngắn (issue #591): tên và
             tên đăng nhập xếp hai dòng trong cột linh hoạt để
             tên dài hiện trọn trong panel 320px thay vì bị
-            truncate thành "Lan Anh N…" như trước.
+            truncate thành "Lan Anh N…" như trước. Hàng mang
+            sàn bề ngang cho cột tên (min-w-36 ở nút mở menu)
+            và cho phép các huy hiệu rớt xuống dòng dưới
+            (flex-wrap ở phần tử dòng): dòng của người tạo
+            nhóm kiêm quản trị mang cùng lúc ba huy hiệu không
+            co lại được (tổng bề ngang xấp xỉ 232px), không có
+            hai cơ chế này thì cột tên bị ép về gần 0px và tên
+            xếp chồng từng ký tự dù đã đặt break-words.
           */}
           <span className="min-w-0 flex-1 text-sm">
             <span className="block break-words">{entry.displayName}</span>
