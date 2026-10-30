@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { UserListStatus, UserWithAssignmentsListResponse } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { AccessRepository, type AssignmentListRow, type RoleRow } from './access.repository';
 import { ContextsService } from './contexts.service';
@@ -327,6 +328,47 @@ export class RolesService {
   ): Promise<{ assignments: AssignmentListRow[]; total: number; page: number; pageSize: number }> {
     const { rows, total } = await this.repo.listAssignmentsPage(filter, page, pageSize);
     return { assignments: rows, total, page, pageSize };
+  }
+  /**
+   * Liệt kê người dùng kèm toàn bộ gán vai của họ cho bảng người dùng
+   * của trang vai trò (`GET /access/users-with-assignments`).
+   *
+   * Đây là phép đọc gộp theo NGƯỜI DÙNG, bổ sung cho
+   * `listAssignmentsPage` vốn phân trang theo từng dòng gán: tầng
+   * repository đếm và cắt trang trên tập người dùng khớp cả ba bộ lọc
+   * (tìm kiếm, vai, trạng thái) rồi chỉ nạp dòng gán của trang đó;
+   * tầng này chỉ chuyển `createdAt` từ mốc thời gian của bản ghi sang
+   * chuỗi ISO của hợp đồng. Bất biến giữ nguyên từ hợp đồng: `total`
+   * đếm người dùng khớp lọc, mỗi người xuất hiện đúng một lần và mảng
+   * `assignments` của họ không bị cắt theo vai đang lọc.
+   *
+   * Hàm chỉ đọc — không ghi dữ kiện, không phát sự kiện. Cổng năng
+   * lực `role:assign` tại context hệ thống do controller áp trước khi
+   * vào đây, cùng cổng với đường đọc bảng gán vai; người gọi thiếu
+   * năng lực bị guard chặn bằng lỗi `access.capability_denied` (403),
+   * không tới được hàm này.
+   *
+   * @param filter - Ba bộ lọc tuỳ chọn phía server: `search` (họ tên,
+   * email, tên đăng nhập), `roleId` (người có ít nhất một gán với
+   * vai này), `status` (nhóm trạng thái tài khoản).
+   * @param page - Trang cần lấy (bắt đầu từ 1).
+   * @param pageSize - Số người dùng tối đa trên một trang (trần 100
+   * do validation ở DTO chặn trước).
+   * @returns Trang người dùng kèm mảng gán của từng người, tổng số
+   * người dùng khớp lọc và thông số trang đã áp.
+   */
+  async listUsersWithAssignmentsPage(
+    filter: { search?: string; roleId?: string; status?: UserListStatus },
+    page: number,
+    pageSize: number,
+  ): Promise<UserWithAssignmentsListResponse> {
+    const { rows, total } = await this.repo.listUsersWithAssignmentsPage(filter, page, pageSize);
+    return {
+      users: rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() })),
+      total,
+      page,
+      pageSize,
+    };
   }
   /** Các assignment của một người dùng trên một tập context — ví dụ mọi context trên đường tổ tiên của đối tượng đích. Đây là phép tra cứu mà PermissionEvaluator dựa vào: assignment role được kế thừa xuống dưới theo cây context, nên assignment ở tổ tiên có hiệu lực tại lá. */
   /**
