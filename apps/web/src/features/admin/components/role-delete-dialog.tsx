@@ -1,6 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { RoleListItem } from '@lms/contracts';
 import { Button } from '@lms/ui/components/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@lms/ui/components/dialog';
 import { ErrorAlert } from '#components/error-alert';
 import { ApiError } from '#lib/api';
 import { useTranslation } from 'react-i18next';
@@ -8,14 +16,17 @@ import '#config/i18n';
 import { useDeleteRole } from '../queries/admin-roles';
 
 /**
- * Hộp thoại xác nhận xoá vai trò của feature admin.
+ * Hộp thoại xác nhận xoá vai trò của feature admin, dựng trên
+ * component Dialog thật của `@lms/ui` theo hình hộp thoại xác nhận
+ * xoá của mẫu (tiêu đề "Delete Role", câu xác nhận nêu tên vai trò,
+ * nút huỷ phụ và nút xoá destructive).
  *
- * Luồng nghiệp vụ: hộp thoại nêu rõ tên vai trò sắp xoá và yêu cầu xác
- * nhận. Khi backend từ chối xoá, hộp thoại GIỮ NGUYÊN kèm đúng lý do
- * backend trả về — vai dựng sẵn (có `archetype`) và vai còn người giữ
- * là hai trường hợp phân biệt bằng mã lỗi riêng; vai thường không còn
- * người giữ thì xoá thành công, hộp thoại đóng và lưới thẻ cập nhật
- * ngay qua việc làm mới truy vấn danh sách vai.
+ * Luồng nghiệp vụ: hộp thoại nêu rõ tên vai trò sắp xoá và yêu cầu
+ * xác nhận. Khi backend từ chối xoá, hộp thoại GIỮ NGUYÊN kèm đúng lý
+ * do backend trả về — vai dựng sẵn (có `archetype`) và vai còn người
+ * giữ là hai trường hợp phân biệt bằng mã lỗi riêng; vai thường không
+ * còn người giữ thì xoá thành công, hộp thoại đóng và lưới thẻ cập
+ * nhật ngay qua việc làm mới truy vấn danh sách vai.
  *
  * @param props - Trạng thái mở, vai trò sắp xoá và hàm đóng hộp thoại.
  */
@@ -49,18 +60,6 @@ export function RoleDeleteDialog({ open, role, onClose }: RoleDeleteDialogProps)
   const [error, setError] = useState<string | null>(null);
   const deleteMutation = useDeleteRole();
 
-  /** Trang chứa render hộp thoại có điều kiện nên mỗi lần mở là một lượt xác nhận mới với lỗi khởi tạo null. */
-
-  /** Phím Escape đóng hộp thoại khi không trong lúc xoá. */
-  useEffect(() => {
-    if (!open || deleteMutation.isPending) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open, deleteMutation.isPending, onClose]);
-
   if (!open || !role) return null;
 
   /** Xoá vai trò: lỗi thì giữ hộp thoại mở kèm lý do; thành công thì đóng. */
@@ -76,28 +75,19 @@ export function RoleDeleteDialog({ open, role, onClose }: RoleDeleteDialogProps)
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[20vh]"
-      onClick={() => {
-        if (!deleteMutation.isPending) onClose();
+    <Dialog
+      open
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && !deleteMutation.isPending) onClose();
       }}
-      role="presentation"
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('deleteRole')}
-        className="w-full max-w-md rounded-xl border bg-background p-6 shadow-lg"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <h2 className="mb-2 text-lg font-semibold">{t('deleteRole')}</h2>
-        <p className="mb-4 text-sm">{t('deleteRoleConfirm', { name: role.name })}</p>
-        {error ? (
-          <ErrorAlert variant="destructive" className="mb-4">
-            {error}
-          </ErrorAlert>
-        ) : null}
-        <div className="flex justify-end gap-2">
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-semibold">{t('deleteRole')}</DialogTitle>
+          <DialogDescription>{t('deleteRoleConfirm', { name: role.name })}</DialogDescription>
+        </DialogHeader>
+        {error ? <ErrorAlert variant="destructive">{error}</ErrorAlert> : null}
+        <DialogFooter>
           <Button type="button" variant="outline" disabled={deleteMutation.isPending} onClick={onClose}>
             {t('cancel')}
           </Button>
@@ -109,8 +99,8 @@ export function RoleDeleteDialog({ open, role, onClose }: RoleDeleteDialogProps)
           >
             {deleteMutation.isPending ? t('deletingRole') : t('deleteRole')}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

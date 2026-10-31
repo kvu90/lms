@@ -13,6 +13,7 @@ export default [
     route('users/:userId/edit', 'routes/admin-user-edit.tsx'),
     route('tenants', 'routes/admin-tenants.tsx'),
     route('roles', 'routes/admin-roles.tsx'),
+    route('permissions', 'routes/admin-permissions.tsx'),
   ]),
 ] satisfies RouteConfig;
 

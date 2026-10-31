@@ -1,10 +1,14 @@
 import type {
   AssignRole,
   AssignmentListResponse,
+  CapabilityMatrixResponse,
   CreateRole,
+  OverrideCapability,
   ReplaceRoleCapabilities,
   Role,
   UpdateRole,
+  UserListStatus,
+  UserWithAssignmentsListResponse,
 } from '@lms/contracts';
 import { apiJson } from '#lib/api';
 
@@ -163,4 +167,72 @@ export function createAssignment(input: AssignRole) {
  */
 export function deleteAssignment(assignmentId: string) {
   return apiJson<{ deleted: boolean }>(`/api/v1/access/assignments/${assignmentId}`, { method: 'DELETE' });
+}
+
+/**
+ * Đọc ma trận quyền toàn trang tại một ngữ cảnh
+ * (GET /access/capability-matrix?contextId=…): mọi vai trò kèm số
+ * người giữ phân biệt và đúng các ghi đè ĐÃ LƯU tại ngữ cảnh đó —
+ * năng lực vắng mặt trong đáp ứng nghĩa là đang ở trạng thái kế thừa
+ * tại ngữ cảnh này. Trang Quyền độc lập dùng đáp ứng này làm nền cho
+ * bảng ma trận và thẻ đếm ô Cho phép.
+ *
+ * @param contextId - Định danh ngữ cảnh cần đọc ma trận.
+ * @returns Đáp ứng ma trận của ngữ cảnh.
+ */
+export function fetchCapabilityMatrix(contextId: string) {
+  const query = new URLSearchParams({ contextId });
+  return apiJson<CapabilityMatrixResponse>(`/api/v1/access/capability-matrix?${query.toString()}`);
+}
+
+/**
+ * Đặt ghi đè quyền cho đúng một ô (POST /access/overrides): thân gồm
+ * vai trò + năng lực + ngữ cảnh + giá trị bốn trạng thái; đặt giá trị
+ * kế thừa (0) thì backend xoá dòng ghi đè của ô. Trang Quyền độc lập
+ * gọi hàm này cho từng lần đổi ô — không có đường lưu toàn trang.
+ *
+ * @param input - Bộ bốn vai trò × năng lực × ngữ cảnh × giá trị.
+ */
+export function setCapabilityOverride(input: OverrideCapability) {
+  return apiJson<{ updated: boolean }>('/api/v1/access/overrides', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+/** Tham số của danh sách người dùng kèm gán vai — mọi trường đều tuỳ chọn trừ phân trang. */
+export interface ListUsersWithAssignmentsParams {
+  /** Từ khoá tìm theo tên đăng nhập, họ tên hoặc email (server khớp mờ). */
+  search?: string;
+  /** Chỉ lấy người dùng đang giữ vai trò này ở bất kỳ ngữ cảnh nào. */
+  roleId?: string;
+  /** Nhóm trạng thái tài khoản; vắng mặt thì server chỉ trả người dùng chưa xoá. */
+  status?: UserListStatus;
+  /** Trang bắt đầu từ 1. */
+  page: number;
+  /** Cỡ trang, tối đa 100 theo hợp đồng. */
+  pageSize: number;
+}
+
+/**
+ * Đọc một trang người dùng kèm toàn bộ gán vai của từng người
+ * (GET /access/users-with-assignments): một người dùng đúng một phần
+ * tử, `total` đếm người dùng khớp (không đếm dòng gán), thứ tự ổn
+ * định theo định danh người dùng tăng dần. Bảng người dùng kèm vai
+ * trò trên trang vai trò đọc qua hàm này — không tự ghép danh sách
+ * người dùng với danh sách gán ở client.
+ *
+ * @param params - Bộ lọc/tìm/phân trang của bảng.
+ * @returns Trang người dùng kèm gán vai và tổng số người dùng khớp.
+ */
+export function listUsersWithAssignments(params: ListUsersWithAssignmentsParams) {
+  const query = new URLSearchParams();
+  if (params.search) query.set('search', params.search);
+  if (params.roleId) query.set('roleId', params.roleId);
+  if (params.status) query.set('status', params.status);
+  query.set('page', String(params.page));
+  query.set('pageSize', String(params.pageSize));
+  return apiJson<UserWithAssignmentsListResponse>(
+    `/api/v1/access/users-with-assignments?${query.toString()}`,
+  );
 }
