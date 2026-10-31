@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { tenantAls } from '../tenant-als';
+import { SpaceRoutingError } from './space-connection-resolver';
 import { SpaceDatabaseService } from './space-database.service';
 
 /**
@@ -33,6 +34,14 @@ import { SpaceDatabaseService } from './space-database.service';
  *    hoàn tất "thành công" trên kho chung. Lỗi của bước chuẩn bị
  *    bên trong `withSpaceDatabase` (trung tâm đã ở kho riêng mà
  *    phiên không mở được) cũng ném ra như trước để BullMQ thử lại.
+ *    Ngoại lệ duy nhất của bước 4: worker CHƯA CẤU HÌNH control
+ *    plane (`space_routing.not_configured`) thì job chạy trên
+ *    platform như trước đợt định tuyến — khi đó không có sổ đăng
+ *    ký nào khẳng định trung tâm ở kho riêng, và khung giữ hợp
+ *    đồng khởi động như trước (xem `SpaceDatabaseService`: biến
+ *    chưa cấu hình thì worker vẫn chạy như cũ). Ngoại lệ này
+ *    KHÔNG áp cho sổ đã cấu hình nhưng đọc lỗi (mất kết nối,
+ *    bí mật/role lệch): các lỗi đó vẫn ném ra theo bước 4.
  *
  * Tính idempotent của processor theo `outboxId` không đổi: bộ
  * chạy này chỉ quyết ngữ cảnh/kho cho lượt xử lý, không chen vào
@@ -51,11 +60,14 @@ export class SpaceJobRunner {
    * @param fn - Thân xử lý của processor cho job này.
    * @returns Kết quả của `fn`.
    * @throws Lỗi của `fn`; lỗi phân giải đích khi job mang slug
-   *   khác null (bất kỳ mã nào: slug không còn trong sổ, bí mật
-   *   thiếu/sai, role lệch sổ, không đọc được control plane) —
-   *   truyền ra nguyên trạng để BullMQ thử lại job, tuyệt đối
-   *   không chạy thân xử lý trên kho chung; hoặc lỗi của bước
-   *   chuẩn bị khi trung tâm ở kho riêng mà kho không mở được.
+   *   khác null và định tuyến ĐÃ cấu hình (slug không còn trong
+   *   sổ, bí mật thiếu/sai, role lệch sổ, không đọc được control
+   *   plane) — truyền ra nguyên trạng để BullMQ thử lại job,
+   *   tuyệt đối không chạy thân xử lý trên kho chung; hoặc lỗi
+   *   của bước chuẩn bị khi trung tâm ở kho riêng mà kho không
+   *   mở được. Riêng `space_routing.not_configured` (worker chưa
+   *   cấu hình control plane) thì KHÔNG ném: job chạy trên
+   *   platform như trước đợt định tuyến (xem bước 4 ở mô tả lớp).
    */
   async runForJob<T>(
     data: { spaceSlug?: string | null; tenantId?: string | null },
@@ -63,9 +75,22 @@ export class SpaceJobRunner {
   ): Promise<T> {
     const slug = data.spaceSlug ?? null;
     if (slug) {
-      // Phân giải lỗi (xem bước 4 ở mô tả lớp): KHÔNG nuốt lỗi
-      // thành platform — ném ra để BullMQ thử lại job.
-      const target = await this.spaceDb.resolveTarget(slug);
+      let target: Awaited<ReturnType<SpaceDatabaseService['resolveTarget']>>;
+      try {
+        target = await this.spaceDb.resolveTarget(slug);
+      } catch (err) {
+        // Chưa cấu hình control plane (xem bước 4 ở mô tả lớp):
+        // không có sổ đăng ký nào để đối chiếu nên worker chạy
+        // như trước đợt định tuyến. Mọi lỗi phân giải khác đều
+        // ném ra để BullMQ thử lại job, KHÔNG nuốt thành platform.
+        if (
+          err instanceof SpaceRoutingError &&
+          err.code === 'space_routing.not_configured'
+        ) {
+          return tenantAls.run({ platform: true }, async () => fn());
+        }
+        throw err;
+      }
       if (target?.mode === 'dedicated') {
         return this.spaceDb.withSpaceDatabase(slug, async () => fn(), {
           tenantId: data.tenantId ?? undefined,

@@ -147,6 +147,20 @@ describe('Bộ chạy job theo trung tâm', () => {
     expect(spaceDb.withSpaceDatabase).not.toHaveBeenCalled();
   });
 
+  it('worker chưa cấu hình control plane thì job chạy trên platform như trước đợt định tuyến, không ném lỗi', async () => {
+    const failure = new SpaceRoutingError(
+      'space_routing.not_configured',
+      'Control plane database is not configured',
+    );
+    const { runner, spaceDb } = makeRunner({ resolveError: failure });
+    const observed = await runner.runForJob(
+      { spaceSlug: 'trung-tam-chua-cau-hinh', tenantId: 'tenant-x' },
+      async () => tenantAls.getStore(),
+    );
+    expect(spaceDb.withSpaceDatabase).not.toHaveBeenCalled();
+    expect(observed?.platform).toBe(true);
+  });
+
   it('kết quả và lỗi của thân xử lý được truyền nguyên qua bộ chạy ở cả hai đường phiên', async () => {
     const { runner } = makeRunner();
     await expect(
