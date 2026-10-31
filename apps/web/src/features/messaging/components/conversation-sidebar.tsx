@@ -35,15 +35,19 @@ import { CHAT_MENU_CONTENT_CLASS, CHAT_MENU_ITEM_CLASS, initialsOf, relativeTime
  * tab Trò chuyện / Nhóm kèm chip lọc của lát MSG-T3 đã được
  * thay bằng đúng hình dạng demo này):
  *
- * - Tab **Tất cả**: CHỈ hội thoại cá nhân 1–1 (`type === 1`).
- *   Trong tab, danh sách chia thành các mục thu gọn **Ghim**
- *   (chỉ hiện khi có hội thoại đã ghim), **Gần đây** và **Đã
- *   lưu trữ** (issue #564 — thay tab Đã lưu trữ cũ; mục này
- *   giữ nguyên cơ chế M5: danh sách riêng của server, nạp khi
- *   mở mục lần đầu).
- * - Tab **Chưa đọc**: cùng danh sách 1–1 đó nhưng chỉ gồm hội
- *   thoại có tin chưa đọc — đúng bộ lọc của chip Chưa đọc
- *   trước đây, nay là một tab ngang hàng như bản demo.
+ * - Tab **Tất cả**: MỌI hội thoại chưa lưu trữ của người xem
+ *   (mọi loại — 1–1 và nhóm), đúng ngữ nghĩa hợp của tab All
+ *   ở bản demo (phán quyết nghiệm thu preview của PR #607 đã
+ *   thay ngữ nghĩa phân vùng 1–1/nhóm của cấu trúc hai tab cũ
+ *   mà bản dựng đầu của issue này mang sang). Trong tab, danh
+ *   sách chia thành các mục thu gọn **Ghim** (chỉ hiện khi có
+ *   hội thoại đã ghim), **Gần đây** và **Đã lưu trữ** (issue
+ *   #564 — thay tab Đã lưu trữ cũ; mục này giữ nguyên cơ chế
+ *   M5: danh sách riêng của server, nạp khi mở mục lần đầu).
+ * - Tab **Chưa đọc**: cùng danh sách mọi loại đó nhưng chỉ
+ *   gồm hội thoại có tin chưa đọc — số đếm của tab vì vậy
+ *   luôn khớp tổng chưa đọc ở tiêu đề trang (trang chứa tính
+ *   tổng đó từ chính danh sách này, không lọc theo loại).
  * - Tab **Nhóm**: mọi mục nhóm của cây server (Lớp → Khoá →
  *   Nhóm con + Khoá ngoài lớp + Nhóm tự do) trình bày thành
  *   một danh sách phẳng ({@link GroupListNav}); bấm một hàng
@@ -55,12 +59,12 @@ import { CHAT_MENU_CONTENT_CLASS, CHAT_MENU_ITEM_CLASS, initialsOf, relativeTime
  *   chỉ có hình dạng bề mặt với trạng thái rỗng, không bịa dữ
  *   kiện và không gắn tác dụng giả.
  * - Mỗi tab hiện số đếm của chính tab đó trong ngoặc đơn ngay
- *   trên trigger (số hội thoại 1–1, số hội thoại 1–1 chưa
- *   đọc, số mục nhóm, 0 cho Yêu thích), tính trên toàn bộ tập
- *   của tab, không chịu ô tìm — như số đếm trên chip lọc
- *   trước đây. Ô tìm phía trên thanh tab lọc nội dung của tab
- *   đang mở theo tên hiển thị (chỉ lọc mục đã có — không phải
- *   tìm người).
+ *   trên trigger (số hội thoại chưa lưu trữ mọi loại, số hội
+ *   thoại mọi loại có tin chưa đọc, số mục nhóm, 0 cho Yêu
+ *   thích), tính trên toàn bộ tập của tab, không chịu ô tìm —
+ *   như số đếm trên chip lọc trước đây. Ô tìm phía trên thanh
+ *   tab lọc nội dung của tab đang mở theo tên hiển thị (chỉ
+ *   lọc mục đã có — không phải tìm người).
  * - Nút **Tin nhắn mới** cạnh tiêu đề mở hộp thoại cùng tên
  *   ({@link NewMessageDialog} — hộp thoại nằm giữa màn hình như
  *   bản demo từ issue #591, thay ngăn kéo trượt bên phải trước
@@ -77,7 +81,7 @@ import { CHAT_MENU_CONTENT_CLASS, CHAT_MENU_ITEM_CLASS, initialsOf, relativeTime
  * thái mở của các mục thu gọn, sheet đang mở) ở lại component này.
  */
 interface ConversationSidebarProps {
-  /** Danh sách hội thoại CHƯA lưu của tôi (mọi loại — tab Tất cả và Chưa đọc tự lọc 1–1). */
+  /** Danh sách hội thoại CHƯA lưu của tôi (mọi loại — tab Tất cả lấy toàn bộ, tab Chưa đọc thêm lọc chưa đọc). */
   conversations: ConversationView[];
   /** Mục ĐÃ LƯU (lát M5): danh sách riêng của server, nạp khi mở mục Đã lưu trữ trong tab Tất cả. */
   archivedConversations: ConversationView[];
@@ -206,7 +210,7 @@ export function ConversationSidebar({
    * tên các thành viên), khớp chuỗi con không phân biệt hoa
    * thường. Chỉ lọc mục ĐÃ CÓ — không phải tìm người theo tên.
    * Cùng một từ khoá áp cho tab đang mở: danh sách hội thoại
-   * 1–1 ở tab Tất cả / Chưa đọc; các mục nhóm ở tab Nhóm theo
+   * ở tab Tất cả / Chưa đọc; các mục nhóm ở tab Nhóm theo
    * luật lọc nút của {@link GroupListNav}.
    */
   const [searchText, setSearchText] = useState('');
@@ -245,14 +249,14 @@ export function ConversationSidebar({
   const filterNeedle = searchText.trim().toLocaleLowerCase('vi');
   const matchesFilter = (c: ConversationView) =>
     !filterNeedle || labelOf(c).toLocaleLowerCase('vi').includes(filterNeedle);
-  // Tab Tất cả và tab Chưa đọc CHỈ chứa hội thoại cá nhân 1–1:
-  // mọi hội thoại type 2 (nhóm tự do/nhóm con/chat khoá/chat
-  // lớp) đều thuộc tab Nhóm, không trộn vào hai tab này. Tab
-  // Chưa đọc thêm đúng một điều kiện so với tab Tất cả: hội
-  // thoại có tin chưa đọc — đúng bộ lọc của chip Chưa đọc
-  // trước đây.
-  const directConversations = (unreadOnly: boolean) => conversations
-    .filter((c) => c.type === 1)
+  // Tab Tất cả và tab Chưa đọc chứa MỌI hội thoại chưa lưu
+  // trữ (mọi loại — 1–1 lẫn nhóm), đúng ngữ nghĩa hợp của bản
+  // demo: hội thoại nhóm xuất hiện ở cả hai tab này với đúng
+  // nhận diện nhóm, và tab Nhóm chỉ là một góc nhìn riêng
+  // theo cấu trúc lớp/khoá/nhóm, không còn là nơi duy nhất
+  // chứa hội thoại nhóm. Tab Chưa đọc thêm đúng một điều kiện
+  // so với tab Tất cả: hội thoại có tin chưa đọc.
+  const listedConversations = (unreadOnly: boolean) => conversations
     .filter(matchesFilter)
     .filter((c) => (unreadOnly ? (c.unread ?? 0) > 0 : true));
   const visibleArchived = archivedConversations.filter(matchesFilter);
@@ -261,13 +265,15 @@ export function ConversationSidebar({
    * tập của từng tab (không chịu ô tìm hay tab đang chọn) để
    * tab luôn cho biết quy mô thật của tập đó — như số đếm trên
    * chip lọc trước đây; danh sách bên dưới vẫn lọc theo ô tìm
-   * như trước. Số của tab Nhóm là số hàng của danh sách nhóm
-   * phẳng trên cây chưa lọc; số của tab Yêu thích là 0 vì hệ
-   * chưa có dữ kiện yêu thích ở bất kỳ tầng nào (issue #606).
+   * như trước. Số chưa đọc của tab Chưa đọc tính trên mọi loại
+   * hội thoại nên luôn khớp tổng chưa đọc ở tiêu đề trang
+   * (trang chứa tính tổng đó từ chính danh sách này). Số của
+   * tab Nhóm là số hàng của danh sách nhóm phẳng trên cây
+   * chưa lọc; số của tab Yêu thích là 0 vì hệ chưa có dữ kiện
+   * yêu thích ở bất kỳ tầng nào (issue #606).
    */
-  const allConversations = conversations.filter((c) => c.type === 1);
-  const allCount = allConversations.length;
-  const unreadCountTotal = allConversations.filter((c) => (c.unread ?? 0) > 0).length;
+  const allCount = conversations.length;
+  const unreadCountTotal = conversations.filter((c) => (c.unread ?? 0) > 0).length;
   const groupCount = groupTree ? countGroupListEntries(groupTree) : 0;
   const favouritesCount = 0;
 
@@ -321,7 +327,19 @@ export function ConversationSidebar({
               <span className="mt-0.5 flex items-center gap-1.5">
                 {c.lastMessage ? (
                   <span className="min-w-0 flex-1 truncate text-xs leading-4 text-muted-foreground">
-                    {c.lastMessage.userIdFrom === myId ? `${t('lastMessageOwnPrefix')} ` : ''}
+                    {/*
+                      Xem trước tin cuối: tin của chính người xem
+                      mang tiền tố "Bạn:"; ở hội thoại NHÓM, tin
+                      của người khác mang tiền tố tên người gửi —
+                      đúng nhận diện nhóm như hàng ở tab Nhóm
+                      (hàng 1–1 không cần tiền tố vì tên đối tác
+                      đã là tiêu đề hàng).
+                    */}
+                    {c.lastMessage.userIdFrom === myId
+                      ? `${t('lastMessageOwnPrefix')} `
+                      : c.type === 1
+                        ? ''
+                        : `${nameOf(c.lastMessage.userIdFrom)}: `}
                     {c.lastMessage.fullMessage}
                   </span>
                 ) : (
@@ -432,9 +450,10 @@ export function ConversationSidebar({
 
   /**
    * Nội dung cuộn của tab Tất cả / Chưa đọc: danh sách hội
-   * thoại 1–1 đã lọc, tách thành mục Ghim / Gần đây (issue
-   * #564: hội thoại mang `pinnedAt` lên mục Ghim, còn lại về
-   * Gần đây; mục Ghim chỉ render khi có hội thoại đã ghim).
+   * thoại mọi loại đã lọc, tách thành mục Ghim / Gần đây
+   * (issue #564: hội thoại mang `pinnedAt` lên mục Ghim, còn
+   * lại về Gần đây; mục Ghim chỉ render khi có hội thoại đã
+   * ghim — cơ chế áp cho toàn tập, gồm cả hội thoại nhóm).
    * Riêng tab Tất cả có thêm mục Đã lưu trữ ở dưới cùng — mục
    * này thuộc về danh sách đầy đủ, còn tab Chưa đọc là một
    * danh sách lọc thuần như các tab lọc của bản demo nên
@@ -443,8 +462,8 @@ export function ConversationSidebar({
    * @param unreadOnly - true ở tab Chưa đọc: chỉ hội thoại có tin chưa đọc.
    * @returns Khối cuộn của panel tab.
    */
-  const renderDirectPanel = (unreadOnly: boolean) => {
-    const visible = directConversations(unreadOnly);
+  const renderConversationPanel = (unreadOnly: boolean) => {
+    const visible = listedConversations(unreadOnly);
     const pinned = visible.filter((c) => c.pinnedAt);
     const recent = visible.filter((c) => !c.pinnedAt);
     return (
@@ -616,10 +635,10 @@ export function ConversationSidebar({
           </TabsTrigger>
         </TabsList>
         <TabsContent value="all" className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {renderDirectPanel(false)}
+          {renderConversationPanel(false)}
         </TabsContent>
         <TabsContent value="unread" className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {renderDirectPanel(true)}
+          {renderConversationPanel(true)}
         </TabsContent>
         <TabsContent value="groups" className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-1 py-2">
