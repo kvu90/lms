@@ -99,7 +99,7 @@ theo chuẩn TSDoc**, chi tiết nhất có thể — flow kỹ thuật phải n
 ## Bản đồ flow của package
 
 - **Điểm vào:** `src/main.ts` bootstrap ứng dụng NestJS (prefix `/api/v1`);
-  `src/app.module.ts` lắp toàn bộ module; `src/review-seed.ts` là seed tài khoản
+  `src/app.module.ts` lắp toàn bộ module; `src/modules/seed/review-seed.ts` là seed tài khoản
   demo phục vụ nghiệm thu.
 - **Lớp cắt ngang:** `src/common/` — guard (`jwt-auth.guard`,
   `better-auth-session.guard`, `capability.guard`), decorator

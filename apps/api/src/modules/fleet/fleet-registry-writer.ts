@@ -24,8 +24,8 @@
 import type { ConfigService } from '@nestjs/config';
 import type { SchemaMigrationStep } from '@lms/db/control-plane';
 import type { FleetSpace } from './fleet-common';
-import { ControlPlaneConnection } from './modules/control-plane/control-plane.connection';
-import { ControlPlaneRepository } from './modules/control-plane/control-plane.repository';
+import { ControlPlaneConnection } from '../control-plane/control-plane.connection';
+import { ControlPlaneRepository } from '../control-plane/control-plane.repository';
 
 /** Kết quả một lượt chạy migration mà runner báo về registry. */
 export type MigrationRunOutcome = {
