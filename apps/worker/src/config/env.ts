@@ -33,6 +33,11 @@ export const envSchema = z.object({
   // giải đích, trần kết nối cho pool của mỗi kho riêng, ngưỡng
   // nhàn rỗi để đóng pool của kho không còn traffic.
   SPACE_ROUTING_CACHE_TTL_MS: z.coerce.number().int().positive().default(5_000),
+  // Trần lượt quét outbox theo trung tâm chạy ĐỒNG THỜI ở mỗi nhịp
+  // relay (issue #582): mỗi lượt quét đang chạy giữ pool của kho
+  // riêng tương ứng mở, nên trần này là một phần của ngân sách kết
+  // nối của cụm — chỉ phía worker đọc biến này.
+  SPACE_SWEEP_CONCURRENCY: z.coerce.number().int().positive().default(3),
   SPACE_DB_POOL_MAX: z.coerce.number().int().positive().default(5),
   SPACE_DB_POOL_IDLE_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
   JWT_SECRET: z.string().min(16),

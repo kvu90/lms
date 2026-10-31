@@ -1,7 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
-import { tenantAls } from '../db/tenant-als';
+import { SpaceJobRunner } from '../db/routing/space-job-runner';
 import type { OutboxEventJobData } from '../outbox-event-routes';
 import {
   GuardianDigestHandlerService,
@@ -60,16 +60,22 @@ function isOverdueAlertPayload(payload: unknown): payload is GuardianOverdueAler
  * lần xử lý sau đều là no-op, nên một job được phát lại (kể cả bởi
  * relay khi jobId chưa kịp dedupe) không sinh thông báo trùng.
  *
- * Ngữ cảnh tenant: chạy trong ngữ cảnh platform tường minh như
- * consumer phía API vẫn chạy toàn bộ nhịp của nó — handler tự kiểm
- * cổng liên kết giám hộ và gắn tenant của liên kết lên mọi dòng nó
- * ghi (thông báo, dispatch log, sự kiện audit).
+ * Ngữ cảnh tenant: job chạy qua `SpaceJobRunner` (issue #582) —
+ * sự kiện của trung tâm ở kho chung thì là ngữ cảnh platform
+ * tường minh như consumer phía API vẫn chạy toàn bộ nhịp của nó;
+ * sự kiện của trung tâm ở kho riêng thì là phiên theo trung tâm
+ * trong kho của trung tâm đó. Handler tự kiểm cổng liên kết giám
+ * hộ và gắn tenant của liên kết lên mọi dòng nó ghi (thông báo,
+ * dispatch log, sự kiện audit).
  */
 @Processor('guardian-digest-events')
 export class GuardianDigestEventsProcessor extends WorkerHost {
   private readonly logger = new Logger(GuardianDigestEventsProcessor.name);
 
-  constructor(private readonly handler: GuardianDigestHandlerService) {
+  constructor(
+    private readonly handler: GuardianDigestHandlerService,
+    private readonly jobRunner: SpaceJobRunner,
+  ) {
     super();
   }
 
@@ -82,7 +88,7 @@ export class GuardianDigestEventsProcessor extends WorkerHost {
    * nghĩa nuốt lỗi của consumer phía API trước đây.
    */
   async process(job: Job<OutboxEventJobData>): Promise<{ handled: boolean }> {
-    return tenantAls.run({ platform: true }, async () => {
+    return this.jobRunner.runForJob(job.data, async () => {
       const { type, payload } = job.data;
       try {
         if (type === 'guardian_digest_due') {

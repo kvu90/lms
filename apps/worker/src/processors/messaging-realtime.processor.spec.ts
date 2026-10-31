@@ -5,6 +5,8 @@ import {
   MessagingRealtimeProcessor,
 } from './messaging-realtime.processor';
 import type { OutboxEventJobData } from '../outbox-event-routes';
+import { SpaceJobRunner } from '../db/routing/space-job-runner';
+import type { SpaceDatabaseService } from '../db/routing/space-database.service';
 
 /**
  * Consumer phân phối realtime phía worker — ghim các tính chất
@@ -21,6 +23,21 @@ import type { OutboxEventJobData } from '../outbox-event-routes';
  *     được (hành vi đầu-cuối trên hàng đợi thật do spec
  *     integration `messaging-realtime-retry` ghim).
  */
+/**
+ * Bộ chạy job THẬT với khung định tuyến không có sổ phía sau
+ * (issue #582): các job của spec này không mang slug trung tâm
+ * nên bộ chạy luôn mở ngữ cảnh platform như đường xử lý trước
+ * đợt này — spec khoá hành vi của processor, không khoá định
+ * tuyến kho (định tuyến có spec riêng của bộ chạy và của relay).
+ */
+function makeJobRunner(): SpaceJobRunner {
+  return new SpaceJobRunner({
+    resolveTarget: async () => {
+      throw new Error('spec không cấu hình sổ đăng ký');
+    },
+  } as unknown as SpaceDatabaseService);
+}
+
 describe('MessagingRealtimeProcessor — chống trùng theo outboxId', () => {
   const JOB_DATA: OutboxEventJobData = {
     outboxId: '0191e8f2-7c3a-7b21-9f00-000000000001',
@@ -29,6 +46,7 @@ describe('MessagingRealtimeProcessor — chống trùng theo outboxId', () => {
     type: 'message_sent',
     payload: { conversationId: 'conv-1', messageId: 'msg-1' },
     tenantId: 'tenant-1',
+    spaceSlug: null,
     occurredAt: '2026-10-29T00:00:00.000Z',
   };
 
@@ -50,7 +68,7 @@ describe('MessagingRealtimeProcessor — chống trùng theo outboxId', () => {
         return 'OK';
       }),
     };
-    const processor = new MessagingRealtimeProcessor(distribution as never, redis as never);
+    const processor = new MessagingRealtimeProcessor(distribution as never, redis as never, makeJobRunner());
     return { processor, distribution, redis, calls };
   }
 

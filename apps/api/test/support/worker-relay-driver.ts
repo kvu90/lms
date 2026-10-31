@@ -10,6 +10,8 @@ import { TenantAwarePool } from '../../../worker/src/db/tenant-pool';
 import { relations } from '../../../worker/src/db/relations';
 import { EventLogWriter } from '../../../worker/src/event-log-writer.service';
 import { TaskLogService } from '../../../worker/src/task-log.service';
+import type { ConfigService } from '@nestjs/config';
+import { SpaceDatabaseService } from '../../../worker/src/db/routing/space-database.service';
 import { OutboxRelayScheduler } from '../../../worker/src/outbox-relay.scheduler';
 import {
   OUTBOX_EVENT_QUEUE_ROUTES,
@@ -111,12 +113,26 @@ function getRelay(): OutboxRelayScheduler {
     const queueMap: OutboxEventQueues = new Map(
       queueNames.map((name, index) => [name, queues[index]!] as const),
     );
+    // Từ issue #582 relay còn hai phụ thuộc: dịch vụ định tuyến
+    // theo trung tâm (cho lượt quét các kho riêng) và cấu hình
+    // (giới hạn đồng thời của lượt quét). Cầu dẫn này chỉ dẫn
+    // lượt quét kho chung `publishPending` — lượt quét theo
+    // trung tâm được kiểm chứng ở chính các suite của worker —
+    // nên dịch vụ định tuyến ở đây dựng bằng một cấu hình không
+    // có control plane (mọi tra cứu sổ đều rỗng/không cấu hình,
+    // đúng trạng thái của các file e2e dùng cầu dẫn này), và cấu
+    // hình của relay trả mặc định cho mọi khoá.
+    const unconfigured = {
+      get: (_key: string, fallback?: unknown) => fallback,
+    } as unknown as ConfigService;
     relay = new OutboxRelayScheduler(
       db,
       new EventLogWriter(db),
       new TaskLogService(db),
       OUTBOX_EVENT_QUEUE_ROUTES,
       queueMap,
+      new SpaceDatabaseService(unconfigured),
+      unconfigured,
     );
   }
   return relay;

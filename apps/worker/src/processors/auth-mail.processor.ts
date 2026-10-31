@@ -6,6 +6,7 @@ import { DelayedError, type Job } from 'bullmq';
 import Redis from 'ioredis';
 import { renderAuthMail, type AuthMailPayload } from '@lms/contracts';
 import { redisConnectionFromUrl } from '../config/env';
+import { SpaceJobRunner } from '../db/routing/space-job-runner';
 import type { OutboxEventJobData } from '../outbox-event-routes';
 import { ResendMailService } from '../resend-mail.service';
 
@@ -298,6 +299,7 @@ export class AuthMailProcessor extends WorkerHost {
   constructor(
     private readonly mailer: ResendMailService,
     @Inject(AUTH_MAIL_SENT_MARKER) private readonly sentMarker: AuthMailSentMarker,
+    private readonly jobRunner: SpaceJobRunner,
   ) {
     super();
   }
@@ -336,6 +338,17 @@ export class AuthMailProcessor extends WorkerHost {
    * ghi ở đầu file.
    */
   async process(job: Job<OutboxEventJobData>, token?: string): Promise<AuthMailProcessResult> {
+    // Job chạy trong phiên đúng với trung tâm mà sự kiện thuộc về
+    // qua `SpaceJobRunner` (issue #582) — cùng một đường như mọi
+    // consumer của relay: trung tâm ở kho riêng thì phiên theo
+    // trung tâm được mở trước khi thân xử lý chạy; trung tâm ở
+    // kho chung thì là ngữ cảnh platform như hiện tại. Thân xử
+    // lý ở `processInContext` không đổi.
+    return this.jobRunner.runForJob(job.data, () => this.processInContext(job, token));
+  }
+
+  /** Thân xử lý một job mail auth trong phiên đã mở — xem `process`. */
+  private async processInContext(job: Job<OutboxEventJobData>, token?: string): Promise<AuthMailProcessResult> {
     const data = job.data;
     const parsed = (data?.payload ?? null) as AuthMailPayload | null;
     if (!parsed || (parsed.kind !== 'password_reset' && parsed.kind !== 'email_otp') || !parsed.to) {

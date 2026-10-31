@@ -2,6 +2,7 @@ import { forwardRef, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { SpaceRoutingModule } from '../../db/routing/space-routing.module';
 import { CacheInfraModule } from '../../infra/cache/cache-infra.module';
 import { EventsModule } from '../../infra/events/events.module';
 import { AccessModule } from '../access/access.module';
@@ -18,7 +19,7 @@ import { SessionService } from './session.service';
 import { TotpService } from './totp.service';
 import { JwtAuthStrategy, LocalAuthStrategy } from './strategies';
 
-/** Facade của AuthModule: AuthService + SessionService. Phụ thuộc Users + Access theo đồ thị phụ thuộc của report. */
+/** Facade của AuthModule: AuthService + SessionService. Phụ thuộc Users + Access theo đồ thị phụ thuộc của report. SpaceRoutingModule cấp SpaceDatabaseService để AuthService phân giải claim `centre_id` khi phát hành token (issue #582). */
 @Module({
   imports: [
     // BetterAuthModule: AuthService cần BetterAuthService +
@@ -33,7 +34,7 @@ import { JwtAuthStrategy, LocalAuthStrategy } from './strategies';
     // nên cạnh UsersModule ở đây cũng phải là forwardRef; chuỗi
     // provider AuthService → UsersService → AuthRepository kết
     // thúc ở tầng dữ liệu, không phụ thuộc ngược vào AuthService.
-    forwardRef(() => UsersModule), AccessModule, TenantsModule, CacheInfraModule, EventsModule, PassportModule, forwardRef(() => BetterAuthModule),
+    forwardRef(() => UsersModule), AccessModule, TenantsModule, CacheInfraModule, EventsModule, PassportModule, forwardRef(() => BetterAuthModule), SpaceRoutingModule,
     JwtModule.registerAsync({
       imports: [ConfigModule], inject: [ConfigService],
       useFactory: (config: ConfigService) => ({ secret: config.getOrThrow<string>('JWT_SECRET') }),

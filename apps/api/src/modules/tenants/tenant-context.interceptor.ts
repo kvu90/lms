@@ -15,6 +15,12 @@ import { TenantContextService } from './tenant-context.service';
  * handler) subscribe handler BÊN TRONG `TenantContextService.run` —
  * điểm subscribe là nơi handler thật sự được gọi, nên mọi await phía
  * sau trong request đều mang ngữ cảnh tenant đúng.
+ *
+ * Từ issue #582, cùng cơ chế ghim-đọc-lại này mang thêm slug của
+ * trung tâm: `SpaceContextGuard` (chạy sau TenantGuard) ghim
+ * `request.spaceSlug` sau khi đã chuẩn bị kho của trung tâm, và
+ * interceptor nạp cả slug vào store ALS để handle định tuyến ở tầng
+ * dữ kiện chọn đúng kho cho mọi truy vấn của handler.
  */
 @Injectable()
 export class TenantContextInterceptor implements NestInterceptor {
@@ -22,12 +28,18 @@ export class TenantContextInterceptor implements NestInterceptor {
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     if (context.getType() !== 'http') return next.handle();
-    const request = context.switchToHttp().getRequest<{ tenantId?: string; user?: AuthenticatedUser }>();
+    const request = context.switchToHttp().getRequest<{
+      tenantId?: string;
+      spaceSlug?: string;
+      user?: AuthenticatedUser;
+    }>();
     const tenantId = request.tenantId;
-    if (!tenantId) return next.handle();
+    const spaceSlug = request.spaceSlug;
+    if (!tenantId && !spaceSlug) return next.handle();
     return new Observable((subscriber) => {
-      const subscription = this.tenantContext.run({ tenantId, userId: request.user?.id }, () =>
-        next.handle().subscribe(subscriber),
+      const subscription = this.tenantContext.run(
+        { tenantId, userId: request.user?.id, ...(spaceSlug ? { spaceSlug } : {}) },
+        () => next.handle().subscribe(subscriber),
       );
       return () => subscription.unsubscribe();
     });

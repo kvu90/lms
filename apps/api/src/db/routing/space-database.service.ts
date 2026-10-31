@@ -32,8 +32,9 @@ import { SpacePoolManager } from './space-pool-manager';
  *   phơi ba đường dùng:
  *   1. `getDatabaseForSpace(slug)` — lấy handle của một trung tâm
  *      theo định danh tường minh (đường vận hành, đường kiểm chứng,
- *      và bước CHUẨN BỊ mà tầng gắn ngữ cảnh của issue kế tiếp gọi
- *      trước khi xử lý request/job của trung tâm đó).
+ *      và bước CHUẨN BỊ mà tầng gắn ngữ cảnh — `SpaceContextGuard`
+ *      cho request, bộ chạy job theo trung tâm cho job nền, issue
+ *      #582 — gọi trước khi xử lý request/job của trung tâm đó).
  *   2. `routedDatabase` — handle định tuyến theo ngữ cảnh: handle
  *      được nhà cung cấp kết nối của API trả cho MỌI điểm inject
  *      hiện hữu (xem `app.module.ts`), mỗi lần dùng sẽ uỷ thác sang
@@ -49,9 +50,9 @@ import { SpacePoolManager } from './space-pool-manager';
  *      kho chung — bên gọi đã làm đúng nghĩa vụ chuẩn bị, khung
  *      không được im lặng đổi đích dữ kiện của nó sang kho khác.
  *      Nhờ cơ chế này các điểm inject không phải sửa từng điểm
- *      gọi, và chừng nào chưa có đường nào nạp `spaceSlug` vào
- *      ngữ cảnh (việc của issue kế tiếp) thì toàn hệ chạy đúng
- *      đường kho chung như trước.
+ *      gọi, và ngữ cảnh nào không do tầng gắn ngữ cảnh của issue
+ *      #582 nạp `spaceSlug` thì toàn hệ chạy đúng đường kho chung
+ *      như trước.
  *   3. `withSpaceDatabase(slug, fn)` — đường mở kết nối theo trung
  *      tâm cho tác vụ nền: chuẩn bị handle của trung tâm, rồi chạy
  *      `fn` trong ngữ cảnh ALS mang slug của trung tâm đó (kèm
@@ -115,6 +116,7 @@ export class SpaceDatabaseService implements OnModuleDestroy {
         const [row] = await db.select().from(spaceRegistry).where(eq(spaceRegistry.slug, slug)).limit(1);
         return row
           ? {
+              id: row.id,
               slug: row.slug,
               status: row.status,
               databaseName: row.databaseName,

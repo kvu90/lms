@@ -89,6 +89,13 @@ const outboxRouteQueueNames: string[] = allQueueNamesOfRoutes(OUTBOX_EVENT_QUEUE
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     I18nWorkerModule,
+    // Khung định tuyến theo trung tâm: cấp SpaceDatabaseService cho
+    // relay (quét outbox theo trung tâm) và SpaceJobRunner cho các
+    // processor tiêu thụ job outbox (issue #582). Cùng một thực thể
+    // module với bản được DrizzleModule.forRootAsync import ở dưới
+    // — handle kho chung gắn trong factory đó tới đúng service mà
+    // relay/processor dùng.
+    SpaceRoutingModule,
     DrizzleModule.forRootAsync({
       imports: [ConfigModule, SpaceRoutingModule],
       inject: [ConfigService, SpaceDatabaseService],
@@ -107,17 +114,22 @@ const outboxRouteQueueNames: string[] = allQueueNamesOfRoutes(OUTBOX_EVENT_QUEUE
         // Khung định tuyến theo trung tâm (issue #581): gắn handle
         // kho chung vào khung của worker để các phiên theo trung
         // tâm (`withSpaceDatabase`) có đích kho chung mà uỷ thác.
-        // Handle mà các processor/service hiện hữu inject GIỮ
-        // NGUYÊN handle này — khung không đổi đường dữ kiện hiện
-        // hành của worker; việc áp phiên theo trung tâm vào từng
-        // job thuộc issue kế tiếp.
+        // Từ issue #582, handle mà các processor/service inject là
+        // HANDLE ĐỊNH TUYẾN của khung (cùng cơ chế với phía API):
+        // ngữ cảnh không mang slug của một trung tâm đã chuẩn bị ở
+        // kho riêng thì handle uỷ thác về đúng handle kho chung ở
+        // trên, nên mọi đường chưa qua phiên theo trung tâm (job
+        // của trung tâm ở kho chung, scheduler quét xuyên tenant)
+        // chạy đúng như hiện tại; job của trung tâm ở kho riêng
+        // chạy trong phiên do `SpaceJobRunner` mở và được handle
+        // này dẫn vào kho của trung tâm đó.
         spaceDatabase.bindSharedDatabase(sharedDb);
         return {
           // TENANT-1 (#196): pool tự dựng có gắn GUC tenant theo ngữ
           // cảnh ALS ở mọi checkout — cùng cơ chế với phía API (xem
           // apps/api/src/app.module.ts): scheduler/processor tự bọc
           // ngữ cảnh platform/tenant, ngoài ngữ cảnh là fail-closed.
-          db: sharedDb,
+          db: spaceDatabase.routedDatabase,
         };
       },
     }),

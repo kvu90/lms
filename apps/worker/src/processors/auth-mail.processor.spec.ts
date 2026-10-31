@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { DelayedError, type Job } from 'bullmq';
 import type { OutboxEventJobData } from '../outbox-event-routes';
 import type { ResendMailService, WorkerMailMessage, WorkerMailSendResult } from '../resend-mail.service';
+import { SpaceJobRunner } from '../db/routing/space-job-runner';
+import type { SpaceDatabaseService } from '../db/routing/space-database.service';
 import { AuthMailProcessor, type AuthMailSentMarker } from './auth-mail.processor';
 
 /**
@@ -199,13 +201,29 @@ function makeJob(
       type: 'auth_mail_requested',
       payload,
       tenantId: null,
+      spaceSlug: null,
       occurredAt: '2026-10-29T00:00:00.000Z',
     },
   } as Job<OutboxEventJobData>;
 }
 
+/**
+ * Bộ chạy job THẬT với khung định tuyến không có sổ phía sau
+ * (issue #582): các job của spec này không mang slug trung tâm
+ * nên bộ chạy luôn mở ngữ cảnh platform như đường xử lý trước
+ * đợt này — spec khoá hành vi của processor, không khoá định
+ * tuyến kho (định tuyến có spec riêng của bộ chạy và của relay).
+ */
+function makeJobRunner(): SpaceJobRunner {
+  return new SpaceJobRunner({
+    resolveTarget: async () => {
+      throw new Error('spec không cấu hình sổ đăng ký');
+    },
+  } as unknown as SpaceDatabaseService);
+}
+
 function makeProcessor(mailer: FakeMailer, marker: FakeSentMarker): AuthMailProcessor {
-  return new AuthMailProcessor(mailer as unknown as ResendMailService, marker);
+  return new AuthMailProcessor(mailer as unknown as ResendMailService, marker, makeJobRunner());
 }
 
 describe('AuthMailProcessor (consumer mail auth trên hàng đợi ở worker)', () => {
@@ -254,7 +272,7 @@ describe('AuthMailProcessor (consumer mail auth trên hàng đợi ở worker)',
 
   it('hai lượt xử lý đồng thời cùng một sự kiện (cùng outboxId) chỉ gửi đúng một mail và lượt thua bị hẹn thử lại thay vì kết thúc như đã xử lý', async () => {
     const mailer = new GatedMailer();
-    const processor = new AuthMailProcessor(mailer as unknown as ResendMailService, new FakeSentMarker());
+    const processor = new AuthMailProcessor(mailer as unknown as ResendMailService, new FakeSentMarker(), makeJobRunner());
     const job = makeJob({ kind: 'password_reset', to: 'user@example.com', url: RESET_URL });
 
     // Hai lượt xử lý cùng một job chạy chồng lấn: lượt thứ hai bắt
@@ -300,7 +318,7 @@ describe('AuthMailProcessor (consumer mail auth trên hàng đợi ở worker)',
   it('lượt đọc dấu đã gửi là chưa có rồi bị giữ trước khi chiếm lease, trong lúc lượt khác gửi trọn và nhả lease, thì khi chiếm lại lease phải đọc lại dấu và kết thúc trùng lặp thay vì gửi lần hai', async () => {
     const mailer = new FakeMailer();
     const marker = new FirstClaimGatedMarker();
-    const processor = new AuthMailProcessor(mailer as unknown as ResendMailService, marker);
+    const processor = new AuthMailProcessor(mailer as unknown as ResendMailService, marker, makeJobRunner());
     const job = makeJob({ kind: 'password_reset', to: 'user@example.com', url: RESET_URL });
 
     // Lượt A bắt đầu trước: đọc dấu đã gửi (chưa có) rồi bị cổng

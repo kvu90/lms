@@ -79,7 +79,14 @@ export class CohortSyncService {
     this.materialization = new CohortMaterializationSurface({
       db,
       outbox: new WorkerOutboxPort(db),
-      runInPlatformScope: (fn) => tenantAls.run({ platform: true }, fn),
+      // Phạm vi platform của bề mặt: giữ nguyên `spaceSlug` của
+      // ngữ cảnh đang chạy (issue #582) — phạm vi này chỉ đổi tầm
+      // nhìn RLS sang đường platform, không đổi kho đích; một job
+      // của trung tâm ở kho riêng chạy trong phiên theo trung tâm
+      // mà phạm vi platform dựng store mới không mang slug thì
+      // handle định tuyến rơi về kho chung, ghi sai kho.
+      runInPlatformScope: (fn) =>
+        tenantAls.run({ platform: true, spaceSlug: tenantAls.getStore()?.spaceSlug }, fn),
     });
   }
 

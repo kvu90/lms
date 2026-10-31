@@ -3,7 +3,7 @@ import { Inject, Logger } from '@nestjs/common';
 import { DelayedError, type Job } from 'bullmq';
 import type Redis from 'ioredis';
 import type { MessagingDistributionService } from '@lms/messaging';
-import { tenantAls } from '../db/tenant-als';
+import { SpaceJobRunner } from '../db/routing/space-job-runner';
 import type { OutboxEventJobData } from '../outbox-event-routes';
 
 /** Tên hàng đợi BullMQ của consumer phân phối realtime messaging. */
@@ -114,6 +114,7 @@ export class MessagingRealtimeProcessor extends WorkerHost {
   constructor(
     @Inject(MESSAGING_DISTRIBUTION_SERVICE) private readonly distribution: MessagingDistributionService,
     @Inject(MESSAGING_DISTRIBUTED_REDIS) private readonly redis: Redis,
+    private readonly jobRunner: SpaceJobRunner,
   ) {
     super();
   }
@@ -141,7 +142,7 @@ export class MessagingRealtimeProcessor extends WorkerHost {
     if (!data || typeof data.outboxId !== 'string' || data.outboxId.length === 0 || typeof data.type !== 'string') {
       throw new Error('Messaging realtime job is missing its outboxId or event type');
     }
-    await tenantAls.run({ platform: true }, async () => {
+    await this.jobRunner.runForJob(data, async () => {
       const markKey = `${MESSAGING_DISTRIBUTED_KEY_PREFIX}${data.outboxId}`;
       try {
         // Đọc dấu nằm TRONG cùng phạm vi thử lại: lỗi đọc dấu

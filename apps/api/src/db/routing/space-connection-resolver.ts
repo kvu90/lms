@@ -42,10 +42,19 @@ import { onSpaceRegistryChanged } from './space-routing-events';
  * việc từ chối traffic NGHIỆP VỤ theo trạng thái là luật của tầng
  * ứng dụng phía trên, kết quả phân giải mang theo `status` để tầng
  * đó quyết.
+ *
+ * Kết quả phân giải còn mang theo `spaceId` — định danh của chính
+ * dòng đăng ký (khoá chính của sổ): tầng ứng dụng gắn phiên làm
+ * việc vào đúng một trung tâm đã đăng ký bằng định danh này
+ * (claim `centre_id` của access token được cấp cho phiên của
+ * trung tâm ở kho riêng và được đối chiếu với `spaceId` ở mỗi
+ * request tới địa chỉ của trung tâm — issue #582).
  */
 
 /** Một dòng đăng ký không gian ở dạng bộ phân giải cần — hình chiếu tối thiểu của dòng sổ đăng ký. */
 export interface SpaceRegistryEntry {
+  /** Định danh của chính dòng đăng ký (khoá chính của sổ) — nguồn đối chiếu của claim `centre_id` ở tầng ứng dụng. */
+  id: string;
   slug: string;
   /** provisioning | active | suspended | closed. */
   status: string;
@@ -65,6 +74,8 @@ export type SpaceRegistryReader = (slug: string) => Promise<SpaceRegistryEntry |
 /** Đích kết nối đã phân giải cho một không gian. */
 export interface ResolvedSpaceConnection {
   slug: string;
+  /** Định danh của dòng đăng ký đã phân giải (khoá chính của sổ) — tầng ứng dụng đối chiếu với claim `centre_id` của token. */
+  spaceId: string;
   /** Trạng thái vòng đời tại thời điểm phân giải — tầng ứng dụng dùng để chặn traffic nghiệp vụ khi cần. */
   status: string;
   schemaVersion: string | null;
@@ -218,6 +229,7 @@ export class SpaceConnectionResolver {
   private toTarget(entry: SpaceRegistryEntry): ResolvedSpaceConnection {
     const base = {
       slug: entry.slug,
+      spaceId: entry.id,
       status: entry.status,
       schemaVersion: entry.schemaVersion,
       databaseName: entry.databaseName,

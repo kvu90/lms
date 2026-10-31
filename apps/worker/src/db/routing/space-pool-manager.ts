@@ -189,10 +189,13 @@ export class SpacePoolManager<TDatabase> {
    * Đóng mọi pool đã nhàn rỗi quá ngưỡng và không còn kết nối đang
    * được mượn. Pool bị đóng được gỡ khỏi sổ TRƯỚC khi `end()` chạy,
    * nên một lần lấy handle đến trong lúc đóng sẽ tạo pool mới thay
-   * vì nhận phải pool đang chết.
+   * vì nhận phải pool đang chết. `end()` của một pool ném lỗi thì
+   * pool đó không được tính là đã đóng thành công nhưng vẫn được
+   * báo qua `onPoolClosed` (nó đã ra khỏi sổ), và vòng quét đi
+   * tiếp các pool còn lại.
    *
    * @param at - Mốc thời gian xét nhàn rỗi (mặc định: hiện tại).
-   * @returns Tên các database có pool vừa bị đóng.
+   * @returns Tên các database có pool vừa bị đóng thành công.
    */
   async closeIdlePools(at: number = this.now()): Promise<string[]> {
     const closed: string[] = [];
@@ -203,8 +206,24 @@ export class SpacePoolManager<TDatabase> {
       // đóng giữa chừng, để vòng quét sau xét lại khi đã trả hết.
       if (pool.totalCount !== pool.idleCount) continue;
       this.entries.delete(databaseName);
-      await pool.end();
-      closed.push(databaseName);
+      // Đóng một pool có thể ném lỗi (ví dụ kết nối tới kho đang
+      // hỏng): lỗi đóng của MỘT pool không được làm hỏng cả vòng
+      // quét. Pool đã bị gỡ khỏi sổ ở trên nên chủ sở hữu vẫn phải
+      // nhận thông báo `onPoolClosed` để gỡ trạng thái
+      // đã-chuẩn-bị đang trỏ vào handle của pool này; pool đó chỉ
+      // không được tính là đã đóng thành công (không vào danh
+      // sách trả về), và vòng quét đi tiếp các pool còn lại thay
+      // vì dừng giữa chừng (điểm O1 của kiểm toán hậu merge PR
+      // #594, chuyển sang issue #582).
+      let closedCleanly = false;
+      try {
+        await pool.end();
+        closedCleanly = true;
+      } catch {
+        // Bỏ qua lỗi đóng của chính pool này — xem ghi chú trên:
+        // vòng quét tiếp tục với các pool còn lại.
+      }
+      if (closedCleanly) closed.push(databaseName);
       this.deps.onPoolClosed?.(databaseName);
     }
     return closed;

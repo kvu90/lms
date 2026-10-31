@@ -220,6 +220,14 @@ export type OutboxEventQueues = ReadonlyMap<string, Queue>;
  * - `payload`: nội dung sự kiện nguyên văn như đã ghi ở dòng (relay
  *   không biến đổi payload).
  * - `tenantId`: tenant của ngữ cảnh phát sinh sự kiện (có thể null).
+ * - `spaceSlug`: slug của trung tâm mà tenant của sự kiện thuộc
+ *   về trong sổ đăng ký control plane (issue #582) — relay suy ra
+ *   từ chính tenant của dòng lúc phát (slug của tenant và slug
+ *   đăng ký của trung tâm là một); null khi sự kiện không gắn
+ *   tenant hoặc tenant không còn dòng tương ứng. Consumer dùng
+ *   trường này qua `SpaceJobRunner` để mở đúng kho của trung tâm;
+ *   dòng được relay đọc từ kho riêng của một trung tâm mang slug
+ *   của chính trung tâm đó theo cùng cơ chế suy ra này.
  * - `occurredAt`: thời điểm phát sinh sự kiện, dạng chuỗi ISO 8601
  *   (dữ liệu job đi qua Redis nên chỉ giữ dạng JSON hoá được).
  */
@@ -230,5 +238,6 @@ export interface OutboxEventJobData {
   type: string;
   payload: Record<string, unknown> | null;
   tenantId: string | null;
+  spaceSlug: string | null;
   occurredAt: string;
 }
