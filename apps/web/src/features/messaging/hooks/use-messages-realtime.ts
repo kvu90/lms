@@ -64,6 +64,15 @@ export interface UseMessagesRealtimeParams {
   ) => void;
   /** Handle socket realtime — trang sở hữu chung, hook này gán vào khi nối. */
   realtimeRef: { current: MessagingRealtimeHandle | null };
+  /**
+   * Tạm ngắt realtime theo lựa chọn hiện diện "ngoại tuyến" của
+   * chính người xem (giai đoạn 2 của vòng sửa PR #610): true thì
+   * hiệu ứng KHÔNG nối socket — cleanup của lượt trước đã ngắt
+   * socket cũ nên server gỡ presence và phát trạng thái ngoại
+   * tuyến thật cho người xem ở mọi bề mặt. Vắng mặt (undefined)
+   * nghĩa là nối bình thường.
+   */
+  suspendRealtime?: boolean;
 }
 
 export function useMessagesRealtime({
@@ -82,13 +91,16 @@ export function useMessagesRealtime({
   setTypingUsers,
   setOnlineUsers,
   realtimeRef,
+  suspendRealtime,
 }: UseMessagesRealtimeParams) {
   const typingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // Kênh realtime: nối một lần khi trang mở; handlers đọc state mới
-  // nhất qua ref nên không phải nối lại khi state đổi.
+  // nhất qua ref nên không phải nối lại khi state đổi. Người xem
+  // chọn hiện diện "ngoại tuyến" thì không nối (và lượt nối trước
+  // đã bị cleanup ngắt) — presence thật tắt đúng nghĩa của lựa chọn.
   useEffect(() => {
-    if (!myId) return;
+    if (!myId || suspendRealtime) return;
     const noteSeq = (conversationId: string, seq: number) => {
       const seen = lastSeqRef.current.get(conversationId) ?? 0;
       if (seq > seen) lastSeqRef.current.set(conversationId, seq);
@@ -253,5 +265,6 @@ export function useMessagesRealtime({
     activeRef,
     lastSeqRef,
     realtimeRef,
+    suspendRealtime,
   ]);
 }

@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { CreateGroupSheet } from './create-group-sheet';
 import { GroupListNav, countGroupListEntries } from './group-list-nav';
 import { NewMessageDialog } from './new-message-dialog';
+import { OwnProfileSheet, type SelfPresenceChoice } from './own-profile-sheet';
 import type {
   ContactRequestView,
   ConversationGroupTreeView,
@@ -96,6 +97,20 @@ interface ConversationSidebarProps {
   active: ConversationView | null;
   error: string | null;
   myId: string | undefined;
+  /** Email của người xem (khởi tạo trường Email trong sheet hồ sơ của chính mình); null khi phiên không mang. */
+  myEmail: string | null;
+  /** Tên đăng nhập của người xem (dòng định danh phụ `@username` trong sheet hồ sơ của chính mình); null khi không có. */
+  myUsername: string | null;
+  /**
+   * Mức hiện diện người xem đang chọn (giai đoạn 2 của vòng sửa
+   * PR #610): online = socket realtime đang nối (presence thật
+   * bật), offline = socket đã ngắt theo lựa chọn (presence thật
+   * tắt). Chấm trên avatar của người xem và bộ chọn trong sheet
+   * hồ sơ của chính mình cùng đọc giá trị này.
+   */
+  selfPresence: SelfPresenceChoice;
+  /** Đổi mức hiện diện của chính người xem (trang chứa đổi nối socket tương ứng). */
+  onSelfPresenceChange: (presence: SelfPresenceChoice) => void;
   onlineUsers: Record<string, boolean>;
   onOpenConversation: (conversation: ConversationView) => void;
   /** Mở một conversation theo id (nút cây đã có conversationId). */
@@ -183,7 +198,8 @@ interface ConversationSidebarProps {
  * @returns Khung trái hoàn chỉnh của màn master–detail.
  */
 export function ConversationSidebar({
-  conversations, archivedConversations, onRequestArchived, groupTree, active, error, myId, onlineUsers,
+  conversations, archivedConversations, onRequestArchived, groupTree, active, error, myId, myEmail, myUsername,
+  selfPresence, onSelfPresenceChange, onlineUsers,
   onOpenConversation, onOpenConversationById, onOpenClassChat, onOpenCourseChat, onOpenGroupConversation,
   canCreateFreeGroup, onCreateFreeGroup, groupCreateError,
   onUpdateConversationState, stateError, nameOf, tab, onTabChange,
@@ -196,6 +212,8 @@ export function ConversationSidebar({
   const open = onOpenConversation;
   const [newMessageOpen, setNewMessageOpen] = useState(false);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
+  /** Sheet hồ sơ của chính người xem (mở từ nút avatar ở đầu cột — giai đoạn 2 của vòng sửa PR #610). */
+  const [ownProfileOpen, setOwnProfileOpen] = useState(false);
   /**
    * Trạng thái mở của ba mục thu gọn trong tab Tất cả (issue
    * #564): Ghim và Gần đây mở mặc định để hội thoại đã ghim không
@@ -206,15 +224,17 @@ export function ConversationSidebar({
   const [recentOpen, setRecentOpen] = useState(true);
   const [archivedOpen, setArchivedOpen] = useState(false);
   /**
-   * Lọc theo TÊN HIỂN THỊ bằng ô tìm duy nhất phía trên thanh
-   * tab (lát M4, issue #237; tính duy nhất và vị trí của ô từ
-   * issue #606): lọc ngay tại client trên dữ kiện đã tải — tên
-   * hiển thị là đúng chuỗi người dùng thấy (tên hội thoại hoặc
-   * tên các thành viên), khớp chuỗi con không phân biệt hoa
-   * thường. Chỉ lọc mục ĐÃ CÓ — không phải tìm người theo tên.
-   * Cùng một từ khoá áp cho tab đang mở: danh sách hội thoại
-   * ở tab Tất cả / Chưa đọc; các mục nhóm ở tab Nhóm theo
-   * luật lọc nút của {@link GroupListNav}.
+   * Lọc bằng ô tìm duy nhất phía trên thanh tab (lát M4, issue
+   * #237; tính duy nhất và vị trí của ô từ issue #606): lọc ngay
+   * tại client trên dữ kiện đã tải, khớp chuỗi con không phân
+   * biệt hoa thường trên TÊN HIỂN THỊ của hội thoại hoặc NỘI DUNG
+   * TIN CUỐI của nó — đúng luật của ô tìm ở bản demo (giai đoạn 2
+   * của vòng sửa PR #610, mục T-01: bản demo khớp tên HOẶC đoạn
+   * xem trước tin cuối; xem trước của bản dựng là nội dung tin
+   * cuối nên khớp trên chính nội dung đó). Chỉ lọc mục ĐÃ CÓ —
+   * không phải tìm người theo tên. Cùng một từ khoá áp cho tab
+   * đang mở: danh sách hội thoại ở tab Tất cả / Chưa đọc; các
+   * mục nhóm ở tab Nhóm theo luật lọc nút của {@link GroupListNav}.
    */
   const [searchText, setSearchText] = useState('');
   /**
@@ -251,7 +271,9 @@ export function ConversationSidebar({
   };
   const filterNeedle = searchText.trim().toLocaleLowerCase('vi');
   const matchesFilter = (c: ConversationView) =>
-    !filterNeedle || labelOf(c).toLocaleLowerCase('vi').includes(filterNeedle);
+    !filterNeedle
+    || labelOf(c).toLocaleLowerCase('vi').includes(filterNeedle)
+    || (c.lastMessage?.fullMessage.toLocaleLowerCase('vi').includes(filterNeedle) ?? false);
   // Tab Tất cả và tab Chưa đọc chứa MỌI hội thoại chưa lưu
   // trữ (mọi loại — 1–1 lẫn nhóm), đúng ngữ nghĩa hợp của bản
   // demo: hội thoại nhóm xuất hiện ở cả hai tab này với đúng
@@ -610,22 +632,30 @@ export function ConversationSidebar({
         <div className="flex min-w-0 items-center gap-2">
           {myId ? (
             /*
-              Avatar của chính người xem mang chấm hiện diện
-              xanh như bản demo (issue #608): người xem đang
-              dùng app là đang trực tuyến theo đúng bản đồ
-              trạng thái hiển thị.
+              Avatar của chính người xem là một NÚT mở sheet hồ
+              sơ của chính mình (giai đoạn 2 của vòng sửa
+              PR #610 — đúng hành vi bản demo: bấm avatar mở hồ
+              sơ, hover làm mờ nhẹ). Chấm hiện diện trên avatar
+              đọc mức người xem ĐANG CHỌN (online/offline nối
+              thật qua nối socket — xem OwnProfileSheet).
             */
-            <span className="relative shrink-0">
+            <button
+              type="button"
+              title={t('myProfile')}
+              aria-label={t('myProfile')}
+              onClick={() => setOwnProfileOpen(true)}
+              className="relative shrink-0 transition-opacity hover:opacity-80"
+            >
               <Avatar>
                 <AvatarFallback>{initialsOf(nameOf(myId))}</AvatarFallback>
               </Avatar>
               <span
                 className={cn(
                   'absolute right-0 bottom-0 size-2.5 rounded-full ring-2 ring-background',
-                  PRESENCE_DOT_CLASS.online,
+                  PRESENCE_DOT_CLASS[selfPresence],
                 )}
               />
-            </span>
+            </button>
           ) : null}
           {/*
             Tiêu đề cột chỉ gồm chữ như bản demo (issue #608):
@@ -814,6 +844,17 @@ export function ConversationSidebar({
         onLoadMorePicker={onLoadMorePicker}
         contactEntries={contacts.map((userId) => ({ userId, displayName: nameOf(userId) }))}
       />
+      {myId ? (
+        <OwnProfileSheet
+          open={ownProfileOpen}
+          onOpenChange={setOwnProfileOpen}
+          name={nameOf(myId)}
+          usernameLine={myUsername ? `@${myUsername}` : null}
+          email={myEmail}
+          selfPresence={selfPresence}
+          onSelfPresenceChange={onSelfPresenceChange}
+        />
+      ) : null}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import '#config/i18n';
 import { useAuth } from '#lib/auth';
@@ -6,6 +6,7 @@ import type { MessagingRealtimeHandle } from '../api/messaging-socket';
 import { PageShell } from '#components/page-shell';
 import { ChatPanel } from '../components/chat-panel';
 import { ConversationSidebar } from '../components/conversation-sidebar';
+import type { SelfPresenceChoice } from '../components/own-profile-sheet';
 import { useConversationList } from '../hooks/use-conversation-list';
 import { useConversationRestore } from '../hooks/use-conversation-restore';
 import { useActiveConversation } from '../hooks/use-active-conversation';
@@ -78,6 +79,16 @@ export function MessagesPage() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const myId = user?.id;
+  /**
+   * Mức hiện diện người xem tự chọn cho chính mình (giai đoạn 2
+   * của vòng sửa PR #610): mặc định online. Chọn offline thì
+   * trang KHÔNG nối socket realtime — server gỡ presence nên
+   * trạng thái ngoại tuyến là THẬT ở mọi bề mặt; chọn lại online
+   * thì nối lại và nạp lại danh sách để lấp phần đã lỡ trong lúc
+   * ngoại tuyến. Lựa chọn chỉ sống trong phiên trang (chưa có dữ
+   * kiện backend cho tuỳ chọn này).
+   */
+  const [selfPresence, setSelfPresence] = useState<SelfPresenceChoice>('online');
   /** Handle socket realtime — hook realtime gán vào, hook soạn tin đọc ra. */
   const realtimeRef = useRef<MessagingRealtimeHandle | null>(null);
   /** Seq cao nhất đã thấy của từng conversation — mốc xin đồng bộ khi nối lại, bốn hook cùng dùng. */
@@ -143,6 +154,7 @@ export function MessagesPage() {
     setTypingUsers: activeHook.setTypingUsers,
     setOnlineUsers: activeHook.setOnlineUsers,
     realtimeRef,
+    suspendRealtime: selfPresence === 'offline',
   });
 
   // Lát 3: danh bạ, panel thành viên, nhóm, kiểm duyệt.
@@ -230,6 +242,17 @@ export function MessagesPage() {
     }
   };
 
+  /**
+   * Đổi mức hiện diện của chính người xem: về online thì nạp lại
+   * danh sách hội thoại ngay (phần thay đổi trong lúc ngoại tuyến
+   * không có kênh realtime nào mang tới); về offline chỉ cần đổi
+   * trạng thái — hook realtime tự ngắt socket ở lượt hiệu ứng kế.
+   */
+  const handleSelfPresenceChange = (presence: SelfPresenceChoice) => {
+    setSelfPresence(presence);
+    if (presence === 'online') void list.reload().catch(() => undefined);
+  };
+
   return (
     <PageShell fillHeight width="full" className="py-6 sm:px-6" contentClassName="mx-auto max-w-[1440px]">
       {/*
@@ -266,6 +289,10 @@ export function MessagesPage() {
             active={activeHook.active}
             error={list.error}
             myId={myId}
+            myEmail={user?.email ?? null}
+            myUsername={user?.username ?? null}
+            selfPresence={selfPresence}
+            onSelfPresenceChange={handleSelfPresenceChange}
             onlineUsers={activeHook.onlineUsers}
             onOpenConversation={openCall}
             onOpenConversationById={(conversationId) => void groupActions.openConversationById(conversationId)}

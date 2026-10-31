@@ -44,14 +44,59 @@ import {
 } from '../utils/utils';
 
 /**
+ * Dựng nội dung tin thành cây React có định dạng nhẹ (giai đoạn 2
+ * của vòng sửa PR #610 — mục T-09 của đợt rà soát hành vi bản
+ * demo): đúng hai khuôn của bản demo — `**đoạn**` thành chữ đậm
+ * (`font-semibold`) và `[nhãn](url)` thành liên kết mở tab mới
+ * với rel an toàn. Cặp nút Bold / Insert link ở ô soạn chèn đúng
+ * hai khuôn này nên soạn và hiển thị khớp nhau.
+ *
+ * An toàn hiển thị: nội dung là chữ do người dùng nhập nên mọi
+ * phần đều dựng thành TEXT NODE hoặc phần tử React — tuyệt đối
+ * không chèn HTML thô chưa qua xử lý; href chỉ chấp nhận sơ đồ
+ * `http(s)://` và `mailto:` (khuôn khác dựng thành chữ thường)
+ * để không lọt sơ đồ nguy hiểm kiểu `javascript:`.
+ *
+ * @param props - `text` là nội dung tin nguyên văn phía server.
+ * @returns Cây React của nội dung đã áp hai khuôn định dạng.
+ */
+function RichMessageText({ text }: { text: string }) {
+  const parts = text.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g);
+  return (
+    <>
+      {parts.map((part, index) => {
+        if (!part) return null;
+        if (/^\*\*[^*]+\*\*$/.test(part)) {
+          return (
+            <strong key={index} className="font-semibold">
+              {part.slice(2, -2)}
+            </strong>
+          );
+        }
+        const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(part);
+        if (link && /^(?:https?:\/\/|mailto:)/i.test(link[2]!)) {
+          return (
+            <a key={index} href={link[2]} target="_blank" rel="noopener noreferrer" className="underline">
+              {link[1]}
+            </a>
+          );
+        }
+        return <span key={index}>{part}</span>;
+      })}
+    </>
+  );
+}
+
+/**
  * Lưới emoji của bộ chọn ở ô soạn (issue #591; tập và thứ tự
  * căn đúng theo bản demo ở issue #608 — trích nguyên mảng
  * emoji từ chunk JS của demo): dựng trên component Popover
  * của `@lms/ui` (vòng sửa PR #593 — bản trước dùng
  * DropdownMenu đã bị cả hai lớp review bác vì khác component
  * và khác ngữ nghĩa), dạng lưới 5 cột × 4 hàng. Chọn emoji
- * vẫn chèn ký tự vào ô soạn như hành vi hiện có; không thêm
- * thư viện picker.
+ * chèn ký tự TẠI VỊ TRÍ CON TRỎ trong ô soạn (đúng hành vi bản
+ * demo; nối cuối nháp như trước là điểm lệch đã sửa ở giai
+ * đoạn 2 của vòng sửa PR #610); không thêm thư viện picker.
  */
 const EMOJI_GRID_OPTIONS = [
   '😀', '😂', '😊', '😍', '🥳',
@@ -208,6 +253,83 @@ export function ChatPanel({
    * là bộ nhớ thao tác thoáng qua, không phải dữ kiện.
    */
   const lastBubbleTapRef = useRef<{ messageId: string; at: number; x: number; y: number } | null>(null);
+  /**
+   * Ô nhập của ô soạn (giai đoạn 2 của vòng sửa PR #610): các
+   * thao tác định dạng (Bold, Insert link) và bộ chọn emoji đều
+   * tác động TẠI VÙNG CHỌN/CON TRỎ hiện tại của ô nhập như bản
+   * demo — đọc selectionStart/selectionEnd từ chính phần tử và
+   * khôi phục vùng chọn sau khi nháp đổi (state React vẽ lại ô
+   * nhập theo giá trị mới nên phải đặt lại con trỏ tường minh ở
+   * khung hình kế tiếp).
+   */
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+
+  /**
+   * Thay đoạn [start, end) của nháp hiện tại bằng `inserted` rồi
+   * khôi phục vùng chọn [selectStart, selectEnd) trong đoạn vừa
+   * chèn sau khi React vẽ lại — mẫu dùng chung của Bold, Insert
+   * link và emoji để con trỏ không nhảy về cuối nháp.
+   */
+  const replaceDraftRange = (start: number, end: number, inserted: string, selectStart: number, selectEnd: number) => {
+    if (!active) return;
+    const nextDraft = `${draft.slice(0, start)}${inserted}${draft.slice(end)}`;
+    setDrafts((prev) => ({ ...prev, [active.id]: nextDraft }));
+    onNoteTyping();
+    requestAnimationFrame(() => {
+      const el = composerRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(selectStart, selectEnd);
+    });
+  };
+
+  /**
+   * Nút Bold (mục T-14): bọc vùng chọn bằng `**`; vùng chọn đã là
+   * một đoạn đậm nguyên vẹn (bắt đầu và kết thúc bằng `**`, dài
+   * hơn 4 ký tự) thì BỎ bọc — đúng thuật toán của bản demo. Vùng
+   * chọn sau thao tác phủ đúng đoạn kết quả như demo neo.
+   */
+  const applyBold = () => {
+    const el = composerRef.current;
+    if (!el) return;
+    const start = el.selectionStart ?? draft.length;
+    const end = el.selectionEnd ?? draft.length;
+    const selected = draft.slice(start, end);
+    const isWrapped = selected.startsWith('**') && selected.endsWith('**') && selected.length > 4;
+    const inserted = isWrapped ? selected.slice(2, -2) : `**${selected}**`;
+    replaceDraftRange(start, end, inserted, start, start + inserted.length);
+  };
+
+  /**
+   * Nút Insert link (mục T-15): hỏi URL bằng hộp thoại của trình
+   * duyệt (đúng cơ chế bản demo), tự thêm `https://` khi URL chưa
+   * có sơ đồ, rồi bọc vùng chọn thành `[vùng chọn](url)` — không
+   * có vùng chọn thì chèn `[url](url)` tại con trỏ. Huỷ hộp thoại
+   * hoặc URL trống thì không đổi nháp.
+   */
+  const insertLink = () => {
+    const el = composerRef.current;
+    const raw = window.prompt(t('insertLinkPrompt'));
+    if (raw === null) return;
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    const url = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const start = el?.selectionStart ?? draft.length;
+    const end = el?.selectionEnd ?? draft.length;
+    const selected = draft.slice(start, end);
+    const inserted = selected ? `[${selected}](${url})` : `[${url}](${url})`;
+    replaceDraftRange(start, end, inserted, start, start + inserted.length);
+  };
+
+  /** Chèn emoji TẠI con trỏ (thay vùng chọn nếu có) và đặt con trỏ ngay sau emoji — đúng hành vi bản demo. */
+  const insertEmojiAtCursor = (emoji: string) => {
+    const el = composerRef.current;
+    const start = el?.selectionStart ?? draft.length;
+    const end = el?.selectionEnd ?? start;
+    replaceDraftRange(start, end, emoji, start + emoji.length, start + emoji.length);
+    setEmojiOpen(false);
+  };
+
   useEffect(() => {
     setSearchOpen(false);
     setInfoOpen(false);
@@ -579,7 +701,9 @@ export function ChatPanel({
                     </span>
                   </button>
                 ) : null}
-                <span className="block">{m.recalledAt ? t('messageRecalled') : m.fullMessage}</span>
+                <span className="block">
+                  {m.recalledAt ? t('messageRecalled') : <RichMessageText text={m.fullMessage} />}
+                </span>
                 {/*
                   Mốc giờ + dấu trạng thái trong bong bóng
                   (vòng sửa PR #593, theo đúng giá trị demo):
@@ -1226,14 +1350,18 @@ export function ChatPanel({
                 DƯỚI (cột dọc như demo): hàng công cụ theo
                 thứ tự Bold → Emoji → Attach → Link ở nhóm
                 trái và nút Gửi ở phía phải (issue #608); nút
-                định dạng đậm + đính kèm + chèn liên kết là
-                hình dạng vô hiệu (điểm chưa có phán quyết);
-                nút emoji mở POPOVER lưới (component Popover
-                của `@lms/ui`); nút Gửi là nút BIỂU TƯỢNG, vẫn
-                vô hiệu khi nháp trống; KHÔNG còn bộ đếm ký
-                tự và khung nhập phình to như trước (trần ký tự
-                vẫn được cổng gửi chặn như cũ, lỗi hiện ở dòng
-                báo lỗi dưới ô soạn).
+                Bold và nút Insert link HOẠT ĐỘNG THẬT từ giai
+                đoạn 2 của vòng sửa PR #610 (bọc/bỏ bọc `**` và
+                chèn `[…](url)` tại vùng chọn — cặp hiển thị ở
+                bong bóng xem RichMessageText), nút đính kèm
+                vẫn là hình dạng vô hiệu (điểm chưa có phán
+                quyết chức năng); nút emoji mở POPOVER lưới
+                (component Popover của `@lms/ui`) và chèn TẠI
+                con trỏ; nút Gửi là nút BIỂU TƯỢNG, vẫn vô hiệu
+                khi nháp trống; KHÔNG còn bộ đếm ký tự và khung
+                nhập phình to như trước (trần ký tự vẫn được
+                cổng gửi chặn như cũ, lỗi hiện ở dòng báo lỗi
+                dưới ô soạn).
             */}
             {/*
               Thanh tab của khung soạn theo demo (issue
@@ -1264,6 +1392,7 @@ export function ChatPanel({
             </div>
             <form onSubmit={(e) => void send(e)} className="flex flex-col gap-2">
               <Textarea
+                ref={composerRef}
                 aria-label={t('messageText')}
                 rows={1}
                 className="max-h-32 min-h-10 min-w-0 resize-none rounded-none border-0 px-0 py-2 text-sm shadow-none focus-visible:ring-0"
@@ -1292,11 +1421,13 @@ export function ChatPanel({
                 phía demo (issue #608): hàng tách hai phía —
                 nhóm trái khoảng 4px gồm Bold (nút ghost chứa
                 chữ "B" như demo), Emoji, Attach, Link; nút
-                Send ở phía phải với glyph Send. Bold/Attach/
-                Link vẫn là hình dạng vô hiệu như trước (điểm
-                chưa có phán quyết); bộ chọn emoji dùng khuôn
-                đã trích từ demo: PopoverContent `w-64 p-2`,
-                lưới 5 cột khoảng 4px, nút emoji đệm 8px.
+                Send ở phía phải với glyph Send. Bold và Link
+                hoạt động thật (giai đoạn 2 của vòng sửa
+                PR #610), Attach vẫn là hình dạng vô hiệu
+                (điểm chưa có phán quyết); bộ chọn emoji dùng
+                khuôn đã trích từ demo: PopoverContent
+                `w-64 p-2`, lưới 5 cột khoảng 4px, nút emoji
+                đệm 8px.
               */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1">
@@ -1305,7 +1436,7 @@ export function ChatPanel({
                     variant="ghost"
                     size="icon-sm"
                     aria-label={t('boldLabel')}
-                    disabled
+                    onClick={applyBold}
                   >
                     <span className="text-base leading-none font-medium">B</span>
                   </Button>
@@ -1334,11 +1465,7 @@ export function ChatPanel({
                             key={emoji}
                             type="button"
                             className="rounded-md p-2 text-lg transition-colors hover:bg-muted"
-                            onClick={() => {
-                              setDrafts((prev) => ({ ...prev, [active.id]: `${prev[active.id] ?? ''}${emoji}` }));
-                              noteTyping();
-                              setEmojiOpen(false);
-                            }}
+                            onClick={() => insertEmojiAtCursor(emoji)}
                           >
                             {emoji}
                           </button>
@@ -1360,7 +1487,7 @@ export function ChatPanel({
                     variant="ghost"
                     size="icon-sm"
                     aria-label={t('insertLinkLabel')}
-                    disabled
+                    onClick={insertLink}
                   >
                     <Link2 aria-hidden />
                   </Button>
@@ -1609,7 +1736,12 @@ export function ChatPanel({
                   adapter chưa có dữ kiện thì KHÔNG dựng hàng
                   (issue #608 — thay luật hiện dấu "—" trước
                   đây); dữ kiện vẫn đi qua lớp adapter như
-                  cũ, không bịa giá trị.
+                  cũ, không bịa giá trị. Ba trường liên lạc
+                  (email/điện thoại/website) dựng giá trị thành
+                  LIÊN KẾT thật — mailto:, tel: (bỏ khoảng
+                  trắng) và mở tab mới — đúng hành vi neo của
+                  bản demo (giai đoạn 2 của vòng sửa PR #610,
+                  mục T-17); các trường còn lại giữ chữ thường.
                 */}
                 <dl className="space-y-2 text-sm">
                   {([
@@ -1627,7 +1759,17 @@ export function ChatPanel({
                         <Icon className="size-4" aria-hidden />
                         {t(key)}
                       </dt>
-                      <dd className="ml-auto min-w-0 truncate">{value}</dd>
+                      <dd className="ml-auto min-w-0 truncate">
+                        {key === 'profileEmail' ? (
+                          <a href={`mailto:${value}`} className="hover:underline">{value}</a>
+                        ) : key === 'profilePhone' ? (
+                          <a href={`tel:${value!.replace(/\s+/g, '')}`} className="hover:underline">{value}</a>
+                        ) : key === 'profileWebsite' ? (
+                          <a href={value!} target="_blank" rel="noopener noreferrer" className="hover:underline">{value}</a>
+                        ) : (
+                          value
+                        )}
+                      </dd>
                     </div>
                   ))}
                 </dl>

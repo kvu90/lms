@@ -17,6 +17,7 @@ import { MessagesPage } from './messages';
  */
 const realtime = vi.hoisted(() => ({
   handlers: null as null | Record<string, (payload: never) => void>,
+  connects: 0,
   handle: {
     sync: vi.fn(async () => ({})),
     joinConversation: vi.fn(),
@@ -26,10 +27,36 @@ const realtime = vi.hoisted(() => ({
 }));
 vi.mock('../api/messaging-socket', () => ({
   connectMessagingRealtime: (handlers: Record<string, (payload: never) => void>) => {
+    realtime.connects += 1;
     realtime.handlers = handlers;
     return realtime.handle;
   },
 }));
+
+/**
+ * Lớp adapter hồ sơ người: mặc định giữ nguyên triển khai thật
+ * (mọi trường mở rộng đều null — chưa có nguồn backend). Riêng
+ * các ca của giai đoạn 2 vòng sửa PR #610 (hàng liên lạc thành
+ * liên kết) cần trường CÓ giá trị để khẳng định, nên mock cho
+ * phép ghi đè từng ca qua `profileOverride` — ca nào không đặt
+ * thì hành vi y như thật.
+ */
+const profileOverride = vi.hoisted(() => ({
+  value: null as null | Record<string, string | null>,
+}));
+vi.mock('../api/person-profile-adapter', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../api/person-profile-adapter')>();
+  return {
+    ...actual,
+    getPersonProfile: (
+      person: Parameters<typeof actual.getPersonProfile>[0],
+      roleLine?: Parameters<typeof actual.getPersonProfile>[1],
+    ) => {
+      const base = actual.getPersonProfile(person, roleLine);
+      return profileOverride.value ? { ...base, ...profileOverride.value } : base;
+    },
+  };
+});
 
 /**
  * Spec chặn liên lạc theo endpoint thật của messaging: chặn qua
@@ -4340,5 +4367,216 @@ describe('Trang tin nhắn — vòng sửa sau nghiệm thu PR #610', () => {
     });
     expect(await within(header).findByText('Ngoại tuyến')).toBeInTheDocument();
     expect(within(header).queryByText('Trực tuyến')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Giai đoạn 2 của vòng sửa PR #610: các hành vi của bản demo đã
+ * trích được từ JS của demo ở đợt rà soát hành vi nhưng vòng dựng
+ * trước chưa nối — ô tìm khớp cả nội dung tin cuối (T-01), cặp
+ * định dạng soạn–hiển thị đậm/liên kết (T-09/T-14/T-15), emoji
+ * chèn tại con trỏ, hàng liên lạc trong panel đối tác thành liên
+ * kết (T-17), và sheet hồ sơ của chính người xem mở từ avatar
+ * (T-18/T-19/T-20: online/offline nối presence thật qua nối
+ * socket, away/busy và nút Lưu là hình dạng vô hiệu có chủ đích —
+ * hai ngoại lệ có tên trong thân PR).
+ */
+describe('Trang tin nhắn — giai đoạn 2 vòng sửa PR #610 (hành vi demo còn thiếu)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    localStorage.clear();
+    realtime.handlers = null;
+    profileOverride.value = null;
+  });
+
+  it('ô tìm danh sách khớp cả nội dung tin cuối: từ khoá chỉ có trong tin cuối vẫn giữ hội thoại, từ không khớp ở cả tên lẫn tin cuối thì ẩn', async () => {
+    const calls: RecordedCall[] = [];
+    const lastMsg = {
+      id: 's2-last', conversationId: CONV_A, userIdFrom: OTHER_ID, fullMessage: 'Nhớ mã ZULU-123 nhé',
+      createdAt: '2026-01-01T10:00:00.000Z', seq: 5, clientMessageId: null,
+      replyToMessageId: null, replyTo: null,
+    };
+    stubFetchM3(calls, [lastMsg]);
+    renderMessages();
+
+    expect(await screen.findByRole('button', { name: /Hội thoại A/ })).toBeInTheDocument();
+    const filter = screen.getByLabelText('Tìm cuộc trò chuyện');
+    await userEvent.type(filter, 'zulu-123');
+    // Tên hiển thị "Hội thoại A" không chứa từ khoá — hội thoại
+    // còn ở lại CHỈ nhờ nội dung tin cuối (trước giai đoạn này
+    // nó biến mất khỏi danh sách).
+    expect(screen.getByRole('button', { name: /Hội thoại A/ })).toBeInTheDocument();
+
+    await userEvent.clear(filter);
+    await userEvent.type(filter, 'không đâu có');
+    expect(screen.queryByRole('button', { name: /Hội thoại A/ })).not.toBeInTheDocument();
+  });
+
+  it('bong bóng hiển thị **đậm** thành chữ đậm và [nhãn](url) thành liên kết mở tab mới; sơ đồ nguy hiểm và HTML thô trong nội dung tin không thành phần tử', async () => {
+    const calls: RecordedCall[] = [];
+    const rich = {
+      id: 's2-rich', conversationId: CONV_A, userIdFrom: OTHER_ID,
+      fullMessage: 'Đoạn **rất quan trọng** và [Tài liệu](https://example.com/tl) ở đây',
+      createdAt: '2026-01-01T10:00:00.000Z', seq: 5, clientMessageId: null,
+      replyToMessageId: null, replyTo: null,
+    };
+    const evil = {
+      id: 's2-evil', conversationId: CONV_A, userIdFrom: OTHER_ID,
+      fullMessage: 'Thử [bấm](javascript:alert) và <b>thẻ lạ</b>',
+      createdAt: '2026-01-01T10:01:00.000Z', seq: 6, clientMessageId: null,
+      replyToMessageId: null, replyTo: null,
+    };
+    stubFetchM3(calls, [rich, evil]);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+    const richBubble = await screen.findByTestId('message-bubble-s2-rich');
+    const strong = richBubble.querySelector('strong');
+    expect(strong).not.toBeNull();
+    expect(strong).toHaveTextContent('rất quan trọng');
+    expect(richBubble).not.toHaveTextContent('**');
+    const link = within(richBubble).getByRole('link', { name: 'Tài liệu' });
+    expect(link).toHaveAttribute('href', 'https://example.com/tl');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link.getAttribute('rel')).toContain('noopener');
+
+    // An toàn hiển thị: url sơ đồ javascript: không thành liên
+    // kết và HTML thô do người dùng nhập không thành phần tử —
+    // nội dung chỉ dựng qua text node/cây React.
+    const evilBubble = await screen.findByTestId('message-bubble-s2-evil');
+    expect(evilBubble.querySelector('a')).toBeNull();
+    expect(evilBubble.querySelector('b')).toBeNull();
+    expect(evilBubble).toHaveTextContent('<b>thẻ lạ</b>');
+  });
+
+  it('nút Bold bọc vùng chọn bằng ** và khôi phục vùng chọn phủ đúng đoạn đã bọc; bấm lại trên đoạn đã bọc thì bỏ bọc', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetchM3(calls, [M3_ORIG]);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+    const composer = (await screen.findByLabelText('Nội dung tin nhắn')) as HTMLTextAreaElement;
+    await userEvent.type(composer, 'hello world');
+    composer.setSelectionRange(6, 11);
+    await userEvent.click(screen.getByRole('button', { name: 'In đậm' }));
+    expect(composer.value).toBe('hello **world**');
+    // Vùng chọn sau thao tác phủ đúng đoạn kết quả như neo của
+    // bản demo (khôi phục sau khi React vẽ lại nháp mới).
+    await waitFor(() => {
+      expect(composer.selectionStart).toBe(6);
+      expect(composer.selectionEnd).toBe(15);
+    });
+
+    composer.setSelectionRange(6, 15);
+    await userEvent.click(screen.getByRole('button', { name: 'In đậm' }));
+    expect(composer.value).toBe('hello world');
+  });
+
+  it('nút Insert link hỏi URL, tự thêm https:// khi thiếu sơ đồ và bọc vùng chọn thành [vùng chọn](url)', async () => {
+    const calls: RecordedCall[] = [];
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('example.com/tai-lieu');
+    stubFetchM3(calls, [M3_ORIG]);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+    const composer = (await screen.findByLabelText('Nội dung tin nhắn')) as HTMLTextAreaElement;
+    await userEvent.type(composer, 'xem cái này');
+    composer.setSelectionRange(4, 11);
+    await userEvent.click(screen.getByRole('button', { name: 'Chèn liên kết' }));
+    expect(promptSpy).toHaveBeenCalledTimes(1);
+    expect(composer.value).toBe('xem [cái này](https://example.com/tai-lieu)');
+  });
+
+  it('chọn emoji chèn TẠI vị trí con trỏ trong ô soạn và con trỏ nằm ngay sau emoji, không nối cuối nháp', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetchM3(calls, [M3_ORIG]);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+    const composer = (await screen.findByLabelText('Nội dung tin nhắn')) as HTMLTextAreaElement;
+    await userEvent.type(composer, 'ab');
+    composer.focus();
+    composer.setSelectionRange(1, 1);
+    await userEvent.click(screen.getByRole('button', { name: 'Chèn biểu tượng cảm xúc' }));
+    const popover = await screen.findByTestId('emoji-picker-popover');
+    await userEvent.click(within(popover).getByRole('button', { name: '😀' }));
+    expect(composer.value).toBe('a😀b');
+    // Con trỏ ngay sau emoji vừa chèn (vị trí 1 + độ dài
+    // surrogate pair 2 = 3), không phải cuối nháp như cách nối
+    // cuối trước đây.
+    await waitFor(() => expect(composer.selectionStart).toBe(3));
+  });
+
+  it('panel hồ sơ đối tác: hàng email/điện thoại/website thành liên kết mailto:/tel: (bỏ khoảng trắng)/mở tab mới khi trường có giá trị', async () => {
+    profileOverride.value = {
+      email: 'ban@example.com',
+      phone: '+84 912 345 678',
+      website: 'https://ban.example.com',
+    };
+    const calls: RecordedCall[] = [];
+    stubNamelessDmFetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Một/ }));
+    await screen.findByLabelText('Tin nhắn');
+    await userEvent.click(await screen.findByRole('button', { name: 'Thông tin cuộc trò chuyện' }));
+    const panel = await screen.findByTestId('partner-panel');
+    const mail = within(panel).getByRole('link', { name: 'ban@example.com' });
+    expect(mail).toHaveAttribute('href', 'mailto:ban@example.com');
+    const tel = within(panel).getByRole('link', { name: '+84 912 345 678' });
+    expect(tel).toHaveAttribute('href', 'tel:+84912345678');
+    const web = within(panel).getByRole('link', { name: 'https://ban.example.com' });
+    expect(web).toHaveAttribute('href', 'https://ban.example.com');
+    expect(web).toHaveAttribute('target', '_blank');
+    expect(web.getAttribute('rel')).toContain('noopener');
+  });
+
+  it('avatar của chính người xem là nút mở sheet hồ sơ của mình: đủ các trường theo demo, Email mang giá trị thật của phiên, nút Lưu vô hiệu, away/busy vô hiệu', async () => {
+    const calls: RecordedCall[] = [];
+    stubNamelessDmFetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Hồ sơ của tôi' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByLabelText('URL ảnh đại diện')).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Giới thiệu')).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Email')).toHaveValue('me@example.com');
+    expect(within(dialog).getByLabelText('Số điện thoại')).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Công ty')).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Quốc gia')).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Website')).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Địa điểm')).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Múi giờ')).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Trạng thái sẵn sàng')).toBeInTheDocument();
+    // Hai ngoại lệ có tên: nút lưu vô hiệu (đường sửa hồ sơ
+    // thuộc khu vực tài khoản) và hai mức away/busy vô hiệu
+    // (chưa có dữ kiện presence tương ứng).
+    expect(within(dialog).getByRole('button', { name: 'Lưu thay đổi' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: /Vắng mặt/ })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: /Đang bận/ })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: /Trực tuyến/ })).toBeEnabled();
+    expect(within(dialog).getByRole('button', { name: /Ngoại tuyến/ })).toBeEnabled();
+  });
+
+  it('chọn Ngoại tuyến trong sheet hồ sơ của mình thì socket realtime bị ngắt — presence thật tắt; chọn lại Trực tuyến thì trang nối lại', async () => {
+    const calls: RecordedCall[] = [];
+    stubNamelessDmFetch(calls);
+    renderMessages();
+
+    await screen.findByRole('button', { name: /Bạn Một/ });
+    const connectsBefore = realtime.connects;
+    realtime.handle.disconnect.mockClear();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Hồ sơ của tôi' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: /Ngoại tuyến/ }));
+    // Ngắt socket = server gỡ presence của người xem: trạng
+    // thái ngoại tuyến là THẬT, không chỉ là hình dạng chọn.
+    await waitFor(() => expect(realtime.handle.disconnect).toHaveBeenCalled());
+
+    await userEvent.click(within(dialog).getByRole('button', { name: /Trực tuyến/ }));
+    await waitFor(() => expect(realtime.connects).toBeGreaterThan(connectsBefore));
   });
 });
