@@ -6,7 +6,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '#lib/auth';
 import { createQueryClient } from '#lib/query-client';
 import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
-import { formatTime } from '#utils/date-format';
+import { formatWithOptions } from '#utils/date-format';
 import { MessagesPage } from './messages';
 
 /**
@@ -105,11 +105,12 @@ function stubFetch(calls: RecordedCall[]) {
 }
 
 /**
- * Mở một hội thoại nhóm từ cây của tab Nhóm (lát MSG-T3): chuyển sang
- * tab Nhóm rồi bấm dòng của nhóm trong cây — đúng đường người dùng đi
- * từ khi hội thoại nhóm rời khỏi danh sách phẳng.
+ * Mở một hội thoại nhóm từ danh sách của tab Nhóm: chuyển sang
+ * tab Nhóm rồi bấm hàng của nhóm trong danh sách phẳng — đúng
+ * đường người dùng đi từ khi hội thoại nhóm rời khỏi danh sách
+ * của tab Tất cả.
  */
-async function openGroupFromTree(name: RegExp) {
+async function openGroupFromList(name: RegExp) {
   await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
   await userEvent.click(await screen.findByRole('button', { name }));
 }
@@ -285,7 +286,7 @@ describe('Trang tin nhắn — gửi lạc quan và cập nhật realtime', () =
     stubRealtimeFetch(calls);
     renderMessages();
 
-    await openGroupFromTree(/Nhóm một/);
+    await openGroupFromList(/Nhóm một/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
 
@@ -330,7 +331,7 @@ describe('Trang tin nhắn — gửi lạc quan và cập nhật realtime', () =
     stubRealtimeFetch(calls);
     renderMessages();
 
-    await openGroupFromTree(/Nhóm một/);
+    await openGroupFromList(/Nhóm một/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
     const detailCallsBefore = calls.filter((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}`).length;
@@ -377,8 +378,8 @@ describe('Trang tin nhắn — gửi lạc quan và cập nhật realtime', () =
     stubRealtimeFetch(calls);
     renderMessages();
 
-    // Từ lát MSG-T3, số chưa đọc của nhóm hiện trên nút của cây ở
-    // tab Nhóm — chuyển sang tab đó trước khi quan sát huy hiệu.
+    // Số chưa đọc của nhóm hiện trên hàng của danh sách ở tab
+    // Nhóm — chuyển sang tab đó trước khi quan sát huy hiệu.
     await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
     await screen.findByRole('button', { name: /Nhóm một/ });
     const updatedPayload = (seq: number, text: string, unreadCount: number) => ({
@@ -607,7 +608,7 @@ describe('Messages page — Lớp B conversation actions (soft delete + report)'
     stubDomainFetch(calls);
     renderMessages();
 
-    await openGroupFromTree(/Nhóm lớp/);
+    await openGroupFromList(/Nhóm lớp/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin của tôi sẽ xoá')).toBeInTheDocument();
     expect(await within(thread).findByText('tin của bạn học')).toBeInTheDocument();
@@ -712,14 +713,16 @@ describe('Messages page — notification deep-link (việc nối tiếp #33)', (
     renderMessages(`/messages?conversation=${CONV3_ID}`);
 
     // Conversation không có trong danh sách đã nạp: trang lấy chi
-    // tiết thẳng theo id, chèn nó vào danh sách và mở ra. Từ lát
-    // MSG-T3, hội thoại nhóm không còn hiện ở tab Trò chuyện nên
-    // khẳng định "có mặt trong danh sách" cũ được thay bằng khẳng
-    // định khung phải đã mở đúng hội thoại (phần GET + đánh dấu đã
+    // tiết thẳng theo id, chèn nó vào danh sách và mở ra. Theo
+    // ngữ nghĩa hợp của phán quyết nghiệm thu preview PR #607,
+    // hội thoại nhóm vừa chèn HIỆN ở tab Tất cả như mọi hội
+    // thoại khác; khẳng định "có mặt trong danh sách" vì vậy
+    // kiểm trực tiếp hàng của nó ở tab Tất cả, kèm khẳng định
+    // khung phải đã mở đúng hội thoại (phần GET + đánh dấu đã
     // đọc ở dưới giữ nguyên).
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin mở bằng deep-link')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Nhóm deep-link/ })).not.toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Nhóm deep-link/ })).toBeInTheDocument();
     expect(
       calls.some((c) => c.url === `/api/v1/messages/conversations/${CONV3_ID}` && c.method === 'GET'),
     ).toBe(true);
@@ -864,7 +867,7 @@ describe('Messages page — vòng đời tin nhắn theo vai (thu hồi + invali
     stubDomainFetch(calls);
     renderMessages();
 
-    await openGroupFromTree(/Nhóm lớp/);
+    await openGroupFromList(/Nhóm lớp/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin của tôi sẽ xoá')).toBeInTheDocument();
 
@@ -982,11 +985,11 @@ describe('Messages page — M1: sắp xếp, thời gian tương đối, nháp, 
     localStorage.clear();
   });
 
-  it('hiện thời gian tương đối của tin cuối và đẩy conversation có tin mới lên đầu khi nhận conversation.updated', async () => {
+  it('hiện nhãn giờ của tin cuối theo định dạng demo và đẩy conversation có tin mới lên đầu khi nhận conversation.updated', async () => {
     // Ghim đồng hồ cho riêng ca này về một mốc cố định lấy tại đầu
-    // ca: nhãn tương đối tính từ Date.now() ở CẢ hai phía — stub dựng
+    // ca: nhãn giờ tính từ Date.now() ở CẢ hai phía — stub dựng
     // mốc tin cuối bằng isoMinutesAgo (Date.now lúc dựng stub) còn
-    // relativeTime đọc Date.now lúc hiển thị — hai lần đọc đồng hồ
+    // hàm nhãn giờ đọc Date.now lúc hiển thị — hai lần đọc đồng hồ
     // thật lệch nhau qua biên phút/giờ làm nhãn "30 phút trước" /
     // "2 giờ trước" trượt ngẫu nhiên trên máy tải nặng. Ghim để cả
     // hai phía dùng chung một đồng hồ; khôi phục khi ca kết thúc.
@@ -1001,9 +1004,14 @@ describe('Messages page — M1: sắp xếp, thời gian tương đối, nháp, 
     // Thứ tự ban đầu theo đúng đáp ứng của server: A trước, B sau.
     await screen.findByRole('button', { name: /Hội thoại A/ });
     expect(conversationOrderShort()).toEqual(['A', 'B']);
-    // Mốc thời gian tương đối của tin cuối: A 2 giờ trước, B 30 phút trước.
-    expect(screen.getByTestId(`conversation-last-time-${CONV_A}`)).toHaveTextContent('2 giờ trước');
-    expect(screen.getByTestId(`conversation-last-time-${CONV_B}`)).toHaveTextContent('30 phút trước');
+    // Nhãn giờ của tin cuối theo đúng hàm phía demo (issue
+    // #608): dưới 1 giờ hiện dạng "30m"; trong cùng ngày hiện
+    // giờ đồng hồ 12 giờ — không còn nhãn "x giờ/phút trước".
+    const twoHoursAgoIso = new Date(Date.now() - 120 * 60_000).toISOString();
+    expect(screen.getByTestId(`conversation-last-time-${CONV_A}`)).toHaveTextContent(
+      formatWithOptions(twoHoursAgoIso, 'vi', { hour: 'numeric', minute: '2-digit', hour12: true }),
+    );
+    expect(screen.getByTestId(`conversation-last-time-${CONV_B}`)).toHaveTextContent('30m');
 
     // Tin mới tới B qua realtime: B lên đầu, xem trước và mốc thời
     // gian đổi theo tin mới, số chưa đọc của B hiện theo sự kiện.
@@ -1024,24 +1032,22 @@ describe('Messages page — M1: sắp xếp, thời gian tương đối, nháp, 
     expect(conversationOrder()[0]).toContain('(1 chưa đọc)');
   });
 
-  it('tiêu đề danh sách hiện trọn số chưa đọc: tiêu đề không mang cơ chế cắt ba chấm và hậu tố là khối không tách rời', async () => {
-    // Khuyết tật nằm ở cơ chế CSS: class truncate trên tiêu
-    // đề rút chữ bằng dấu ba chấm khi dòng đầu cột thiếu bề
-    // ngang. jsdom không có layout thật nên không quan sát
-    // được dấu ba chấm trực tiếp; ca này ghim đúng cơ chế
-    // sinh lỗi — tiêu đề không được mang truncate, và cả
-    // tiêu đề lẫn hậu tố số chưa đọc phải là các khối
-    // whitespace-nowrap riêng để hậu tố xuống dòng nguyên
-    // khối thay vì bị cắt mất phần đuôi. Trên bản cũ tiêu đề
-    // mang truncate và hậu tố là chữ trần chung một nút chữ
-    // với tiêu đề — ca này đỏ.
+  it('tiêu đề danh sách chỉ là chữ Tin nhắn cắt gọn một dòng và không còn hậu tố số chưa đọc', async () => {
+    // Hình dạng phía demo (issue #608): tiêu đề đầu cột là
+    // đúng một chữ tiêu đề mang truncate (thiếu bề ngang thì
+    // cắt ba chấm ở chính tiêu đề) và KHÔNG mang hậu tố tổng
+    // số chưa đọc — số chưa đọc chỉ sống ở huy hiệu trên từng
+    // hàng hội thoại. jsdom không có layout thật nên ca này
+    // ghim đúng cơ chế: tiêu đề mang class truncate, nội dung
+    // chữ của tiêu đề là đúng "Tin nhắn" kể cả sau khi có tin
+    // chưa đọc, và hàng của hội thoại nhận tin mới mang hậu tố
+    // chưa đọc của riêng nó.
     const calls: RecordedCall[] = [];
     stubFetchM1(calls);
     renderMessages();
 
     await screen.findByRole('button', { name: /Hội thoại A/ });
-    // Sự kiện realtime đẩy số chưa đọc của B lên 1: tiêu đề
-    // danh sách mang hậu tố "(1 chưa đọc)".
+    // Sự kiện realtime đẩy số chưa đọc của B lên 1.
     act(() => {
       realtime.handlers?.onConversationUpdated({
         conversationId: CONV_B,
@@ -1056,9 +1062,11 @@ describe('Messages page — M1: sắp xếp, thời gian tương đối, nháp, 
 
     const heading = [...document.querySelectorAll('h2')].find((el) => el.textContent?.includes('Tin nhắn'));
     expect(heading).toBeDefined();
-    expect(heading).not.toHaveClass('truncate');
-    expect(within(heading as HTMLElement).getByText('Tin nhắn')).toHaveClass('whitespace-nowrap');
-    expect(within(heading as HTMLElement).getByText('(1 chưa đọc)')).toHaveClass('whitespace-nowrap');
+    expect(heading).toHaveClass('truncate');
+    expect((heading as HTMLElement).textContent?.trim()).toBe('Tin nhắn');
+    // Số chưa đọc nằm ở hàng của B (hậu tố sr-only của hàng),
+    // không nằm trong tiêu đề.
+    expect(conversationOrder()[0]).toContain('(1 chưa đọc)');
   });
 
   it('giữ nháp riêng theo từng conversation và chỉ xoá nháp của conversation vừa gửi', async () => {
@@ -1489,16 +1497,18 @@ describe('Messages page — M4: tìm kiếm (issue #237)', () => {
     stubFetchM4(calls);
     renderMessages();
 
-    // Tab Trò chuyện: ô tìm lọc các hội thoại 1–1 theo tên hiển thị.
-    // ('Lớp Toán 10A1' là hội thoại nhóm — từ lát MSG-T3 nó chỉ còn
-    // ở cây của tab Nhóm, được kiểm ở phần sau của ca này.)
+    // Tab Tất cả: ô tìm lọc MỌI hội thoại theo tên hiển thị —
+    // 'Lớp Toán 10A1' là hội thoại nhóm và theo ngữ nghĩa hợp
+    // của phán quyết nghiệm thu preview PR #607 nó cũng nằm
+    // trong danh sách của tab này (ngoài danh sách của tab
+    // Nhóm được kiểm ở phần sau của ca này).
     expect(await screen.findByRole('button', { name: /Hội thoại A/ })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Lớp Toán 10A1/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Lớp Toán 10A1/ })).toBeInTheDocument();
 
     const filter = screen.getByLabelText('Tìm cuộc trò chuyện');
     await userEvent.type(filter, 'toán');
     expect(screen.queryByRole('button', { name: /Hội thoại A/ })).not.toBeInTheDocument();
-    expect(await screen.findByText('Không có cuộc trò chuyện nào khớp.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Lớp Toán 10A1/ })).toBeInTheDocument();
 
     await userEvent.clear(filter);
     await userEvent.type(filter, 'không tồn tại đâu');
@@ -1507,7 +1517,8 @@ describe('Messages page — M4: tìm kiếm (issue #237)', () => {
     await userEvent.clear(filter);
     expect(await screen.findByRole('button', { name: /Hội thoại A/ })).toBeInTheDocument();
 
-    // Tab Nhóm có ô tìm riêng lọc cây theo tên.
+    // Ở tab Nhóm, cùng một ô tìm duy nhất đó (nhãn ô đổi theo
+    // tab) lọc danh sách nhóm theo tên lớp/khoá/nhóm.
     await userEvent.click(screen.getByRole('tab', { name: 'Nhóm' }));
     expect(await screen.findByRole('button', { name: /Lớp Toán 10A1/ })).toBeInTheDocument();
     const treeFilter = screen.getByLabelText('Tìm lớp, khoá, nhóm…');
@@ -1523,7 +1534,11 @@ describe('Messages page — M4: tìm kiếm (issue #237)', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
     // Tìm trong hội thoại ẩn sau nút bật/tắt ở header (issue #256).
-    await userEvent.click(screen.getByRole('button', { name: 'Tìm trong cuộc trò chuyện' }));
+    // Đường vào tìm kiếm đã dời vào menu đầu khung như phía
+    // demo (issue #608): mở menu ⋯ rồi chọn mục Tìm trong cuộc
+    // trò chuyện — chức năng tìm kiếm giữ nguyên.
+    await userEvent.click(screen.getByTestId('header-actions'));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Tìm trong cuộc trò chuyện' }));
 
     const searchInput = screen.getByRole('searchbox', { name: 'Tìm trong cuộc trò chuyện' });
     await userEvent.type(searchInput, 'cần tìm');
@@ -1560,7 +1575,11 @@ describe('Messages page — M4: tìm kiếm (issue #237)', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
     // Tìm trong hội thoại ẩn sau nút bật/tắt ở header (issue #256).
-    await userEvent.click(screen.getByRole('button', { name: 'Tìm trong cuộc trò chuyện' }));
+    // Đường vào tìm kiếm đã dời vào menu đầu khung như phía
+    // demo (issue #608): mở menu ⋯ rồi chọn mục Tìm trong cuộc
+    // trò chuyện — chức năng tìm kiếm giữ nguyên.
+    await userEvent.click(screen.getByTestId('header-actions'));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Tìm trong cuộc trò chuyện' }));
 
     const searchInput = screen.getByRole('searchbox', { name: 'Tìm trong cuộc trò chuyện' });
     await userEvent.type(searchInput, 'xyz không khớp');
@@ -1575,7 +1594,11 @@ describe('Messages page — M4: tìm kiếm (issue #237)', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
     // Tìm trong hội thoại ẩn sau nút bật/tắt ở header (issue #256).
-    await userEvent.click(screen.getByRole('button', { name: 'Tìm trong cuộc trò chuyện' }));
+    // Đường vào tìm kiếm đã dời vào menu đầu khung như phía
+    // demo (issue #608): mở menu ⋯ rồi chọn mục Tìm trong cuộc
+    // trò chuyện — chức năng tìm kiếm giữ nguyên.
+    await userEvent.click(screen.getByTestId('header-actions'));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Tìm trong cuộc trò chuyện' }));
 
     const searchInput = screen.getByRole('searchbox', { name: 'Tìm trong cuộc trò chuyện' });
     await userEvent.type(searchInput, 'cần tìm');
@@ -1712,7 +1735,7 @@ describe('Messages page — M5: ghim / lưu trữ / tắt tiếng (issue #240)',
       expect(screen.queryByRole('button', { name: /Hội thoại B/ })).not.toBeInTheDocument();
     });
 
-    // Mở mục Đã lưu trữ trong tab Trò chuyện (issue #564): trang xin đúng đường ?archived=true và thấy B ở đó.
+    // Mở mục Đã lưu trữ trong tab Tất cả (issue #564): trang xin đúng đường ?archived=true và thấy B ở đó.
     await userEvent.click(screen.getByRole('button', { name: 'Đã lưu trữ' }));
     await waitFor(() => {
       expect(calls.some((c) => c.method === 'GET' && c.url === '/api/v1/messages/conversations?archived=true')).toBe(true);
@@ -1752,10 +1775,23 @@ const T3_GROUP_CONV = '01900000-0000-7000-8000-0000000000d5';
  * `canCreateFreeGroup` là cờ server trả trong cây (chỉ quản trị
  * viên hệ thống/chủ trung tâm mới true) — nút tạo nhóm hiện theo
  * cờ này, KHÔNG theo vai trên cây; mặc định suy từ `studentView`
- * (góc học sinh thì false, góc dạy thì true).
+ * (góc học sinh thì false, góc dạy thì true). `groupUnread` đặt
+ * số chưa đọc của hội thoại nhóm tự do (mặc định 0) và
+ * `groupPinnedAt` đặt trạng thái ghim của chính hội thoại đó
+ * (mặc định chưa ghim) — hai tuỳ chọn này phục vụ các ca về
+ * ngữ nghĩa hợp của tab Tất cả / Chưa đọc và mục Ghim của tab
+ * Nhóm theo phán quyết nghiệm thu preview của PR #607.
+ * `groupPinnedArchived` đặt hội thoại nhóm vào trạng thái VỪA
+ * GHIM VỪA LƯU TRỮ: hội thoại rời danh sách chính, chỉ còn ở
+ * danh sách đã lưu (đường ?archived=true), còn cây nhóm mang
+ * mốc ghim trên chính nút nhóm tự do — đúng hình dữ kiện server
+ * trả khi hai trạng thái cá nhân độc lập cùng bật; ca dùng
+ * tuỳ chọn này kiểm mục Ghim của tab Nhóm phân loại theo dữ
+ * kiện cây chứ không theo danh sách chưa lưu trữ.
  */
-function stubMsgT3Fetch(calls: RecordedCall[], opts: { studentView?: boolean; canCreateFreeGroup?: boolean } = {}) {
+function stubMsgT3Fetch(calls: RecordedCall[], opts: { studentView?: boolean; canCreateFreeGroup?: boolean; groupUnread?: number; groupPinnedAt?: string | null; groupPinnedArchived?: boolean } = {}) {
   const role = opts.studentView ? 'learning' : 'teaching';
+  const groupPinnedAt = opts.groupPinnedAt ?? (opts.groupPinnedArchived ? '2026-01-02T00:00:00.000Z' : null);
   const dmMessage = {
     id: '01900000-0000-7000-8000-0000000000e1', conversationId: T3_DM_A, userIdFrom: OTHER_ID,
     subject: '', fullMessage: 'tin của bạn một', createdAt: '2026-01-01T00:00:00.000Z', seq: 1, clientMessageId: null,
@@ -1773,21 +1809,30 @@ function stubMsgT3Fetch(calls: RecordedCall[], opts: { studentView?: boolean; ca
         return respond([
           { id: T3_DM_A, type: 1, name: 'Bạn Một', members: [ME_ID, OTHER_ID], unread: 1, lastReadSeq: 0, lastMessageSeq: 1, lastMessage: dmMessage },
           { id: T3_DM_B, type: 1, name: 'Bạn Hai', members: [ME_ID, THIRD_ID], unread: 0, lastReadSeq: 0, lastMessageSeq: 0, lastMessage: null },
-          { id: T3_GROUP_CONV, type: 2, name: 'Nhóm Riêng', members: [ME_ID, OTHER_ID], unread: 0, lastReadSeq: 0, lastMessageSeq: 0, lastMessage: null },
+          // Nhóm vừa ghim vừa lưu trữ thì KHÔNG còn ở danh sách
+          // chính (chỉ ở danh sách đã lưu) — đúng cổng hiển thị
+          // của server cho hai trạng thái cá nhân độc lập.
+          ...(opts.groupPinnedArchived
+            ? []
+            : [{ id: T3_GROUP_CONV, type: 2, name: 'Nhóm Riêng', members: [ME_ID, OTHER_ID], unread: opts.groupUnread ?? 0, lastReadSeq: 0, lastMessageSeq: 0, lastMessage: null, pinnedAt: groupPinnedAt }]),
         ]);
+      if (url === '/api/v1/messages/conversations?archived=true' && method === 'GET')
+        return respond(opts.groupPinnedArchived
+          ? [{ id: T3_GROUP_CONV, type: 2, name: 'Nhóm Riêng', members: [ME_ID, OTHER_ID], unread: opts.groupUnread ?? 0, lastReadSeq: 0, lastMessageSeq: 0, lastMessage: null, pinnedAt: groupPinnedAt, archivedAt: '2026-01-03T00:00:00.000Z' }]
+          : []);
       if (url === '/api/v1/messages/group-tree')
         return respond({
           classes: [{
-            classId: T3_CLASS_ID, name: 'Lớp 10A1', myRole: role, conversationId: T3_CLASS_CONV, unread: 1,
+            classId: T3_CLASS_ID, name: 'Lớp 10A1', myRole: role, conversationId: T3_CLASS_CONV, unread: 1, pinnedAt: null,
             courses: [{
-              courseId: T3_COURSE_ID, name: 'Toán 10', myRole: role, conversationId: T3_COURSE_CONV, unread: 1,
-              groups: [{ groupId: '01900000-0000-7000-8000-0000000000c3', name: 'Nhóm 1', myRole: role, conversationId: null, unread: 0 }],
+              courseId: T3_COURSE_ID, name: 'Toán 10', myRole: role, conversationId: T3_COURSE_CONV, unread: 1, pinnedAt: null,
+              groups: [{ groupId: '01900000-0000-7000-8000-0000000000c3', name: 'Nhóm 1', myRole: role, conversationId: null, unread: 0, pinnedAt: null }],
             }],
           }],
           coursesOutsideClasses: [],
           freeGroups: opts.studentView
             ? []
-            : [{ id: T3_GROUP_CONV, name: 'Nhóm Riêng', myRole: 'staff', conversationId: T3_GROUP_CONV, unread: 0 }],
+            : [{ id: T3_GROUP_CONV, name: 'Nhóm Riêng', myRole: 'staff', conversationId: T3_GROUP_CONV, unread: opts.groupUnread ?? 0, pinnedAt: groupPinnedAt }],
           canCreateFreeGroup: opts.canCreateFreeGroup ?? !opts.studentView,
         });
       if (url === `/api/v1/messages/classes/${T3_CLASS_ID}/conversation`)
@@ -1817,15 +1862,19 @@ function stubMsgT3Fetch(calls: RecordedCall[], opts: { studentView?: boolean; ca
 }
 
 /**
- * Lát MSG-T3 (chuỗi cấu trúc nhắn tin của issue #33, tiếp nối bề mặt
- * #256): khung trái có hai tab Trò chuyện / Nhóm — Trò chuyện CHỈ
- * chứa hội thoại 1–1, hội thoại nhóm sống ở cây của tab Nhóm, Danh
- * bạ hạ thành sheet "Tin nhắn mới". Từ issue #564, mục Đã lưu trữ
- * không còn là tab riêng mà là một mục thu gọn trong tab Trò
- * chuyện; các ca dưới khoá đúng các quyết định đó: đổi cấu trúc
- * tab là các ca này phải đỏ.
+ * Lát MSG-T3 (chuỗi cấu trúc nhắn tin của issue #33, tiếp nối bề
+ * mặt #256) với cấu trúc tab của issue #606: khung trái có bốn
+ * tab lọc ngang hàng Tất cả / Chưa đọc / Nhóm / Yêu thích. Theo
+ * phán quyết nghiệm thu preview của PR #607, Tất cả và Chưa
+ * đọc chứa MỌI hội thoại (1–1 lẫn nhóm — hợp như tab All của
+ * bản demo), tab Nhóm là góc nhìn cấu trúc lớp/khoá/nhóm của
+ * cùng các hội thoại đó, Danh bạ hạ thành sheet "Tin nhắn
+ * mới". Từ issue #564, mục Đã lưu trữ không còn là tab riêng
+ * mà là một mục thu gọn trong tab Tất cả; các ca dưới khoá
+ * đúng các quyết định đó: đổi cấu trúc tab là các ca này phải
+ * đỏ.
  */
-describe('Messages page — MSG-T3: phân tab, cây nhóm, sheet Tin nhắn mới', () => {
+describe('Messages page — phân tab, danh sách nhóm, sheet Tin nhắn mới', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -1833,17 +1882,20 @@ describe('Messages page — MSG-T3: phân tab, cây nhóm, sheet Tin nhắn mớ
     realtime.handlers = null;
   });
 
-  it('khung trái có hai tab Trò chuyện / Nhóm, không còn tab Danh bạ hay tab Đã lưu trữ; mục Đã lưu trữ trong tab Trò chuyện nạp danh sách riêng', async () => {
+  it('khung trái có bốn tab Tất cả / Chưa đọc / Nhóm / Yêu thích, không còn tab Trò chuyện, tab Danh bạ hay tab Đã lưu trữ; mục Đã lưu trữ trong tab Tất cả nạp danh sách riêng', async () => {
     const calls: RecordedCall[] = [];
     stubRealtimeFetch(calls);
     renderMessages();
 
-    expect(await screen.findByRole('tab', { name: 'Trò chuyện' })).toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: 'Tất cả' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Chưa đọc' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Nhóm' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Yêu thích' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Trò chuyện' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Danh bạ' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Đã lưu trữ' })).not.toBeInTheDocument();
 
-    // Mở mục Đã lưu trữ trong tab Trò chuyện (issue #564): trang
+    // Mở mục Đã lưu trữ trong tab Tất cả (issue #564): trang
     // xin đúng đường ?archived=true; stub không có mục nào nên
     // hiện trạng thái rỗng của mục đã lưu.
     await userEvent.click(screen.getByRole('button', { name: 'Đã lưu trữ' }));
@@ -1853,64 +1905,181 @@ describe('Messages page — MSG-T3: phân tab, cây nhóm, sheet Tin nhắn mớ
     expect(await screen.findByText('Chưa có cuộc trò chuyện nào được lưu trữ.')).toBeInTheDocument();
   });
 
-  it('tab Trò chuyện chỉ chứa hội thoại 1–1; chip Chưa đọc lọc trong các hội thoại 1–1', async () => {
+  it('tab Tất cả chứa mọi hội thoại gồm cả nhóm và đếm tổng thật; tab Chưa đọc chỉ hiện hội thoại có tin chưa đọc', async () => {
     const calls: RecordedCall[] = [];
     stubMsgT3Fetch(calls);
     renderMessages();
 
+    // Số đếm của tab Tất cả là tổng thật của danh sách (2 hội
+    // thoại 1–1 + 1 hội thoại nhóm = 3), không còn đếm riêng
+    // tập 1–1 như ngữ nghĩa phân vùng cũ.
+    expect(await screen.findByRole('tab', { name: 'Tất cả' })).toHaveTextContent('(3)');
     expect(await screen.findByRole('button', { name: /Bạn Một/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Bạn Hai/ })).toBeInTheDocument();
-    // Hội thoại nhóm KHÔNG còn ở danh sách Trò chuyện.
-    expect(screen.queryByRole('button', { name: /Nhóm Riêng/ })).not.toBeInTheDocument();
+    // Hội thoại nhóm hiện ở tab Tất cả với đúng nhận diện nhóm.
+    expect(screen.getByRole('button', { name: /Nhóm Riêng/ })).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Chưa đọc' }));
+    // Chỉ hội thoại 1–1 "Bạn Một" có tin chưa đọc trong bộ dữ
+    // kiện này (nhóm chưa đọc = 0): tab Chưa đọc đếm (1) và
+    // chỉ liệt kê đúng hội thoại đó.
+    expect(screen.getByRole('tab', { name: 'Chưa đọc' })).toHaveTextContent('(1)');
+    await userEvent.click(screen.getByRole('tab', { name: 'Chưa đọc' }));
     expect(screen.getByRole('button', { name: /Bạn Một/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Bạn Hai/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Nhóm Riêng/ })).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Tất cả' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Tất cả' }));
     expect(screen.getByRole('button', { name: /Bạn Một/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Bạn Hai/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Nhóm Riêng/ })).toBeInTheDocument();
   });
 
-  it('tab Nhóm hiện cây Lớp → Khoá → Nhóm con theo vai; bấm dòng khoá và dòng lớp mở ngay chat qua ensure', async () => {
+  it('hàng hội thoại trực tiếp đang mở mang đúng trạng thái chọn của demo: khung bọc có nền bg-muted, ring 1px khảm trong và overflow-hidden; nền fallback của avatar là bg-background/50', async () => {
+    const calls: RecordedCall[] = [];
+    stubMsgT3Fetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Một/ }));
+    expect(await screen.findByLabelText('Tin nhắn')).toBeInTheDocument();
+
+    const activeButton = screen.getByRole('button', { name: /Bạn Một/ });
+    expect(activeButton).toHaveAttribute('aria-current', 'true');
+    // Khung bọc hàng (phần tử cha của nút mở hội thoại) mang
+    // toàn bộ trạng thái chọn như chuỗi class hàng của demo
+    // (điểm C16): nền muted, ring 1px màu border khảm trong
+    // và overflow-hidden để nội dung hàng — gồm cả nút menu
+    // trạng thái — bị cắt theo góc bo tròn của hàng.
+    const rowFrame = activeButton.parentElement as HTMLElement;
+    expect(rowFrame).toHaveClass('overflow-hidden', 'bg-muted', 'ring-1', 'ring-border', 'ring-inset');
+    // Fallback của avatar trên hàng đang chọn mang nền
+    // background/50 như class điều kiện của demo.
+    const activeFallback = activeButton.querySelector('[data-slot="avatar-fallback"]');
+    expect(activeFallback).not.toBeNull();
+    expect(activeFallback).toHaveClass('bg-background/50');
+
+    // Hàng chưa chọn không mang bất kỳ class trạng thái chọn
+    // nào: các class trên là hệ quả của trạng thái, không
+    // phải lớp nền tĩnh của mọi hàng.
+    const inactiveButton = screen.getByRole('button', { name: /Bạn Hai/ });
+    expect(inactiveButton).not.toHaveAttribute('aria-current');
+    const inactiveFrame = inactiveButton.parentElement as HTMLElement;
+    expect(inactiveFrame).not.toHaveClass('bg-muted', 'ring-1', 'ring-border');
+    expect(inactiveButton.querySelector('[data-slot="avatar-fallback"]')).not.toHaveClass('bg-background/50');
+  });
+
+  it('tab Chưa đọc chứa hội thoại nhóm có tin chưa đọc kèm huy hiệu; số đếm của tab khớp danh sách đã liệt kê', async () => {
+    const calls: RecordedCall[] = [];
+    stubMsgT3Fetch(calls, { groupUnread: 2 });
+    renderMessages();
+
+    // Tổng chưa đọc tính trên mọi loại hội thoại: "Bạn Một"
+    // (1–1) + "Nhóm Riêng" (nhóm) = 2 hội thoại có tin chưa
+    // đọc. Tiêu đề cột chỉ là chữ như bản demo (issue #608,
+    // điểm B10 — không hậu tố số chưa đọc) nên tổng đó đọc ở
+    // số đếm của tab Chưa đọc, và số đếm phải khớp danh sách
+    // tab liệt kê — không còn cảnh tab báo (0) trong khi vẫn
+    // còn tin chưa đọc.
+    expect(await screen.findByRole('heading', { name: 'Tin nhắn' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Chưa đọc' })).toHaveTextContent('(2)');
+    await userEvent.click(screen.getByRole('tab', { name: 'Chưa đọc' }));
+    expect(screen.getByRole('button', { name: /Bạn Một.*1 chưa đọc/ })).toBeInTheDocument();
+    // Hàng nhóm hiện huy hiệu số chưa đọc như hàng 1–1.
+    expect(screen.getByRole('button', { name: /Nhóm Riêng.*2 chưa đọc/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Bạn Hai/ })).not.toBeInTheDocument();
+  });
+
+  it('tab Nhóm tách mục Ghim khi một hội thoại nhóm đã ghim; chưa có nhóm ghim thì danh sách giữ dạng phẳng không tiêu đề mục', async () => {
+    // Có nhóm đã ghim (trạng thái ghim nằm ở danh sách hội
+    // thoại — cây server không mang trường ghim): tab Nhóm
+    // tách mục Ghim chứa hàng nhóm đó, các mục còn lại nằm ở
+    // mục Nhóm.
+    const calls: RecordedCall[] = [];
+    stubMsgT3Fetch(calls, { groupPinnedAt: '2026-01-02T00:00:00.000Z' });
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
+    expect(await screen.findByRole('button', { name: 'Ghim' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Nhóm' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Nhóm Riêng/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Lớp 10A1/ })).toBeInTheDocument();
+
+    cleanup();
+    // Chưa có nhóm nào ghim: không tiêu đề mục nào xuất hiện,
+    // danh sách phẳng như hình dạng đã nghiệm thu trước đây.
+    const calls2: RecordedCall[] = [];
+    stubMsgT3Fetch(calls2);
+    renderMessages();
+    await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
+    expect(await screen.findByRole('button', { name: /Nhóm Riêng/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ghim' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Nhóm' })).not.toBeInTheDocument();
+  });
+
+  it('tab Nhóm xếp nhóm tự do vừa ghim vừa lưu trữ vào mục Ghim theo mốc ghim trên cây, dù hội thoại không nằm trong danh sách chưa lưu trữ', async () => {
+    // Ghim và lưu trữ là hai trạng thái cá nhân độc lập: nhóm
+    // bật cả hai thì rời danh sách hội thoại chính (chỉ còn ở
+    // danh sách đã lưu, vốn nạp lười và tab Nhóm không hề gọi
+    // tới), nhưng cây nhóm vẫn mang mốc ghim trên chính nút
+    // nhóm tự do. Hàng của nhóm phải nằm ở mục Ghim — phân
+    // loại theo dữ kiện cây; nếu phân loại theo danh sách chưa
+    // lưu trữ thì nhóm bị xếp sai vào mục Nhóm.
+    const calls: RecordedCall[] = [];
+    stubMsgT3Fetch(calls, { groupPinnedArchived: true });
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
+    expect(await screen.findByRole('button', { name: 'Ghim' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Nhóm' })).toBeInTheDocument();
+    // Hàng nhóm nằm TRONG mục Ghim và không có ở mục Nhóm.
+    const pinnedSection = screen.getByRole('button', { name: 'Ghim' }).parentElement as HTMLElement;
+    expect(within(pinnedSection).getByRole('button', { name: /Nhóm Riêng/ })).toBeInTheDocument();
+    const groupsSection = screen.getByRole('button', { name: 'Nhóm' }).parentElement as HTMLElement;
+    expect(within(groupsSection).queryByRole('button', { name: /Nhóm Riêng/ })).not.toBeInTheDocument();
+    expect(within(groupsSection).getByRole('button', { name: /Lớp 10A1/ })).toBeInTheDocument();
+    // Việc phân mục diễn ra mà trang không hề nạp danh sách đã
+    // lưu trữ: trạng thái ghim đến từ cây, không phải từ danh
+    // sách đã lưu nạp lười phía web.
+    expect(calls.some((c) => c.method === 'GET' && c.url === '/api/v1/messages/conversations?archived=true')).toBe(false);
+  });
+
+  it('tab Nhóm hiện mọi mục nhóm dạng danh sách phẳng theo vai; bấm dòng khoá và dòng lớp mở ngay chat qua ensure', async () => {
     const calls: RecordedCall[] = [];
     stubMsgT3Fetch(calls);
     renderMessages();
 
     await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
-    // Huy hiệu của tab Nhóm là tổng chưa đọc của cây (lớp: 1).
-    expect(screen.getByRole('tab', { name: 'Nhóm' })).toHaveTextContent('1');
-    // Tên truy cập của dòng cây gồm chữ viết tắt avatar + tên nút +
-    // nhãn vai/số chưa đọc; nút chevron của chính dòng đó mang tên
-    // "Mở rộng: <tên>"/"Thu gọn: <tên>" nên các truy vấn ở ca này
-    // dùng mẫu loại trừ hai tiền tố chevron để không bắt nhầm nó.
-    const classRow = await screen.findByRole('button', { name: /^(?!(Mở rộng|Thu gọn):).*Lớp 10A1/ });
+    // Số đếm của tab Nhóm là số mục của danh sách phẳng trong
+    // ngoặc đơn (lớp + khoá + nhóm con + nhóm tự do = 4), không
+    // còn là huy hiệu tổng chưa đọc như cấu trúc cũ.
+    expect(screen.getByRole('tab', { name: 'Nhóm' })).toHaveTextContent('(4)');
+    // Mọi mục hiện ngay trong danh sách phẳng, không cần thao
+    // tác thu/mở nào: lớp, khoá trong lớp, nhóm con của khoá và
+    // nhóm tự do là các hàng ngang hàng; không còn nút chevron.
+    const classRow = await screen.findByRole('button', { name: /Lớp 10A1/ });
     expect(classRow).toHaveTextContent('Đang dạy');
-
-    // Mở nút lớp: khoá con hiện ra; mở tiếp nút khoá thì nhóm con
-    // của khoá hiện ra — cây đủ ba tầng Lớp → Khoá → Nhóm con.
-    await userEvent.click(within(classRow.parentElement as HTMLElement).getByRole('button', { name: /Mở rộng/ }));
-    const courseRow = await screen.findByRole('button', { name: /^(?!(Mở rộng|Thu gọn):).*Toán 10/ });
-    await userEvent.click(within(courseRow.parentElement as HTMLElement).getByRole('button', { name: /Mở rộng/ }));
-    expect(await screen.findByRole('button', { name: /Nhóm 1/ })).toBeInTheDocument();
-    // Nhóm tự do nằm ở mục riêng của cây.
+    // Huy hiệu chưa đọc của chính nút lớp (server tính: 1) vẫn
+    // ở trên hàng của nó.
+    expect(classRow).toHaveTextContent('1');
+    expect(await screen.findByRole('button', { name: /Toán 10/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Nhóm 1/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Nhóm Riêng/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Mở rộng|Thu gọn/ })).not.toBeInTheDocument();
 
     // Bấm dòng khoá: ensure conversation của khoá rồi mở khung phải.
-    await userEvent.click(screen.getByRole('button', { name: /^(?!(Mở rộng|Thu gọn):).*Toán 10/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Toán 10/ }));
     await waitFor(() =>
       expect(calls.some((c) => c.method === 'GET' && c.url === `/api/v1/messages/courses/${T3_COURSE_ID}/conversation`)).toBe(true),
     );
     expect(await screen.findByLabelText('Tin nhắn')).toBeInTheDocument();
 
     // Bấm dòng lớp: ensure conversation của lớp rồi mở khung phải.
-    await userEvent.click(screen.getByRole('button', { name: /^(?!(Mở rộng|Thu gọn):).*Lớp 10A1/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Lớp 10A1/ }));
     await waitFor(() =>
       expect(calls.some((c) => c.method === 'GET' && c.url === `/api/v1/messages/classes/${T3_CLASS_ID}/conversation`)).toBe(true),
     );
   });
 
-  it('nút Tạo nhóm chỉ hiện khi server cấp cờ canCreateFreeGroup: người có cờ tạo được nhóm từ sheet; giáo viên có vai dạy trên cây nhưng không có cờ thì không thấy nút; học sinh cũng không thấy nút', async () => {
+  it('nút Tạo nhóm chỉ hiện khi server cấp cờ canCreateFreeGroup: người có cờ tạo được nhóm từ sheet; giáo viên có vai dạy trên dữ kiện nhóm nhưng không có cờ thì không thấy nút; học sinh cũng không thấy nút', async () => {
     // Góc có cờ (quản trị viên hệ thống/chủ trung tâm): nút hiện và
     // luồng tạo nhóm chạy đủ — POST đúng thân type 2.
     const calls: RecordedCall[] = [];
@@ -1937,7 +2106,7 @@ describe('Messages page — MSG-T3: phân tab, cây nhóm, sheet Tin nhắn mớ
     stubMsgT3Fetch(teacherCalls, { canCreateFreeGroup: false });
     renderMessages();
     await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
-    expect(await screen.findByRole('button', { name: /^(?!(Mở rộng|Thu gọn):).*Lớp 10A1/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Lớp 10A1/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Tạo nhóm/ })).not.toBeInTheDocument();
 
     cleanup();
@@ -1945,7 +2114,7 @@ describe('Messages page — MSG-T3: phân tab, cây nhóm, sheet Tin nhắn mớ
     stubMsgT3Fetch(studentCalls, { studentView: true });
     renderMessages();
     await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
-    expect(await screen.findByRole('button', { name: /^(?!(Mở rộng|Thu gọn):).*Lớp 10A1/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Lớp 10A1/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Tạo nhóm/ })).not.toBeInTheDocument();
   });
 
@@ -1973,7 +2142,7 @@ describe('Messages page — MSG-T3: phân tab, cây nhóm, sheet Tin nhắn mớ
     stubRealtimeFetch(calls);
     renderMessages();
 
-    await openGroupFromTree(/Nhóm một/);
+    await openGroupFromList(/Nhóm một/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
     expect(screen.queryByText('Chọn một cuộc hội thoại ở cột trái để đọc và trả lời.')).not.toBeInTheDocument();
@@ -2079,7 +2248,7 @@ describe('Messages page — fix nhân đôi tin: khoá idempotency theo bản nh
     const { releaseSend } = stubDupSendFetch(calls);
     renderMessages();
 
-    await openGroupFromTree(/Nhóm một/);
+    await openGroupFromList(/Nhóm một/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
 
@@ -2122,7 +2291,7 @@ describe('Messages page — fix nhân đôi tin: khoá idempotency theo bản nh
     releaseSend();
     renderMessages();
 
-    await openGroupFromTree(/Nhóm một/);
+    await openGroupFromList(/Nhóm một/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
 
@@ -2250,10 +2419,10 @@ function stubMsgT4Fetch(calls: RecordedCall[]) {
   );
 }
 
-/** Mở chat cấp khoá Toán 10 từ cây của tab Nhóm (đường ensure) và chờ khung chat hiện. */
+/** Mở chat cấp khoá Toán 10 từ danh sách của tab Nhóm (đường ensure) và chờ khung chat hiện. */
 async function openT4CourseChat() {
   await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
-  await userEvent.click(await screen.findByRole('button', { name: /^(?!(Mở rộng|Thu gọn):).*Toán 10/ }));
+  await userEvent.click(await screen.findByRole('button', { name: /Toán 10/ }));
   expect(await screen.findByLabelText('Tin nhắn')).toBeInTheDocument();
 }
 
@@ -2408,7 +2577,7 @@ describe('Messages page — MSG-T4: panel thành viên + menu avatar', () => {
     stubMsgT4Fetch(calls);
     renderMessages();
 
-    await openGroupFromTree(/Nhóm ôn tập/);
+    await openGroupFromList(/Nhóm ôn tập/);
     await openT4InfoPanel(`member-panel-row-${OTHER_ID}`);
 
     // Loại "Nhóm tự do" khẳng định trong phạm vi panel (cây bên trái
@@ -2447,7 +2616,7 @@ describe('Messages page — MSG-T4: panel thành viên + menu avatar', () => {
     stubMsgT4Fetch(calls);
     renderMessages();
 
-    await openGroupFromTree(/Nhóm ôn tập/);
+    await openGroupFromList(/Nhóm ôn tập/);
     await openT4InfoPanel(`member-panel-row-${OTHER_ID}`);
 
     // Dòng của tôi mang cả ba huy hiệu: người tạo nhóm, vai
@@ -2579,7 +2748,7 @@ describe('Messages page — MSG-T4 phía học sinh: không nới luật nhắn 
  * DOM người dùng thật sự nhận được; hành vi/handler không đổi nên
  * các describe cũ ở trên vẫn là nơi gác luồng nghiệp vụ.
  */
-describe('Messages page — dọn gọn trình bày (avatar neo đầu dòng + menu không xuống dòng)', () => {
+describe('Messages page — dọn gọn trình bày (avatar neo đáy dòng + menu không xuống dòng)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -2588,13 +2757,17 @@ describe('Messages page — dọn gọn trình bày (avatar neo đầu dòng + m
     realtime.handlers = null;
   });
 
-  /** Mọi avatar trong khung chat: neo đầu dòng (self-start), hết hack translate theo footer và hết neo đáy. */
-  function expectAvatarsAnchoredToMessageTop(thread: HTMLElement) {
+  /**
+   * Mọi avatar trong khung chat: neo ĐÁY dòng tin (self-end)
+   * như bản demo (issue #608 — đảo lựa chọn neo đầu dòng trước
+   * đây của package ui), hết hack translate theo footer.
+   */
+  function expectAvatarsAnchoredToMessageBottom(thread: HTMLElement) {
     const avatars = thread.querySelectorAll('[data-slot="message-avatar"]');
     expect(avatars.length).toBeGreaterThan(0);
     for (const avatar of avatars) {
-      expect(avatar.className).toContain('self-start');
-      expect(avatar.className).not.toContain('self-end');
+      expect(avatar.className).toContain('self-end');
+      expect(avatar.className).not.toContain('self-start');
       expect(avatar.className).not.toContain('-translate-y-8');
       expect(avatar.className).not.toContain('message-footer');
     }
@@ -2618,16 +2791,16 @@ describe('Messages page — dọn gọn trình bày (avatar neo đầu dòng + m
     }
   }
 
-  it('avatar neo đầu dòng tin cho cả tin của mình và tin người khác', async () => {
+  it('avatar neo đáy dòng tin cho cả tin của mình và tin người khác', async () => {
     const calls: RecordedCall[] = [];
     stubDomainFetch(calls);
     renderMessages();
 
-    await openGroupFromTree(/Nhóm lớp/);
+    await openGroupFromList(/Nhóm lớp/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin của tôi sẽ xoá')).toBeInTheDocument();
     expect(await within(thread).findByText('tin của bạn học')).toBeInTheDocument();
-    expectAvatarsAnchoredToMessageTop(thread);
+    expectAvatarsAnchoredToMessageBottom(thread);
   });
 
   it('menu quan hệ mở từ avatar trên dòng tin: bề rộng tử tế, mọi mục một dòng', async () => {
@@ -2638,7 +2811,7 @@ describe('Messages page — dọn gọn trình bày (avatar neo đầu dòng + m
     await openT4CourseChat();
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('em chào cô')).toBeInTheDocument();
-    expectAvatarsAnchoredToMessageTop(thread);
+    expectAvatarsAnchoredToMessageBottom(thread);
 
     await userEvent.click(within(thread).getByRole('button', { name: 'Thao tác với Bạn Học' }));
     expect(await screen.findByRole('menuitem', { name: 'Nhắn riêng' })).toBeInTheDocument();
@@ -2705,7 +2878,7 @@ describe('Messages page — sửa dứt điểm trình bày (toolbar nổi + gi�
     stubDomainFetch(calls);
     renderMessages();
 
-    await openGroupFromTree(/Nhóm lớp/);
+    await openGroupFromList(/Nhóm lớp/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin của tôi sẽ xoá')).toBeInTheDocument();
     expect(await within(thread).findByText('tin của bạn học')).toBeInTheDocument();
@@ -2733,7 +2906,7 @@ describe('Messages page — sửa dứt điểm trình bày (toolbar nổi + gi�
     stubDomainFetch(calls);
     renderMessages();
 
-    await openGroupFromTree(/Nhóm lớp/);
+    await openGroupFromList(/Nhóm lớp/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin của bạn học')).toBeInTheDocument();
 
@@ -2748,7 +2921,12 @@ describe('Messages page — sửa dứt điểm trình bày (toolbar nổi + gi�
     expect(lastTime).not.toBeNull();
     expect(firstTime!.closest('[data-slot="bubble"]')).not.toBeNull();
     expect(lastTime!.closest('[data-slot="bubble"]')).not.toBeNull();
-    expect(lastTime!.textContent).toContain(formatTime('2026-01-01T00:01:00.000Z'));
+    // Giờ trong bong bóng theo định dạng 12 giờ của bản demo
+    // (issue #608): tính giá trị kỳ vọng bằng đúng bộ tuỳ chọn
+    // Intl mà component dùng, không dùng formatTime 24 giờ nữa.
+    expect(lastTime!.textContent).toContain(
+      formatWithOptions('2026-01-01T00:01:00.000Z', 'vi', { hour: 'numeric', minute: '2-digit', hour12: true }),
+    );
     // Không tin nào mang ghi chú trạng thái nên không còn
     // footer dòng tin nào trong luồng.
     expect(thread.querySelectorAll('[data-slot="message-footer"]')).toHaveLength(0);
@@ -2759,7 +2937,7 @@ describe('Messages page — sửa dứt điểm trình bày (toolbar nổi + gi�
     stubDomainFetch(calls);
     renderMessages();
 
-    await openGroupFromTree(/Nhóm lớp/);
+    await openGroupFromList(/Nhóm lớp/);
     expect(await screen.findByLabelText('Tin nhắn')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Chặn liên lạc/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Bỏ chặn/ })).not.toBeInTheDocument();
@@ -2928,7 +3106,7 @@ describe('Messages page — hồi quy vòng sửa PR #530 (tin ở hội thoại
     // (Vùng khung tin bị dựng lại mỗi lần chuyển hội thoại nên mọi
     // khẳng định về khung đều lấy node HIỆN HÀNH theo nhãn, không
     // giữ node đã chụp từ hội thoại trước.)
-    await openGroupFromTree(/Nhóm một/);
+    await openGroupFromList(/Nhóm một/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
 
@@ -2969,7 +3147,7 @@ describe('Messages page — hồi quy vòng sửa PR #530 (tin ở hội thoại
     const controls = stubFix530Fetch(calls);
     renderMessages();
 
-    await openGroupFromTree(/Nhóm một/);
+    await openGroupFromList(/Nhóm một/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
 
@@ -3047,7 +3225,7 @@ describe('Messages page — hồi quy vòng sửa 2 PR #530 (xoá mềm ở hộ
     stubFix530Fetch(calls);
     renderMessages();
 
-    await openGroupFromTree(/Nhóm một/);
+    await openGroupFromList(/Nhóm một/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
 
@@ -3084,7 +3262,7 @@ describe('Messages page — hồi quy vòng sửa 2 PR #530 (xoá mềm ở hộ
     const controls = stubFix530Fetch(calls);
     renderMessages();
 
-    await openGroupFromTree(/Nhóm một/);
+    await openGroupFromList(/Nhóm một/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
 
@@ -3118,7 +3296,7 @@ describe('Messages page — hồi quy vòng sửa 2 PR #530 (xoá mềm ở hộ
     const controls = stubFix530Fetch(calls);
     renderMessages();
 
-    await openGroupFromTree(/Nhóm một/);
+    await openGroupFromList(/Nhóm một/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
 
@@ -3155,11 +3333,11 @@ describe('Messages page — hồi quy vòng sửa 2 PR #530 (xoá mềm ở hộ
 });
 
 /**
- * Dựng lại trang chat theo mẫu demo (issue #564): hai tab Trò
- * chuyện / Nhóm giữ nguyên, trong tab Trò chuyện là các mục thu
- * gọn Ghim / Gần đây / Đã lưu trữ; khung chat có cột thứ ba mở
- * theo yêu cầu; nút Gửi vô hiệu khi nháp trống; nút emoji chèn
- * ký tự vào nháp.
+ * Dựng lại trang chat theo mẫu demo (issue #564): trong tab
+ * Tất cả là các mục thu gọn Ghim / Gần đây / Đã lưu trữ (thanh
+ * tab bốn tab hiện tại là của issue #606); khung chat có cột
+ * thứ ba mở theo yêu cầu; nút Gửi vô hiệu khi nháp trống; nút
+ * emoji chèn ký tự vào nháp.
  */
 describe('Trang tin nhắn — dựng lại theo mẫu demo (issue #564)', () => {
   afterEach(() => {
@@ -3189,14 +3367,20 @@ describe('Trang tin nhắn — dựng lại theo mẫu demo (issue #564)', () =>
     expect(listButtons()[1]).toHaveTextContent('Hội thoại B');
   });
 
-  it('chip Tất cả / Chưa đọc hiện số đếm trên toàn bộ hội thoại 1–1 nhưng tên truy cập vẫn đúng nhãn', async () => {
+  it('thanh tab hiện số đếm trong ngoặc đơn trên toàn bộ tập của từng tab nhưng tên truy cập vẫn đúng nhãn', async () => {
     const calls: RecordedCall[] = [];
     stubMsgT3Fetch(calls);
     renderMessages();
 
     expect(await screen.findByRole('button', { name: /Bạn Một/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Tất cả' })).toHaveTextContent('2');
-    expect(screen.getByRole('button', { name: 'Chưa đọc' })).toHaveTextContent('1');
+    // Tab Tất cả đếm mọi hội thoại: hai 1–1 + một nhóm = 3 (một
+    // hội thoại chưa đọc); danh sách nhóm phẳng có 4 mục (lớp,
+    // khoá, nhóm con, nhóm tự do); chưa có dữ kiện yêu thích
+    // nào nên tab Yêu thích đếm 0.
+    expect(screen.getByRole('tab', { name: 'Tất cả' })).toHaveTextContent('(3)');
+    expect(screen.getByRole('tab', { name: 'Chưa đọc' })).toHaveTextContent('(1)');
+    expect(screen.getByRole('tab', { name: 'Nhóm' })).toHaveTextContent('(4)');
+    expect(screen.getByRole('tab', { name: 'Yêu thích' })).toHaveTextContent('(0)');
   });
 
   it('nút Gửi vô hiệu khi nháp trống và mở khi có ký tự', async () => {
@@ -3405,7 +3589,7 @@ describe('Trang tin nhắn — vòng sửa hẹp PR #576 (tiêu đề 1–1 và 
  * các ca dưới đây kiểm chứng từng hạng mục trình bày mới
  * (vị trí dòng Đã xem, khung xương lúc tải lần đầu, lưới
  * emoji, chữ viết tắt avatar nhóm chỉ gồm chữ cái, xem trước
- * tin cuối ở dòng nhóm, panel hồ sơ đối tác, chip Yêu thích
+ * tin cuối ở dòng nhóm, panel hồ sơ đối tác, tab Yêu thích
  * chỉ là hình dạng).
  */
 const SEEN_MINE_ID = '01900000-0000-7000-8000-000000000591';
@@ -3478,6 +3662,23 @@ function stub591Fetch(calls: RecordedCall[], gateList?: Promise<void>) {
           memberProfiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } },
         });
       if (url === `/api/v1/messages/conversations/${CONV_ID}/read`) return respond({ marked: 2, lastReadSeq: 2 });
+      // Chi tiết + mốc đọc của nhóm kiểm chứng: chỉ ca
+      // deep-link hai id (A-BS5) mở tới nhóm này qua
+      // deep-link; các ca khác không gọi hai đường này.
+      if (url === `/api/v1/messages/conversations/${KT_GROUP_ID}`)
+        return respond({
+          id: KT_GROUP_ID, type: 2, name: '[KT] Nhóm kiểm chứng', members: [ME_ID, OTHER_ID], muted: true,
+          messages: [
+            { id: '01900000-0000-7000-8000-000000000594', conversationId: KT_GROUP_ID, userIdFrom: OTHER_ID, subject: '', fullMessage: 'nội dung tin nhóm cuối', createdAt: '2026-01-01T00:03:00.000Z', seq: 1, clientMessageId: null },
+          ],
+          hasMoreBefore: false,
+          memberReadMarkers: [
+            { userId: ME_ID, lastReadSeq: 1 },
+            { userId: OTHER_ID, lastReadSeq: 1 },
+          ],
+          memberProfiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } },
+        });
+      if (url === `/api/v1/messages/conversations/${KT_GROUP_ID}/read`) return respond({ marked: 0, lastReadSeq: 1 });
       if (url === `/api/v1/messages/conversations/${CONV_ID}/state` && method === 'PATCH') {
         const patch = (init?.body ? JSON.parse(String(init.body)) : {}) as { muted?: boolean };
         if (typeof patch.muted === 'boolean') serverState.mutedDm = patch.muted;
@@ -3495,20 +3696,31 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     localStorage.clear();
   });
 
-  it('dòng Đã xem nằm ngay dưới tin của tôi mà đối tác đã xem, không nằm ở cuối luồng khi còn tin mới hơn chưa xem', async () => {
+  it('không còn dòng Đã xem riêng trong luồng: trạng thái đã xem chỉ thể hiện bằng dấu tích đủ đậm trong bong bóng của tin đã được xem', async () => {
     const calls: RecordedCall[] = [];
     stub591Fetch(calls);
     renderMessages();
 
-    await userEvent.click(await screen.findByRole('button', { name: /Bạn Học/ }));
+    // Hàng 1–1 với Bạn Học: truy vấn phải kèm đoạn xem trước
+    // tin cuối của chính nó vì ở tab Tất cả (ngữ nghĩa hợp của
+    // PR #607) hàng nhóm "[KT] Nhóm kiểm chứng" cũng mang tên
+    // "Bạn Học" trong xem trước (tiền tố tên người gửi của hàng
+    // nhóm) — chỉ lọc theo tên đối tác là khớp cả hai hàng.
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Học.*tin mới của bạn học/ }));
     const thread = await screen.findByLabelText('Tin nhắn');
-    const seen = await within(thread).findByTestId('seen-status');
+    expect(await within(thread).findByText('tin của tôi đã được xem')).toBeInTheDocument();
+    // Bản demo không có dòng trạng thái đã xem riêng dưới tin
+    // (issue #608): phần tử seen-status không tồn tại ở bất kỳ
+    // vị trí nào trong luồng dù đối tác đã xem tới seq 1.
+    expect(within(thread).queryByTestId('seen-status')).not.toBeInTheDocument();
     const mineRow = within(thread).getByText('tin của tôi đã được xem').closest('[data-slot="message"]')!;
     const peerRow = within(thread).getByText('tin mới của bạn học').closest('[data-slot="message"]')!;
-    // Thứ tự trong DOM: tin của tôi → dòng Đã xem → tin mới của đối tác.
-    expect(mineRow.compareDocumentPosition(seen) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(seen.compareDocumentPosition(peerRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // Bong bóng tin của tôi mang dấu đã xem kép, và tin đó có giờ riêng trong bong bóng.
+    // Bong bóng tin của tôi mang nhãn đã xem đi kèm dấu tích
+    // (văn bản sr-only trong dòng giờ của bong bóng); bong bóng
+    // của đối tác không mang nhãn đó.
+    expect(within(mineRow as HTMLElement).getByText('Đã xem')).toBeInTheDocument();
+    expect(within(peerRow as HTMLElement).queryByText('Đã xem')).not.toBeInTheDocument();
+    // Tin đó vẫn có giờ riêng trong bong bóng như mọi tin khác.
     expect(within(thread).getByTestId(`message-time-${SEEN_MINE_ID}`)).toBeInTheDocument();
   });
 
@@ -3522,14 +3734,14 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     expect(await screen.findByTestId('conversations-loading')).toBeInTheDocument();
     expect(screen.queryByText('Chưa có cuộc trò chuyện nào.')).not.toBeInTheDocument();
     release();
-    expect(await screen.findByRole('button', { name: /Bạn Học/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Bạn Học.*tin mới của bạn học/ })).toBeInTheDocument();
     expect(screen.queryByTestId('conversations-loading')).not.toBeInTheDocument();
   });
 
   /**
    * Stub fetch cho ba ca hồi quy lỗi tải lần đầu (vòng sửa 2
    * PR #593): mỗi ca chọn riêng endpoint nào lỗi 500 — danh
-   * sách lỗi, cây nhóm lỗi, hoặc cả hai về rỗng thành công.
+   * sách lỗi, dữ kiện nhóm lỗi, hoặc cả hai về rỗng thành công.
    * Các endpoint còn lại của trang trả dữ kiện tối thiểu để
    * trang dựng được (phiên, hồ sơ, số chưa đọc, danh bạ, khoá
    * rỗng). Lưu ý: QueryClient của app thử lại lỗi 500 tối đa
@@ -3578,7 +3790,7 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     expect(screen.queryByTestId('conversations-loading')).not.toBeInTheDocument();
   });
 
-  it('lỗi tải lần đầu ở cây nhóm: tab Nhóm hiện thông báo lỗi thay cho câu cây rỗng', async () => {
+  it('lỗi tải lần đầu ở dữ kiện nhóm: tab Nhóm hiện thông báo lỗi thay cho câu rỗng', async () => {
     stubLoadErrorFetch({ conversations: 'one', groupTree: 'error' });
     renderMessages();
 
@@ -3596,19 +3808,25 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     expect(await screen.findByText('Bạn chưa thuộc lớp, khoá hay nhóm nào.')).toBeInTheDocument();
   });
 
-  it('bộ chọn emoji ở ô soạn là lưới 20 biểu tượng như demo và chip Yêu thích chỉ là hình dạng vô hiệu', async () => {
+  it('bộ chọn emoji ở ô soạn là lưới 20 biểu tượng như demo và tab Yêu thích là tab thật chỉ có trạng thái rỗng', async () => {
     const calls: RecordedCall[] = [];
     stub591Fetch(calls);
     renderMessages();
 
-    await userEvent.click(await screen.findByRole('button', { name: /Bạn Học/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Học.*tin mới của bạn học/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Chèn biểu tượng cảm xúc' }));
     const popover = await screen.findByTestId('emoji-picker-popover');
     expect(within(popover).getAllByRole('button')).toHaveLength(20);
     await userEvent.keyboard('{Escape}');
 
-    const favouritesChip = screen.getByRole('button', { name: 'Yêu thích' });
-    expect(favouritesChip).toBeDisabled();
+    // Tab Yêu thích là một tab thật trong thanh tab (không còn
+    // là chip vô hiệu): bấm được, và vì hệ chưa có dữ kiện yêu
+    // thích nên nội dung của tab chỉ là trạng thái rỗng — hội
+    // thoại đã ghim không bị dùng thay cho yêu thích.
+    const favouritesTab = screen.getByRole('tab', { name: 'Yêu thích' });
+    expect(favouritesTab).toBeEnabled();
+    await userEvent.click(favouritesTab);
+    expect(await screen.findByText('Chưa có hội thoại yêu thích nào.')).toBeInTheDocument();
   });
 
   it('avatar nhóm chỉ gồm chữ cái đầu của các từ chữ trong tên, bỏ ký tự đặc biệt ở đầu tên', async () => {
@@ -3647,24 +3865,200 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     expect(within(groupRow).getByTestId(`conversation-muted-${KT_GROUP_MUTED_EMPTY_ID}`)).toBeInTheDocument();
   });
 
-  it('panel thông tin 1–1 là hồ sơ người theo hình dạng demo: đủ nhãn trường hồ sơ với dấu gạch ngang chờ backend và hành động Tắt tiếng thật', async () => {
+  it('panel thông tin 1–1 theo hình dạng demo: danh sách hành động dọc đầy đủ, trường chưa có dữ kiện thì không dựng hàng, hành động Tắt tiếng là thật', async () => {
     const calls: RecordedCall[] = [];
     stub591Fetch(calls);
     renderMessages();
 
-    await userEvent.click(await screen.findByRole('button', { name: /Bạn Học/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Học.*tin mới của bạn học/ }));
     // Mở panel bằng nút avatar ở đầu khung.
     await userEvent.click(await screen.findByLabelText('Thông tin cuộc trò chuyện'));
     const panel = await screen.findByTestId('partner-panel');
-    for (const label of ['Giới thiệu', 'Email', 'Số điện thoại', 'Website', 'Công ty', 'Quốc gia', 'Múi giờ', 'Địa điểm', 'Trạng thái sẵn sàng', 'Thẻ', 'Tệp đã chia sẻ']) {
-      expect(within(panel).getByText(label)).toBeInTheDocument();
+    // Danh sách hành động của demo hiện đủ theo thứ tự của nó:
+    // Tắt tiếng, Ghim, Thêm vào yêu thích, Xoá lịch sử trò
+    // chuyện, Chặn — và nút Xoá nằm ở đáy panel.
+    for (const label of ['Tắt tiếng', 'Ghim cuộc trò chuyện', 'Thêm vào yêu thích', 'Xoá lịch sử trò chuyện', 'Chặn liên lạc', 'Xoá']) {
+      expect(within(panel).getByRole('button', { name: label })).toBeInTheDocument();
     }
-    // Trường backend chưa có hiện dấu gạch ngang ở đúng vị trí, không bịa giá trị.
-    expect(within(panel).getAllByText('—').length).toBeGreaterThanOrEqual(9);
+    // Hai hành động sản phẩm chưa có chức năng thì ở trạng
+    // thái vô hiệu (hình dạng thuần theo luật điểm chưa quyết).
+    expect(within(panel).getByRole('button', { name: 'Thêm vào yêu thích' })).toBeDisabled();
+    expect(within(panel).getByRole('button', { name: 'Xoá lịch sử trò chuyện' })).toBeDisabled();
+    // Khối tệp đã chia sẻ theo đúng hành vi của demo
+    // (issue #608, điểm G9): khối chỉ hiện khi hội thoại có
+    // tệp đã chia sẻ; nguồn dữ kiện hiện tại rỗng nên khối
+    // không dựng trong panel.
+    expect(within(panel).queryByText('Tệp đã chia sẻ')).not.toBeInTheDocument();
+    // Các trường hồ sơ backend chưa có dữ kiện thì KHÔNG dựng
+    // hàng nào và không còn dấu gạch ngang chờ như trước
+    // (issue #608 — đúng luật hiển thị của demo).
+    for (const label of ['Giới thiệu', 'Email', 'Số điện thoại', 'Website', 'Công ty', 'Quốc gia', 'Múi giờ', 'Địa điểm', 'Trạng thái sẵn sàng', 'Thẻ']) {
+      expect(within(panel).queryByText(label)).not.toBeInTheDocument();
+    }
+    expect(within(panel).queryByText('—')).not.toBeInTheDocument();
     // Hành động Tắt tiếng trong panel là hành động thật: bấm
-    // xong biểu tượng tắt tiếng hiện ở đầu khung.
+    // xong chính nút đó đổi nhãn thành Bật tiếng.
     await userEvent.click(within(panel).getByRole('button', { name: 'Tắt tiếng' }));
-    expect(await screen.findByTestId('header-muted-icon')).toBeInTheDocument();
+    expect(await within(panel).findByRole('button', { name: 'Bật tiếng' })).toBeInTheDocument();
+  });
+
+  it('vào tab Nhóm khi đang mở chat 1–1 thì khung về trạng thái chưa chọn như demo, không tự giữ hội thoại cũ', async () => {
+    const calls: RecordedCall[] = [];
+    stub591Fetch(calls);
+    renderMessages();
+
+    // Mở hàng 1–1 qua mốc giờ của chính hội thoại đó: ở
+    // danh sách hợp nhất, hàng nhóm cũng mang tên người gửi
+    // "Bạn Học" trong dòng xem trước nên truy vấn nút theo
+    // tên trơn sẽ trùng hai hàng.
+    await userEvent.click(await screen.findByTestId(`conversation-last-time-${CONV_ID}`));
+    expect(await screen.findByLabelText('Tin nhắn')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Nhóm' }));
+    // Khung chat về trạng thái chưa chọn: hiện khối rỗng chọn
+    // hội thoại của demo, luồng tin và ô soạn đều biến mất —
+    // đúng hành vi không tự chọn của demo ở tab Nhóm (issue
+    // #608, điểm A-BS5).
+    expect(await screen.findByText('Chọn một cuộc hội thoại ở cột trái để đọc và trả lời.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Tin nhắn')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Nội dung tin nhắn')).not.toBeInTheDocument();
+  });
+
+  it('vùng cuộn tin nhắn: class hiệu dụng của vùng chứa sau khi gộp là gap-0 nên khoảng cách luồng tin chỉ do margin theo cụm của từng mục mang', async () => {
+    const calls: RecordedCall[] = [];
+    stub591Fetch(calls);
+    renderMessages();
+
+    // Mở hàng 1–1 qua mốc giờ của chính hội thoại đó: ở
+    // danh sách hợp nhất, hàng nhóm cũng mang tên người gửi
+    // "Bạn Học" trong dòng xem trước nên truy vấn nút theo
+    // tên trơn sẽ trùng hai hàng.
+    await userEvent.click(await screen.findByTestId(`conversation-last-time-${CONV_ID}`));
+    const thread = await screen.findByLabelText('Tin nhắn');
+    // jsdom không tính layout nên khoảng cách hiệu dụng
+    // quan sát được qua class đã gộp của vùng chứa — ca
+    // này ghim đúng cơ chế theo phán quyết điều phối trên
+    // PR #610: MessageScrollerContent mang gap-8 (32px)
+    // mặc định trong component, nơi dùng phải ghi đè
+    // gap-0; nếu gap mặc định còn sót, khoảng cách cụm
+    // tin bị cộng dồn thành 36px trong cụm / 48px giữa
+    // cụm thay vì 4/16px của demo (issue #608, E1/E2).
+    const content = thread.querySelector('[data-slot="message-scroller-content"]');
+    expect(content).not.toBeNull();
+    const tokens = (content as HTMLElement).className.split(/\s+/);
+    expect(tokens).toContain('gap-0');
+    expect(tokens.filter((token) => token.startsWith('gap-') && token !== 'gap-0')).toEqual([]);
+  });
+
+  it('tải lại trang với tab Nhóm đã lưu và hội thoại 1–1 đã lưu thì không tự mở hội thoại cũ, khung ở trạng thái chưa chọn', async () => {
+    const calls: RecordedCall[] = [];
+    // Gieo đúng trạng thái đã lưu của lần dùng trước:
+    // tab Nhóm + một hội thoại 1–1 đang mở dở (issue
+    // #608, điểm A-BS5 — mệnh đề khôi phục khi tải trang).
+    localStorage.setItem('lms.messages.tab', 'groups');
+    localStorage.setItem('lms.messages.conversationId', CONV_ID);
+    stub591Fetch(calls);
+    renderMessages();
+
+    // Tab Nhóm được khôi phục từ trạng thái đã lưu và
+    // danh sách/cây nhóm đã nạp xong — mốc này bảo đảm
+    // hiệu ứng khôi phục ngữ cảnh đã chạy qua.
+    const groupsTab = await screen.findByRole('tab', { name: 'Nhóm' });
+    expect(groupsTab).toHaveAttribute('data-active');
+    expect(await screen.findByRole('button', { name: /Nhóm kiểm chứng/ })).toBeInTheDocument();
+    // Hội thoại 1–1 đã lưu KHÔNG tự mở: khung ở trạng
+    // thái chưa chọn như demo, không có luồng tin, và
+    // trang không hề lấy chi tiết hay đánh dấu đã đọc
+    // hội thoại đã lưu đó.
+    expect(screen.getByText('Chọn một cuộc hội thoại ở cột trái để đọc và trả lời.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Tin nhắn')).not.toBeInTheDocument();
+    expect(
+      calls.some((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}` && c.method === 'GET'),
+    ).toBe(false);
+    expect(
+      calls.some((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}/read`),
+    ).toBe(false);
+  });
+
+  it('deep-link trỏ tới hội thoại khác với hội thoại đã lưu (tab Nhóm và hội thoại 1–1 đã lưu) thì deep-link vẫn được ưu tiên và mở đúng hội thoại của nó', async () => {
+    const calls: RecordedCall[] = [];
+    localStorage.setItem('lms.messages.tab', 'groups');
+    localStorage.setItem('lms.messages.conversationId', CONV_ID);
+    stub591Fetch(calls);
+    renderMessages(`/messages?conversation=${KT_GROUP_ID}`);
+
+    // Hai id PHẢI khác nhau thì ca mới phân biệt được
+    // nguồn nào thắng: trạng thái đã lưu trỏ hội thoại
+    // 1–1 CONV_ID, deep-link trỏ nhóm KT_GROUP_ID. Nếu
+    // khôi phục ngữ cảnh đã lưu thắng (hoặc deep-link bị
+    // bỏ qua), hội thoại 1–1 sẽ mở thay nhóm và các khẳng
+    // định dưới đây đỏ — ca chỉ xanh khi deep-link thắng
+    // thật (issue #608, điểm A-BS5; phán quyết điều phối
+    // vòng sửa 2 trên PR #610 yêu cầu hai id khác nhau,
+    // bản trước dùng cùng một id cho cả hai nguồn nên
+    // không chứng minh được quyền ưu tiên).
+    const thread = await screen.findByLabelText('Tin nhắn');
+    expect(await within(thread).findByText('nội dung tin nhóm cuối')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.url === `/api/v1/messages/conversations/${KT_GROUP_ID}/read` && c.method === 'POST'),
+      ).toBe(true),
+    );
+    // Hội thoại đã lưu KHÔNG mở: trang không lấy chi
+    // tiết, không đánh dấu đã đọc cho nó và tin của nó
+    // không hiện trong luồng đang mở.
+    expect(
+      calls.some((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}` && c.method === 'GET'),
+    ).toBe(false);
+    expect(
+      calls.some((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}/read`),
+    ).toBe(false);
+    expect(within(thread).queryByText('tin mới của bạn học')).not.toBeInTheDocument();
+  });
+
+  it('di chuột lên vùng nút Gọi thoại và Gọi video đang vô hiệu thì tooltip hiện đúng nhãn của từng nút như demo', async () => {
+    const calls: RecordedCall[] = [];
+    stub591Fetch(calls);
+    renderMessages();
+
+    // Mở hàng 1–1 qua mốc giờ của chính hội thoại đó: ở
+    // danh sách hợp nhất, hàng nhóm cũng mang tên người gửi
+    // "Bạn Học" trong dòng xem trước nên truy vấn nút theo
+    // tên trơn sẽ trùng hai hàng.
+    await userEvent.click(await screen.findByTestId(`conversation-last-time-${CONV_ID}`));
+    await screen.findByLabelText('Tin nhắn');
+
+    // Hai nút gọi là hình dạng thuần ở trạng thái vô
+    // hiệu (issue #608, điểm D7): nút giữ disabled,
+    // nhưng vùng trigger bọc quanh nút nhận được hover
+    // nên tooltip phải hiện đúng nhãn khi di chuột.
+    // Gắn trigger thẳng lên nút vô hiệu thì hover
+    // không tới được trigger vì class gốc của Button
+    // mang disabled:pointer-events-none — ca này di
+    // chuột thật lên vùng trigger (hover + một chuyển
+    // động chuột như tay người dùng thật; cơ chế hover
+    // của Base UI mở tooltip sau khi chuột vào vùng và
+    // dừng đủ thời gian nghỉ) và chờ nhãn tooltip hiện
+    // trong popup của tooltip (phán quyết điều phối
+    // vòng sửa 2 trên PR #610).
+    const callButton = screen.getByRole('button', { name: 'Gọi thoại' });
+    expect(callButton).toBeDisabled();
+    const callTrigger = callButton.closest('[data-slot="tooltip-trigger"]');
+    expect(callTrigger).not.toBeNull();
+    await userEvent.hover(callTrigger as HTMLElement);
+    fireEvent.mouseMove(callTrigger as HTMLElement);
+    const callTooltip = await screen.findByText('Gọi thoại', {}, { timeout: 3000 });
+    expect(callTooltip.closest('[data-slot="tooltip-content"]')).not.toBeNull();
+    await userEvent.unhover(callTrigger as HTMLElement);
+
+    const videoButton = screen.getByRole('button', { name: 'Gọi video' });
+    expect(videoButton).toBeDisabled();
+    const videoTrigger = videoButton.closest('[data-slot="tooltip-trigger"]');
+    expect(videoTrigger).not.toBeNull();
+    await userEvent.hover(videoTrigger as HTMLElement);
+    fireEvent.mouseMove(videoTrigger as HTMLElement);
+    const videoTooltip = await screen.findByText('Gọi video', {}, { timeout: 3000 });
+    expect(videoTooltip.closest('[data-slot="tooltip-content"]')).not.toBeNull();
   });
 
   it('hộp thoại mời là hộp thoại ở giữa màn hình và khối liên kết mời chỉ là hình dạng vô hiệu', async () => {
@@ -3673,7 +4067,7 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     renderMessages();
 
     const dialog = await openNewMessageSheet();
-    expect(dialog.className).toContain('sm:max-w-lg');
+    expect(dialog.className).toContain('sm:max-w-md');
     const inviteInput = within(dialog).getByPlaceholderText('Liên kết mời sẽ hiện ở đây');
     expect(inviteInput).toBeDisabled();
     expect(within(dialog).getByRole('button', { name: 'Sao chép' })).toBeDisabled();

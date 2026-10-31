@@ -1,3 +1,4 @@
+import { Copy } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
@@ -45,7 +46,7 @@ import { initialsOf } from '../utils/utils';
  *    (điểm chưa có phán quyết về chức năng, issue #591).
  * 4. Bấm Nhắn tin ở bất kỳ dòng nào: sự kiện đi lên trang chứa —
  *    trang tạo/lấy hội thoại 1–1, đóng hộp thoại, chuyển khung
- *    trái về tab Trò chuyện và mở hội thoại ở khung phải.
+ *    trái về tab Tất cả và mở hội thoại ở khung phải.
  *
  * Bất biến: hộp thoại chỉ trình bày + phát sự kiện; luật được
  * phép nhắn ai là của server (cổng `assertCanContact` khi tạo
@@ -152,9 +153,18 @@ export function NewMessageDialog({
     </>
   );
 
+  /**
+   * Nhãn ngữ cảnh nhận đang chọn cho hàng "Tới:" (issue #608):
+   * ngữ cảnh liên hệ dùng nhãn cố định, ngữ cảnh lớp/khoá dùng
+   * tên của chính lớp/khoá đang chọn trong bộ chọn người.
+   */
+  const recipientContextLabel = pickerContext.kind === 'contacts'
+    ? t('newMessageContactsContext')
+    : pickerContext.name;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{t('newMessage')}</DialogTitle>
         </DialogHeader>
@@ -165,13 +175,13 @@ export function NewMessageDialog({
           {contactMessage ? <p role="status" className="text-sm">{contactMessage}</p> : null}
           {incomingRequests.length > 0 ? (
             <div className="space-y-2">
-              <h3 className="flex items-center gap-2 font-medium">
+              <h3 className="flex items-center gap-2 px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                 {t('incomingRequestsTitle')}
                 <Badge>{incomingRequests.length}</Badge>
               </h3>
               <ul className="space-y-1">
                 {incomingRequests.map((r) => (
-                  <li key={r.userId} data-testid={`incoming-request-${r.userId}`} className="flex items-center gap-2">
+                  <li key={r.userId} data-testid={`incoming-request-${r.userId}`} className="flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-muted/50">
                     <Avatar>
                       <AvatarFallback>{initialsOf(r.displayName ?? nameOf(r.userId))}</AvatarFallback>
                     </Avatar>
@@ -189,10 +199,10 @@ export function NewMessageDialog({
           ) : null}
           {outgoingRequests.length > 0 ? (
             <div className="space-y-2">
-              <h3 className="font-medium">{t('outgoingRequestsTitle')}</h3>
+              <h3 className="px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">{t('outgoingRequestsTitle')}</h3>
               <ul className="space-y-1">
                 {outgoingRequests.map((r) => (
-                  <li key={r.userId} className="text-sm">
+                  <li key={r.userId} className="px-2 py-2.5 text-sm">
                     {r.displayName ?? nameOf(r.userId)} {t('contactRequestPendingSuffix')}
                   </li>
                 ))}
@@ -200,6 +210,19 @@ export function NewMessageDialog({
             </div>
           ) : null}
           <div className="space-y-2">
+            {/*
+              Hàng "Tới:" theo khuôn của bản demo (issue #608):
+              hàng viền bo 10px đệm 12/4px với nhãn mờ không co
+              và ngữ cảnh nhận đang chọn. Sản phẩm không có tìm
+              người theo tên (mô hình khám phá qua roster/lớp
+              khoá đã chốt) nên hàng này hiển thị ngữ cảnh nhận
+              thật thay vì một ô nhập tìm kiếm giả; việc chọn
+              người diễn ra ở bộ chọn ngay bên dưới.
+            */}
+            <div className="flex items-center gap-2 rounded-lg border px-3 py-1">
+              <span className="shrink-0 text-sm text-muted-foreground">{t('messageToLabel')}</span>
+              <span className="min-w-0 truncate text-sm">{recipientContextLabel}</span>
+            </div>
             <PeoplePicker
               context={pickerContext}
               onSelectContext={onSelectPickerContext}
@@ -215,7 +238,7 @@ export function NewMessageDialog({
               <>
                 <ul className="space-y-1">
                   {contacts.map((userId) => (
-                    <li key={userId} data-testid={`contact-${userId}`} className="flex items-center gap-2">
+                    <li key={userId} data-testid={`contact-${userId}`} className="flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-muted/50">
                       <Avatar>
                         <AvatarFallback>{initialsOf(nameOf(userId))}</AvatarFallback>
                       </Avatar>
@@ -233,11 +256,11 @@ export function NewMessageDialog({
             ) : null}
           </div>
           <div className="space-y-2">
-            <h3 className="font-medium">{t('blockedContactsTitle')}</h3>
+            <h3 className="px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">{t('blockedContactsTitle')}</h3>
             {blockMessage ? <p role="status" className="text-sm">{blockMessage}</p> : null}
             <ul className="space-y-1">
               {blocked.map((userId) => (
-                <li key={userId} data-testid={`blocked-${userId}`} className="flex items-center gap-2">
+                <li key={userId} data-testid={`blocked-${userId}`} className="flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-muted/50">
                   <span className="min-w-0 flex-1 truncate text-sm">{nameOf(userId)}</span>
                   <Button type="button" variant="outline" onClick={() => void onUnblockContact(userId)}>
                     {t('unblockContact')}
@@ -259,7 +282,7 @@ export function NewMessageDialog({
             backend sau khi điểm này có phán quyết.
           */}
           <div className="space-y-2">
-            <h3 className="font-medium">{t('inviteLinkLabel')}</h3>
+            <h3 className="px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">{t('inviteLinkLabel')}</h3>
             <div className="flex gap-2">
               <Input
                 aria-label={t('inviteLinkLabel')}
@@ -268,8 +291,14 @@ export function NewMessageDialog({
                 value=""
                 readOnly
               />
-              <Button type="button" variant="outline" disabled>
-                {t('copyInviteLink')}
+              {/*
+                Nút sao chép theo hình dạng phía demo (issue
+                #608): nút ghost chỉ biểu tượng 32px, icon sao
+                chép 14px — vẫn vô hiệu như toàn khối (điểm
+                chưa có phán quyết chức năng).
+              */}
+              <Button type="button" variant="ghost" size="icon-sm" aria-label={t('copyInviteLink')} disabled>
+                <Copy className="size-3.5" aria-hidden />
               </Button>
             </div>
           </div>

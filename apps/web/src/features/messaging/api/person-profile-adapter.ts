@@ -9,9 +9,10 @@
  * tên hiển thị và tên đăng nhập (`PersonSummary`). Mọi trường
  * backend chưa có PHẢI đi qua lớp adapter này — component không
  * tự chứa dữ kiện tạm và không bịa giá trị: trường nào chưa có
- * nguồn thì adapter trả `null` (hoặc danh sách rỗng), panel hiện
- * dấu gạch ngang ở đúng vị trí của trường đó để hình dạng khớp
- * demo mà không khẳng định dữ kiện không tồn tại.
+ * nguồn thì adapter trả `null` (hoặc danh sách rỗng), và panel
+ * KHÔNG dựng hàng của trường đó (đúng luật hiển thị của bản
+ * demo, căn ở issue #608 — trước đây panel hiện dấu gạch ngang
+ * ở vị trí của trường, đã bỏ).
  *
  * Đợt backend (#592) chỉ thay nguồn dữ kiện của các hàm trong
  * file này (đọc từ API thật khi hợp đồng có đủ trường); chữ ký
@@ -101,13 +102,15 @@ export interface SharedFileView {
   id: string;
   /** Tên tệp hiển thị. */
   name: string;
+  /** Nhãn dung lượng đã định dạng (ví dụ "1.2 MB"); nguồn hiện tại chưa có nên để trống. */
+  sizeLabel?: string;
 }
 
 /**
  * Danh sách tệp đã chia sẻ của một hội thoại cho panel thông
  * tin — hiện luôn rỗng vì chưa có nguồn dữ kiện (xem
- * {@link SharedFileView}); panel hiện dòng trống ở đúng vị trí
- * của khối tệp.
+ * {@link SharedFileView}); panel chỉ hiện khối tệp khi danh
+ * sách có phần tử, đúng hành vi của bản demo (điểm G9).
  *
  * @param conversationId - Hội thoại cần lấy tệp (giữ chữ ký
  *   cho đợt backend; đợt này chưa dùng tới vì chưa có nguồn).

@@ -1,6 +1,6 @@
-import { formatDateTime } from '#utils/date-format';
+import { formatDateTime, formatWithOptions } from '#utils/date-format';
 
-import type { MessageQuoteView, MessageView } from '../types/types';
+import type { MessageQuoteView, MessageView, PresenceStatus } from '../types/types';
 
 /** Rút gọn excerpt ở client cho bản lạc quan — CÙNG luật với server (120 ký tự theo code point, thêm … khi cắt). */
 export function quoteExcerptOfText(text: string): string {
@@ -42,6 +42,72 @@ export function relativeTime(iso: string, t: (key: string, opts?: Record<string,
   const days = Math.floor(hours / 24);
   if (days < 7) return t('daysAgo', { count: days });
   return formatDateTime(iso);
+}
+
+/**
+ * Mốc thời gian trên HÀNG hội thoại (issue #608 — căn theo đúng
+ * hàm định dạng phía bản demo, trích từ chunk JS của demo): dưới
+ * một phút là "vừa xong"; dưới 60 phút là dạng rút gọn "{{số}}m";
+ * trong ngày là khuôn 12 giờ (`h:mm a` bản địa hoá theo ngôn ngữ
+ * hiển thị); hôm qua là nhãn "Hôm qua"; cũ hơn là ngày lịch dạng
+ * tháng viết tắt + ngày (ví dụ "Jun 5" / "5 thg 6"), không kèm
+ * năm. Khác `relativeTime` ở trên (khuôn tương đối đầy đủ của
+ * các bề mặt cũ): hàng hội thoại của demo không dùng khuôn giờ/
+ * ngày tương đối.
+ */
+export function conversationTime(
+  iso: string,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+  lang: string | undefined,
+): string {
+  const date = new Date(iso);
+  const diffMs = Date.now() - date.getTime();
+  if (diffMs < 60_000) return t('justNow');
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 60) return t('minutesShort', { count: minutes });
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diffDays = Math.round((startOfDay(new Date()) - startOfDay(date)) / 86_400_000);
+  if (diffDays <= 0) {
+    return formatWithOptions(date, lang, { hour: 'numeric', minute: '2-digit', hour12: true });
+  }
+  if (diffDays === 1) return t('messagesYesterday');
+  return formatWithOptions(date, lang, { month: 'short', day: 'numeric' });
+}
+
+/**
+ * Bản đồ màu chấm hiện diện theo trạng thái (issue #608 — đúng
+ * bản đồ phía bản demo): trực tuyến xanh lá, vắng mặt vàng, đang
+ * bận đỏ, ngoại tuyến xám muted. Các màu đi qua token màu của hệ
+ * (green/yellow/red-500 đã căn về giá trị demo ở `globals.css`).
+ */
+export const PRESENCE_DOT_CLASS: Record<PresenceStatus, string> = {
+  online: 'bg-green-500',
+  away: 'bg-yellow-500',
+  busy: 'bg-red-500',
+  offline: 'bg-muted-foreground',
+};
+
+/**
+ * Ánh xạ dữ kiện hiện diện hiện hành (ba trạng thái theo sự kiện:
+ * `true` đã xác nhận trực tuyến, `false` đã xác nhận ngoại
+ * tuyến, `undefined` chưa biết) sang trạng thái hiển thị. Dữ
+ * kiện hiện hành không mang vắng mặt/bận nên hai trạng thái đó
+ * chưa bao giờ được hàm này trả ra — chúng chỉ có mặt ở bản đồ
+ * hiển thị, chờ dữ kiện (xem {@link PresenceStatus}).
+ */
+export function presenceStatusOf(isOnline: boolean | undefined): PresenceStatus | undefined {
+  if (isOnline === undefined) return undefined;
+  return isOnline ? 'online' : 'offline';
+}
+
+/** Khoá i18n của nhãn một trạng thái hiện diện (dòng trạng thái ở đầu khung và panel). */
+export function presenceLabelKey(status: PresenceStatus): string {
+  switch (status) {
+    case 'online': return 'onlineNow';
+    case 'away': return 'presenceAway';
+    case 'busy': return 'presenceBusy';
+    default: return 'messagesOfflineNow';
+  }
 }
 
 /**

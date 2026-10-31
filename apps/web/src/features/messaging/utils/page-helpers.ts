@@ -21,26 +21,30 @@ const MESSAGES_TAB_STORAGE_KEY = 'lms.messages.tab';
 /** Khoá localStorage của hội thoại Tin nhắn đang mở gần nhất (lát MSG-T3). */
 const MESSAGES_CONVERSATION_STORAGE_KEY = 'lms.messages.conversationId';
 /**
- * Các tab khung trái hợp lệ — giá trị lưu hỏng thì lùi về tab Trò
- * chuyện. Từ issue #564, mục Đã lưu trữ không còn là tab riêng mà
- * là một mục thu gọn trong tab Trò chuyện, nên giá trị lưu cũ
- * "archived" rơi về "chats" theo đúng luật lùi về mặc định này.
+ * Các tab khung trái hợp lệ — giá trị lưu hỏng thì lùi về tab
+ * Tất cả. Từ issue #564, mục Đã lưu trữ không còn là tab riêng
+ * mà là một mục thu gọn trong tab danh sách chính, nên giá trị
+ * lưu cũ "archived" rơi về mặc định theo đúng luật này. Từ
+ * issue #606, thanh tab đổi thành bốn tab lọc ngang hàng của
+ * bản demo (Tất cả / Chưa đọc / Nhóm / Yêu thích) thay cấu trúc
+ * hai tab cũ, nên giá trị lưu cũ "chats" cũng rơi về mặc định
+ * "all"; "groups" giữ nguyên nghĩa ở cả hai cấu trúc.
  */
-const MESSAGES_TABS = ['chats', 'groups'] as const;
+const MESSAGES_TABS = ['all', 'unread', 'groups', 'favourites'] as const;
 
 /**
- * Đọc tab khung trái đã lưu bền; chưa lưu hoặc giá trị hỏng thì về
- * tab Trò chuyện như hành vi mặc định trước MSG-T3.
+ * Đọc tab khung trái đã lưu bền; chưa lưu hoặc giá trị hỏng thì
+ * về tab Tất cả như hành vi mặc định của thanh tab hiện hành.
  *
- * @returns Tên tab đã lưu, hoặc 'chats'.
+ * @returns Tên tab đã lưu, hoặc 'all'.
  */
 export function readStoredMessagesTab(): string {
-  if (typeof window === 'undefined') return 'chats';
+  if (typeof window === 'undefined') return 'all';
   try {
     const raw = window.localStorage.getItem(MESSAGES_TAB_STORAGE_KEY);
-    return raw && (MESSAGES_TABS as readonly string[]).includes(raw) ? raw : 'chats';
+    return raw && (MESSAGES_TABS as readonly string[]).includes(raw) ? raw : 'all';
   } catch {
-    return 'chats';
+    return 'all';
   }
 }
 

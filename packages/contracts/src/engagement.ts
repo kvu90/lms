@@ -104,13 +104,21 @@ export type ConversationTreeRole = z.infer<typeof conversationTreeRoleSchema>;
  * được ensure (bấm vào nút mới ensure ở các lát sau) và khi đó
  * `unread` luôn 0; đã ensure thì `unread` là số chưa đọc của chính
  * người gọi trên conversation đó (tôn trọng luật ẩn bề mặt khi chặn
- * như mọi đường đọc — đếm tại server).
+ * như mọi đường đọc — đếm tại server). `pinnedAt` là trạng thái
+ * ghim CÁ NHÂN của chính người gọi trên conversation của nút (mốc
+ * ghim ISO, null = chưa ghim), server lấy từ dòng thành viên của
+ * người gọi trên CẢ HAI tập hội thoại chưa lưu trữ và đã lưu trữ —
+ * ghim và lưu trữ là hai trạng thái độc lập nên một hội thoại vừa
+ * ghim vừa lưu trữ vẫn phải mang mốc ghim ở cây để client xếp đúng
+ * mục Ghim của tab Nhóm; nút chưa có conversation, hoặc người gọi
+ * chưa là thành viên conversation đó, thì `pinnedAt` là null.
  */
 export const conversationTreeLeafSchema = z.object({
   name: z.string(),
   myRole: conversationTreeRoleSchema,
   conversationId: uuidIdSchema.nullable(),
   unread: z.number().int().nonnegative(),
+  pinnedAt: z.string().nullable(),
 });
 export type ConversationTreeLeaf = z.infer<typeof conversationTreeLeafSchema>;
 
