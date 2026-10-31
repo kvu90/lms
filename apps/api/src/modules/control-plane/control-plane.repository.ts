@@ -10,13 +10,44 @@ import {
   type SpaceSchemaMigrationRunRow,
   type SpaceSchemaRegistryRow,
 } from '@lms/db/control-plane';
-import { asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, ne } from 'drizzle-orm';
 import { ControlPlaneConnection, type ControlPlaneDatabase } from './control-plane.connection';
 
 /** Handle transaction của control plane — cùng khuôn `DbTx` của kho nghiệp vụ nhưng trên kết nối riêng. */
 export type CpTx = Parameters<Parameters<ControlPlaneDatabase['transaction']>[0]>[0];
 /** Handle đọc/ghi mà repository nhận: transaction đang mở hoặc chính kết nối gốc. */
 export type CpDb = ControlPlaneDatabase | CpTx;
+
+/** Tên chỉ số duy nhất riêng phần trên `space_registry.database_name` (chỉ phủ hàng dedicated). */
+export const DEDICATED_DATABASE_NAME_UNIQUE_INDEX = 'space_registry_database_name_dedicated_unique';
+
+/**
+ * Lỗi có phải va chạm ĐÚNG chỉ số duy nhất riêng phần của tên
+ * database dedicated hay không.
+ *
+ * PostgreSQL báo lỗi vi phạm unique bằng mã 23505; lỗi Drizzle có
+ * thể bọc lỗi gốc qua `cause` nên phải duyệt cả chuỗi cause (cùng
+ * mẫu các service khác trong repo). Mã 23505 một mình chưa đủ: chỉ
+ * khi tên ràng buộc là chỉ số dedicated mới là va chạm này — các vi
+ * phạm unique khác (ví dụ slug) không được nuốt thành "trùng tên
+ * database".
+ *
+ * @param err - Lỗi bắt được từ thao tác ghi đăng ký.
+ * @returns true khi lỗi là va chạm của chỉ số dedicated.
+ */
+export function isDedicatedDatabaseNameConflict(err: unknown): boolean {
+  let e: unknown = err;
+  while (e !== null && typeof e === 'object') {
+    const candidate = e as { code?: unknown; constraint?: unknown; message?: unknown };
+    if (candidate.code === '23505'
+      && (candidate.constraint === DEDICATED_DATABASE_NAME_UNIQUE_INDEX
+        || (typeof candidate.message === 'string' && candidate.message.includes(DEDICATED_DATABASE_NAME_UNIQUE_INDEX)))) {
+      return true;
+    }
+    e = (e as { cause?: unknown }).cause;
+  }
+  return false;
+}
 
 /** Dữ kiện ghi một dòng đăng ký mới (đã qua kiểm chứng ở tầng service/contract). */
 export type NewSpaceRegistration = typeof spaceRegistry.$inferInsert;
@@ -95,6 +126,47 @@ export class ControlPlaneRepository {
   /** Tra cứu định tuyến theo slug — đường đọc chính của tầng ứng dụng. */
   async findSpaceBySlug(slug: string, db: CpDb = this.db()): Promise<SpaceRegistryRow | undefined> {
     const [row] = await db.select().from(spaceRegistry).where(eq(spaceRegistry.slug, slug)).limit(1);
+    return row;
+  }
+
+  /**
+   * Tra cứu dòng đăng ký theo tên database đích — đường kiểm tra trùng
+   * của cấp phát (issue #583, ghi chú điều phối 6528534235): một tên
+   * database không được hai dòng đăng ký cùng dùng. Lưu ý: tra cứu
+   * này phủ CẢ hàng shared (kho chung vốn được nhiều dòng cùng trỏ)
+   * vì tầng ứng dụng từ chối mọi databaseName đã có khi cấp phát
+   * kho dedicated — một kho dedicated mang tên trùng kho chung sẽ
+   * khiến trung tâm đó trỏ thẳng vào kho chung. Chỉ số duy nhất
+   * riêng phần trên database chỉ là chốt chặn cho cuộc đua
+   * dedicated-vs-dedicated; kiểm tra ở đây là lớp chính.
+   */
+  async findSpaceByDatabaseName(databaseName: string, db: CpDb = this.db()): Promise<SpaceRegistryRow | undefined> {
+    const [row] = await db.select().from(spaceRegistry).where(eq(spaceRegistry.databaseName, databaseName)).limit(1);
+    return row;
+  }
+
+  /**
+   * Tra cứu dòng đăng ký KHÁC theo tên database đích — đường kiểm tra
+   * trùng của cập nhật (issue #583, phán quyết vòng chấm lại hẹp thứ
+   * hai PR #611): khi kiểm tra một dòng đang cập nhật, dòng đó PHẢI
+   * bị loại trừ NGAY TRONG TRUY VẤN (`id <> ...`). Tra cứu `LIMIT 1`
+   * không loại trừ có thể trả về chính dòng đang sửa — hai dòng cùng
+   * tên là tiền đề thật vì các không gian kho chung cùng trỏ vào một
+   * database — khiến điều kiện `clash.id !== id` bỏ qua va chạm với
+   * dòng còn lại, mà chỉ số duy nhất riêng phần không cứu được vì
+   * dòng còn lại vẫn là `shared`. Lọc bằng code sau `LIMIT 1` không
+   * sửa được lỗi này vì dòng còn lại có thể đã bị truy vấn bỏ qua.
+   */
+  async findOtherSpaceByDatabaseName(
+    databaseName: string,
+    excludeId: string,
+    db: CpDb = this.db(),
+  ): Promise<SpaceRegistryRow | undefined> {
+    const [row] = await db
+      .select()
+      .from(spaceRegistry)
+      .where(and(eq(spaceRegistry.databaseName, databaseName), ne(spaceRegistry.id, excludeId)))
+      .limit(1);
     return row;
   }
 

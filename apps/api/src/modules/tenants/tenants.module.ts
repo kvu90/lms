@@ -3,6 +3,9 @@ import { SpaceRoutingModule } from '../../db/routing/space-routing.module';
 import { EventsModule } from '../../infra/events/events.module';
 import { AccessModule } from '../access/access.module';
 import { UsersModule } from '../users/users.module';
+import { CentreIdentityController } from './centre-identity.controller';
+import { CentreIdentityRepository } from './centre-identity.repository';
+import { CentreIdentityService } from './centre-identity.service';
 import { SpaceContextGuard } from './space-context.guard';
 import { TenantConfigService } from './tenant-config.service';
 import { TenantContextService } from './tenant-context.service';
@@ -22,9 +25,11 @@ import { TenantsService } from './tenants.service';
  */
 @Module({
   imports: [AccessModule, UsersModule, EventsModule, SpaceRoutingModule],
-  controllers: [TenantsController],
+  controllers: [TenantsController, CentreIdentityController],
   providers: [
     TenantsRepository,
+    CentreIdentityRepository,
+    CentreIdentityService,
     TenantsService,
     TenantConfigService,
     TenantContextService,

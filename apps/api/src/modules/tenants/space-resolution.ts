@@ -24,7 +24,7 @@ import {
  */
 
 /** Hình dạng hợp lệ của một nhãn tên miền con mang slug: chữ thường, số và dấu gạch ngang, tối đa 63 ký tự như một nhãn DNS. */
-const SPACE_LABEL_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+export const SPACE_LABEL_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
 /**
  * Trích slug ứng viên của trung tâm từ header `Host` của request.

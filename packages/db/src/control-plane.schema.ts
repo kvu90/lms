@@ -31,6 +31,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
@@ -102,7 +103,21 @@ export const spaceRegistry = pgTable(
   // Chỉ số theo trạng thái vòng đời: các đường vận hành (định tuyến,
   // công cụ fleet) lọc không gian theo trạng thái là truy vấn chính
   // trên sổ này; slug đã có ràng buộc duy nhất làm chỉ số tra cứu.
-  (table) => [index('space_registry_status_idx').on(table.status)],
+  // Chỉ số duy nhất RIÊNG PHẦN cho tên database của kho DEDICATED
+  // (issue #583, ghi chú điều phối 6528534235 — điểm P1-2b từ review
+  // PR #594): hai trung tâm không bao giờ được trỏ cùng một database
+  // riêng, vì đó là hai kho độc lập bị chập thành một. Chỉ số KHÔNG
+  // phủ hàng shared: kho chung vốn là MỘT database được nhiều dòng
+  // đăng ký cùng trỏ (Trang chính + trường mặc định), nên ràng buộc
+  // duy nhất toàn bảng sẽ phá bước migrate của control plane. Đường
+  // cấp phát kiểm tra trùng ở tầng ứng dụng trước khi ghi, chỉ số
+  // này là chốt chặn cuối cho cuộc đua dedicated-vs-dedicated.
+  (table) => [
+    index('space_registry_status_idx').on(table.status),
+    uniqueIndex('space_registry_database_name_dedicated_unique')
+      .on(table.databaseName)
+      .where(sql`"space_registry"."storage_mode" = 'dedicated'`),
+  ],
 );
 
 /**

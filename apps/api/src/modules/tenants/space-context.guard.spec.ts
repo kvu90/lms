@@ -1,4 +1,5 @@
 import { ForbiddenException, UnauthorizedException, type ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { describe, expect, it, vi } from 'vitest';
 import type { AuthenticatedUser } from '../../common/current-user.decorator';
 import {
@@ -7,8 +8,12 @@ import {
 } from '../../db/routing/space-connection-resolver';
 import type { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import type { PermissionEvaluator } from '../access/permission-evaluator.service';
+import { SkipSpaceContext } from './skip-space-context.decorator';
 import { SpaceContextGuard } from './space-context.guard';
 import type { TenantsRepository } from './tenants.repository';
+
+@SkipSpaceContext()
+class SkipSpaceContextHandler {}
 
 /**
  * Ca đơn vị của guard gắn ngữ cảnh trung tâm (issue #582): khung
@@ -76,6 +81,7 @@ function makeGuard(options?: {
     spaceDb as unknown as SpaceDatabaseService,
     repo as unknown as TenantsRepository,
     evaluator as unknown as PermissionEvaluator,
+    new Reflector(),
   );
   return { guard, spaceDb, repo, evaluator };
 }
@@ -83,13 +89,31 @@ function makeGuard(options?: {
 function httpContext(request: FakeRequest): ExecutionContext {
   return {
     getType: () => 'http',
+    getHandler: () => httpContextHandler,
+    getClass: () => httpContextHandler,
     switchToHttp: () => ({ getRequest: () => request }),
   } as unknown as ExecutionContext;
 }
 
+function httpContextHandler() {}
+
 const HOST_A = 'trung-tam-a.he-thong.example';
 
 describe('Guard gắn ngữ cảnh trung tâm theo địa chỉ', () => {
+  it('route đánh dấu tự gắn trung tâm thì cho qua ngay mà không phân giải hay ghim gì', async () => {
+    const { guard, spaceDb } = makeGuard();
+    const request: FakeRequest = { headers: { host: 'trung-tam-a.he-thong.example' } };
+    const context = {
+      getType: () => 'http',
+      getHandler: () => SkipSpaceContextHandler,
+      getClass: () => SkipSpaceContextHandler,
+      switchToHttp: () => ({ getRequest: () => request }),
+    } as unknown as ExecutionContext;
+    expect(await guard.canActivate(context)).toBe(true);
+    expect(spaceDb.resolveTarget).not.toHaveBeenCalled();
+    expect(spaceDb.getDatabaseForSpace).not.toHaveBeenCalled();
+  });
+
   it('địa chỉ không mang tên miền con của trung tâm thì cho qua và không phân giải gì', async () => {
     const { guard, spaceDb } = makeGuard();
     const request: FakeRequest = { headers: { host: 'he-thong.example' } };

@@ -193,6 +193,21 @@ export class SpaceDatabaseService implements OnModuleDestroy {
    * @throws SpaceRoutingError khi slug chưa đăng ký, control plane
    *   chưa cấu hình, hoặc bí mật/role của kho riêng lệch sổ đăng ký.
    */
+  /**
+   * Trung tâm đã có handle chuẩn bị trong tiến trình này chưa.
+   * Đường đọc nhận diện công khai (issue #583) dùng để quyết định
+   * có cần chạm control plane không: khi đã chuẩn bị, handle trong
+   * bảng đã-chuẩn-bị đủ để đọc kho của trung tâm mà không phân giải
+   * lại — nên bề mặt trung tâm vẫn hiển thị đúng nhận diện ngay cả
+   * khi control plane ngừng hoạt động sau khi định tuyến đã xong.
+   * Khi chưa chuẩn bị (hoặc mục đã-chuẩn-bị đã bị thu hồi), bên
+   * gọi phải chuẩn bị qua `getDatabaseForSpace` trước — đọc thẳng
+   * qua `routedDatabase` khi chưa chuẩn bị sẽ rơi về kho chung.
+   */
+  isSpacePrepared(slug: string): boolean {
+    return this.prepared.has(slug);
+  }
+
   async getDatabaseForSpace(slug: string): Promise<Database> {
     const target = await this.resolver.resolve(slug);
     if (target.mode === 'shared') {
