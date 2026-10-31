@@ -120,19 +120,6 @@ build + test của `@lms/web`, đối chiếu diff của `components.json` và
   lại ở mọi avatar của sản phẩm, phải sửa tại đúng component gốc
   thay vì ghi đè ở từng nơi dùng. Khi đồng bộ upstream lần tới:
   đối chiếu dòng cỡ chữ này (bản sinh ra sẽ mang lại `text-sm`).
-- `src/components/input-group.tsx` (issue #608): THÊM MỚI bằng
-  shadcn CLI (`shadcn add input-group`, preset base-vega) chạy
-  trong thư mục nháp riêng rồi đưa vào package — cùng cách làm và
-  cùng lý do với `native-select.tsx`/`popover.tsx` ở trên (CLI cần
-  cấu hình alias đầy đủ của package để chạy). Nội dung file là đúng
-  bản InputGroup của registry cho preset đang dùng, chỉ thích ứng
-  một điểm duy nhất như các lần trước: dòng import `cn` đổi từ
-  package `cn` mà CLI hiện sinh sang `#lib/utils`. Ba file phụ
-  thuộc CLI sinh kèm (button/input/textarea) KHÔNG được đưa vào —
-  bản trong package đã có sẵn và trùng khớp với bản CLI sinh (chỉ
-  khác dòng import `cn` như trên). Khi đồng bộ upstream lần tới:
-  chạy `shadcn add input-group --overwrite` tại thư mục này và đối
-  chiếu diff của file, đặc biệt dòng import `cn`.
 - `src/components/breadcrumb.tsx` và `src/components/marker.tsx`
   (issue #394): đã XOÁ khỏi package. Lý do: tại thời điểm xoá, quét
   toàn repo theo tên file, tên export và đường import `@lms/ui/...`
