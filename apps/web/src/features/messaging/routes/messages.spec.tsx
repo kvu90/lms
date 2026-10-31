@@ -4368,6 +4368,34 @@ describe('Trang tin nhắn — vòng sửa sau nghiệm thu PR #610', () => {
     expect(await within(header).findByText('Ngoại tuyến')).toBeInTheDocument();
     expect(within(header).queryByText('Trực tuyến')).not.toBeInTheDocument();
   });
+
+  it('đầu khung 1–1: sự kiện trực tiếp báo ngoại tuyến đến TRƯỚC ảnh chụp — ảnh chụp đến sau vẫn chứa đối tác thì trạng thái cuối vẫn là Ngoại tuyến, ảnh chụp cũ không lật lại thành Trực tuyến', async () => {
+    const calls: RecordedCall[] = [];
+    stubNamelessDmFetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Một/ }));
+    await screen.findByLabelText('Tin nhắn');
+    const infoButton = await screen.findByRole('button', { name: 'Thông tin cuộc trò chuyện' });
+    const header = infoButton.parentElement as HTMLElement;
+
+    // Sự kiện trực tiếp mới nhất được xử lý trước: đối tác vừa
+    // ngắt nối, đầu khung hiện "Ngoại tuyến".
+    act(() => {
+      realtime.handlers?.onPresence({ userId: OTHER_ID, online: false } as never);
+    });
+    expect(await within(header).findByText('Ngoại tuyến')).toBeInTheDocument();
+
+    // Ảnh chụp được máy chủ đọc tại thời điểm TRƯỚC lúc đối tác
+    // ngắt nối nhưng tới trang SAU sự kiện trực tiếp: vẫn liệt kê
+    // đối tác đang trực tuyến. Ảnh chụp cũ không được ghi đè sự
+    // kiện trực tiếp mới hơn — trạng thái cuối vẫn là ngoại tuyến.
+    act(() => {
+      realtime.handlers?.onPresenceSnapshot({ onlineUserIds: [OTHER_ID] } as never);
+    });
+    expect(within(header).getByText('Ngoại tuyến')).toBeInTheDocument();
+    expect(within(header).queryByText('Trực tuyến')).not.toBeInTheDocument();
+  });
 });
 
 /**

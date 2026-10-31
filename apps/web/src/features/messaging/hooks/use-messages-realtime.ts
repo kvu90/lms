@@ -94,6 +94,18 @@ export function useMessagesRealtime({
   suspendRealtime,
 }: UseMessagesRealtimeParams) {
   const typingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  // Tập user đã có sự kiện hiện diện trực tiếp kể từ ảnh chụp
+  // presence gần nhất (hoặc từ lúc trang mở nếu chưa có ảnh chụp
+  // nào) — căn cứ phân xử thứ tự giữa ảnh chụp và sự kiện trực
+  // tiếp (xem handler onPresenceSnapshot): ảnh chụp chỉ được áp
+  // cho user NGOÀI tập này. Tập được xoá mỗi khi một ảnh chụp
+  // được áp (ảnh chụp đó đã "tiêu thụ" cửa sổ phân xử của nó) và
+  // mỗi khi nối lại (chu kỳ nối mới sinh ảnh chụp mới, phản ánh
+  // thời điểm nối mới — mới hơn mọi sự kiện của chu kỳ trước).
+  // Tập KHÔNG được xoá khi hiệu ứng nối chạy lại: hiệu ứng chạy
+  // lại theo nhịp render của trang, không đồng nghĩa với cửa sổ
+  // ảnh chụp mới.
+  const presenceLiveUsersRef = useRef<Set<string>>(new Set());
 
   // Kênh realtime: nối một lần khi trang mở; handlers đọc state mới
   // nhất qua ref nên không phải nối lại khi state đổi. Người xem
@@ -210,22 +222,45 @@ export function useMessagesRealtime({
         );
       },
       onPresence: ({ userId, online }) => {
+        // Ghi dấu user này đã có sự kiện trực tiếp kể từ ảnh chụp
+        // gần nhất: từ đây trạng thái của họ do sự kiện trực tiếp
+        // quyết định, ảnh chụp đang trên đường không được chạm
+        // vào nữa.
+        presenceLiveUsersRef.current.add(userId);
         setOnlineUsers((prev) => ({ ...prev, [userId]: online }));
       },
       onPresenceSnapshot: ({ onlineUserIds }) => {
-        // Ảnh chụp chỉ liệt kê người ĐANG trực tuyến và phản ánh thời
-        // điểm nối; một sự kiện trực tiếp mới hơn có thể đã ghi trạng
-        // thái ngoại tuyến của ai đó trong lúc ảnh chụp đang trên
-        // đường — nên ảnh chụp chỉ được BỔ SUNG trạng thái trực tuyến,
-        // tuyệt đối không ghi đè/xoá trạng thái đã biết.
+        // Ảnh chụp chỉ liệt kê người ĐANG trực tuyến và phản ánh
+        // thời điểm máy chủ đọc Redis lúc socket nối, còn sự kiện
+        // trực tiếp đi theo đường riêng — hai nguồn không có thứ tự
+        // chung: một sự kiện trực tiếp được xử lý TRƯỚC khi ảnh
+        // chụp tới vẫn có thể mới hơn ảnh chụp (người kia ngắt nối
+        // ngay sau lúc máy chủ đọc). Vì vậy ảnh chụp chỉ áp cho
+        // user CHƯA có sự kiện trực tiếp nào kể từ ảnh chụp gần
+        // nhất; user đã có sự kiện trực tiếp thì trạng thái của sự
+        // kiện đó là quyết định cuối ở cả hai chiều và ảnh chụp
+        // không ghi đè được. User chưa biết trạng thái nào vẫn được
+        // ảnh chụp bổ sung bình thường; ảnh chụp không bao giờ xoá
+        // trạng thái đã biết. Áp xong thì xoá tập dấu: cửa sổ phân
+        // xử của chính ảnh chụp này đã đóng, các sự kiện trực tiếp
+        // từ đây thuộc về cửa sổ của ảnh chụp kế tiếp.
+        const liveUsers = presenceLiveUsersRef.current;
+        presenceLiveUsersRef.current = new Set();
         if (!onlineUserIds.length) return;
         setOnlineUsers((prev) => {
           const next = { ...prev };
-          for (const userId of onlineUserIds) next[userId] = true;
+          for (const userId of onlineUserIds) {
+            if (liveUsers.has(userId)) continue;
+            next[userId] = true;
+          }
           return next;
         });
       },
       onReconnect: () => {
+        // Chu kỳ nối mới sinh ảnh chụp mới phản ánh thời điểm nối
+        // mới: xoá dấu sự kiện trực tiếp của chu kỳ trước để ảnh
+        // chụp sắp tới được toàn quyền bổ sung.
+        presenceLiveUsersRef.current = new Set();
         // Nối lại: danh sách lấy tươi bằng REST (truy vấn tổng hợp đã
         // rẻ), conversation đang mở xin đúng phần thiếu theo seq.
         void reload().catch(() => undefined);
