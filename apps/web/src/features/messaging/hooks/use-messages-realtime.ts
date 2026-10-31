@@ -94,18 +94,6 @@ export function useMessagesRealtime({
   suspendRealtime,
 }: UseMessagesRealtimeParams) {
   const typingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-  // Tập user đã có sự kiện hiện diện trực tiếp kể từ ảnh chụp
-  // presence gần nhất (hoặc từ lúc trang mở nếu chưa có ảnh chụp
-  // nào) — căn cứ phân xử thứ tự giữa ảnh chụp và sự kiện trực
-  // tiếp (xem handler onPresenceSnapshot): ảnh chụp chỉ được áp
-  // cho user NGOÀI tập này. Tập được xoá mỗi khi một ảnh chụp
-  // được áp (ảnh chụp đó đã "tiêu thụ" cửa sổ phân xử của nó) và
-  // mỗi khi nối lại (chu kỳ nối mới sinh ảnh chụp mới, phản ánh
-  // thời điểm nối mới — mới hơn mọi sự kiện của chu kỳ trước).
-  // Tập KHÔNG được xoá khi hiệu ứng nối chạy lại: hiệu ứng chạy
-  // lại theo nhịp render của trang, không đồng nghĩa với cửa sổ
-  // ảnh chụp mới.
-  const presenceLiveUsersRef = useRef<Set<string>>(new Set());
 
   // Kênh realtime: nối một lần khi trang mở; handlers đọc state mới
   // nhất qua ref nên không phải nối lại khi state đổi. Người xem
@@ -113,6 +101,28 @@ export function useMessagesRealtime({
   // đã bị cleanup ngắt) — presence thật tắt đúng nghĩa của lựa chọn.
   useEffect(() => {
     if (!myId || suspendRealtime) return;
+    // Tập user đã có sự kiện hiện diện trực tiếp trong vòng đời
+    // của handle socket mà setup này sắp tạo, kể từ ảnh chụp
+    // presence gần nhất của chính handle đó — căn cứ phân xử
+    // thứ tự giữa ảnh chụp và sự kiện trực tiếp (xem handler
+    // onPresenceSnapshot): ảnh chụp chỉ được áp cho user NGOÀI
+    // tập này. Tập sống trong closure của setup nên gắn chặt
+    // với vòng đời handle: mỗi lần setup chạy là một handle MỚI
+    // (cleanup của lượt trước đã ngắt handle cũ) và tập khởi
+    // tạo rỗng của riêng handle đó; tập của handle cũ không
+    // còn ai chạm tới được nữa vì socket cũ đã ngắt, handlers
+    // của nó không bao giờ được gọi tiếp. Nhờ vậy ảnh chụp đầu
+    // tiên của handle mới — phản ánh hiện trạng tại thời điểm
+    // nối của nó, mới hơn mọi sự kiện trực tiếp của handle
+    // trước — được toàn quyền bổ sung, không bị dấu cũ chặn
+    // oan; còn trong cùng một handle, sự kiện trực tiếp đến
+    // trong lúc ảnh chụp của chính handle đó đang trên đường
+    // tới vẫn ghi dấu vào tập của handle đó và thắng ảnh chụp.
+    // Trong cùng một handle, tập được làm mới mỗi khi một ảnh
+    // chụp được áp (ảnh chụp đó đã "tiêu thụ" cửa sổ phân xử
+    // của nó) và mỗi khi socket nối lại (onReconnect — chu kỳ
+    // nối mới của cùng handle cũng sinh ảnh chụp mới).
+    let presenceLiveUsers = new Set<string>();
     const noteSeq = (conversationId: string, seq: number) => {
       const seen = lastSeqRef.current.get(conversationId) ?? 0;
       if (seq > seen) lastSeqRef.current.set(conversationId, seq);
@@ -223,10 +233,10 @@ export function useMessagesRealtime({
       },
       onPresence: ({ userId, online }) => {
         // Ghi dấu user này đã có sự kiện trực tiếp kể từ ảnh chụp
-        // gần nhất: từ đây trạng thái của họ do sự kiện trực tiếp
-        // quyết định, ảnh chụp đang trên đường không được chạm
-        // vào nữa.
-        presenceLiveUsersRef.current.add(userId);
+        // gần nhất của handle này: từ đây trạng thái của họ do
+        // sự kiện trực tiếp quyết định, ảnh chụp của handle này
+        // đang trên đường không được chạm vào nữa.
+        presenceLiveUsers.add(userId);
         setOnlineUsers((prev) => ({ ...prev, [userId]: online }));
       },
       onPresenceSnapshot: ({ onlineUserIds }) => {
@@ -237,15 +247,16 @@ export function useMessagesRealtime({
         // chụp tới vẫn có thể mới hơn ảnh chụp (người kia ngắt nối
         // ngay sau lúc máy chủ đọc). Vì vậy ảnh chụp chỉ áp cho
         // user CHƯA có sự kiện trực tiếp nào kể từ ảnh chụp gần
-        // nhất; user đã có sự kiện trực tiếp thì trạng thái của sự
-        // kiện đó là quyết định cuối ở cả hai chiều và ảnh chụp
-        // không ghi đè được. User chưa biết trạng thái nào vẫn được
-        // ảnh chụp bổ sung bình thường; ảnh chụp không bao giờ xoá
-        // trạng thái đã biết. Áp xong thì xoá tập dấu: cửa sổ phân
-        // xử của chính ảnh chụp này đã đóng, các sự kiện trực tiếp
-        // từ đây thuộc về cửa sổ của ảnh chụp kế tiếp.
-        const liveUsers = presenceLiveUsersRef.current;
-        presenceLiveUsersRef.current = new Set();
+        // nhất của handle này; user đã có sự kiện trực tiếp thì
+        // trạng thái của sự kiện đó là quyết định cuối ở cả hai
+        // chiều và ảnh chụp không ghi đè được. User chưa biết
+        // trạng thái nào vẫn được ảnh chụp bổ sung bình thường;
+        // ảnh chụp không bao giờ xoá trạng thái đã biết. Áp xong
+        // thì làm mới tập dấu: cửa sổ phân xử của chính ảnh chụp
+        // này đã đóng, các sự kiện trực tiếp từ đây thuộc về cửa
+        // sổ của ảnh chụp kế tiếp.
+        const liveUsers = presenceLiveUsers;
+        presenceLiveUsers = new Set();
         if (!onlineUserIds.length) return;
         setOnlineUsers((prev) => {
           const next = { ...prev };
@@ -260,7 +271,7 @@ export function useMessagesRealtime({
         // Chu kỳ nối mới sinh ảnh chụp mới phản ánh thời điểm nối
         // mới: xoá dấu sự kiện trực tiếp của chu kỳ trước để ảnh
         // chụp sắp tới được toàn quyền bổ sung.
-        presenceLiveUsersRef.current = new Set();
+        presenceLiveUsers = new Set();
         // Nối lại: danh sách lấy tươi bằng REST (truy vấn tổng hợp đã
         // rẻ), conversation đang mở xin đúng phần thiếu theo seq.
         void reload().catch(() => undefined);

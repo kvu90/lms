@@ -4379,10 +4379,22 @@ describe('Trang tin nhắn — vòng sửa sau nghiệm thu PR #610', () => {
     const infoButton = await screen.findByRole('button', { name: 'Thông tin cuộc trò chuyện' });
     const header = infoButton.parentElement as HTMLElement;
 
+    // Ca này theo định nghĩa là chuyện của CÙNG MỘT handle:
+    // ảnh chụp của chính lần nối đó tới muộn hơn sự kiện trực
+    // tiếp trên cùng socket. Cả hai sự kiện vì vậy được phát
+    // qua ĐÚNG MỘT object handlers ghim tại đây — hiệu ứng tạo
+    // socket của trang chạy lại theo nhịp dữ kiện lắng xuống
+    // (đã đo trong môi trường spec: setup chạy nhiều lần trong
+    // một ca), mỗi lần chạy lại là một handle khác, mà trên
+    // production ảnh chụp của một socket chỉ tới trên chính
+    // socket đó (socket cũ đã ngắt thì không phát lại được).
+    const sameHandle = realtime.handlers;
+    expect(sameHandle).not.toBeNull();
+
     // Sự kiện trực tiếp mới nhất được xử lý trước: đối tác vừa
     // ngắt nối, đầu khung hiện "Ngoại tuyến".
     act(() => {
-      realtime.handlers?.onPresence({ userId: OTHER_ID, online: false } as never);
+      sameHandle?.onPresence({ userId: OTHER_ID, online: false } as never);
     });
     expect(await within(header).findByText('Ngoại tuyến')).toBeInTheDocument();
 
@@ -4391,10 +4403,74 @@ describe('Trang tin nhắn — vòng sửa sau nghiệm thu PR #610', () => {
     // đối tác đang trực tuyến. Ảnh chụp cũ không được ghi đè sự
     // kiện trực tiếp mới hơn — trạng thái cuối vẫn là ngoại tuyến.
     act(() => {
-      realtime.handlers?.onPresenceSnapshot({ onlineUserIds: [OTHER_ID] } as never);
+      sameHandle?.onPresenceSnapshot({ onlineUserIds: [OTHER_ID] } as never);
     });
     expect(within(header).getByText('Ngoại tuyến')).toBeInTheDocument();
     expect(within(header).queryByText('Trực tuyến')).not.toBeInTheDocument();
+  });
+
+  it('đầu khung 1–1: qua lần tạo handle mới (chọn Ngoại tuyến rồi Trực tuyến lại) thì ảnh chụp đầu tiên của handle mới thắng dấu ngoại tuyến của handle cũ — đối tác trực tuyến lại trong lúc người xem ngoại tuyến hiện Trực tuyến', async () => {
+    const calls: RecordedCall[] = [];
+    stubNamelessDmFetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Một/ }));
+    await screen.findByLabelText('Tin nhắn');
+    const infoButton = await screen.findByRole('button', { name: 'Thông tin cuộc trò chuyện' });
+    const header = infoButton.parentElement as HTMLElement;
+
+    // Handle đầu tiên: cả hai sự kiện dưới đây phát qua đúng
+    // handlers của handle này (ghim tại đây, cùng lý do ghim ở
+    // ca cùng-handle ngay trên) — ảnh chụp lúc nối cho đối tác
+    // trực tuyến, rồi sự kiện trực tiếp báo đối tác ngoại
+    // tuyến: đầu khung hiện "Ngoại tuyến" và đối tác nằm trong
+    // tập dấu phân xử của handle này.
+    const firstHandlers = realtime.handlers;
+    expect(firstHandlers).not.toBeNull();
+    act(() => {
+      firstHandlers?.onPresenceSnapshot({ onlineUserIds: [OTHER_ID] } as never);
+    });
+    expect(await within(header).findByText('Trực tuyến')).toBeInTheDocument();
+    act(() => {
+      firstHandlers?.onPresence({ userId: OTHER_ID, online: false } as never);
+    });
+    expect(await within(header).findByText('Ngoại tuyến')).toBeInTheDocument();
+
+    const connectsBefore = realtime.connects;
+    realtime.handle.disconnect.mockClear();
+
+    // Người xem chọn Ngoại tuyến trong sheet hồ sơ của mình:
+    // cleanup ngắt handle cũ (đường suspend thật của trang,
+    // cùng cơ chế ca chọn trạng thái hiện diện ở giai đoạn 2).
+    // Trong lúc người xem ngoại tuyến, đối tác trực tuyến lại
+    // nhưng không sự kiện trực tiếp nào tới được trang vì
+    // socket đã ngắt.
+    await userEvent.click(await screen.findByRole('button', { name: 'Hồ sơ của tôi' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: /Ngoại tuyến/ }));
+    await waitFor(() => expect(realtime.handle.disconnect).toHaveBeenCalled());
+
+    // Chọn lại Trực tuyến: hiệu ứng tạo handle MỚI — số lần nối
+    // tăng và handlers trang đăng ký là của handle mới, không
+    // phải handlers của handle cũ.
+    await userEvent.click(within(dialog).getByRole('button', { name: /Trực tuyến/ }));
+    await waitFor(() => expect(realtime.connects).toBeGreaterThan(connectsBefore));
+    expect(realtime.handlers).not.toBe(firstHandlers);
+
+    // Ảnh chụp đầu tiên của handle mới phản ánh hiện trạng MỚI:
+    // đối tác đang trực tuyến. Dấu ngoại tuyến thuộc handle cũ
+    // không được chặn ảnh chụp mới hơn này — trạng thái cuối
+    // phải là Trực tuyến. Đóng sheet trước khi quay lại đầu
+    // khung: sheet dạng modal còn mở thì nền trang bị inert,
+    // không truy vấn được phần tử của trang.
+    await userEvent.keyboard('{Escape}');
+    const infoButtonAfter = await screen.findByRole('button', { name: 'Thông tin cuộc trò chuyện' });
+    const headerAfter = infoButtonAfter.parentElement as HTMLElement;
+    act(() => {
+      realtime.handlers?.onPresenceSnapshot({ onlineUserIds: [OTHER_ID] } as never);
+    });
+    expect(await within(headerAfter).findByText('Trực tuyến')).toBeInTheDocument();
+    expect(within(headerAfter).queryByText('Ngoại tuyến')).not.toBeInTheDocument();
   });
 });
 
