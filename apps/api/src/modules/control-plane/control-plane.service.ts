@@ -201,7 +201,11 @@ export class ControlPlaneRegistryService {
    * transaction, trước khi ghi. Đổi về chính tên hiện tại của dòng
    * thì không tính là trùng. Hai lượt cập nhật đồng thời cùng tên
    * dedicated thì lượt sau vấp chỉ số riêng phần trong transaction
-   * và được ánh xạ thành cùng mã 409 như đường tạo.
+   * và được ánh xạ thành cùng mã 409 như đường tạo. Cùng bất biến
+   * đó áp cho cả ca chỉ đổi `storageMode`: lật một dòng từ `shared`
+   * sang `dedicated` mà giữ nguyên tên cũng phải kiểm tra theo tổ
+   * hợp hiệu lực sau cập nhật, vì dòng kia có thể vẫn là `shared`
+   * nên chỉ số riêng phần không bắt được va chạm này.
    */
   async updateRegistration(actorId: string, id: string, dto: UpdateSpaceRegistration): Promise<SpaceRegistration> {
     await this.assertPlatformManager(actorId);
@@ -216,6 +220,20 @@ export class ControlPlaneRegistryService {
           const clash = await this.repo.findSpaceByDatabaseName(dto.databaseName, tx);
           if (clash && clash.id !== id) {
             throw new ConflictException({ message: `Database name ${dto.databaseName} is already registered`, code: 'control_plane.database_name_taken' });
+          }
+        }
+        // Kiểm tra trùng tên theo tổ hợp hiệu lực sau cập nhật: chỉ
+        // đổi `storageMode` sang `dedicated` mà giữ nguyên tên cũng
+        // phải bắt, vì dòng đang giữ tên đó có thể vẫn là `shared`
+        // nên chỉ số duy nhất riêng phần không chặn được va chạm.
+        // Kiểm tra đổi tên ở trên vẫn giữ nguyên để ca đổi tên ở
+        // chế độ `shared` cũng bị chặn như trước.
+        const effectiveDatabaseName = dto.databaseName ?? existing.databaseName;
+        const effectiveStorageMode = dto.storageMode ?? existing.storageMode;
+        if (effectiveStorageMode === 'dedicated') {
+          const clash = await this.repo.findSpaceByDatabaseName(effectiveDatabaseName, tx);
+          if (clash && clash.id !== id) {
+            throw new ConflictException({ message: `Database name ${effectiveDatabaseName} is already registered`, code: 'control_plane.database_name_taken' });
           }
         }
         const row = await this.repo.updateSpace(id, { ...dto }, tx);

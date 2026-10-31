@@ -292,6 +292,26 @@ describe('Control plane: sổ đăng ký không gian và registry phiên bản s
     expect(other.databaseName).toBe('lms_centre_test_611_other');
   });
 
+  it('chỉ đổi storageMode sang dedicated mà giữ nguyên tên database đã có ở dòng kho chung khác cũng bị từ chối 409', async () => {
+    // Hai không gian gieo sẵn đều ở kho chung và cùng trỏ vào
+    // database nghiệp vụ test; chỉ số duy nhất riêng phần không phủ
+    // hàng shared nên đường cập nhật chỉ kiểm tra khi đổi tên sẽ bỏ
+    // qua ca chỉ đổi chế độ lưu trữ — lỗ hổng vòng chấm lại hẹp
+    // PR #611: lật một dòng shared sang dedicated mà giữ nguyên tên
+    // sẽ tạo một hàng dedicated mang tên đã có ở dòng shared kia.
+    const school = await registry.getBySlug(adminId, 'truong-mac-dinh');
+    expect(school.storageMode).toBe('shared');
+    const rejected = await registry
+      .updateRegistration(adminId, school.id, { storageMode: 'dedicated' })
+      .catch((error: unknown) => error);
+    expect(rejected).toBeInstanceOf(ConflictException);
+    expect((rejected as ConflictException).getResponse()).toMatchObject({ code: 'control_plane.database_name_taken' });
+    // Bị từ chối thì dòng giữ nguyên chế độ kho chung, không đổi gì.
+    const after = await registry.getBySlug(adminId, 'truong-mac-dinh');
+    expect(after.storageMode).toBe('shared');
+    expect(after.databaseName).toBe(school.databaseName);
+  });
+
   it('đổi trạng thái vòng đời ghi lịch sử status_change; đổi về chính trạng thái hiện tại không ghi thêm', async () => {
     const changed = await registry.changeStatus(adminId, createdSpaceId, { status: 'active' });
     expect(changed.status).toBe('active');
