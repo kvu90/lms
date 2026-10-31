@@ -1,7 +1,11 @@
-import { BellOff, Plus } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { BellOff, ChevronDown, Plus } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
+import {
+  Collapsible, CollapsibleContent, CollapsibleTrigger,
+} from '@lms/ui/components/collapsible';
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { cn } from '@lms/ui/lib/utils';
 import { useTranslation } from 'react-i18next';
@@ -54,6 +58,20 @@ import { initialsOf, relativeTime } from '../utils/utils';
  *    `canCreateFreeGroup` (cờ server tính theo cổng tạo nhóm
  *    của API — chỉ quản trị viên hệ thống/chủ trung tâm); cổng
  *    chặn tạo nhóm nằm ở server, đây chỉ là trình bày.
+ * 6. Mục **Ghim** như bản demo (điểm quan sát của phán quyết
+ *    nghiệm thu preview PR #607): cây server KHÔNG mang trường
+ *    ghim — trạng thái ghim là trạng thái cá nhân trên từng
+ *    hội thoại, nằm ở danh sách hội thoại (`pinnedAt`), và
+ *    hàng nhóm lấy nó qua đúng cơ chế tra hội thoại tương ứng
+ *    (`conversationsById`) đang dùng cho xem trước tin cuối và
+ *    biểu tượng tắt tiếng. Khi có ít nhất một hàng đã ghim,
+ *    danh sách tách hai mục thu gọn **Ghim** (các hàng đã ghim,
+ *    giữ thứ tự cây) và **Nhóm** (mọi hàng còn lại, giữ đúng
+ *    thứ tự và vị trí nút Tạo nhóm như danh sách phẳng); khi
+ *    chưa có hàng nào ghim, danh sách giữ nguyên dạng phẳng
+ *    không tiêu đề mục như trước. Hàng chưa có hội thoại
+ *    (chưa ensure) không có trạng thái ghim nên luôn ở mục
+ *    Nhóm.
  *
  * Bất biến: component không tự gọi API; mọi hành động mở chat đi
  * lên trang chứa qua các callback — trang là nơi duy nhất biết
@@ -166,6 +184,13 @@ export function GroupListNav({
   conversationsById, myId, nameOf, loading, treeError,
 }: GroupListNavProps) {
   const { t } = useTranslation('app');
+  /**
+   * Trạng thái mở của hai mục thu gọn Ghim / Nhóm khi danh
+   * sách tách mục (mặc định mở cả hai, như các mục của tab
+   * Tất cả — hàng đã ghim không bị giấu sau một lần bấm thêm).
+   */
+  const [pinnedSectionOpen, setPinnedSectionOpen] = useState(true);
+  const [groupsSectionOpen, setGroupsSectionOpen] = useState(true);
 
   if (!tree) {
     // Lỗi tải lần đầu thì hiện thông báo lỗi thay cho câu rỗng
@@ -330,24 +355,107 @@ export function GroupListNav({
     );
   };
 
+  /**
+   * Trạng thái ghim của một hàng: tra hội thoại tương ứng của
+   * nút trong danh sách hội thoại của trang — cùng cơ chế tra
+   * đang dùng cho xem trước tin cuối và biểu tượng tắt tiếng ở
+   * {@link renderEntry}. Hàng chưa có hội thoại hoặc hội thoại
+   * không nằm trong danh sách chưa lưu thì không có trạng thái
+   * ghim, coi như chưa ghim.
+   */
+  const isPinnedEntry = (entry: GroupListEntry): boolean => {
+    const conversation = entry.conversationId ? conversationsById?.get(entry.conversationId) : undefined;
+    return Boolean(conversation?.pinnedAt);
+  };
+  const pinnedClassEntries = classEntries.filter(isPinnedEntry);
+  const pinnedOutsideEntries = outsideEntries.filter(isPinnedEntry);
+  const pinnedFreeEntries = freeEntries.filter(isPinnedEntry);
+  const pinnedEntries = [...pinnedClassEntries, ...pinnedOutsideEntries, ...pinnedFreeEntries];
+  const restClassEntries = classEntries.filter((e) => !isPinnedEntry(e));
+  const restOutsideEntries = outsideEntries.filter((e) => !isPinnedEntry(e));
+  const restFreeEntries = freeEntries.filter((e) => !isPinnedEntry(e));
+  const restCount = restClassEntries.length + restOutsideEntries.length + restFreeEntries.length;
+
+  /** Nút Tạo nhóm tự do — giữ đúng vị trí ngay trước các hàng nhóm tự do như danh sách phẳng. */
+  const renderCreateGroupButton = () => (canCreateFreeGroup ? (
+    <div className="flex items-center justify-end px-2 pt-1">
+      <Button type="button" size="sm" variant="outline" onClick={onCreateFreeGroup}>
+        <Plus className="size-4" />
+        {t('createGroupTitle')}
+      </Button>
+    </div>
+  ) : null);
+
+  /**
+   * Một mục thu gọn của danh sách nhóm (mục Ghim / mục Nhóm
+   * khi tách mục): tiêu đề phẳng kèm số đếm + chevron, dựng
+   * trên primitive Collapsible của @lms/ui với đúng kiểu
+   * trình bày của các mục trong tab Tất cả ở khung trái —
+   * không tự chế kiểu thu/mở riêng. Nội dung chỉ render khi
+   * mục mở, như các mục của tab Tất cả.
+   */
+  const renderGroupSection = (
+    title: string,
+    count: number,
+    open: boolean,
+    onOpenChange: (next: boolean) => void,
+    children: ReactNode,
+  ) => (
+    <Collapsible open={open} onOpenChange={onOpenChange}>
+      <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-muted-foreground hover:bg-muted">
+        <span>{title}</span>
+        <span aria-hidden className="text-xs text-muted-foreground">{count}</span>
+        <ChevronDown aria-hidden className={cn('ml-auto size-4 shrink-0 transition-transform', open && 'rotate-180')} />
+      </CollapsibleTrigger>
+      <CollapsibleContent>{open ? children : null}</CollapsibleContent>
+    </Collapsible>
+  );
+
+  const emptyNotice = nothingVisible ? (
+    <p className="px-2 text-sm text-muted-foreground">
+      {needle ? t('groupTreeNoResults') : t('groupTreeEmpty')}
+    </p>
+  ) : null;
+
+  // Chưa có hàng nào đã ghim: giữ nguyên danh sách phẳng
+  // không tiêu đề mục như trước (hình dạng đã nghiệm thu).
+  if (pinnedEntries.length === 0) {
+    return (
+      <div className="min-w-0 space-y-0.5">
+        {classEntries.map(renderEntry)}
+        {outsideEntries.map(renderEntry)}
+        {renderCreateGroupButton()}
+        {freeEntries.map(renderEntry)}
+        {emptyNotice}
+      </div>
+    );
+  }
+
+  // Có hàng đã ghim: tách mục Ghim (giữ thứ tự cây) và mục
+  // Nhóm (mọi hàng còn lại theo đúng thứ tự cũ, nút Tạo nhóm
+  // vẫn ngay trước các hàng nhóm tự do trong mục này).
   return (
     <div className="min-w-0 space-y-0.5">
-      {classEntries.map(renderEntry)}
-      {outsideEntries.map(renderEntry)}
-      {canCreateFreeGroup ? (
-        <div className="flex items-center justify-end px-2 pt-1">
-          <Button type="button" size="sm" variant="outline" onClick={onCreateFreeGroup}>
-            <Plus className="size-4" />
-            {t('createGroupTitle')}
-          </Button>
-        </div>
+      {renderGroupSection(
+        t('messagesPinnedSection'),
+        pinnedEntries.length,
+        pinnedSectionOpen,
+        setPinnedSectionOpen,
+        <div className="space-y-0.5">{pinnedEntries.map(renderEntry)}</div>,
+      )}
+      {restCount > 0 || canCreateFreeGroup ? renderGroupSection(
+        t('messagesTabGroups'),
+        restCount,
+        groupsSectionOpen,
+        setGroupsSectionOpen,
+        <div className="space-y-0.5">
+          {restClassEntries.map(renderEntry)}
+          {restOutsideEntries.map(renderEntry)}
+          {renderCreateGroupButton()}
+          {restFreeEntries.map(renderEntry)}
+        </div>,
       ) : null}
-      {freeEntries.map(renderEntry)}
-      {nothingVisible ? (
-        <p className="px-2 text-sm text-muted-foreground">
-          {needle ? t('groupTreeNoResults') : t('groupTreeEmpty')}
-        </p>
-      ) : null}
+      {emptyNotice}
     </div>
   );
 }
