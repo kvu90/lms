@@ -3713,6 +3713,24 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     expect(await within(panel).findByRole('button', { name: 'Bật tiếng' })).toBeInTheDocument();
   });
 
+  it('vào tab Nhóm khi đang mở chat 1–1 thì khung về trạng thái chưa chọn như demo, không tự giữ hội thoại cũ', async () => {
+    const calls: RecordedCall[] = [];
+    stub591Fetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Học/ }));
+    expect(await screen.findByLabelText('Tin nhắn')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Nhóm' }));
+    // Khung chat về trạng thái chưa chọn: hiện khối rỗng chọn
+    // hội thoại của demo, luồng tin và ô soạn đều biến mất —
+    // đúng hành vi không tự chọn của demo ở tab Nhóm (issue
+    // #608, điểm A-BS5).
+    expect(await screen.findByText('Chọn một cuộc hội thoại ở cột trái để đọc và trả lời.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Tin nhắn')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Nội dung tin nhắn')).not.toBeInTheDocument();
+  });
+
   it('hộp thoại mời là hộp thoại ở giữa màn hình và khối liên kết mời chỉ là hình dạng vô hiệu', async () => {
     const calls: RecordedCall[] = [];
     stub591Fetch(calls);
