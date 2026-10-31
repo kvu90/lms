@@ -10,6 +10,7 @@ export * from './engagement.js';
 export * from './platform.js';
 export * from './site-config.js';
 export * from './tenants.js';
+export * from './centres.js';
 export * from './control-plane.js';
 export * from './classes.js';
 export * from './curriculum.js';

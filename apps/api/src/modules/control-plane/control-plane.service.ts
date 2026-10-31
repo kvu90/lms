@@ -20,7 +20,7 @@ import { emitSpaceRegistryChanged } from '../../db/routing/space-routing-events'
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ControlPlaneConnection } from './control-plane.connection';
-import { ControlPlaneRepository } from './control-plane.repository';
+import { ControlPlaneRepository, isDedicatedDatabaseNameConflict } from './control-plane.repository';
 
 /**
  * Phiên bản schema hiện tại của KHO CHUNG (database nghiệp vụ) — tên
@@ -129,28 +129,56 @@ export class ControlPlaneRegistryService {
     if (await this.repo.findSpaceBySlug(dto.slug)) {
       throw new ConflictException({ message: `Space slug ${dto.slug} is already registered`, code: 'control_plane.slug_taken' });
     }
-    const created = await this.repo.transaction(async (tx) => {
-      const row = await this.repo.insertSpaceIfAbsent(
-        {
-          slug: dto.slug,
-          name: dto.name,
-          kind: dto.kind,
-          status: dto.status ?? 'provisioning',
-          databaseName: dto.databaseName,
-          storageMode: dto.storageMode,
-          connectionRoleRef: dto.connectionRoleRef,
-          secretRef: dto.secretRef ?? null,
-          schemaVersion: dto.schemaVersion ?? null,
-          plan: dto.plan ?? null,
-        },
-        tx,
-      );
-      if (!row) {
-        throw new ConflictException({ message: `Space slug ${dto.slug} is already registered`, code: 'control_plane.slug_taken' });
+    // Lớp kiểm tra trùng databaseName ở tầng ứng dụng (issue #583,
+    // ghi chú điều phối 6528534235 — điểm P1-2b từ review PR #594):
+    // một tên database không được hai dòng đăng ký cùng dùng, KỂ CẢ
+    // khi một trong hai là hàng shared — đường cấp phát kho dedicated
+    // mang tên trùng kho chung sẽ khiến trung tâm mới trỏ thẳng vào
+    // kho chung thay vì kho riêng của nó. Chỉ số duy nhất riêng phần
+    // trên database (chỉ phủ hàng dedicated) là chốt chặn cho cuộc
+    // đua dedicated-vs-dedicated; kiểm tra ở đây bắt cả trường hợp
+    // trùng với hàng shared mà chỉ số không phủ.
+    if (await this.repo.findSpaceByDatabaseName(dto.databaseName)) {
+      throw new ConflictException({ message: `Database name ${dto.databaseName} is already registered`, code: 'control_plane.database_name_taken' });
+    }
+    let created: SpaceRegistryRow;
+    try {
+      created = await this.repo.transaction(async (tx) => {
+        const row = await this.repo.insertSpaceIfAbsent(
+          {
+            slug: dto.slug,
+            name: dto.name,
+            kind: dto.kind,
+            status: dto.status ?? 'provisioning',
+            databaseName: dto.databaseName,
+            storageMode: dto.storageMode,
+            connectionRoleRef: dto.connectionRoleRef,
+            secretRef: dto.secretRef ?? null,
+            schemaVersion: dto.schemaVersion ?? null,
+            plan: dto.plan ?? null,
+          },
+          tx,
+        );
+        if (!row) {
+          throw new ConflictException({ message: `Space slug ${dto.slug} is already registered`, code: 'control_plane.slug_taken' });
+        }
+        await this.repo.insertHistory({ spaceId: row.id, actorId, action: 'create', before: null, after: this.snapshot(row) }, tx);
+        return row;
+      });
+    } catch (error) {
+      // Chốt chặn cho cuộc đua dedicated-vs-dedicated: hai lượt tạo
+      // đồng thời cùng databaseName đều qua được kiểm tra ngoài
+      // transaction, lượt sau vấp chỉ số duy nhất riêng phần trong
+      // transaction — ánh xạ thành 409 cùng mã với kiểm tra ngoài
+      // thay vì để lỗi 500 rò ra ngoài. Mã 23505 một mình chưa đủ:
+      // chỉ khi tên ràng buộc là chỉ số dedicated mới là va chạm
+      // này; các vi phạm unique khác (ví dụ slug) giữ nguyên hành
+      // vi cũ qua nhánh ConflictException bên trong transaction.
+      if (isDedicatedDatabaseNameConflict(error)) {
+        throw new ConflictException({ message: `Database name ${dto.databaseName} is already registered`, code: 'control_plane.database_name_taken' });
       }
-      await this.repo.insertHistory({ spaceId: row.id, actorId, action: 'create', before: null, after: this.snapshot(row) }, tx);
-      return row;
-    });
+      throw error;
+    }
     // Sổ vừa có dòng mới: báo khung định tuyến (issue #581) vô hiệu
     // hoá đệm của slug này — phát SAU khi transaction đã commit để
     // bên nghe đọc lại được giá trị mới.

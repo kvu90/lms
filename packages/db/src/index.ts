@@ -41,5 +41,6 @@ export * from './backup.schema';
 export * from './analytics.schema';
 export * from './reports.schema';
 export * from './content-bank.schema';
+export * from './centre.schema';
 export * from './payments.schema';
 export * from './privacy.schema';

@@ -5,10 +5,12 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import type { AuthenticatedUser } from '../../common/current-user.decorator';
 import { SpaceRoutingError, type ResolvedSpaceConnection } from '../../db/routing/space-connection-resolver';
 import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
+import { SKIP_SPACE_CONTEXT_KEY } from './skip-space-context.decorator';
 import { extractSpaceSlugFromHost } from './space-resolution';
 import { tenantAls } from './tenant-als';
 import { TenantsRepository } from './tenants.repository';
@@ -76,10 +78,22 @@ export class SpaceContextGuard implements CanActivate {
     private readonly spaceDb: SpaceDatabaseService,
     private readonly repo: TenantsRepository,
     private readonly evaluator: PermissionEvaluator,
+    private readonly reflector: Reflector,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     if (context.getType() !== 'http') return true;
+    // Route tự gắn trung tâm (nhận diện công khai, kích hoạt lời
+    // mời — issue #583): handler tự phân giải slug, chuẩn bị kho và
+    // đọc/ghi trong ngữ cảnh ALS của kho đó, nên guard không ghim
+    // thêm ở đây — nếu không, request ẩn danh ở địa chỉ trung tâm
+    // đã bị 401 `auth.centre_mismatch` trước khi tới được handler
+    // (trang đăng nhập không đọc được tên/logo, lời mời không kích
+    // hoạt được). Bỏ qua guard KHÔNG có nghĩa là bỏ qua gắn trung
+    // tâm: handler vẫn bắt buộc gắn đúng kho trước mọi truy vấn.
+    if (this.reflector.getAllAndOverride<boolean>(SKIP_SPACE_CONTEXT_KEY, [context.getHandler(), context.getClass()])) {
+      return true;
+    }
     const request = context.switchToHttp().getRequest<{
       user?: AuthenticatedUser;
       tenantId?: string;

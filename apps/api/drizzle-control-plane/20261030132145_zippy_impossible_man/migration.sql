@@ -52,3 +52,6 @@ CREATE INDEX "space_schema_migration_runs_space_id_idx" ON "space_schema_migrati
 ALTER TABLE "space_registry_history" ADD CONSTRAINT "space_registry_history_space_id_space_registry_id_fkey" FOREIGN KEY ("space_id") REFERENCES "space_registry"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "space_schema_migration_runs" ADD CONSTRAINT "space_schema_migration_runs_space_id_space_registry_id_fkey" FOREIGN KEY ("space_id") REFERENCES "space_registry"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "space_schema_registry" ADD CONSTRAINT "space_schema_registry_space_id_space_registry_id_fkey" FOREIGN KEY ("space_id") REFERENCES "space_registry"("id") ON DELETE RESTRICT;
+--> statement-breakpoint
+CREATE UNIQUE INDEX "space_registry_database_name_dedicated_unique" ON "space_registry" ("database_name") WHERE "space_registry"."storage_mode" = 'dedicated';
+--> statement-breakpoint
