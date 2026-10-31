@@ -20,6 +20,15 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return super.canActivate(context);
   }
   override handleRequest<TUser>(err: unknown, user: TUser | false): TUser {
+    // Lỗi do strategy ném kèm mã ProblemDetails (ví dụ
+    // `auth.centre_mismatch` của strategy JWT ở kho riêng, issue
+    // #584) được giữ nguyên mã để client phân biệt được lý do;
+    // mọi lỗi khác (token sai chữ ký/hết hạn, không có danh tính)
+    // vẫn về mã chung `auth.unauthenticated` như trước.
+    if (err instanceof UnauthorizedException) {
+      const response = err.getResponse();
+      if (typeof response === 'object' && response !== null && 'code' in response) throw err;
+    }
     if (err || !user) throw new UnauthorizedException({ message: 'Authentication required', code: 'auth.unauthenticated' });
     return user;
   }

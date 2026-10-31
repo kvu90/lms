@@ -114,6 +114,40 @@ export class AuthController {
     return { user: { id: user.id, username: user.username, forcePasswordChange: user.forcePasswordChange }, ...tokens };
   }
 
+  // --- đăng nhập quản trị platform (issue #584) ---------------------------
+  /**
+   * Bề mặt đăng nhập quản trị platform, TÁCH khỏi bề mặt đăng nhập
+   * nghiệp vụ: chỉ tài khoản quản trị platform mới qua được; token
+   * trả ra mang audience `platform`, CHỈ dùng được cho route vận
+   * hành mang `@PlatformRoute()` (hiện là control plane) và không
+   * gọi được API nghiệp vụ — ngược lại token nghiệp vụ cũng không
+   * gọi được route vận hành. Bề mặt này sống ở địa chỉ gốc; đăng
+   * nhập tại địa chỉ kho riêng tra tài khoản trong kho đó nên
+   * quản trị platform ở kho chung không đăng nhập được tại đó.
+   * User bật MFA thì dừng ở challenge của luồng platform.
+   */
+  @Public()
+  @Post('platform/login')
+  async platformLogin(@Body({ schema: loginSchema }) dto: LoginDto, @Req() req: Request) {
+    const outcome = await this.auth.platformLogin(dto.username, dto.password, clientIpOf(req), req.headers['user-agent']);
+    if (outcome.mfaRequired) {
+      return { mfaRequired: true as const, challengeToken: outcome.challengeToken, user: { id: outcome.user.id, username: outcome.user.username } };
+    }
+    return { user: { id: outcome.user.id, username: outcome.user.username, forcePasswordChange: outcome.user.forcePasswordChange }, accessToken: outcome.accessToken, expiresIn: outcome.expiresIn };
+  }
+
+  /**
+   * POST /auth/platform/mfa/verify — bước hai của đăng nhập
+   * platform: challenge token của luồng platform + mã TOTP ⇒
+   * access token platform (không có refresh token).
+   */
+  @Public()
+  @Post('platform/mfa/verify')
+  async platformMfaVerify(@Body({ schema: mfaVerifySchema }) dto: MfaVerifyDto, @Req() req: Request) {
+    const { user, accessToken, expiresIn } = await this.auth.verifyPlatformMfa(dto.challengeToken, dto.code, clientIpOf(req), req.headers['user-agent']);
+    return { user: { id: user.id, username: user.username, forcePasswordChange: user.forcePasswordChange }, accessToken, expiresIn };
+  }
+
   @Post('mfa/users/:userId/reset')
   @RequireCapability('user:update')
   /**

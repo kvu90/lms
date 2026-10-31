@@ -1,11 +1,11 @@
 import { VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import { ProblemDetailsFilter } from './common/problem-details.filter';
-import { BetterAuthService } from './modules/auth/better-auth/better-auth.service';
-import { CredentialBridgeService } from './modules/auth/better-auth/credential-bridge.service';
-import { ProgramDumpService } from './modules/curriculum/program-dump.service';
-import { tenantAls } from './modules/tenants/tenant-als';
+import { AppModule } from '../../app.module';
+import { ProblemDetailsFilter } from '../../common/problem-details.filter';
+import { BetterAuthService } from '../auth/better-auth/better-auth.service';
+import { CredentialBridgeService } from '../auth/better-auth/credential-bridge.service';
+import { ProgramDumpService } from '../curriculum/program-dump.service';
+import { tenantAls } from '../tenants/tenant-als';
 
 /**
  * Seed dữ liệu mẫu cho buổi review (chạy bằng `pnpm seed` ở thư mục gốc).

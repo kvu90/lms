@@ -6,7 +6,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { AuthenticatedUser } from '../../common/current-user.decorator';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
+import { resolveDedicatedSpace } from './space-resolution';
 import { TenantsRepository } from './tenants.repository';
 import { tenantAls } from './tenant-als';
 import { TenantsService } from './tenants.service';
@@ -25,6 +27,18 @@ import { TenantContextService } from './tenant-context.service';
  * kết thúc mà token còn hạn → 401 `tenant.membership_inactive` để
  * client đăng nhập lại/chuyển tenant (site admin được rơi về tenant-
  * zero thay vì bị khoá ngoài khỏi hệ thống vận hành của chính mình).
+ *
+ * Đường kho riêng (issue #584): request ở địa chỉ của một trung tâm ở
+ * kho riêng KHÔNG đi qua cổng membership của kho chung nữa — tài
+ * khoản của trung tâm đó không tồn tại ở kho chung nên cổng cũ sẽ
+ * từ chối oan. Nhánh kho riêng phân giải tenant từ CHÍNH kho của
+ * trung tâm (dòng tenant mang slug của địa chỉ): tenant đó phải
+ * active; tenant school/center đòi membership active TRONG kho riêng
+ * (thành viên nội bộ của trung tâm, không nối tới tài khoản toàn
+ * cục); tenant kind `platform` (site chính ở kho riêng) mở như
+ * tenant-zero của đường chung. Ngoại lệ duy nhất giữ luồng cũ là
+ * phiên mang `tid` của tenant platform — đường vận hành platform,
+ * để `SpaceContextGuard` miễn trừ sau đó như trước.
  */
 @Injectable()
 export class TenantGuard implements CanActivate {
@@ -33,6 +47,7 @@ export class TenantGuard implements CanActivate {
     private readonly tenants: TenantsService,
     private readonly evaluator: PermissionEvaluator,
     private readonly tenantContext: TenantContextService,
+    private readonly spaceDb: SpaceDatabaseService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -47,7 +62,11 @@ export class TenantGuard implements CanActivate {
   }
 
   private async resolveRequestTenant(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<{ user?: AuthenticatedUser; tenantId?: string }>();
+    const request = context.switchToHttp().getRequest<{
+      user?: AuthenticatedUser;
+      tenantId?: string;
+      headers: Record<string, string | string[] | undefined>;
+    }>();
     // Tenant-zero qua bản cache singleton của repository: danh tính
     // của nó cố định từ lúc bootstrap nên không tra lại xuống DB ở
     // mọi request (xem TenantsRepository.getPlatformTenant).
@@ -56,6 +75,53 @@ export class TenantGuard implements CanActivate {
     // trong các test đơn vị không boot app đầy đủ): không gắn ngữ cảnh.
     if (!zero) return true;
     const user = request.user;
+    // Nhánh kho riêng (issue #584): request đã xác thực ở địa chỉ
+    // của trung tâm ở kho riêng thì tenant hiệu lực là dòng tenant
+    // trong CHÍNH kho của trung tâm đó — không tra kho chung, không
+    // đòi membership toàn cục. Phiên vận hành platform (không mang
+    // claim `centre_id`, mang `tid` của tenant platform) là đường
+    // vận hành platform nên rơi xuống luồng cũ bên dưới; điều kiện
+    // thiếu claim là bắt buộc vì phiên của site chính mang cùng
+    // `tid` nhưng mang `centre_id` của site chính và phải đi nhánh
+    // kho riêng.
+    if (user) {
+      const space = await resolveDedicatedSpace(this.spaceDb, request.headers?.host);
+      const isPlatformSession = user.tenantId !== undefined && user.tenantId === zero.id && user.centreId === undefined;
+      if (space && !isPlatformSession) {
+        const spaceTenant = await this.spaceDb.withSpaceDatabase(space.slug, () =>
+          this.repo.getTenantBySlug(space.slug),
+        );
+        if (!spaceTenant) {
+          throw new UnauthorizedException({
+            message: 'Space tenant is not ready in its own store',
+            code: 'space.tenant_missing',
+          });
+        }
+        if (spaceTenant.status !== 'active') {
+          throw new ForbiddenException({
+            message: `Tenant ${spaceTenant.slug} is ${spaceTenant.status}`,
+            code: 'tenant.not_active',
+          });
+        }
+        if (spaceTenant.kind !== 'platform') {
+          const membership = await this.spaceDb.withSpaceDatabase(space.slug, () =>
+            this.repo.getMembership(spaceTenant.id, user.id),
+          );
+          if (membership?.status !== 'active') {
+            throw new UnauthorizedException({
+              message: 'Membership in the active tenant is no longer active',
+              code: 'tenant.membership_inactive',
+            });
+          }
+        }
+        this.tenantContext.enter({ tenantId: spaceTenant.id, userId: user.id });
+        // Ghim cả lên request như luồng cũ: interceptor đọc lại từ
+        // đây để bọc ALS quanh handler (kèm slug trung tâm do
+        // SpaceContextGuard ghim sau đó).
+        request.tenantId = spaceTenant.id;
+        return true;
+      }
+    }
     let tenantId = zero.id;
     if (user) {
       if (user.tenantId) {
