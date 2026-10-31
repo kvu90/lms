@@ -15,6 +15,7 @@ import type { UserRow } from '../users/users.repository';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { tenantAls } from './tenant-als';
 import { SpaceDatabaseService } from '../../db/routing/space-database.service';
+import { SpaceRoutingError } from '../../db/routing/space-connection-resolver';
 import {
   DEFAULT_SCHOOL_TENANT_SLUG,
   PLATFORM_TENANT_SLUG,
@@ -213,6 +214,25 @@ export class TenantsService {
   async getTenantInSpace(slug: string): Promise<TenantRow | undefined> {
     return tenantAls.run({ platform: true }, () =>
       this.spaceDb.withSpaceDatabase(slug, () => this.repo.getTenantBySlug(slug)),
+    );
+  }
+
+  /**
+   * Dòng membership của một user trong CHÍNH kho của một không gian
+   * (đường kho riêng, issue #584): cặp (tenant, user) được tra
+   * trong kho của không gian đó, tuyệt đối không tra kho chung —
+   * dùng cho các chốt fail-closed phải quyết ngay trong kho riêng,
+   * điển hình là bước làm mới phiên phải biết membership trong kho
+   * còn hiệu lực hay đã kết thúc trước khi cấp token mới. Trả
+   * `undefined` khi kho riêng không có dòng membership của cặp
+   * này. Tra cứu bọc ngữ cảnh platform và `withSpaceDatabase` theo
+   * đúng khuôn của `getTenantInSpace`: bảng membership cũng mang
+   * RLS theo tenant và ngữ cảnh của nơi gọi không đáng tin cho
+   * việc tra cứu này.
+   */
+  async getMembershipInSpace(slug: string, tenantId: string, userId: string): Promise<TenantMembershipRow | undefined> {
+    return tenantAls.run({ platform: true }, () =>
+      this.spaceDb.withSpaceDatabase(slug, () => this.repo.getMembership(tenantId, userId)),
     );
   }
 
@@ -543,10 +563,26 @@ export class TenantsService {
     let targetMode: string | undefined;
     try {
       targetMode = (await this.spaceDb.resolveTarget(tenant.slug)).mode;
-    } catch {
-      // Sổ chưa cấu hình hoặc slug chưa đăng ký → không phải trung
-      // tâm kho riêng: rơi xuống đường chung bên dưới như trước.
-      targetMode = undefined;
+    } catch (err) {
+      // Chỉ hai lỗi này mới nghĩa là "không phải trung tâm kho
+      // riêng" và được rơi xuống đường kho chung bên dưới: slug
+      // chưa có dòng đăng ký (space_not_found) và tầng định tuyến
+      // chưa cấu hình (not_configured). Mọi lỗi phân giải còn lại
+      // là lỗi cấu hình của một trung tâm kho riêng ĐÃ đăng ký (bí
+      // mật thiếu hoặc không hợp lệ, role lệch sổ, mode lưu trữ
+      // lạ): nuốt chúng ở đây sẽ lặng lẽ tạo tài khoản toàn cục
+      // kèm membership xuyên trung tâm ở kho chung cho một trung
+      // tâm phải nằm trong kho riêng, nên ném ra nguyên trạng để
+      // thao tác thất bại — fail-closed, cùng kỷ luật với
+      // `resolveDedicatedSpace` ở tầng phân giải địa chỉ.
+      if (
+        err instanceof SpaceRoutingError &&
+        (err.code === 'space_routing.space_not_found' || err.code === 'space_routing.not_configured')
+      ) {
+        targetMode = undefined;
+      } else {
+        throw err;
+      }
     }
     if (targetMode === 'dedicated') {
       return this.createTenantUserInSpace(actorId, tenant.slug, dto);

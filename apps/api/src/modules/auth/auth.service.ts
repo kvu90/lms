@@ -529,8 +529,6 @@ export class AuthService {
       await this.repo.revokeFamily(family.id);
       throw new UnauthorizedException({ message: 'Account is not active', code: 'auth.account_inactive' });
     }
-    const newRefresh = randomBytes(48).toString('base64url');
-    await this.repo.rotateFamily(family.id, hashToken(newRefresh), family.currentTokenHash);
     // Đường kho riêng (issue #584): family của phiên kho riêng sống
     // trong chính kho đó, nên refresh tại địa chỉ kho riêng phân
     // giải lại tenant từ kho riêng (dòng tenant mang slug của địa
@@ -538,8 +536,40 @@ export class AuthService {
     // sẽ kết luận tenant không tồn tại rồi ghi đè family về
     // tenant-zero chung. Family chỉ tra được ở kho của nó nên
     // refresh ở địa chỉ khác vốn đã 401 từ bước tra family.
+    //
+    // Các chốt fail-closed của đường kho riêng chạy TRƯỚC khi xoay
+    // family: kho riêng chưa có dòng tenant của chính nó thì từ
+    // chối `space.tenant_missing` — cùng kết luận với `issueTokens`
+    // khi cấp phiên mới; rơi về phân giải kho chung tại đây sẽ cấp
+    // token mang tenant của kho khác. Tenant trong kho đã bị đình
+    // chỉ, hoặc membership của user trong kho đã kết thúc, cũng bị
+    // từ chối thay vì gia hạn một phiên lẽ ra đã chết. Lần từ chối
+    // ở bước này không xoay và không thu hồi family: trạng thái
+    // được khôi phục (tenant được kích hoạt lại, membership được
+    // gắn lại) thì phiên làm mới lại được bằng chính token cũ.
     const space = await this.requestDedicatedSpace();
     const spaceTenant = space ? await this.tenants.getTenantInSpace(space.slug) : undefined;
+    if (space) {
+      if (!spaceTenant) {
+        throw new UnauthorizedException({ message: 'Space tenant is not ready in its own store', code: 'space.tenant_missing' });
+      }
+      if (spaceTenant.status !== 'active') {
+        throw new UnauthorizedException({ message: `Tenant ${spaceTenant.slug} is ${spaceTenant.status}`, code: 'tenant.not_active' });
+      }
+      // Tenant kiểu platform là không gian công cộng — mọi tài
+      // khoản đã đăng nhập đều thuộc về nó, theo đúng quy định của
+      // `resolveSwitchTarget` — nên không gác bằng membership;
+      // tenant trung tâm/trường học thì membership còn hiệu lực
+      // trong kho là điều kiện giữ phiên.
+      if (spaceTenant.kind !== 'platform') {
+        const membership = await this.tenants.getMembershipInSpace(space.slug, spaceTenant.id, user.id);
+        if (!membership || membership.status !== 'active') {
+          throw new UnauthorizedException({ message: 'User is not an active member of this tenant', code: 'tenant.not_member' });
+        }
+      }
+    }
+    const newRefresh = randomBytes(48).toString('base64url');
+    await this.repo.rotateFamily(family.id, hashToken(newRefresh), family.currentTokenHash);
     let tid: string | undefined;
     let centreId: string | undefined;
     if (space && spaceTenant) {

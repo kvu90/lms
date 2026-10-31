@@ -1,4 +1,5 @@
 import { INestApplication } from '@nestjs/common';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { generate } from 'otplib';
@@ -640,4 +641,190 @@ describe('Hồ sơ thành viên theo trung tâm và tách site chính (đầu-cu
     expect(atApex.status).toBe(200);
     expect((atApex.body as { id?: string }).id).toBe(member.id);
   });
+
+  // --- Hồi quy các chốt fail-closed của đường kho riêng ----------
+  //
+  // Các ca dưới đây khoá những chốt fail-closed mà các ca trên chưa
+  // chạm: phân giải kho gặp lỗi cấu hình khi tạo người dùng không
+  // được rơi về đường kho chung, và bước làm mới phiên ở kho riêng
+  // phải xét lại trạng thái của tenant cùng membership ngay trong
+  // kho đó trước khi cấp token mới — một phiên ở kho riêng không
+  // được sống lâu hơn trạng thái đã cấp ra nó.
+
+  it('trung tâm kho riêng lệch cấu hình bí mật: tạo người dùng qua API thất bại và không sinh dòng nào ở kho chung', async () => {
+    const badSlug = `trung-tam-lech-${RUN_SUFFIX}`;
+    const createdBad = (await must(
+      await http(app).post('/api/v1/tenants').set(auth(adminToken)).send({
+        name: 'Trung tâm lệch cấu hình (spec 584)', slug: badSlug, kind: 'school',
+      }),
+      'create misconfigured tenant',
+    )) as { id: string };
+    // Dòng đăng ký ghi trung tâm này ở kho riêng (dedicated) nhưng
+    // secretRef trỏ vào một biến môi trường không tồn tại: bộ phân
+    // giải kho ném `space_routing.secret_missing` — lỗi cấu hình
+    // của một trung tâm kho riêng ĐÃ đăng ký, khác hẳn hai trường
+    // hợp "chưa đăng ký / chưa cấu hình" được phép đi đường chung.
+    await withClient(clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD), async (client) => {
+      await client.query(
+        `INSERT INTO space_registry (slug, name, kind, status, database_name, storage_mode, connection_role_ref, secret_ref, schema_version)
+         VALUES ($1, 'Trung tâm lệch cấu hình (spec 584)', 'center', 'active', 'lms_test_bad_584', 'dedicated', 'lms_bad_584_app', 'env:SPACE_TEST_MISSING_584_URL', 'v1')
+         ON CONFLICT (slug) DO UPDATE SET status = 'active', database_name = EXCLUDED.database_name,
+           storage_mode = 'dedicated', connection_role_ref = EXCLUDED.connection_role_ref, secret_ref = EXCLUDED.secret_ref`,
+        [badSlug],
+      );
+    });
+    emitSpaceRegistryChanged(badSlug);
+
+    const badUsername = uniqueName('lech-cau-hinh');
+    const badEmail = `${badUsername}@example.com`;
+    const res = await http(app).post(`/api/v1/tenants/${createdBad.id}/users`).set(auth(adminToken)).send({
+      username: badUsername, email: badEmail, password: STRONG_PASSWORD, firstName: 'Lech', lastName: 'CauHinh',
+    });
+    // Thao tác phải THẤT BẠI tại tầng phân giải kho thay vì lặng lẽ
+    // tạo tài khoản ở kho chung...
+    expect(res.status).toBe(500);
+    // ...và không một dòng tài khoản hay membership nào sinh ở kho
+    // chung cho email này.
+    expect(await countRows(process.env.DATABASE_URL!, 'users', 'email', badEmail)).toBe(0);
+    const membershipsInShared = await withClient(process.env.DATABASE_URL!, async (client) => {
+      await client.query("SELECT set_config('app.platform', 'on', false)");
+      const result = await client.query<{ count: string }>(
+        'SELECT count(*) FROM tenant_memberships m JOIN users u ON u.id = m.user_id WHERE u.email = $1',
+        [badEmail],
+      );
+      return Number(result.rows[0]!.count);
+    });
+    expect(membershipsInShared).toBe(0);
+  });
+
+  it('làm mới phiên ở kho riêng bị từ chối khi membership của người dùng đã kết thúc trong kho đó', async () => {
+    const username = uniqueName('refresh-member');
+    const created = (await must(
+      await http(app).post(`/api/v1/tenants/${tenantAId}/users`).set('Host', HOST_A).set(auth(adminAToken)).send({
+        username, email: `${username}@example.com`, password: STRONG_PASSWORD, firstName: 'Refresh', lastName: 'Member',
+      }),
+      'create refresh member user at A',
+    )) as { id: string };
+    const logged = await loginAt(HOST_A, username, STRONG_PASSWORD);
+    // Kết thúc membership ngay trong kho của trung tâm A: tài khoản
+    // vẫn còn, phiên vẫn còn family, nhưng tư cách thành viên đã hết.
+    await withClient(clusterUrl(CENTRE_A_DATABASE, CENTRE_A_ROLE, CENTRE_A_PASSWORD), async (client) => {
+      await client.query("SELECT set_config('app.platform', 'on', false)");
+      await client.query(
+        `UPDATE tenant_memberships SET status = 'ended', ended_at = now() WHERE tenant_id = $1 AND user_id = $2`,
+        [tenantAId, created.id],
+      );
+    });
+    const res = await http(app).post('/api/v1/auth/refresh').set('Host', HOST_A).send({ refreshToken: logged.refreshToken });
+    expect(res.status).toBe(401);
+    expect((res.body as { code?: string }).code).toBe('tenant.not_member');
+  });
+
+  it('làm mới phiên ở kho riêng bị từ chối khi tenant trong kho đó đã bị đình chỉ, và làm mới lại được sau khi khôi phục', async () => {
+    const username = uniqueName('refresh-tenant');
+    await must(
+      await http(app).post(`/api/v1/tenants/${tenantAId}/users`).set('Host', HOST_A).set(auth(adminAToken)).send({
+        username, email: `${username}@example.com`, password: STRONG_PASSWORD, firstName: 'Refresh', lastName: 'Tenant',
+      }),
+      'create refresh tenant user at A',
+    );
+    const logged = await loginAt(HOST_A, username, STRONG_PASSWORD);
+    const setTenantStatusInA = async (status: string) => {
+      await withClient(clusterUrl(CENTRE_A_DATABASE, CENTRE_A_ROLE, CENTRE_A_PASSWORD), async (client) => {
+        await client.query("SELECT set_config('app.platform', 'on', false)");
+        await client.query('UPDATE tenants SET status = $1 WHERE id = $2', [status, tenantAId]);
+      });
+    };
+    try {
+      await setTenantStatusInA('suspended');
+      const res = await http(app).post('/api/v1/auth/refresh').set('Host', HOST_A).send({ refreshToken: logged.refreshToken });
+      expect(res.status).toBe(401);
+      expect((res.body as { code?: string }).code).toBe('tenant.not_active');
+    } finally {
+      await setTenantStatusInA('active');
+    }
+    // Lần từ chối không xoay và không thu hồi family: tenant được
+    // kích hoạt lại thì chính refresh token cũ làm mới lại được.
+    const again = await http(app).post('/api/v1/auth/refresh').set('Host', HOST_A).send({ refreshToken: logged.refreshToken });
+    expect(again.status).toBe(201);
+    expect((again.body as { accessToken?: string }).accessToken).toBeTruthy();
+  });
+
+  it('làm mới phiên ở kho riêng bị từ chối space.tenant_missing khi kho đó chưa có dòng tenant của chính nó', async () => {
+    // Dựng không gian C: kho riêng thật (baseline đầy đủ) kèm dòng
+    // đăng ký dedicated; tenant được tạo ở kho chung nhưng dòng
+    // tenant KHÔNG được sao vào kho C — trạng thái "đã đăng ký
+    // kho riêng, chưa cấp phát xong phần dữ kiện" mà chốt
+    // fail-closed phải bắt như khi cấp phiên mới.
+    const centreCDatabase = 'lms_test_centre_c_584';
+    const centreCRole = 'lms_centre_c_584_app';
+    const centreCPassword = 'centre-c-584';
+    const centreCSlug = `trung-tam-c-${RUN_SUFFIX}`;
+    const hostC = `${centreCSlug}.test.local`;
+    await withClient(clusterUrl('postgres'), async (admin) => {
+      await admin.query(`DROP DATABASE IF EXISTS ${quoted(centreCDatabase)} WITH (FORCE)`);
+      await admin.query(`DROP ROLE IF EXISTS ${quoted(centreCRole)}`);
+      await admin.query(`CREATE ROLE ${quoted(centreCRole)} LOGIN PASSWORD '${centreCPassword}'`);
+      await admin.query(`CREATE DATABASE ${quoted(centreCDatabase)} OWNER ${quoted(centreCRole)}`);
+      await admin.query(`REVOKE CONNECT ON DATABASE ${quoted(centreCDatabase)} FROM PUBLIC`);
+      await admin.query(`GRANT CONNECT ON DATABASE ${quoted(centreCDatabase)} TO ${quoted(centreCRole)}`);
+    });
+    await applyBusinessBaseline(clusterUrl(centreCDatabase, centreCRole, centreCPassword));
+    process.env.SPACE_TEST_C_584_URL = clusterUrl('postgres', centreCRole, centreCPassword);
+    try {
+      const createdC = (await must(
+        await http(app).post('/api/v1/tenants').set(auth(adminToken)).send({
+          name: 'Trung tâm C (spec 584)', slug: centreCSlug, kind: 'school',
+        }),
+        'create tenant C',
+      )) as { id: string };
+      await withClient(clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD), async (client) => {
+        await client.query(
+          `INSERT INTO space_registry (slug, name, kind, status, database_name, storage_mode, connection_role_ref, secret_ref, schema_version)
+           VALUES ($1, 'Trung tâm C (spec 584)', 'center', 'active', $2, 'dedicated', $3, 'env:SPACE_TEST_C_584_URL', 'v1')
+           ON CONFLICT (slug) DO UPDATE SET status = 'active', database_name = EXCLUDED.database_name,
+             storage_mode = 'dedicated', connection_role_ref = EXCLUDED.connection_role_ref, secret_ref = EXCLUDED.secret_ref`,
+          [centreCSlug, centreCDatabase, centreCRole],
+        );
+      });
+      emitSpaceRegistryChanged(centreCSlug);
+
+      // Tài khoản và family refresh được tạo ngay trong kho C bằng
+      // chính service của ứng dụng (family ghi theo đúng khuôn bảng
+      // của hệ) — chỉ riêng dòng tenant của C là vắng mặt trong kho
+      // của nó.
+      const spaceDb = app.get(SpaceDatabaseService, { strict: false });
+      const users = app.get(UsersService, { strict: false });
+      const username = uniqueName('refresh-missing');
+      const user = await spaceDb.withSpaceDatabase(centreCSlug, async () => users.createUser({
+        username, email: `${username}@example.com`, password: STRONG_PASSWORD, firstName: 'Refresh', lastName: 'Missing',
+      }), { tenantId: createdC.id });
+      const refreshToken = randomBytes(48).toString('base64url');
+      const tokenHash = createHash('sha256').update(refreshToken).digest('hex');
+      await withClient(clusterUrl(centreCDatabase, centreCRole, centreCPassword), async (client) => {
+        await client.query("SELECT set_config('app.platform', 'on', false)");
+        await client.query(
+          `INSERT INTO refresh_token_family (family_id, user_id, tenant_id, current_token_hash, expires_at)
+           VALUES ($1, $2, $3, $4, now() + interval '30 days')`,
+          [randomUUID(), user.id, createdC.id, tokenHash],
+        );
+      });
+
+      const res = await http(app).post('/api/v1/auth/refresh').set('Host', hostC).send({ refreshToken });
+      expect(res.status).toBe(401);
+      expect((res.body as { code?: string }).code).toBe('space.tenant_missing');
+    } finally {
+      // Chỉ gỡ dòng đăng ký và biến bí mật: pool kết nối tới kho C
+      // còn sống trong ứng dụng tới khi cả file đóng app ở
+      // `afterAll`, nên database/role của C được thả ở đầu ca của
+      // lần chạy kế tiếp (khối dựng ở đầu ca đã DROP IF EXISTS) —
+      // thả database ngay tại đây sẽ cắt ngang kết nối của pool
+      // đang sống và sinh lỗi 57P01 ngoài ý muốn.
+      delete process.env.SPACE_TEST_C_584_URL;
+      await withClient(clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD), async (client) => {
+        await client.query(`DELETE FROM space_registry WHERE slug = $1`, [centreCSlug]);
+      }).catch(() => undefined);
+      emitSpaceRegistryChanged(centreCSlug);
+    }
+  }, 180_000);
 });

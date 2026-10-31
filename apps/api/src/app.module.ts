@@ -68,9 +68,11 @@ import { SecurityHeadersMiddleware } from './common/security-headers.middleware'
 
 /**
  * Các route xác thực có kiểm chứng mật khẩu — nhận hạn mức chặt riêng
- * (`auth`) trong ThrottlerModule bên dưới.
+ * (`auth`) trong ThrottlerModule bên dưới. Đường đăng nhập platform
+ * (`/auth/platform/login`) cũng kiểm chứng mật khẩu quản trị nên nằm
+ * trong cùng danh sách này.
  */
-const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|change-password)$/;
+const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|change-password|platform\/login)$/;
 
 @Module({
   imports: [
