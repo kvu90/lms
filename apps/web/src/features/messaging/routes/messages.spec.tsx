@@ -3731,6 +3731,79 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     expect(screen.queryByLabelText('Nội dung tin nhắn')).not.toBeInTheDocument();
   });
 
+  it('vùng cuộn tin nhắn: class hiệu dụng của vùng chứa sau khi gộp là gap-0 nên khoảng cách luồng tin chỉ do margin theo cụm của từng mục mang', async () => {
+    const calls: RecordedCall[] = [];
+    stub591Fetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Học/ }));
+    const thread = await screen.findByLabelText('Tin nhắn');
+    // jsdom không tính layout nên khoảng cách hiệu dụng
+    // quan sát được qua class đã gộp của vùng chứa — ca
+    // này ghim đúng cơ chế theo phán quyết điều phối trên
+    // PR #610: MessageScrollerContent mang gap-8 (32px)
+    // mặc định trong component, nơi dùng phải ghi đè
+    // gap-0; nếu gap mặc định còn sót, khoảng cách cụm
+    // tin bị cộng dồn thành 36px trong cụm / 48px giữa
+    // cụm thay vì 4/16px của demo (issue #608, E1/E2).
+    const content = thread.querySelector('[data-slot="message-scroller-content"]');
+    expect(content).not.toBeNull();
+    const tokens = (content as HTMLElement).className.split(/\s+/);
+    expect(tokens).toContain('gap-0');
+    expect(tokens.filter((token) => token.startsWith('gap-') && token !== 'gap-0')).toEqual([]);
+  });
+
+  it('tải lại trang với tab Nhóm đã lưu và hội thoại 1–1 đã lưu thì không tự mở hội thoại cũ, khung ở trạng thái chưa chọn', async () => {
+    const calls: RecordedCall[] = [];
+    // Gieo đúng trạng thái đã lưu của lần dùng trước:
+    // tab Nhóm + một hội thoại 1–1 đang mở dở (issue
+    // #608, điểm A-BS5 — mệnh đề khôi phục khi tải trang).
+    localStorage.setItem('lms.messages.tab', 'groups');
+    localStorage.setItem('lms.messages.conversationId', CONV_ID);
+    stub591Fetch(calls);
+    renderMessages();
+
+    // Tab Nhóm được khôi phục từ trạng thái đã lưu và
+    // danh sách/cây nhóm đã nạp xong — mốc này bảo đảm
+    // hiệu ứng khôi phục ngữ cảnh đã chạy qua.
+    const groupsTab = await screen.findByRole('tab', { name: 'Nhóm' });
+    expect(groupsTab).toHaveAttribute('data-active');
+    expect(await screen.findByRole('button', { name: /Nhóm kiểm chứng/ })).toBeInTheDocument();
+    // Hội thoại 1–1 đã lưu KHÔNG tự mở: khung ở trạng
+    // thái chưa chọn như demo, không có luồng tin, và
+    // trang không hề lấy chi tiết hay đánh dấu đã đọc
+    // hội thoại đã lưu đó.
+    expect(screen.getByText('Chọn một cuộc hội thoại ở cột trái để đọc và trả lời.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Tin nhắn')).not.toBeInTheDocument();
+    expect(
+      calls.some((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}` && c.method === 'GET'),
+    ).toBe(false);
+    expect(
+      calls.some((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}/read`),
+    ).toBe(false);
+  });
+
+  it('deep-link trên cùng trạng thái đã lưu (tab Nhóm và hội thoại đã lưu) thì deep-link vẫn được ưu tiên và mở đúng hội thoại', async () => {
+    const calls: RecordedCall[] = [];
+    localStorage.setItem('lms.messages.tab', 'groups');
+    localStorage.setItem('lms.messages.conversationId', CONV_ID);
+    stub591Fetch(calls);
+    renderMessages(`/messages?conversation=${CONV_ID}`);
+
+    // Dù tab đang lưu là Nhóm — trạng thái vốn chặn
+    // khôi phục ngữ cảnh đã lưu — deep-link vẫn thắng:
+    // hội thoại của deep-link tự mở, tin của nó hiện ra
+    // và được đánh dấu đã đọc (issue #608, điểm A-BS5 —
+    // mệnh đề deep-link ở dạng kết hợp với tab Nhóm).
+    const thread = await screen.findByLabelText('Tin nhắn');
+    expect(await within(thread).findByText('tin mới của bạn học')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}/read` && c.method === 'POST'),
+      ).toBe(true),
+    );
+  });
+
   it('hộp thoại mời là hộp thoại ở giữa màn hình và khối liên kết mời chỉ là hình dạng vô hiệu', async () => {
     const calls: RecordedCall[] = [];
     stub591Fetch(calls);

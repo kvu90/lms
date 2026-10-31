@@ -22,6 +22,9 @@ import { Skeleton } from '@lms/ui/components/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@lms/ui/components/tabs';
 import { Textarea } from '@lms/ui/components/textarea';
 import {
+  Tooltip, TooltipContent, TooltipTrigger,
+} from '@lms/ui/components/tooltip';
+import {
   Message, MessageAvatar, MessageContent, MessageFooter, MessageHeader,
 } from '@lms/ui/components/message';
 import {
@@ -844,17 +847,38 @@ export function ChatPanel({
           và More actions (EllipsisVertical). Call/Video là
           HÌNH DẠNG THUẦN ở trạng thái vô hiệu: chức năng
           gọi chưa có quyết định, không nối đường gọi nào.
-          Nút Tìm kiếm riêng từng đứng ở đây đã gỡ; chức
-          năng tìm trong cuộc trò chuyện dời vào menu More
-          actions bên dưới (vẫn một bấm tới được như demo
-          đặt mọi hành động phụ vào menu).
+          Đúng như demo, Call và Video call mang Tooltip
+          thật (component `tooltip` của `@lms/ui`) hiện
+          đúng nhãn của nút khi di chuột; riêng More
+          actions KHÔNG có tooltip — ở demo nút này là
+          trigger trần của menu thả xuống, thêm tooltip
+          vào sẽ thành lệch mới (phán quyết điều phối
+          trên PR #610). Nút Tìm kiếm riêng từng đứng ở
+          đây đã gỡ; chức năng tìm trong cuộc trò
+          chuyện dời vào menu More actions bên dưới (vẫn
+          một bấm tới được như demo đặt mọi hành động phụ
+          vào menu).
         */}
-        <Button type="button" variant="ghost" size="icon-sm" aria-label={t('callAction')} disabled>
-          <Phone aria-hidden />
-        </Button>
-        <Button type="button" variant="ghost" size="icon-sm" aria-label={t('videoCallAction')} disabled>
-          <Video aria-hidden />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button type="button" variant="ghost" size="icon-sm" aria-label={t('callAction')} disabled />
+            }
+          >
+            <Phone aria-hidden />
+          </TooltipTrigger>
+          <TooltipContent>{t('callAction')}</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button type="button" variant="ghost" size="icon-sm" aria-label={t('videoCallAction')} disabled />
+            }
+          >
+            <Video aria-hidden />
+          </TooltipTrigger>
+          <TooltipContent>{t('videoCallAction')}</TooltipContent>
+        </Tooltip>
         {/*
           Menu More actions của đầu khung (issue #591; cấu
           trúc và bề rộng căn theo menu demo ở issue #608 —
@@ -1054,11 +1078,17 @@ export function ChatPanel({
           <MessageScrollerViewport aria-label={t('messagesListLabel')}>
             {/*
               Đệm vùng cuộn theo demo (issue #608): ngang
-              8px, dọc 32px; khoảng cách giữa các mục do
-              chính từng mục mang (nhóm ngày 24px, cụm tin
-              16/4px) nên vùng chứa không đặt gap đều nữa.
+              8px, dọc 32px. MessageScrollerContent mang
+              gap-8 (32px) mặc định trong chính component,
+              nên nơi dùng ghi đè gap-0 để triệt khoảng
+              cách đều của vùng chứa — khoảng cách giữa
+              các mục chỉ do chính từng mục mang (nhóm
+              ngày 24px, cụm tin 16/4px). Thiếu ghi đè
+              này thì gap mặc định cộng dồn vào margin
+              của từng mục thành 36/48px (vòng sửa
+              PR #610).
             */}
-            <MessageScrollerContent className="px-2 py-8">
+            <MessageScrollerContent className="gap-0 px-2 py-8">
               {threadItems}
             </MessageScrollerContent>
           </MessageScrollerViewport>
