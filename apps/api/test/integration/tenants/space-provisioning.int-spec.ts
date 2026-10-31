@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runSpaceProvision, manageCentreInvite } from '../../../src/modules/tenants/space-provision-runner';
-import { deriveCentreRoleName } from '../../../src/modules/tenants/centre-provision';
+import { buildCentreDatabaseUrl, deriveCentreRoleName } from '../../../src/modules/tenants/centre-provision';
 import { FleetRegistryWriter } from '../../../src/modules/fleet/fleet-registry-writer';
 
 /**
@@ -488,7 +488,23 @@ describe('Cấp phát trung tâm mới (tích hợp)', () => {
       log: () => undefined,
     });
     expect(created.status).toBe('active');
-    await withClient(clusterUrl(created.databaseName, created.connectionRole, percentPassword), async (client) => {
+    // Kết nối kiểm chứng phải đi qua đúng hàm dựng URL của
+    // production: helper clusterUrl dùng bộ gán password của WHATWG
+    // URL, vốn giữ nguyên các dãy %XX có sẵn nên pg giải mã một lần
+    // thành mật khẩu khác ('p@ss%%word') và vấp lỗi xác thực — đó
+    // là lỗi của helper test, không phải của pipeline (pipeline
+    // dùng buildCentreDatabaseUrl và đã cấp phát thành công trước
+    // khi tới bước kiểm chứng này, như lần tái hiện lỗi đã chứng
+    // minh: cấp phát chạy đủ ~26s rồi mới rớt ở kết nối kiểm chứng).
+    const baseUrl = new URL(process.env.DATABASE_URL!);
+    const centreUrl = buildCentreDatabaseUrl({
+      host: baseUrl.hostname,
+      port: Number(baseUrl.port),
+      role: created.connectionRole,
+      password: percentPassword,
+      databaseName: created.databaseName,
+    });
+    await withClient(centreUrl, async (client) => {
       await client.query('SELECT 1');
     });
     await withClient(clusterUrl('postgres'), async (admin) => {
