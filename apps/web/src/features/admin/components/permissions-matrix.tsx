@@ -1,4 +1,3 @@
-import { Fragment } from 'react';
 import { CAP, type CapabilityMatrixResponse } from '@lms/contracts';
 import {
   Table,
@@ -10,7 +9,7 @@ import {
 } from '@lms/ui/components/table';
 import { useTranslation } from 'react-i18next';
 import '#config/i18n';
-import { verbOfCapability, type CapabilityGroup } from '../types/admin-roles';
+import { type CapabilityGroup } from '../types/admin-roles';
 import { PermissionToggleCell } from './permission-cells';
 
 /**
@@ -18,16 +17,20 @@ import { PermissionToggleCell } from './permission-cells';
  *
  * Hình dáng theo bảng mẫu (ô tiêu đề đệm 16px, tên resource đệm 16px
  * đậm vừa, tiêu đề cột vai là tên đậm kèm dòng số người giữ 12px ở
- * dưới) nhưng giữ mô hình thật của hệ: hàng = năng lực thật gom theo
- * resource kèm hàng tiêu đề nhóm, cột = vai trò. Mỗi ô là MỘT nút
- * toggle icon cho đúng năng lực đó theo phán quyết vòng sửa 3 của
- * PR #601 ("hình dạng demo, dữ kiện thật"): bật ⇔ Cho phép, tắt ⇔
- * Kế thừa — dùng chung component ô với hộp thoại ma trận vai trò
- * (xem `permission-cells.tsx`). Không dựng bốn nút
- * Read/Write/Create/Delete trong một ô và không chế trục
- * Create/Delete: hệ chỉ có năng lực loại đọc và ghi. Ô đang mang
- * Ngăn chặn/Cấm hẳn đã lưu thì toggle bị khoá kèm huy hiệu trạng
- * thái, không thao tác nào ở trang đổi được giá trị đó ở vòng này.
+ * dưới) nhưng giữ mô hình thật của hệ: MỖI RESOURCE MỘT HÀNG như
+ * bảng mẫu (vòng sửa bố cục của PR #601), cột = vai trò. Ô của một
+ * (resource × vai trò) chứa các nút toggle icon của TỪNG năng lực
+ * thuộc resource đó đặt cạnh nhau — mỗi nút là một năng lực thật
+ * theo phán quyết vòng sửa 3 của PR #601 ("hình dạng demo, dữ kiện
+ * thật"): bật ⇔ Cho phép, tắt ⇔ Kế thừa — dùng chung component ô
+ * với hộp thoại ma trận vai trò (xem `permission-cells.tsx`). Thứ
+ * tự nút trong ô: năng lực loại read trước, loại write sau, trong
+ * cùng loại xếp theo tên; tên đầy đủ của năng lực nằm ở aria-label
+ * và title của nút để phân biệt các nút icon trong cùng ô. Không
+ * chế trục Create/Delete: hệ chỉ có năng lực loại đọc và ghi. Ô
+ * đang mang Ngăn chặn/Cấm hẳn đã lưu thì toggle bị khoá kèm huy
+ * hiệu trạng thái, không thao tác nào ở trang đổi được giá trị đó
+ * ở vòng này.
  *
  * Bảng chỉ trình bày ghi đè ĐÃ LƯU tại ngữ cảnh đang chọn, không
  * trình bày quyền hiệu lực sau kế thừa: năng lực vắng mặt trong đáp
@@ -85,42 +88,47 @@ export function PermissionsMatrix({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {groups.map((group) => (
-          <Fragment key={group.resource}>
-            <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableCell colSpan={matrix.roles.length + 1} className="p-4 font-medium">
-                {group.resource}
-              </TableCell>
-            </TableRow>
-            {group.capabilities.map((capability) => (
-              <TableRow key={capability.name}>
-                <TableCell className="p-4 whitespace-nowrap">
-                  <strong>{verbOfCapability(capability.name)}</strong>{' '}
-                  <code className="text-xs text-muted-foreground">{capability.name}</code>
+        {groups.map((group) => {
+          // Thứ tự nút trong ô: loại read trước, loại write sau,
+          // trong cùng loại xếp theo tên năng lực.
+          const orderedCapabilities = [...group.capabilities].sort((left, right) =>
+            left.capType === right.capType
+              ? left.name.localeCompare(right.name)
+              : left.capType === 'read'
+                ? -1
+                : 1,
+          );
+          return (
+            <TableRow key={group.resource}>
+              <TableCell className="p-4 font-medium whitespace-nowrap">{group.resource}</TableCell>
+              {matrix.roles.map((role) => (
+                <TableCell key={role.id} className="px-4 py-2">
+                  <span className="inline-flex flex-wrap items-start gap-1">
+                    {orderedCapabilities.map((capability) => {
+                      const key = `${contextId}:${role.id}:${capability.name}`;
+                      return (
+                        <PermissionToggleCell
+                          key={capability.name}
+                          ariaLabel={t('permissionsCellLabel', {
+                            capability: capability.name,
+                            role: role.name,
+                          })}
+                          title={capability.name}
+                          capType={capability.capType}
+                          value={valueOf(role.id, capability.name)}
+                          disabled={savingCells.has(key)}
+                          onToggle={(allowed) =>
+                            onCellChange(role.id, capability.name, allowed ? CAP.ALLOW : CAP.INHERIT)
+                          }
+                        />
+                      );
+                    })}
+                  </span>
                 </TableCell>
-                {matrix.roles.map((role) => {
-                  const key = `${contextId}:${role.id}:${capability.name}`;
-                  return (
-                    <TableCell key={role.id} className="px-4 py-2">
-                      <PermissionToggleCell
-                        ariaLabel={t('permissionsCellLabel', {
-                          capability: capability.name,
-                          role: role.name,
-                        })}
-                        capType={capability.capType}
-                        value={valueOf(role.id, capability.name)}
-                        disabled={savingCells.has(key)}
-                        onToggle={(allowed) =>
-                          onCellChange(role.id, capability.name, allowed ? CAP.ALLOW : CAP.INHERIT)
-                        }
-                      />
-                    </TableCell>
-                  );
-                })}
-              </TableRow>
-            ))}
-          </Fragment>
-        ))}
+              ))}
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );

@@ -29,6 +29,13 @@ import { AdminPermissionsPage } from './admin-permissions';
  * thao tác nào ghi đè được — fixture mang sẵn một ô Cấm hẳn ở ngữ
  * cảnh hệ thống và một ô Ngăn chặn ở ngữ cảnh trung tâm để ghim
  * hành vi này.
+ *
+ * Vòng sửa bố cục (PR #601): bảng gom mỗi resource thành đúng MỘT
+ * hàng như bảng mẫu — ô của một (resource × vai trò) chứa các nút
+ * toggle của mọi năng lực thuộc resource đó cạnh nhau, tên năng
+ * lực truy được qua aria-label và title của nút thay vì một hàng
+ * riêng cho từng năng lực. Mọi hành vi ghi từng ô, hoàn lại khi
+ * lỗi và khoá ô chặn đã ghim ở các vòng trước giữ nguyên.
  */
 const ROLE_A_ID = '01900000-0000-7000-8000-0000000000b1';
 const ROLE_B_ID = '01900000-0000-7000-8000-0000000000b2';
@@ -162,7 +169,7 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
     localStorage.clear();
   });
 
-  it('hiện đủ nhóm resource, hàng năng lực và cột vai trò kèm số người giữ, thẻ đếm đúng tại ngữ cảnh hệ thống', async () => {
+  it('hiện đủ hàng resource, cột vai trò kèm số người giữ và mọi ô năng lực, thẻ đếm đúng tại ngữ cảnh hệ thống', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderPage();
@@ -173,12 +180,20 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
     const matrixCalls = calls.filter((call) => call.url.startsWith('/api/v1/access/capability-matrix'));
     expect(matrixCalls).toHaveLength(1);
     expect(matrixCalls[0]?.url).toContain(`contextId=${SYSTEM_CONTEXT_ID}`);
-    // Hai nhóm resource, ba hàng năng lực.
+    // Hai hàng resource (mỗi resource một hàng như bảng mẫu); năng
+    // lực không còn là một hàng riêng — tên của nó nằm ở aria-label
+    // và title của nút toggle trong ô của hàng resource, đủ 6 cặp
+    // vai trò × năng lực đều có đúng một nút.
     expect(screen.getByText('course')).toBeInTheDocument();
     expect(screen.getByText('user')).toBeInTheDocument();
-    for (const capability of ['course:view', 'course:edit', 'user:view']) {
-      expect(screen.getByText(capability)).toBeInTheDocument();
+    for (const roleName of ['Giáo viên', 'Quản trị viên']) {
+      for (const capability of ['course:view', 'course:edit', 'user:view']) {
+        expect(cellToggle(roleName, capability)).toBeInTheDocument();
+        expect(cellToggle(roleName, capability)).toHaveAttribute('title', capability);
+      }
     }
+    // Bảng chỉ còn đúng hai hàng thân (một hàng mỗi resource) cộng hàng tiêu đề.
+    expect(screen.getAllByRole('row')).toHaveLength(3);
     // Tiêu đề cột vai trò kèm số người giữ phân biệt.
     expect(screen.getByText('Giáo viên')).toBeInTheDocument();
     expect(screen.getByText('5 người dùng')).toBeInTheDocument();

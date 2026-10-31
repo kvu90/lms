@@ -70,6 +70,15 @@ import { AdminRolesPage } from './admin-roles';
  * cảnh — chọn toàn cục cả hai chiều không đổi được ô khoá, tập
  * thay toàn bộ khi lưu giữ nguyên cả hai giá trị, và bỏ tích ô
  * đang Cho phép thì năng lực đó rời khỏi tập ghi đè ở lần lưu sau.
+ *
+ * Vòng sửa bố cục (PR #601): ma trận trong hộp thoại gom mỗi
+ * resource thành đúng MỘT hàng như bảng mẫu — checkbox chọn theo
+ * nhóm nằm ngay trên hàng của resource, cụm Đọc chứa checkbox
+ * của các năng lực loại read và cụm Ghi chứa checkbox của các
+ * năng lực loại write, mỗi checkbox kèm nhãn hành động của năng
+ * lực. Mọi hành vi đã ghim ở các vòng trước (ô khoá kèm huy
+ * hiệu, chọn theo cấp bỏ qua ô khoá, bảo toàn giá trị khoá khi
+ * lưu) giữ nguyên phạm vi kiểm chứng.
  */
 const ROLE_ID = '01900000-0000-7000-8000-0000000000b1';
 const NEW_ROLE_ID = '01900000-0000-7000-8000-0000000000b2';
@@ -511,6 +520,12 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     expect(lockedBox).toHaveAttribute('aria-disabled', 'true');
     expect(lockedBox).toHaveAttribute('aria-checked', 'false');
     expect(within(dialog).getByText('Ngăn chặn')).toBeInTheDocument();
+    // Bố cục theo hàng resource: bảng ma trận chỉ gồm hàng tiêu đề
+    // (có hai cụm cột Đọc/Ghi) + đúng một hàng cho course + một
+    // hàng cho user — không còn hàng riêng cho từng năng lực.
+    expect(within(dialog).getAllByRole('row')).toHaveLength(3);
+    expect(within(dialog).getByText('Đọc')).toBeInTheDocument();
+    expect(within(dialog).getByText('Ghi')).toBeInTheDocument();
     // Bấm vào ô khoá không đổi được trạng thái của nó.
     await userEvent.click(lockedBox);
     expect(within(dialog).getByRole('checkbox', { name: 'course:view' })).toHaveAttribute(

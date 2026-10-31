@@ -18,6 +18,12 @@ import '#config/i18n';
  *   là Eye, write là PencilLine, đúng cặp icon demo dùng cho
  *   Read/Write). Không có cột/nút Create/Delete vì dữ kiện của hệ
  *   không có hai trục đó.
+ * - Vòng sửa bố cục của PR #601: cả hai bề mặt gom mỗi resource
+ *   thành đúng MỘT hàng — hộp thoại bày các checkbox của một
+ *   resource trên cùng hàng theo cụm Đọc/Ghi kèm nhãn hành động
+ *   của năng lực; trang Quyền bày các nút toggle của một resource
+ *   cạnh nhau trong cùng ô của hàng resource, tên năng lực truy
+ *   được qua aria-label và `title` của nút.
  * - Ánh xạ hai trạng thái của vòng này: bật ⇔ Cho phép (1), tắt ⇔
  *   Kế thừa (0); thao tác bật/tắt chỉ ghi hai giá trị đó qua cơ chế
  *   lưu hiện hữu của từng bề mặt.
@@ -104,6 +110,13 @@ export interface PermissionToggleCellProps {
   disabled?: boolean;
   /** Nhãn truy cập mô tả ô (năng lực × vai trò) cho trình đọc màn hình. */
   ariaLabel: string;
+  /**
+   * Tên năng lực đầy đủ đặt ở thuộc tính `title` của nút: từ vòng
+   * sửa bố cục của PR #601, một ô của bảng chứa nhiều nút icon cạnh
+   * nhau nên tên năng lực phải truy được khi di chuột (tooltip gốc
+   * của trình duyệt) bên cạnh aria-label.
+   */
+  title?: string;
   /** Báo bề mặt chứa khi người dùng bật (true = Cho phép) hoặc tắt (false = Kế thừa) ô. */
   onToggle: (allowed: boolean) => void;
 }
@@ -116,12 +129,13 @@ export interface PermissionToggleCellProps {
  *
  * @param props - Xem {@link PermissionToggleCellProps}.
  */
-export function PermissionToggleCell({ value, capType, disabled, ariaLabel, onToggle }: PermissionToggleCellProps) {
+export function PermissionToggleCell({ value, capType, disabled, ariaLabel, title, onToggle }: PermissionToggleCellProps) {
   const locked = isLockedPermission(value);
   return (
     <span className="inline-flex flex-col items-start gap-1">
       <Toggle
         aria-label={ariaLabel}
+        title={title}
         size="sm"
         pressed={value === CAP.ALLOW}
         disabled={disabled || locked}

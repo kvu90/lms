@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CAP, type Capability, type RoleListItem } from '@lms/contracts';
 import { Button } from '@lms/ui/components/button';
 import { Checkbox } from '@lms/ui/components/checkbox';
@@ -53,7 +53,13 @@ import { isLockedPermission, PermissionCheckboxCell } from './permission-cells';
  *    sửa 3 của PR #601 theo phán quyết "hình dạng demo, dữ kiện
  *    thật"): mỗi ô là một checkbox trên MỘT năng lực thật — tích là
  *    Cho phép, trống là Kế thừa — không dựng bốn cột
- *    Read/Write/Create/Delete. Giá trị mỗi ô suy ra từ hai nguồn:
+ *    Read/Write/Create/Delete. Vòng sửa bố cục của PR #601 gom mỗi
+ *    resource thành đúng MỘT hàng như bảng mẫu: ô đầu là tên
+ *    resource, kế là checkbox chọn cả nhóm, rồi cụm Đọc chứa các
+ *    checkbox của năng lực loại read và cụm Ghi chứa các checkbox
+ *    của năng lực loại write — mỗi checkbox kèm nhãn hành động của
+ *    năng lực đó, mọi năng lực thật vẫn hiện và sửa được từng cái
+ *    ngay trên hàng. Giá trị mỗi ô suy ra từ hai nguồn:
  *    sửa đổi của người dùng trong lượt này (ưu tiên) rồi tới dòng đã
  *    lưu của ngữ cảnh đang chọn, vắng mặt thì là kế thừa. Đổi ngữ cảnh
  *    xoá sạch sửa đổi của ngữ cảnh trước nên ma trận không bao giờ lẫn
@@ -71,8 +77,8 @@ import { isLockedPermission, PermissionCheckboxCell } from './permission-cells';
  *    trống.
  * 3. Chọn theo cấp của bảng checkbox (thay cơ chế chọn nhanh bốn
  *    trạng thái trước đây): checkbox ở hàng tiêu đề đặt Cho phép/Kế
- *    thừa cho MỌI ô sửa được của ma trận, checkbox ở hàng nhóm đặt
- *    cho các ô sửa được của nhóm resource đó; ô khoá (Ngăn
+ *    thừa cho MỌI ô sửa được của ma trận, checkbox trên hàng của
+ *    resource đặt cho các ô sửa được của resource đó; ô khoá (Ngăn
  *    chặn/Cấm hẳn) không thuộc phạm vi của cả hai cấp và không được
  *    tính vào trạng thái tích/mixed của checkbox cấp.
  * 4. Lưu: khi tạo — tạo vai trò trước, rồi lưu ma trận bằng endpoint
@@ -158,6 +164,36 @@ export function RoleMatrixDialog({
   /** Giá trị hiển thị của một ô: sửa đổi trong lượt này, rồi dòng đã lưu, rồi kế thừa. */
   function valueOf(capabilityName: string): number {
     return edits[capabilityName] ?? savedByCapability[capabilityName] ?? CAP.INHERIT;
+  }
+
+  /**
+   * Một cụm checkbox cùng loại (Đọc hoặc Ghi) trên hàng của một
+   * resource: mỗi năng lực là một checkbox kèm nhãn hành động của
+   * nó; cụm rỗng (resource không có năng lực thuộc loại đó) hiện
+   * dấu gạch ngang mờ thay vì để ô trống khó hiểu.
+   */
+  function renderCluster(cluster: Capability[]) {
+    if (cluster.length === 0) return <span className="text-muted-foreground">—</span>;
+    return (
+      <span className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {cluster.map((capability) => (
+          <span key={capability.name} className="inline-flex items-center gap-1.5">
+            <PermissionCheckboxCell
+              ariaLabel={capability.name}
+              value={valueOf(capability.name)}
+              disabled={saving}
+              onToggle={(allowed) =>
+                setEdits((prev) => ({
+                  ...prev,
+                  [capability.name]: allowed ? CAP.ALLOW : CAP.INHERIT,
+                }))
+              }
+            />
+            <span className="text-sm">{verbOfCapability(capability.name)}</span>
+          </span>
+        ))}
+      </span>
+    );
   }
 
   if (!open) return null;
@@ -352,45 +388,30 @@ export function RoleMatrixDialog({
                           onCheckedChange={(checked) => applyScope(capabilities, checked)}
                         />
                       </TableHead>
+                      <TableHead className="p-3">{t('roleReadLabel')}</TableHead>
+                      <TableHead className="p-3">{t('roleWriteLabel')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {groups.map((group) => (
-                      <Fragment key={group.resource}>
-                        <TableRow className="bg-muted/50 hover:bg-muted/50">
-                          <TableCell className="p-3 font-medium">{group.resource}</TableCell>
-                          <TableCell className="p-3 text-center">
-                            <Checkbox
-                              aria-label={t('roleSelectAllForResource', { resource: group.resource })}
-                              checked={scopeState(group.capabilities).checked}
-                              indeterminate={scopeState(group.capabilities).indeterminate}
-                              disabled={saving}
-                              onCheckedChange={(checked) => applyScope(group.capabilities, checked)}
-                            />
-                          </TableCell>
-                        </TableRow>
-                        {group.capabilities.map((capability) => (
-                          <TableRow key={capability.name}>
-                            <TableCell className="p-3 whitespace-nowrap">
-                              <strong>{verbOfCapability(capability.name)}</strong>{' '}
-                              <code className="text-xs text-muted-foreground">{capability.name}</code>
-                            </TableCell>
-                            <TableCell className="p-3 text-center">
-                              <PermissionCheckboxCell
-                                ariaLabel={capability.name}
-                                value={valueOf(capability.name)}
-                                disabled={saving}
-                                onToggle={(allowed) =>
-                                  setEdits((prev) => ({
-                                    ...prev,
-                                    [capability.name]: allowed ? CAP.ALLOW : CAP.INHERIT,
-                                  }))
-                                }
-                              />
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </Fragment>
+                      <TableRow key={group.resource}>
+                        <TableCell className="p-3 font-medium whitespace-nowrap">{group.resource}</TableCell>
+                        <TableCell className="p-3 text-center">
+                          <Checkbox
+                            aria-label={t('roleSelectAllForResource', { resource: group.resource })}
+                            checked={scopeState(group.capabilities).checked}
+                            indeterminate={scopeState(group.capabilities).indeterminate}
+                            disabled={saving}
+                            onCheckedChange={(checked) => applyScope(group.capabilities, checked)}
+                          />
+                        </TableCell>
+                        <TableCell className="p-3">
+                          {renderCluster(group.capabilities.filter((capability) => capability.capType === 'read'))}
+                        </TableCell>
+                        <TableCell className="p-3">
+                          {renderCluster(group.capabilities.filter((capability) => capability.capType === 'write'))}
+                        </TableCell>
+                      </TableRow>
                     ))}
                   </TableBody>
                 </Table>
