@@ -1,9 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { join } from 'node:path';
-import { AppModule } from './app.module';
-import { ProgramDumpService } from './modules/curriculum/program-dump.service';
-import { ProgramImportService } from './modules/curriculum/program-import.service';
-import { tenantAls } from './modules/tenants/tenant-als';
+import { AppModule } from '../../app.module';
+import { ProgramDumpService } from './program-dump.service';
+import { ProgramImportService } from './program-import.service';
+import { tenantAls } from '../tenants/tenant-als';
 
 /**
  * CLI SẢN XUẤT DUMP ĐÔNG CỨNG dữ liệu chương trình (chỉ chạy ở trung
@@ -11,7 +11,7 @@ import { tenantAls } from './modules/tenants/tenant-als';
  * của các môi trường; seed các môi trường chỉ restore artifact).
  *
  * Cách dùng (từ thư mục apps/api, DATABASE_URL trỏ vào DB chuẩn):
- *   node dist/export-program-dump.js [--from-datasets] [file-đích]
+ *   node dist/modules/curriculum/export-program-dump.js [--from-datasets] [file-đích]
  * - Mặc định: xuất toàn bộ các bảng chương trình của DB chuẩn hiện
  *   tại thành artifact SQL.
  * - `--from-datasets`: nạp/patch DB chuẩn từ các dataset trong

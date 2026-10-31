@@ -225,9 +225,9 @@ services:
       # Công cụ vận hành đội kho (issue #586): các lệnh fleet:*
       # chạy MỘT LẦN qua chính service này (cùng image api, đủ cả
       # URL quản trị, URL migration và URL control plane ở trên):
-      #   docker compose run --rm migrate node dist/fleet-migration-runner.js
-      #   docker compose run --rm migrate node dist/fleet-backup.js
-      #   docker compose run --rm migrate node dist/fleet-restore-test.js
+      #   docker compose run --rm migrate node dist/modules/fleet/fleet-migration-runner.js
+      #   docker compose run --rm migrate node dist/modules/fleet/fleet-backup.js
+      #   docker compose run --rm migrate node dist/modules/fleet/fleet-restore-test.js
       # Thư mục sao lưu đặt cố định vào volume riêng fleet-backups
       # gắn ở dưới (vận hành thật thay bằng bind mount ra vùng lưu
       # trữ ngoài máy cụm). Khoá mã hoá khai báo TRƠ như các bí mật
@@ -256,7 +256,7 @@ services:
     command:
       - sh
       - -c
-      - "node dist/runtime-roles-setup.js && node dist/control-plane-setup.js && ./node_modules/.bin/drizzle-kit migrate && ./node_modules/.bin/drizzle-kit migrate --config drizzle-control-plane.config.ts"
+      - "node dist/modules/fleet/runtime-roles-setup.js && node dist/modules/control-plane/control-plane-setup.js && ./node_modules/.bin/drizzle-kit migrate && ./node_modules/.bin/drizzle-kit migrate --config drizzle-control-plane.config.ts"
 
   # Chạy một lần để seed dữ liệu mẫu (tài khoản demo + khoá học mẫu).
   # CHỈ dùng cho môi trường thử nghiệm tự host lần đầu; TUYỆT ĐỐI không
@@ -274,7 +274,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: ["node", "dist/review-seed.js"]
+    command: ["node", "dist/modules/seed/review-seed.js"]
 
 volumes:
   pgdata:
