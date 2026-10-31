@@ -44,6 +44,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { BackupModule } from './modules/backup/backup.module';
 import { ContentBankModule } from './modules/content-bank/content-bank.module';
 import { ControlPlaneModule } from './modules/control-plane/control-plane.module';
+import { SystemBankModule } from './modules/system-bank/system-bank.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { PrivacyModule } from './modules/privacy/privacy.module';
@@ -53,11 +54,13 @@ import { SearchModule } from './modules/search/search.module';
 import { SiteConfigModule } from './modules/site-config/site-config.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { ClassesModule } from './modules/classes/classes.module';
+import { SpaceContextGuard } from './modules/tenants/space-context.guard';
 import { TenantGuard } from './modules/tenants/tenant.guard';
 import { TenantContextInterceptor } from './modules/tenants/tenant-context.interceptor';
 import { APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { I18nStandardSchemaValidationPipe } from '@nestjs/i18n';
 import { I18nFoundationModule } from './i18n/i18n.config';
+import { AudienceGuard } from './common/audience.guard';
 import { BetterAuthSessionGuard } from './common/better-auth-session.guard';
 import { CapabilityGuard } from './common/capability.guard';
 import { JwtAuthGuard } from './common/jwt-auth.guard';
@@ -66,9 +69,11 @@ import { SecurityHeadersMiddleware } from './common/security-headers.middleware'
 
 /**
  * Các route xác thực có kiểm chứng mật khẩu — nhận hạn mức chặt riêng
- * (`auth`) trong ThrottlerModule bên dưới.
+ * (`auth`) trong ThrottlerModule bên dưới. Đường đăng nhập platform
+ * (`/auth/platform/login`) cũng kiểm chứng mật khẩu quản trị nên nằm
+ * trong cùng danh sách này.
  */
-const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|change-password)$/;
+const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|change-password|platform\/login)$/;
 
 @Module({
   imports: [
@@ -196,6 +201,7 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
     EventLogModule,
     ContentBankModule,
     ControlPlaneModule,
+    SystemBankModule,
     SpaceRoutingModule,
     PrivacyModule,
     SiteConfigModule,
@@ -212,13 +218,25 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
     // tính cho JwtAuthGuard bỏ qua; mọi request còn lại nó không chạm.
     { provide: APP_GUARD, useClass: BetterAuthSessionGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // AudienceGuard chạy ngay sau JwtAuthGuard, trước TenantGuard
+    // (issue #584): tách bề mặt vận hành platform khỏi bề mặt nghiệp
+    // vụ bằng audience của token — chỉ cần principal đã xác thực và
+    // metadata của route, chưa cần ngữ cảnh tenant.
+    { provide: APP_GUARD, useClass: AudienceGuard },
     // TenantGuard chạy ngay sau xác thực: phân giải tenant hiệu lực từ
     // claim `tid` (kiểm chứng với DB) và nạp ngữ cảnh tenant (ALS) cho
     // mọi bề mặt đã phủ tenant (TENANT-0, #168).
     { provide: APP_GUARD, useClass: TenantGuard },
+    // SpaceContextGuard chạy ngay sau TenantGuard (issue #582): phân
+    // giải trung tâm từ địa chỉ request theo sổ đăng ký, đối chiếu
+    // phiên với trung tâm ở kho riêng, chặn traffic nghiệp vụ của
+    // trung tâm chưa active, và chuẩn bị + ghim ngữ cảnh kho của
+    // trung tâm trước khi CapabilityGuard và handler chạy.
+    { provide: APP_GUARD, useClass: SpaceContextGuard },
     { provide: APP_GUARD, useClass: CapabilityGuard },
     // Interceptor bọc ALS tenant quanh handler (guard chỉ ghim tenant
-    // lên request — enterWith không qua được biên guard→handler).
+    // và slug trung tâm lên request — enterWith không qua được biên
+    // guard→handler).
     { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
     /**
      * Pipe validation Standard Schema có dịch thông điệp theo catalog i18n

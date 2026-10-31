@@ -7,6 +7,8 @@ import Redis from 'ioredis';
 import { eventLog, outboxEvents } from '@lms/db';
 import { redisConnectionFromUrl } from '../../../src/config/env';
 import { OutboxRelayScheduler } from '../../../src/outbox-relay.scheduler';
+import { SpaceJobRunner } from '../../../src/db/routing/space-job-runner';
+import type { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
 import {
   AuthMailProcessor,
   RedisAuthMailSentMarker,
@@ -194,6 +196,16 @@ describe('Worker: mail auth qua hàng đợi (issue #517)', () => {
   });
 
   /** Dựng một bản dấu Redis thật mới (kết nối riêng) như một tiến trình worker riêng. */
+  // Bộ chạy job dùng cho các processor dựng tay trong spec:
+  // dịch vụ định tuyến không cấu hình sổ nên mọi job đều chạy ở
+  // phiên platform trên kho chung như trước (định tuyến theo
+  // trung tâm có spec riêng ở tầng worker).
+  const jobRunner = new SpaceJobRunner({
+    resolveTarget: async () => {
+      throw new Error('spec không cấu hình sổ đăng ký');
+    },
+  } as unknown as SpaceDatabaseService);
+
   function makeMarker(): RedisAuthMailSentMarker {
     return new RedisAuthMailSentMarker({
       getOrThrow: (key: string) => process.env[key],
@@ -256,7 +268,7 @@ describe('Worker: mail auth qua hàng đợi (issue #517)', () => {
   it('processor với dấu Redis thật gửi đúng một mail và bỏ qua lần xử lý lại cùng outboxId', async () => {
     const mailer = new FakeMailer();
     const marker = makeMarker();
-    const processor = new AuthMailProcessor(mailer as never, marker);
+    const processor = new AuthMailProcessor(mailer as never, marker, jobRunner);
     const outboxId = `0191e8f2-7c3a-7b21-9f00-${suffix.slice(-12).padStart(12, '0')}`;
     const job = { data: makeJobData(outboxId, 1) };
 
@@ -285,8 +297,8 @@ describe('Worker: mail auth qua hàng đợi (issue #517)', () => {
     const mailer = new GatedMailer();
     const markerA = makeMarker();
     const markerB = makeMarker();
-    const processorA = new AuthMailProcessor(mailer as never, markerA);
-    const processorB = new AuthMailProcessor(mailer as never, markerB);
+    const processorA = new AuthMailProcessor(mailer as never, markerA, jobRunner);
+    const processorB = new AuthMailProcessor(mailer as never, markerB, jobRunner);
     const outboxId = `0191e8f2-7c3a-7b21-9f01-${suffix.slice(-12).padStart(12, '0')}`;
     const job = { data: makeJobData(outboxId, 2) };
 
@@ -332,7 +344,7 @@ describe('Worker: mail auth qua hàng đợi (issue #517)', () => {
   it('lease đang bị một lượt khác giữ trên Redis thật thì processor ném tín hiệu hẹn thử lại và không gửi mail', async () => {
     const mailer = new FakeMailer();
     const marker = makeMarker();
-    const processor = new AuthMailProcessor(mailer as never, marker);
+    const processor = new AuthMailProcessor(mailer as never, marker, jobRunner);
     const outboxId = `0191e8f2-7c3a-7b21-9f02-${suffix.slice(-12).padStart(12, '0')}`;
     const job = { data: makeJobData(outboxId, 3) };
 
@@ -354,7 +366,7 @@ describe('Worker: mail auth qua hàng đợi (issue #517)', () => {
   it('lượt giữ lease chết trước khi gửi thì sau khi lease hết hạn, lượt xử lý lại trên Redis thật vẫn gửi được mail đúng một lần', async () => {
     const mailer = new FakeMailer();
     const marker = makeMarker();
-    const processor = new AuthMailProcessor(mailer as never, marker);
+    const processor = new AuthMailProcessor(mailer as never, marker, jobRunner);
     const outboxId = `0191e8f2-7c3a-7b21-9f03-${suffix.slice(-12).padStart(12, '0')}`;
     const job = { data: makeJobData(outboxId, 4) };
     const raw = new Redis({
@@ -400,8 +412,8 @@ describe('Worker: mail auth qua hàng đợi (issue #517)', () => {
     const mailer = new FakeMailer();
     const gatedMarker = new FirstClaimGatedRedisMarker(makeMarker());
     const markerB = makeMarker();
-    const processorA = new AuthMailProcessor(mailer as never, gatedMarker);
-    const processorB = new AuthMailProcessor(mailer as never, markerB);
+    const processorA = new AuthMailProcessor(mailer as never, gatedMarker, jobRunner);
+    const processorB = new AuthMailProcessor(mailer as never, markerB, jobRunner);
     const outboxId = `0191e8f2-7c3a-7b21-9f05-${suffix.slice(-12).padStart(12, '0')}`;
     const job = { data: makeJobData(outboxId, 5) };
 

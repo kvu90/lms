@@ -48,6 +48,16 @@ x-api-env: &api-env
   # và database được cấp phát idempotent bởi bước migrate (script
   # control-plane-setup), không khai ở service postgres.
   CONTROL_PLANE_DATABASE_URL: postgres://lms_control_plane:${CONTROL_PLANE_POSTGRES_PASSWORD:?Can dat CONTROL_PLANE_POSTGRES_PASSWORD trong file .env}@postgres:5432/lms_control_plane
+  # Database kho ngân hàng hệ thống (issue #585): database riêng trên
+  # cùng cụm, role kết nối riêng — database và role được cấp phát
+  # idempotent bởi bước migrate (script system-bank-setup). Khai báo
+  # TRƠ như các biến tuỳ chọn phía dưới: Compose chỉ truyền vào
+  # api/worker khi biến thật sự được đặt ở môi trường triển khai;
+  # chưa đặt thì các route kho ngân hàng báo chưa cấu hình (503)
+  # thay vì làm ứng dụng gãy kiểm tra biến môi trường (schema yêu
+  # cầu độ dài tối thiểu khi biến CÓ MẶT). Service migrate khai
+  # riêng biến này trong khối environment của nó.
+  SYSTEM_BANK_DATABASE_URL:
   REDIS_URL: redis://redis:6379
   JWT_SECRET: ${JWT_SECRET:?Can dat JWT_SECRET trong file .env}
   # Các biến tuỳ chọn có kiểm tra độ dài tối thiểu phía ứng dụng
@@ -147,6 +157,7 @@ services:
       # nó thì mọi đường mở phiên theo trung tâm của worker ném lỗi
       # chưa cấu hình trong triển khai mặc định.
       CONTROL_PLANE_DATABASE_URL: postgres://lms_control_plane:${CONTROL_PLANE_POSTGRES_PASSWORD:?Can dat CONTROL_PLANE_POSTGRES_PASSWORD trong file .env}@postgres:5432/lms_control_plane
+      SYSTEM_BANK_DATABASE_URL:
       DATABASE_POOL_MAX: ${WORKER_DATABASE_POOL_MAX:-10}
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:?Can dat JWT_SECRET trong file .env}
@@ -222,12 +233,18 @@ services:
       MIGRATION_DATABASE_URL: postgres://lms_migrator:${MIGRATOR_POSTGRES_PASSWORD:?Can dat MIGRATOR_POSTGRES_PASSWORD trong file .env}@postgres:5432/${POSTGRES_DB:-lms}
       RUNTIME_DATABASE_URL: postgres://lms_runtime:${RUNTIME_POSTGRES_PASSWORD:?Can dat RUNTIME_POSTGRES_PASSWORD trong file .env}@postgres:5432/${POSTGRES_DB:-lms}
       CONTROL_PLANE_DATABASE_URL: postgres://lms_control_plane:${CONTROL_PLANE_POSTGRES_PASSWORD:?Can dat CONTROL_PLANE_POSTGRES_PASSWORD trong file .env}@postgres:5432/lms_control_plane
+      # URL kho ngân hàng hệ thống (issue #585) — TUỲ CHỌN, truyền xuyên
+      # từ file .env; chưa đặt thì chuỗi migrate bỏ qua bước (4) cấp phát +
+      # migration kho ngân hàng (xem command ở cuối service này). Khi kích
+      # hoạt kho ngân hàng, đặt biến này ở cả service api/worker trên
+      # Dokploy (môi trường chạy) lẫn ở đây (bước migrate).
+      SYSTEM_BANK_DATABASE_URL: ${SYSTEM_BANK_DATABASE_URL:-}
       # Công cụ vận hành đội kho (issue #586): các lệnh fleet:*
       # chạy MỘT LẦN qua chính service này (cùng image api, đủ cả
       # URL quản trị, URL migration và URL control plane ở trên):
-      #   docker compose run --rm migrate node dist/fleet-migration-runner.js
-      #   docker compose run --rm migrate node dist/fleet-backup.js
-      #   docker compose run --rm migrate node dist/fleet-restore-test.js
+      #   docker compose run --rm migrate node dist/modules/fleet/fleet-migration-runner.js
+      #   docker compose run --rm migrate node dist/modules/fleet/fleet-backup.js
+      #   docker compose run --rm migrate node dist/modules/fleet/fleet-restore-test.js
       # Thư mục sao lưu đặt cố định vào volume riêng fleet-backups
       # gắn ở dưới (vận hành thật thay bằng bind mount ra vùng lưu
       # trữ ngoài máy cụm). Khoá mã hoá khai báo TRƠ như các bí mật
@@ -250,13 +267,29 @@ services:
     # thuộc role quản trị được chuyển chủ tại bước này), (1) cấp
     # phát database + role của control plane (script
     # control-plane-setup), (2) migration của kho nghiệp vụ bằng
-    # role migration, (3) migration của control plane bằng cấu hình
-    # Drizzle riêng. Một bước hỏng thì cả service migrate hỏng và
-    # api/worker không khởi động.
+    # role migration, (2b) ensure idempotent cho 3 bảng vệ tinh
+    # của Ngân hàng hệ thống trong kho nghiệp vụ (script
+    # system-bank-centre-tables-setup, issue #585 — database đã áp
+    # baseline trước khi 3 bảng được nối vào file baseline thì
+    # migration bỏ qua thư mục baseline, bước ensure bù đúng phần
+    # đó; database mới đã có đủ qua baseline nên là no-op),
+    # (3) migration của control plane bằng cấu hình
+    # Drizzle riêng, (4) ensure phần delta schema của issue #583
+    # (script centre-schema-delta-ensure — lấp 3 bảng trung tâm +
+    # policy RLS và chỉ mục control plane mà bộ migration bỏ qua
+    # vì delta gộp thêm vào migration đã phát hành; database mới
+    # thì bước này là no-op), (5) CÓ ĐIỀU KIỆN — chỉ khi
+    # SYSTEM_BANK_DATABASE_URL đã đặt: <redacted>
+    # kho ngân hàng hệ thống (script system-bank-setup, issue #585)
+    # rồi migration của kho ngân hàng bằng cấu hình Drizzle riêng.
+    # Bước (5) bỏ qua lặng lẽ khi biến chưa đặt để các môi trường
+    # chưa kích hoạt kho ngân hàng không gãy (bài học PR #589: biến
+    # bắt buộc mới làm gãy deploy). Một bước hỏng thì cả service
+    # migrate hỏng và api/worker không khởi động.
     command:
       - sh
       - -c
-      - "node dist/runtime-roles-setup.js && node dist/control-plane-setup.js && ./node_modules/.bin/drizzle-kit migrate && ./node_modules/.bin/drizzle-kit migrate --config drizzle-control-plane.config.ts"
+      - "node dist/modules/fleet/runtime-roles-setup.js && node dist/modules/control-plane/control-plane-setup.js && ./node_modules/.bin/drizzle-kit migrate && node dist/modules/system-bank/system-bank-centre-tables-setup.js && ./node_modules/.bin/drizzle-kit migrate --config drizzle-control-plane.config.ts && node dist/modules/tenants/centre-schema-delta-ensure.js && if [ -n \"$SYSTEM_BANK_DATABASE_URL\" ]; then node dist/modules/system-bank/system-bank-setup.js && ./node_modules/.bin/drizzle-kit migrate --config drizzle-system-bank.config.ts; fi"
 
   # Chạy một lần để seed dữ liệu mẫu (tài khoản demo + khoá học mẫu).
   # CHỈ dùng cho môi trường thử nghiệm tự host lần đầu; TUYỆT ĐỐI không
@@ -274,7 +307,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: ["node", "dist/review-seed.js"]
+    command: ["node", "dist/modules/seed/review-seed.js"]
 
 volumes:
   pgdata:

@@ -15,6 +15,12 @@ import { MessagingGateway } from './messaging.gateway';
  *
  * Trả danh sách chặn về tải lại theo từng hội thoại thì ca này đỏ
  * ở khẳng định số lượt gọi repository.
+ *
+ * Cùng file: ảnh chụp presence lúc nối — sau khi ghi presence của
+ * người nối, gateway xin tầng realtime danh sách người đang trực
+ * tuyến trong quan hệ hội thoại chung và phát `presence.snapshot`
+ * cho CHÍNH socket vừa nối, để người đã trực tuyến từ trước (không
+ * phát sinh sự kiện thay đổi nào) vẫn được người nối học được.
  */
 describe('MessagingGateway.handleConnection — danh sách chặn tải một lần cho cả lần nối', () => {
   const USER_ID = 'user-1';
@@ -50,7 +56,7 @@ describe('MessagingGateway.handleConnection — danh sách chặn tải một l�
     const realtime = {
       markConnected: vi.fn(async () => {}),
       markDisconnected: vi.fn(async () => {}),
-      listOnlineConversationCounterparts: vi.fn(async () => [] as string[]),
+      listOnlineCoMemberIds: vi.fn(async () => ['user-a']),
     };
     const gateway = new MessagingGateway(auth as never, repo as never, realtime as never);
     const joinedRooms: string[] = [];
@@ -64,7 +70,7 @@ describe('MessagingGateway.handleConnection — danh sách chặn tải một l�
       emit: vi.fn(),
       disconnect: vi.fn(),
     };
-    return { gateway, repo, client, joinedRooms, realtime };
+    return { gateway, repo, client, realtime, joinedRooms };
   }
 
   it('nhiều hội thoại 1–1 trong một lần nối: danh sách chặn chỉ tải đúng một lần, room bị chặn không được vào', async () => {
@@ -84,66 +90,20 @@ describe('MessagingGateway.handleConnection — danh sách chặn tải một l�
     expect(joinedRooms.some((room) => room.includes('conv-group'))).toBe(true);
     expect(joinedRooms.some((room) => room.includes(`user:${USER_ID}`))).toBe(true);
   });
-});
 
-/**
- * Ảnh chụp hiện diện ban đầu (issue #592): ngay sau khi ghi
- * presence, gateway gửi cho CHÍNH socket vừa nối các sự kiện
- * `presence.changed` của từng đối tác đang trực tuyến mà tầng
- * realtime trả về — dùng lại đúng sự kiện và định dạng của luồng
- * thay đổi presence nên client không cần sửa. Gateway không tự
- * tính tập đối tác (tầng realtime giữ luật phạm vi/chặn) mà chỉ
- * phát đúng tập nhận được, về đúng socket vừa nối.
- */
-describe('MessagingGateway.handleConnection — ảnh chụp hiện diện ban đầu cho socket vừa nối', () => {
-  const USER_ID = 'user-1';
-  const TENANT_ID = 'tenant-1';
-
-  function build(online: string[]) {
-    const repo = {
-      listConversationsForUser: vi.fn(async () => [{ id: 'conv-1', tenantId: TENANT_ID }]),
-      getConversation: vi.fn(async (id: string) => ({ id, type: 2, tenantId: TENANT_ID })),
-      listMembers: vi.fn(async () => [USER_ID, 'user-a']),
-      listBlockedCounterpartIds: vi.fn(async () => [] as string[]),
-    };
-    const auth = {
-      authenticateHandshake: vi.fn(async () => ({ userId: USER_ID, username: 'user1', tenantId: TENANT_ID })),
-    };
-    const realtime = {
-      markConnected: vi.fn(async () => {}),
-      markDisconnected: vi.fn(async () => {}),
-      listOnlineConversationCounterparts: vi.fn(async () => online),
-    };
-    const gateway = new MessagingGateway(auth as never, repo as never, realtime as never);
-    const client = {
-      id: 'socket-1',
-      data: {} as Record<string, unknown>,
-      handshake: {},
-      join: vi.fn(async () => {}),
-      emit: vi.fn(),
-      disconnect: vi.fn(),
-    };
-    return { gateway, client, realtime };
-  }
-
-  it('gửi đúng một sự kiện presence.changed online cho mỗi đối tác tầng realtime trả về, về chính socket vừa nối', async () => {
-    const { gateway, client, realtime } = build(['user-a', 'user-b']);
+  it('phát ảnh chụp presence cho chính socket vừa nối, sau khi đã ghi presence của người nối', async () => {
+    const { gateway, client, realtime } = build();
 
     await gateway.handleConnection(client as never);
 
-    expect(client.disconnect).not.toHaveBeenCalled();
-    expect(realtime.listOnlineConversationCounterparts).toHaveBeenCalledWith(TENANT_ID, USER_ID);
-    expect(client.emit).toHaveBeenCalledTimes(2);
-    expect(client.emit).toHaveBeenCalledWith('presence.changed', { userId: 'user-a', online: true });
-    expect(client.emit).toHaveBeenCalledWith('presence.changed', { userId: 'user-b', online: true });
-  });
-
-  it('không có đối tác trực tuyến thì không gửi sự kiện ảnh chụp nào', async () => {
-    const { gateway, client } = build([]);
-
-    await gateway.handleConnection(client as never);
-
-    expect(client.disconnect).not.toHaveBeenCalled();
-    expect(client.emit).not.toHaveBeenCalled();
+    // Ảnh chụp lấy từ tầng realtime theo đúng người vừa nối và phát
+    // đúng một lần, chỉ tới socket này (client.emit, không qua room).
+    expect(realtime.listOnlineCoMemberIds).toHaveBeenCalledTimes(1);
+    expect(realtime.listOnlineCoMemberIds).toHaveBeenCalledWith(USER_ID);
+    expect(client.emit).toHaveBeenCalledTimes(1);
+    expect(client.emit).toHaveBeenCalledWith('presence.snapshot', { onlineUserIds: ['user-a'] });
+    // Thứ tự: ghi presence của người nối TRƯỚC, đọc ảnh chụp SAU.
+    expect(realtime.markConnected.mock.invocationCallOrder[0]!)
+      .toBeLessThan(realtime.listOnlineCoMemberIds.mock.invocationCallOrder[0]!);
   });
 });

@@ -88,6 +88,38 @@ build + test của `@lms/web`, đối chiếu diff của `components.json` và
   mới khớp trình bày chuẩn của các app nhắn tin. Khi đồng bộ upstream:
   giữ nguyên thay đổi này (file không bị CLI ghi đè vì upstream không
   có component `message`).
+- `src/components/message.tsx` (issue #608 — sửa lại một nửa mục
+  ngay trên): `MessageAvatar` trả về `self-end` như bản gốc của
+  component. Lý do: yêu cầu trang chat giống hệt bản demo ở lớp trình
+  bày là yêu cầu bao trùm — phía demo avatar bám đáy hàng tin
+  (`items-end`), và cấu trúc dòng tin hiện hành đã đổi theo demo
+  (tên người gửi và avatar chỉ ở tin đầu cụm, xem issue #608) nên lý
+  do neo đầu dòng của lát dọn gọn không còn đứng. Phần bỏ hack
+  `group-has-data-[slot=message-footer]/message:-translate-y-8` của
+  mục trên GIỮ NGUYÊN hiệu lực. Khi đồng bộ upstream: giữ `self-end`
+  và giữ việc bỏ hack translate.
+- `src/styles/globals.css` (issue #608): sửa tay ba giá trị màu tại
+  gốc để khớp bảng màu của bản demo mà trang chat lấy làm chuẩn
+  trình bày: `--destructive` (khối `:root`) đổi
+  `oklch(0.577 0.245 27.325)` (#e7000b) thành
+  `oklch(0.578 0.236 27.621)` (#e40014), và thêm hai biến ghi đè
+  trong khối `@theme inline`: `--color-green-500: #00c758` và
+  `--color-yellow-500: #edb200` (mặc định Tailwind v4 là #00c950 và
+  #f0b100). Lý do sửa tay: đây là các token màu của preset mà hệ đã
+  chọn lệch khỏi bảng màu demo ở mức rất nhỏ; shadcn CLI không có
+  thao tác đổi từng giá trị token như vậy. Phạm vi ảnh hưởng là toàn
+  ứng dụng (mọi bề mặt dùng biến thể destructive và hai màu trạng
+  thái green/yellow-500), đã ghi rõ trong thân PR của issue #608.
+  Khi đồng bộ upstream lần tới: đối chiếu ba giá trị này để giữ
+  bảng màu demo thay vì quay về giá trị bản sinh ra mặc định mang
+  theo.
+- `src/components/avatar.tsx` (issue #608): sửa tay cỡ chữ nền của
+  `AvatarFallback` từ `text-sm` (14px) thành `text-xs` (12px). Lý
+  do: phía demo mọi avatar chữ viết tắt đều là 12px trong khi bản
+  CLI sinh ra mang 14px ở cỡ mặc định — đây là lệch hệ thống lặp
+  lại ở mọi avatar của sản phẩm, phải sửa tại đúng component gốc
+  thay vì ghi đè ở từng nơi dùng. Khi đồng bộ upstream lần tới:
+  đối chiếu dòng cỡ chữ này (bản sinh ra sẽ mang lại `text-sm`).
 - `src/components/breadcrumb.tsx` và `src/components/marker.tsx`
   (issue #394): đã XOÁ khỏi package. Lý do: tại thời điểm xoá, quét
   toàn repo theo tên file, tên export và đường import `@lms/ui/...`
@@ -160,4 +192,19 @@ build + test của `@lms/web`, đối chiếu diff của `components.json` và
   `components.json` + `src/styles/globals.css` cũng không đổi
   sau lần chạy CLI này. Khi đồng bộ upstream lần tới: chạy
   `shadcn add popover --overwrite` tại thư mục này và đối chiếu
+  diff của file, đặc biệt dòng import `cn`.
+- `src/components/input-group.tsx` (issue #597, vòng sửa 2 của PR #601):
+  THÊM MỚI bằng shadcn CLI (`shadcn add input-group --yes`, preset
+  base-vega) chạy tại thư mục package này — nội dung file là đúng
+  bản InputGroup của registry cho preset đang dùng, chỉ thích ứng một
+  điểm duy nhất như native-select và popover: dòng import `cn` đổi từ
+  package `cn` mà CLI hiện sinh sang `#lib/utils`. Bước cài phụ thuộc
+  của CLI tự thêm `cn` vào `package.json`/`pnpm-lock.yaml` nhưng đã
+  được gỡ ngay sau lần chạy (`cn` không phải dependency thật: `cn` là
+  module utils nội bộ của package, đã có sẵn trong `src/lib/utils.ts`);
+  ba file stock đã có trong package (`button.tsx`, `input.tsx`,
+  `textarea.tsx`) được giữ nguyên khi CLI hỏi ghi đè.
+  `components.json` + `src/styles/globals.css` không đổi sau lần chạy
+  CLI này. Khi đồng bộ upstream lần tới: chạy
+  `shadcn add input-group --overwrite` tại thư mục này và đối chiếu
   diff của file, đặc biệt dòng import `cn`.

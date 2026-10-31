@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import '#config/i18n';
 import { useAuth } from '#lib/auth';
@@ -6,6 +6,7 @@ import type { MessagingRealtimeHandle } from '../api/messaging-socket';
 import { PageShell } from '#components/page-shell';
 import { ChatPanel } from '../components/chat-panel';
 import { ConversationSidebar } from '../components/conversation-sidebar';
+import type { SelfPresenceChoice } from '../components/own-profile-sheet';
 import { useConversationList } from '../hooks/use-conversation-list';
 import { useConversationRestore } from '../hooks/use-conversation-restore';
 import { useActiveConversation } from '../hooks/use-active-conversation';
@@ -32,12 +33,16 @@ import type { ContactRelationship, ConversationView } from '../types/types';
  * ?conversation=<id> (contextUrl của thông báo message_new, #49) mở
  * đúng cuộc trò chuyện khi trang nạp — việc nối tiếp của #33.
  *
- * Cấu trúc khung trái theo MSG-T3: tab Trò chuyện chỉ 1–1, tab Nhóm
- * là cây Lớp → Khoá → Nhóm con dựng từ API cây của MSG-T1, Danh bạ
- * hạ thành sheet "Tin nhắn mới". Tab đang chọn + hội thoại đang mở
- * được LƯU BỀN ở localStorage (hai khoá trong `page-helpers.ts`)
- * để quay lại màn Tin nhắn là gặp đúng ngữ cảnh gần nhất; deep-link
- * có mặt thì thắng ngữ cảnh đã lưu.
+ * Cấu trúc khung trái: thanh tab bốn tab lọc ngang hàng như
+ * bản demo (Tất cả / Chưa đọc / Nhóm / Yêu thích, issue #606) —
+ * tab Tất cả gồm MỌI hội thoại chưa lưu trữ (1–1 lẫn nhóm) và
+ * tab Chưa đọc gồm mọi hội thoại còn tin chưa đọc ở cả hai
+ * loại; tab Nhóm là danh sách phẳng các mục nhóm dựng từ API
+ * cây của MSG-T1, Danh bạ hạ thành sheet "Tin nhắn mới". Tab
+ * đang chọn + hội thoại đang mở được LƯU BỀN ở localStorage
+ * (hai khoá trong `page-helpers.ts`) để quay lại màn Tin nhắn
+ * là gặp đúng ngữ cảnh gần nhất; deep-link có mặt thì thắng
+ * ngữ cảnh đã lưu.
  *
  * Cấu trúc sau đợt C (issue #363): file này chỉ còn lắp ghép — mọi
  * trạng thái, hiệu ứng và handler điều phối nằm trong các hook ở
@@ -74,6 +79,16 @@ export function MessagesPage() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const myId = user?.id;
+  /**
+   * Mức hiện diện người xem tự chọn cho chính mình (giai đoạn 2
+   * của vòng sửa PR #610): mặc định online. Chọn offline thì
+   * trang KHÔNG nối socket realtime — server gỡ presence nên
+   * trạng thái ngoại tuyến là THẬT ở mọi bề mặt; chọn lại online
+   * thì nối lại và nạp lại danh sách để lấp phần đã lỡ trong lúc
+   * ngoại tuyến. Lựa chọn chỉ sống trong phiên trang (chưa có dữ
+   * kiện backend cho tuỳ chọn này).
+   */
+  const [selfPresence, setSelfPresence] = useState<SelfPresenceChoice>('online');
   /** Handle socket realtime — hook realtime gán vào, hook soạn tin đọc ra. */
   const realtimeRef = useRef<MessagingRealtimeHandle | null>(null);
   /** Seq cao nhất đã thấy của từng conversation — mốc xin đồng bộ khi nối lại, bốn hook cùng dùng. */
@@ -139,6 +154,7 @@ export function MessagesPage() {
     setTypingUsers: activeHook.setTypingUsers,
     setOnlineUsers: activeHook.setOnlineUsers,
     realtimeRef,
+    suspendRealtime: selfPresence === 'offline',
   });
 
   // Lát 3: danh bạ, panel thành viên, nhóm, kiểm duyệt.
@@ -207,10 +223,38 @@ export function MessagesPage() {
     conversations: list.conversations,
     setConversations: list.setConversations,
     open: openCall,
+    sidebarTab: list.sidebarTab,
   });
 
+  /**
+   * Đổi tab khung trái (issue #608, điểm A-BS5): vào tab Nhóm
+   * thì khung phải về trạng thái CHƯA CHỌN nếu hội thoại đang
+   * mở không phải hội thoại nhóm — đúng hành vi của bản demo
+   * (mở tab Nhóm lần đầu là thấy trạng thái rỗng, hội thoại chỉ
+   * mở khi người dùng chọn trong cây). Đóng hội thoại ở đây
+   * cũng xoá ngữ cảnh đã lưu bền như nút quay lại, nên quay lại
+   * tab Trò chuyện không tự mở lại hội thoại cũ.
+   */
+  const handleSidebarTabChange = (tab: string) => {
+    list.setSidebarTab(tab);
+    if (tab === 'groups' && activeHook.active && activeHook.active.type !== 2) {
+      activeHook.closeConversation();
+    }
+  };
+
+  /**
+   * Đổi mức hiện diện của chính người xem: về online thì nạp lại
+   * danh sách hội thoại ngay (phần thay đổi trong lúc ngoại tuyến
+   * không có kênh realtime nào mang tới); về offline chỉ cần đổi
+   * trạng thái — hook realtime tự ngắt socket ở lượt hiệu ứng kế.
+   */
+  const handleSelfPresenceChange = (presence: SelfPresenceChoice) => {
+    setSelfPresence(presence);
+    if (presence === 'online') void list.reload().catch(() => undefined);
+  };
+
   return (
-    <PageShell fillHeight width="full">
+    <PageShell fillHeight width="full" className="py-6 sm:px-6" contentClassName="mx-auto max-w-[1440px]">
       {/*
         Master–detail nhắn tin (issue #256) nằm TRONG vùng nội dung
         của khung app chung — sidebar + header của app giữ nguyên
@@ -219,12 +263,22 @@ export function MessagesPage() {
         thời điểm, khung chat có nút quay lại (CSS thuần, cả hai
         khung luôn mounted).
       */}
-      <div className="flex h-[calc(100dvh-5.5rem)] min-h-0 overflow-hidden rounded-xl border bg-background md:h-[calc(100dvh-7rem)]">
+      {/*
+        Vùng chứa trang (issue #608): trần bề ngang 1440px và
+        đệm của bản demo đạt ở chính tầng route này qua props
+        của PageShell (đệm dọc 24px, đệm ngang 16px → 24px từ
+        màn sm) và trần bề ngang của khối nội dung — PageShell
+        dùng chung cho các trang khác không đổi. Thẻ khung chat
+        bo góc 10px và có chiều cao tối thiểu 520px ở màn lg
+        như demo; công thức chiều cao giữ theo vỏ app của hệ
+        (đầu trang của vỏ khác demo nên số trừ khác).
+      */}
+      <div className="flex h-[calc(100dvh-5.5rem)] min-h-0 overflow-hidden rounded-lg border bg-background md:h-[calc(100dvh-7rem)] lg:min-h-[520px]">
         <div
           className={
             activeHook.active
-              ? 'hidden min-h-0 w-full min-w-0 flex-col md:flex md:w-[340px] md:shrink-0 md:border-r lg:w-[360px]'
-              : 'flex min-h-0 w-full min-w-0 flex-col md:w-[340px] md:shrink-0 md:border-r lg:w-[360px]'
+              ? 'hidden min-h-0 w-full min-w-0 flex-col md:flex md:w-[304px] md:shrink-0 md:border-r lg:w-[360px]'
+              : 'flex min-h-0 w-full min-w-0 flex-col md:w-[304px] md:shrink-0 md:border-r lg:w-[360px]'
           }
         >
           <ConversationSidebar
@@ -233,9 +287,12 @@ export function MessagesPage() {
             onRequestArchived={() => void list.loadArchived()}
             groupTree={list.groupTree}
             active={activeHook.active}
-            unread={list.unread}
             error={list.error}
             myId={myId}
+            myEmail={user?.email ?? null}
+            myUsername={user?.username ?? null}
+            selfPresence={selfPresence}
+            onSelfPresenceChange={handleSelfPresenceChange}
             onlineUsers={activeHook.onlineUsers}
             onOpenConversation={openCall}
             onOpenConversationById={(conversationId) => void groupActions.openConversationById(conversationId)}
@@ -249,7 +306,7 @@ export function MessagesPage() {
             stateError={list.stateError}
             nameOf={list.nameOf}
             tab={list.sidebarTab}
-            onTabChange={list.setSidebarTab}
+            onTabChange={handleSidebarTabChange}
             contacts={contacts.contacts}
             contactMessage={contacts.contactMessage}
             incomingRequests={contacts.incomingRequests}

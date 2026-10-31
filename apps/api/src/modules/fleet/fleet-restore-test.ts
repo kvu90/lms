@@ -46,7 +46,7 @@
 import { existsSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { Client } from 'pg';
-import { quoteIdentifier } from './control-plane-provision';
+import { quoteIdentifier } from '../control-plane/control-plane-provision';
 import {
   newFleetRunId,
   parseBackupFileName,

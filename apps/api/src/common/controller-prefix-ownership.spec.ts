@@ -37,7 +37,7 @@ function collectControllerFiles(dir: string, out: string[] = []): string[] {
 }
 
 function collectDeclarations(): Declaration[] {
-  const modulesDir = join(__dirname, 'modules');
+  const modulesDir = join(__dirname, '..', 'modules');
   const declarations: Declaration[] = [];
   const controllerPattern =
     /@Controller\(\s*\{[^}]*?path:\s*['"`]([^'"`]+)['"`][^}]*\}\)[\s\S]*?export\s+class\s+(\w+)/g;

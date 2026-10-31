@@ -19127,6 +19127,198 @@
         "n|col|public.users.id",
         "e|uniqueness|public.users.id"
       ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "centre_identity"
+      ],
+      "writes": [
+        "s|tbl|public.centre_identity",
+        "n|tbl|public.centre_identity",
+        "e|tbl|public.centre_identity",
+        "n|rel|public.centre_identity",
+        "n|type|public.centre_identity",
+        "n|rel|public.centre_identity_pkey",
+        "n|rel|public.centre_identity_tenant_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "centre_invites"
+      ],
+      "writes": [
+        "s|tbl|public.centre_invites",
+        "n|tbl|public.centre_invites",
+        "e|tbl|public.centre_invites",
+        "n|rel|public.centre_invites",
+        "n|type|public.centre_invites",
+        "n|rel|public.centre_invites_pkey",
+        "n|rel|public.centre_invites_token_hash_key"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "program_package_installs"
+      ],
+      "writes": [
+        "s|tbl|public.program_package_installs",
+        "n|tbl|public.program_package_installs",
+        "e|tbl|public.program_package_installs",
+        "n|rel|public.program_package_installs",
+        "n|type|public.program_package_installs",
+        "n|rel|public.program_package_installs_pkey",
+        "n|rel|public.program_package_installs_tenant_key_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "centre_invites",
+        "centre_invites_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.centre_invites_tenant_id_idx",
+        "n|idx|public.centre_invites_tenant_id_idx",
+        "e|idx|public.centre_invites_tenant_id_idx",
+        "n|rel|public.centre_invites_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.centre_invites",
+        "n|sch|public",
+        "n|col|public.centre_invites.tenant_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "centre_invites",
+        "centre_invites_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.centre_invites_user_id_idx",
+        "n|idx|public.centre_invites_user_id_idx",
+        "e|idx|public.centre_invites_user_id_idx",
+        "n|rel|public.centre_invites_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.centre_invites",
+        "n|sch|public",
+        "n|col|public.centre_invites.user_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "centre_identity"
+      ],
+      "writes": [
+        "s|fk|public.centre_identity.centre_identity_tenant_id_tenants_id_fkey",
+        "n|fk|public.centre_identity.centre_identity_tenant_id_tenants_id_fkey",
+        "e|fk|public.centre_identity.centre_identity_tenant_id_tenants_id_fkey",
+        "n|con|public.centre_identity.centre_identity_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.centre_identity",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.centre_identity.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "centre_invites"
+      ],
+      "writes": [
+        "s|fk|public.centre_invites.centre_invites_tenant_id_tenants_id_fkey",
+        "n|fk|public.centre_invites.centre_invites_tenant_id_tenants_id_fkey",
+        "e|fk|public.centre_invites.centre_invites_tenant_id_tenants_id_fkey",
+        "n|con|public.centre_invites.centre_invites_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.centre_invites",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.centre_invites.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "centre_invites"
+      ],
+      "writes": [
+        "s|fk|public.centre_invites.centre_invites_user_id_users_id_fkey",
+        "n|fk|public.centre_invites.centre_invites_user_id_users_id_fkey",
+        "e|fk|public.centre_invites.centre_invites_user_id_users_id_fkey",
+        "n|con|public.centre_invites.centre_invites_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.centre_invites",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.centre_invites.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "program_package_installs"
+      ],
+      "writes": [
+        "s|fk|public.program_package_installs.program_package_installs_tenant_id_tenants_id_fkey",
+        "n|fk|public.program_package_installs.program_package_installs_tenant_id_tenants_id_fkey",
+        "e|fk|public.program_package_installs.program_package_installs_tenant_id_tenants_id_fkey",
+        "n|con|public.program_package_installs.program_package_installs_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.program_package_installs",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.program_package_installs.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
+      ]
     }
   ],
   "ddl": [
@@ -60560,6 +60752,24 @@
     },
     {
       "schema": "public",
+      "name": "centre_identity",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "centre_invites",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "program_package_installs",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
       "table": "exam_contribution_reviews",
       "name": "id",
       "type": "uuid",
@@ -61030,6 +61240,36 @@
     },
     {
       "schema": "public",
+      "table": "centre_identity",
+      "name": "centre_identity_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "centre_invites",
+      "name": "centre_invites_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "program_package_installs",
+      "name": "program_package_installs_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "exam_contribution_reviews",
       "name": "exam_contribution_reviews_level_check",
       "value": "\"level\" in (1, 2)",
@@ -61119,6 +61359,40 @@
       "columns": [
         "bank_id",
         "content_signature"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "centre_identity",
+      "name": "centre_identity_tenant_unique",
+      "nameExplicit": true,
+      "columns": [
+        "tenant_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "program_package_installs",
+      "name": "program_package_installs_tenant_key_unique",
+      "nameExplicit": true,
+      "columns": [
+        "tenant_id",
+        "package_key"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "centre_invites",
+      "name": "centre_invites_token_hash_key",
+      "nameExplicit": false,
+      "columns": [
+        "token_hash"
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"
@@ -61346,6 +61620,279 @@
     },
     {
       "schema": "public",
+      "table": "centre_identity",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "centre_identity",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "centre_identity",
+      "name": "display_name",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "centre_identity",
+      "name": "logo_path",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "centre_identity",
+      "name": "brand_color",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "centre_identity",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "centre_invites",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "centre_invites",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "centre_invites",
+      "name": "user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "centre_invites",
+      "name": "email",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "centre_invites",
+      "name": "token_hash",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "centre_invites",
+      "name": "expires_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "centre_invites",
+      "name": "used_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "centre_invites",
+      "name": "revoked_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "centre_invites",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "program_package_installs",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "program_package_installs",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "program_package_installs",
+      "name": "package_key",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "program_package_installs",
+      "name": "version",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "program_package_installs",
+      "name": "checksum",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "program_package_installs",
+      "name": "installed_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
       "table": "payment_refunds",
       "name": "payment_refunds_status_idx",
       "nameExplicit": true,
@@ -61514,6 +62061,48 @@
     },
     {
       "schema": "public",
+      "table": "centre_invites",
+      "name": "centre_invites_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "centre_invites",
+      "name": "centre_invites_user_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "payment_refunds",
       "name": "payment_refunds_created_by_users_id_fkey",
       "nameExplicit": false,
@@ -61607,6 +62196,74 @@
       ],
       "schemaTo": "public",
       "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "centre_identity",
+      "name": "centre_identity_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "centre_invites",
+      "name": "centre_invites_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "centre_invites",
+      "name": "centre_invites_user_id_users_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "program_package_installs",
+      "name": "program_package_installs_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
       "columnsTo": [
         "id"
       ],

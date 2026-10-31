@@ -4,11 +4,11 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Client, Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { checkFleetBackups, runFleetBackup } from '../../../src/fleet-backup';
-import { backupFileName, dumpDatabaseToFile, readDatabaseSchemaVersion } from '../../../src/fleet-common';
-import { runFleetMigration } from '../../../src/fleet-migration-runner';
-import { runFleetRestoreTest } from '../../../src/fleet-restore-test';
-import { runRuntimeRolesSetup } from '../../../src/runtime-roles-setup';
+import { checkFleetBackups, runFleetBackup } from '../../../src/modules/fleet/fleet-backup';
+import { backupFileName, dumpDatabaseToFile, readDatabaseSchemaVersion } from '../../../src/modules/fleet/fleet-common';
+import { runFleetMigration } from '../../../src/modules/fleet/fleet-migration-runner';
+import { runFleetRestoreTest } from '../../../src/modules/fleet/fleet-restore-test';
+import { runRuntimeRolesSetup } from '../../../src/modules/fleet/runtime-roles-setup';
 
 /**
  * Ca tích hợp của CÔNG CỤ VẬN HÀNH ĐỘI KHO (issue #586): tách role

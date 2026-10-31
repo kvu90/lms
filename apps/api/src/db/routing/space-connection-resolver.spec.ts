@@ -15,6 +15,7 @@ import {
  */
 
 const DEDICATED_ENTRY: SpaceRegistryEntry = {
+  id: 'id-dang-ky-a',
   slug: 'trung-tam-a',
   status: 'active',
   databaseName: 'lms_centre_a',
@@ -25,6 +26,7 @@ const DEDICATED_ENTRY: SpaceRegistryEntry = {
 };
 
 const SHARED_ENTRY: SpaceRegistryEntry = {
+  id: 'id-dang-ky-trang-chinh',
   slug: 'trang-chinh',
   status: 'active',
   databaseName: 'lms_shared',
@@ -75,6 +77,7 @@ describe('Bộ phân giải đích kết nối theo trung tâm', () => {
     const { resolver } = makeResolver({ 'trang-chinh': SHARED_ENTRY });
     const target = await resolver.resolve('trang-chinh');
     expect(target.mode).toBe('shared');
+    expect(target.spaceId).toBe('id-dang-ky-trang-chinh');
     expect(target.databaseName).toBe('lms_shared');
     expect(target.connectionRole).toBe('lms_app');
     expect(target.connectionString).toBeUndefined();

@@ -9,6 +9,7 @@ import {
   type RealtimeMessageReadPayload,
   type RealtimeNewMessagePayload,
   type RealtimePresencePayload,
+  type RealtimePresenceSnapshotPayload,
   type RealtimeTypingPayload,
 } from '@lms/contracts';
 
@@ -46,6 +47,13 @@ export interface MessagingRealtimeHandlers {
   onConversationInvalidate(payload: RealtimeConversationInvalidatePayload): void;
   onTyping(payload: RealtimeTypingPayload): void;
   onPresence(payload: RealtimePresencePayload): void;
+  /**
+   * Ảnh chụp presence lúc nối: server phát cho chính socket vừa nối
+   * danh sách người đang trực tuyến trong quan hệ hội thoại chung —
+   * lấp khoảng trống của onPresence (chỉ phát khi trạng thái thay
+   * đổi, nên người trực tuyến từ trước lúc mở trang không có sự kiện).
+   */
+  onPresenceSnapshot(payload: RealtimePresenceSnapshotPayload): void;
   /** Gọi mỗi lần nối lại thành công sau rớt mạng (không gọi ở lần nối đầu tiên). */
   onReconnect(): void;
 }
@@ -78,6 +86,7 @@ export function connectMessagingRealtime(handlers: MessagingRealtimeHandlers): M
   socket.on(MESSAGING_SOCKET_EVENTS.conversationInvalidate, (payload: RealtimeConversationInvalidatePayload) => handlers.onConversationInvalidate(payload));
   socket.on(MESSAGING_SOCKET_EVENTS.typing, (payload: RealtimeTypingPayload) => handlers.onTyping(payload));
   socket.on(MESSAGING_SOCKET_EVENTS.presenceChanged, (payload: RealtimePresencePayload) => handlers.onPresence(payload));
+  socket.on(MESSAGING_SOCKET_EVENTS.presenceSnapshot, (payload: RealtimePresenceSnapshotPayload) => handlers.onPresenceSnapshot(payload));
 
   return {
     async sync(lastSeqByConversation: MessagingSyncRequest): Promise<MessagingSyncResult> {

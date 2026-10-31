@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MESSAGING_DISTRIBUTED_EVENT_TYPES } from '@lms/messaging';
+import { tenants } from '@lms/db';
+import type { SpaceRegistryEntry } from './db/routing/space-connection-resolver';
 import { OutboxRelayScheduler } from './outbox-relay.scheduler';
 import {
   OUTBOX_EVENT_QUEUE_ROUTES,
@@ -26,6 +28,11 @@ import {
  * (v) với sự kiện nhiều đích, dấu chỉ xuất hiện khi MỌI đích đã nhận
  *     job — lỗi ở một đích thì dòng chưa có dấu, và lượt phát lại
  *     không tạo job trùng ở các đích đã nhận (chống trùng `jobId`).
+ * (vi) định tuyến theo trung tâm (issue #582): job mang slug của
+ *     trung tâm mà tenant của dòng thuộc về, suy ra từ chính kho
+ *     chứa dòng; và mỗi nhịp relay còn quét outbox của từng trung
+ *     tâm ở kho riêng trong phiên theo trung tâm của khung — lỗi
+ *     của một trung tâm không chặn các trung tâm khác.
  *
  * Toàn bộ test chạy trên DB/hàng đợi giả lập trong bộ nhớ theo đúng
  * bề mặt relay dùng (chuỗi truy vấn Drizzle, `Queue.add` của BullMQ,
@@ -99,22 +106,32 @@ class FakeQueue {
  * nên bước ghi dấu của fake áp lên dòng đang chờ đóng dấu gần nhất
  * theo đúng thứ tự đó.
  */
-function makeFakeDb(rows: FakeRow[]) {
+function makeFakeDb(rows: FakeRow[], tenantSlugs: Record<string, string> = {}) {
   let awaitingStamp: FakeRow[] = [];
   const control = { failNextStamp: false };
   const db = {
     select: () => ({
-      from: () => ({
-        where: () => ({
-          orderBy: () => ({
-            limit: async (limit: number) => {
-              const pending = rows.filter((r) => r.publishedAt === null).slice(0, limit);
-              awaitingStamp = [...pending];
-              return pending;
-            },
+      from: (table: unknown) => {
+        // Bảng tenants: relay tra slug của tenant cho cả lô bằng
+        // một truy vấn kết thúc ngay ở `where` (không orderBy/limit).
+        if (table === tenants) {
+          return {
+            where: async () =>
+              Object.entries(tenantSlugs).map(([id, slug]) => ({ id, slug })),
+          };
+        }
+        return {
+          where: () => ({
+            orderBy: () => ({
+              limit: async (limit: number) => {
+                const pending = rows.filter((r) => r.publishedAt === null).slice(0, limit);
+                awaitingStamp = [...pending];
+                return pending;
+              },
+            }),
           }),
-        }),
-      }),
+        };
+      },
     }),
     update: () => ({
       set: (values: { publishedAt: Date }) => ({
@@ -139,12 +156,42 @@ interface Harness {
   taskRuns: Array<{ status: string }>;
 }
 
-function makeRelay(rows: FakeRow[], routes: OutboxEventQueueRoutes): Harness {
+/**
+ * Khung định tuyến giả cho relay: danh sách đăng ký cấu hình sẵn
+ * và một bản đồ slug → DB giả của kho trung tâm; `withSpaceDatabase`
+ * của giả chạy thân quét trên đúng DB giả của slug đó (mô phỏng
+ * phiên theo trung tâm của khung thật) và ném lỗi cho slug được
+ * đánh dấu lỗi — đủ để khoá hành vi quét theo trung tâm của relay
+ * mà không cần Postgres thật (đường DB thật có spec tích hợp).
+ */
+function makeFakeSpaceDb(
+  spaces: SpaceRegistryEntry[],
+  centreDbs: Map<string, unknown>,
+  failingSlugs: ReadonlySet<string> = new Set(),
+) {
+  return {
+    listRegisteredSpaces: async () => spaces,
+    withSpaceDatabase: async (slug: string, fn: (db: unknown) => Promise<unknown>) => {
+      if (failingSlugs.has(slug)) throw new Error(`kho của ${slug} không mở được`);
+      const db = centreDbs.get(slug);
+      if (!db) throw new Error(`không có DB giả cho ${slug}`);
+      return fn(db);
+    },
+  };
+}
+
+const NO_SPACES = makeFakeSpaceDb([], new Map());
+
+function makeRelay(
+  rows: FakeRow[],
+  routes: OutboxEventQueueRoutes,
+  options?: { tenantSlugs?: Record<string, string>; spaceDb?: unknown },
+): Harness {
   const queues = new Map<string, FakeQueue>();
   for (const queueName of allQueueNamesOfRoutes(routes)) {
     queues.set(queueName, new FakeQueue(rows));
   }
-  const { db } = makeFakeDb(rows);
+  const { db } = makeFakeDb(rows, options?.tenantSlugs ?? {});
   const mirrored: Array<Record<string, unknown>> = [];
   const eventLog = {
     record: async (row: Record<string, unknown>) => {
@@ -163,6 +210,8 @@ function makeRelay(rows: FakeRow[], routes: OutboxEventQueueRoutes): Harness {
     taskLog as never,
     routes,
     queues as never,
+    (options?.spaceDb ?? NO_SPACES) as never,
+    { get: () => undefined } as never,
   );
   return { relay, queues, mirrored, taskRuns };
 }
@@ -175,7 +224,7 @@ const ROUTES: OutboxEventQueueRoutes = {
 describe('Relay outbox duy nhất — ngữ nghĩa đóng dấu publishedAt', () => {
   it('chỉ đóng dấu publishedAt sau khi job đã được đẩy vào hàng đợi thành công', async () => {
     const row = makeRow({ aggregate: 'auth', type: 'auth_mail_requested', tenantId: 'tenant-1' });
-    const { relay, queues } = makeRelay([row], ROUTES);
+    const { relay, queues } = makeRelay([row], ROUTES, { tenantSlugs: { 'tenant-1': 'trung-tam-a' } });
     const queue = queues.get('outbox-auth-mail')!;
 
     const published = await relay.publishPending();
@@ -193,6 +242,7 @@ describe('Relay outbox duy nhất — ngữ nghĩa đóng dấu publishedAt', ()
       type: 'auth_mail_requested',
       payload: { n: row.seq },
       tenantId: 'tenant-1',
+      spaceSlug: 'trung-tam-a',
       occurredAt: '2026-10-29T00:00:00.000Z',
     });
   });
@@ -278,6 +328,8 @@ describe('Relay outbox duy nhất — ngữ nghĩa đóng dấu publishedAt', ()
       { recordRun: async () => undefined } as never,
       ROUTES,
       queues as never,
+      NO_SPACES as never,
+      { get: () => undefined } as never,
     );
     const queue = queues.get('outbox-auth-mail')!;
     control.failNextStamp = true;
@@ -345,6 +397,7 @@ describe('Relay outbox duy nhất — fan-out một sự kiện nhiều consumer
         type: 'message_sent',
         payload: { n: row.seq },
         tenantId: row.tenantId,
+        spaceSlug: null,
         occurredAt: '2026-10-29T00:00:00.000Z',
       });
     }
@@ -397,5 +450,107 @@ describe('Relay outbox duy nhất — fan-out một sự kiện nhiều consumer
     for (const type of MESSAGING_DISTRIBUTED_EVENT_TYPES) {
       expect(queueNamesOfRoute(OUTBOX_EVENT_QUEUE_ROUTES[type]!)).toContain('messaging-realtime');
     }
+  });
+});
+
+describe('Relay outbox — định tuyến theo trung tâm (issue #582)', () => {
+  const DEDICATED_SPACE: SpaceRegistryEntry = {
+    id: 'id-dang-ky-a',
+    slug: 'trung-tam-a',
+    status: 'active',
+    databaseName: 'lms_centre_a',
+    storageMode: 'dedicated',
+    connectionRoleRef: 'centre_a_app',
+    secretRef: 'env:CENTRE_A_URL',
+    schemaVersion: 'v3',
+  };
+
+  it('sự kiện không gắn tenant hoặc tenant không còn dòng tương ứng thì job mang spaceSlug null', async () => {
+    const anonymousRow = makeRow({ aggregate: 'auth', type: 'auth_mail_requested', tenantId: null });
+    const orphanRow = makeRow({ aggregate: 'auth', type: 'auth_mail_requested', tenantId: 'tenant-da-xoa' });
+    const { relay, queues } = makeRelay([anonymousRow, orphanRow], ROUTES, {
+      tenantSlugs: { 'tenant-khac': 'trung-tam-b' },
+    });
+    const queue = queues.get('outbox-auth-mail')!;
+
+    await relay.publishPending();
+
+    expect(queue.jobs.get(anonymousRow.id)?.data.spaceSlug).toBeNull();
+    expect(queue.jobs.get(orphanRow.id)?.data.spaceSlug).toBeNull();
+  });
+
+  it('nhịp relay quét outbox của trung tâm ở kho riêng trong phiên của trung tâm đó: dòng của trung tâm được phát với slug của nó và được đóng dấu ở kho của nó', async () => {
+    const centreRow = makeRow({ aggregate: 'auth', type: 'auth_mail_requested', tenantId: 'tenant-a' });
+    const centreFake = makeFakeDb([centreRow], { 'tenant-a': 'trung-tam-a' });
+    const spaceDb = makeFakeSpaceDb([DEDICATED_SPACE], new Map([['trung-tam-a', centreFake.db]]));
+    const { relay, queues } = makeRelay([], ROUTES, { spaceDb });
+    const queue = queues.get('outbox-auth-mail')!;
+
+    const result = await relay.publishPendingForCentres();
+
+    expect(result).toEqual({ published: 1, failedSlugs: [] });
+    expect(centreRow.publishedAt).not.toBeNull();
+    expect(queue.jobs.get(centreRow.id)?.data.spaceSlug).toBe('trung-tam-a');
+    expect(queue.jobs.get(centreRow.id)?.data.tenantId).toBe('tenant-a');
+  });
+
+  it('trung tâm đã đóng (closed) và trung tâm ở kho chung không thuộc lượt quét theo trung tâm', async () => {
+    const closedSpace: SpaceRegistryEntry = { ...DEDICATED_SPACE, slug: 'trung-tam-dong', status: 'closed' };
+    const sharedSpace: SpaceRegistryEntry = {
+      ...DEDICATED_SPACE,
+      slug: 'truong-mac-dinh',
+      storageMode: 'shared',
+      status: 'active',
+    };
+    // Không cấp DB giả cho hai slug này: nếu relay vẫn quét chúng,
+    // withSpaceDatabase giả sẽ ném lỗi và chúng lọt vào failedSlugs.
+    const spaceDb = makeFakeSpaceDb([closedSpace, sharedSpace], new Map());
+    const { relay } = makeRelay([], ROUTES, { spaceDb });
+
+    const result = await relay.publishPendingForCentres();
+
+    expect(result).toEqual({ published: 0, failedSlugs: [] });
+  });
+
+  it('lượt quét của một trung tâm lỗi thì trung tâm còn lại vẫn được quét xong, và nhịp relay ghi task_log failed mà không ném', async () => {
+    const okRow = makeRow({ aggregate: 'auth', type: 'auth_mail_requested', tenantId: 'tenant-a' });
+    const okFake = makeFakeDb([okRow], { 'tenant-a': 'trung-tam-a' });
+    const badSpace: SpaceRegistryEntry = { ...DEDICATED_SPACE, slug: 'trung-tam-hong' };
+    const spaceDb = makeFakeSpaceDb(
+      [badSpace, DEDICATED_SPACE],
+      new Map([['trung-tam-a', okFake.db]]),
+      new Set(['trung-tam-hong']),
+    );
+    const { relay, taskRuns } = makeRelay([], ROUTES, { spaceDb });
+
+    const result = await relay.publishPendingForCentres();
+    expect(result.published).toBe(1);
+    expect(result.failedSlugs).toEqual(['trung-tam-hong']);
+    expect(okRow.publishedAt).not.toBeNull();
+
+    await expect(relay.relayTick()).resolves.toBeUndefined();
+    expect(taskRuns).toEqual([{ status: 'failed' }]);
+  });
+
+  it('không đọc được sổ đăng ký thì lượt theo trung tâm trả tín hiệu lỗi riêng và nhịp relay ghi task_log failed phân biệt được', async () => {
+    const spaceDb = {
+      listRegisteredSpaces: async () => {
+        throw new Error('control plane unreachable');
+      },
+      withSpaceDatabase: async () => {
+        throw new Error('không được gọi khi đọc sổ lỗi');
+      },
+    };
+    const { relay, taskRuns } = makeRelay([], ROUTES, { spaceDb });
+
+    const result = await relay.publishPendingForCentres();
+    expect(result).toEqual({
+      published: 0,
+      failedSlugs: [],
+      registryError: 'control plane unreachable',
+    });
+
+    await expect(relay.relayTick()).resolves.toBeUndefined();
+    expect(taskRuns).toEqual([{ status: 'failed' }]);
   });
 });

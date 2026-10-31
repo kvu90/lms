@@ -1,16 +1,26 @@
-import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { AssignRole, CreateRole, ReplaceRoleCapabilities, UpdateRole } from '@lms/contracts';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type {
+  AssignRole,
+  CreateRole,
+  OverrideCapability,
+  ReplaceRoleCapabilities,
+  UpdateRole,
+} from '@lms/contracts';
 import { queryKeys as sharedQueryKeys } from '#lib/query-keys';
 import {
   createAssignment,
   createRole,
   deleteAssignment,
   deleteRole,
+  fetchCapabilityMatrix,
   fetchRoleHolderUserIds,
   listAssignments,
+  listUsersWithAssignments,
   replaceRoleCapabilities,
+  setCapabilityOverride,
   updateRole,
   type ListAssignmentsParams,
+  type ListUsersWithAssignmentsParams,
 } from '../api/admin-roles';
 import { queryKeys } from './keys';
 
@@ -22,7 +32,13 @@ import { queryKeys } from './keys';
  * /access/roles`) và ma trận đã lưu của vai (`GET
  * /access/roles/:id/capabilities`) đều nằm dưới tiền tố này nên cùng
  * về trạng thái mới; lưới thẻ vì thế cập nhật ngay mà không cần tải
- * lại trang. Lời gọi API thuần nằm ở tầng `api/` của feature.
+ * lại trang. Riêng ba đột biến vai trò (tạo/đổi tên/xoá) làm mới thêm
+ * gốc bảng người dùng kèm vai trò, vì bảng này bày tên vai ngay trên
+ * cùng trang vai trò — không làm mới thì bảng giữ tên cũ (đổi tên)
+ * hoặc dòng gán của vai đã xoá tới khi tải lại trang. Cả ba đột biến
+ * vai trò làm mới thêm gốc ma trận toàn trang, vì trang Quyền độc lập
+ * cũng bày danh sách vai — không làm mới thì trang Quyền giữ cột vai
+ * cũ (tạo/xoá) tới khi truy vấn ma trận hết tươi. Lời gọi API thuần nằm ở tầng `api/` của feature.
  */
 
 /** Đột biến tạo vai trò (POST /access/roles). */
@@ -30,7 +46,11 @@ export function useCreateRole() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (draft: CreateRole) => createRole(draft),
-    onSuccess: () => client.invalidateQueries({ queryKey: sharedQueryKeys.access }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: sharedQueryKeys.access });
+      void client.invalidateQueries({ queryKey: queryKeys.usersWithAssignmentsRoot });
+      void client.invalidateQueries({ queryKey: queryKeys.capabilityMatrixRoot });
+    },
   });
 }
 
@@ -39,7 +59,11 @@ export function useUpdateRole() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (input: { roleId: string; draft: UpdateRole }) => updateRole(input),
-    onSuccess: () => client.invalidateQueries({ queryKey: sharedQueryKeys.access }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: sharedQueryKeys.access });
+      void client.invalidateQueries({ queryKey: queryKeys.usersWithAssignmentsRoot });
+      void client.invalidateQueries({ queryKey: queryKeys.capabilityMatrixRoot });
+    },
   });
 }
 
@@ -57,7 +81,11 @@ export function useDeleteRole() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (roleId: string) => deleteRole(roleId),
-    onSuccess: () => client.invalidateQueries({ queryKey: sharedQueryKeys.access }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: sharedQueryKeys.access });
+      void client.invalidateQueries({ queryKey: queryKeys.usersWithAssignmentsRoot });
+      void client.invalidateQueries({ queryKey: queryKeys.capabilityMatrixRoot });
+    },
   });
 }
 
@@ -114,6 +142,7 @@ export function useCreateRoleAssignment() {
     mutationFn: (input: AssignRole) => createAssignment(input),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: queryKeys.roleAssignmentsRoot });
+      void client.invalidateQueries({ queryKey: queryKeys.usersWithAssignmentsRoot });
       void client.invalidateQueries({ queryKey: sharedQueryKeys.access });
     },
   });
@@ -130,7 +159,54 @@ export function useDeleteRoleAssignment() {
     mutationFn: (assignmentId: string) => deleteAssignment(assignmentId),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: queryKeys.roleAssignmentsRoot });
+      void client.invalidateQueries({ queryKey: queryKeys.usersWithAssignmentsRoot });
       void client.invalidateQueries({ queryKey: sharedQueryKeys.access });
     },
+  });
+}
+
+/**
+ * Tuỳ chọn truy vấn ma trận quyền toàn trang tại một ngữ cảnh cho
+ * trang Quyền độc lập — khoá mang định danh ngữ cảnh nên đổi ngữ cảnh
+ * là gọi lại đúng ma trận của ngữ cảnh mới.
+ */
+export function capabilityMatrixQueryOptions(contextId: string) {
+  return queryOptions({
+    queryKey: queryKeys.capabilityMatrix(contextId),
+    queryFn: () => fetchCapabilityMatrix(contextId),
+    enabled: contextId !== '',
+  });
+}
+
+/** Hook đọc ma trận quyền toàn trang tại một ngữ cảnh. */
+export function useCapabilityMatrix(contextId: string) {
+  return useQuery(capabilityMatrixQueryOptions(contextId));
+}
+
+/**
+ * Đột biến đặt một ô của ma trận toàn trang (POST /access/overrides)
+ * — thành công thì làm mới ma trận của ngữ cảnh đó và gốc khoá
+ * `access` (số ghi đè trên thẻ vai của trang vai trò đổi theo).
+ */
+export function useSetCapabilityOverride() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: OverrideCapability) => setCapabilityOverride(input),
+    onSuccess: (_data, input) => {
+      void client.invalidateQueries({ queryKey: queryKeys.capabilityMatrix(input.contextId) });
+      void client.invalidateQueries({ queryKey: sharedQueryKeys.access });
+    },
+  });
+}
+
+/**
+ * Tuỳ chọn truy vấn một trang người dùng kèm gán vai cho bảng người
+ * dùng kèm vai trò — khoá mang đủ bộ lọc/tìm/phân trang; trang gọi
+ * giữ keepPreviousData để đổi lọc/trang không nháy rỗng bảng.
+ */
+export function usersWithAssignmentsQueryOptions(params: ListUsersWithAssignmentsParams) {
+  return queryOptions({
+    queryKey: queryKeys.usersWithAssignments(params),
+    queryFn: () => listUsersWithAssignments(params),
   });
 }

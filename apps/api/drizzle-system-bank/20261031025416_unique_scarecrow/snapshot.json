@@ -1,0 +1,2159 @@
+{
+  "type": "base",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "e30613c8-3953-49da-ab52-34f890b1a9e2",
+  "prevIds": [
+    "00000000-0000-0000-0000-000000000000"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "system_bank_events"
+      ],
+      "writes": [
+        "s|tbl|public.system_bank_events",
+        "n|tbl|public.system_bank_events",
+        "e|tbl|public.system_bank_events",
+        "n|rel|public.system_bank_events",
+        "n|type|public.system_bank_events",
+        "n|rel|public.system_bank_events_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "system_outcome_package_curricula"
+      ],
+      "writes": [
+        "s|tbl|public.system_outcome_package_curricula",
+        "n|tbl|public.system_outcome_package_curricula",
+        "e|tbl|public.system_outcome_package_curricula",
+        "n|rel|public.system_outcome_package_curricula",
+        "n|type|public.system_outcome_package_curricula",
+        "n|rel|public.system_outcome_package_curricula_pkey",
+        "n|rel|public.system_outcome_package_curricula_package_curriculum_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "system_outcome_package_mappings"
+      ],
+      "writes": [
+        "s|tbl|public.system_outcome_package_mappings",
+        "n|tbl|public.system_outcome_package_mappings",
+        "e|tbl|public.system_outcome_package_mappings",
+        "n|rel|public.system_outcome_package_mappings",
+        "n|type|public.system_outcome_package_mappings",
+        "n|rel|public.system_outcome_package_mappings_pkey",
+        "n|rel|public.system_outcome_package_mappings_package_from_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "system_outcome_package_nodes"
+      ],
+      "writes": [
+        "s|tbl|public.system_outcome_package_nodes",
+        "n|tbl|public.system_outcome_package_nodes",
+        "e|tbl|public.system_outcome_package_nodes",
+        "n|rel|public.system_outcome_package_nodes",
+        "n|type|public.system_outcome_package_nodes",
+        "n|rel|public.system_outcome_package_nodes_pkey",
+        "n|rel|public.system_outcome_package_nodes_package_node_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "system_outcome_package_outcomes"
+      ],
+      "writes": [
+        "s|tbl|public.system_outcome_package_outcomes",
+        "n|tbl|public.system_outcome_package_outcomes",
+        "e|tbl|public.system_outcome_package_outcomes",
+        "n|rel|public.system_outcome_package_outcomes",
+        "n|type|public.system_outcome_package_outcomes",
+        "n|rel|public.system_outcome_package_outcomes_pkey",
+        "n|rel|public.system_outcome_package_outcomes_package_outcome_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "system_outcome_packages"
+      ],
+      "writes": [
+        "s|tbl|public.system_outcome_packages",
+        "n|tbl|public.system_outcome_packages",
+        "e|tbl|public.system_outcome_packages",
+        "n|rel|public.system_outcome_packages",
+        "n|type|public.system_outcome_packages",
+        "n|rel|public.system_outcome_packages_pkey",
+        "n|rel|public.system_outcome_packages_version_key"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "system_question_importers"
+      ],
+      "writes": [
+        "s|tbl|public.system_question_importers",
+        "n|tbl|public.system_question_importers",
+        "e|tbl|public.system_question_importers",
+        "n|rel|public.system_question_importers",
+        "n|type|public.system_question_importers",
+        "n|rel|public.system_question_importers_pkey",
+        "n|rel|public.system_question_importers_source_centre_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "system_question_version_outcomes"
+      ],
+      "writes": [
+        "s|tbl|public.system_question_version_outcomes",
+        "n|tbl|public.system_question_version_outcomes",
+        "e|tbl|public.system_question_version_outcomes",
+        "n|rel|public.system_question_version_outcomes",
+        "n|type|public.system_question_version_outcomes",
+        "n|rel|public.system_question_version_outcomes_pkey",
+        "n|rel|public.system_question_version_outcomes_version_outcome_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "system_question_versions"
+      ],
+      "writes": [
+        "s|tbl|public.system_question_versions",
+        "n|tbl|public.system_question_versions",
+        "e|tbl|public.system_question_versions",
+        "n|rel|public.system_question_versions",
+        "n|type|public.system_question_versions",
+        "n|rel|public.system_question_versions_pkey",
+        "n|rel|public.system_question_versions_question_version_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "system_questions"
+      ],
+      "writes": [
+        "s|tbl|public.system_questions",
+        "n|tbl|public.system_questions",
+        "e|tbl|public.system_questions",
+        "n|rel|public.system_questions",
+        "n|type|public.system_questions",
+        "n|rel|public.system_questions_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "system_bank_events",
+        "system_bank_events_source_question_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.system_bank_events_source_question_id_idx",
+        "n|idx|public.system_bank_events_source_question_id_idx",
+        "e|idx|public.system_bank_events_source_question_id_idx",
+        "n|rel|public.system_bank_events_source_question_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.system_bank_events",
+        "n|sch|public",
+        "n|col|public.system_bank_events.source_question_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "system_bank_events",
+        "system_bank_events_created_at_idx"
+      ],
+      "writes": [
+        "s|idx|public.system_bank_events_created_at_idx",
+        "n|idx|public.system_bank_events_created_at_idx",
+        "e|idx|public.system_bank_events_created_at_idx",
+        "n|rel|public.system_bank_events_created_at_idx"
+      ],
+      "reads": [
+        "n|tbl|public.system_bank_events",
+        "n|sch|public",
+        "n|col|public.system_bank_events.created_at"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "system_outcome_package_curricula",
+        "system_outcome_package_curricula_package_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.system_outcome_package_curricula_package_id_idx",
+        "n|idx|public.system_outcome_package_curricula_package_id_idx",
+        "e|idx|public.system_outcome_package_curricula_package_id_idx",
+        "n|rel|public.system_outcome_package_curricula_package_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.system_outcome_package_curricula",
+        "n|sch|public",
+        "n|col|public.system_outcome_package_curricula.package_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "system_outcome_package_mappings",
+        "system_outcome_package_mappings_package_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.system_outcome_package_mappings_package_id_idx",
+        "n|idx|public.system_outcome_package_mappings_package_id_idx",
+        "e|idx|public.system_outcome_package_mappings_package_id_idx",
+        "n|rel|public.system_outcome_package_mappings_package_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.system_outcome_package_mappings",
+        "n|sch|public",
+        "n|col|public.system_outcome_package_mappings.package_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "system_outcome_package_nodes",
+        "system_outcome_package_nodes_package_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.system_outcome_package_nodes_package_id_idx",
+        "n|idx|public.system_outcome_package_nodes_package_id_idx",
+        "e|idx|public.system_outcome_package_nodes_package_id_idx",
+        "n|rel|public.system_outcome_package_nodes_package_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.system_outcome_package_nodes",
+        "n|sch|public",
+        "n|col|public.system_outcome_package_nodes.package_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "system_outcome_package_outcomes",
+        "system_outcome_package_outcomes_package_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.system_outcome_package_outcomes_package_id_idx",
+        "n|idx|public.system_outcome_package_outcomes_package_id_idx",
+        "e|idx|public.system_outcome_package_outcomes_package_id_idx",
+        "n|rel|public.system_outcome_package_outcomes_package_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.system_outcome_package_outcomes",
+        "n|sch|public",
+        "n|col|public.system_outcome_package_outcomes.package_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "system_outcome_packages",
+        "system_outcome_packages_scope_idx"
+      ],
+      "writes": [
+        "s|idx|public.system_outcome_packages_scope_idx",
+        "n|idx|public.system_outcome_packages_scope_idx",
+        "e|idx|public.system_outcome_packages_scope_idx",
+        "n|rel|public.system_outcome_packages_scope_idx"
+      ],
+      "reads": [
+        "n|tbl|public.system_outcome_packages",
+        "n|sch|public",
+        "n|col|public.system_outcome_packages.scope"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "system_question_importers",
+        "system_question_importers_source_question_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.system_question_importers_source_question_id_idx",
+        "n|idx|public.system_question_importers_source_question_id_idx",
+        "e|idx|public.system_question_importers_source_question_id_idx",
+        "n|rel|public.system_question_importers_source_question_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.system_question_importers",
+        "n|sch|public",
+        "n|col|public.system_question_importers.source_question_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "system_question_version_outcomes",
+        "system_question_version_outcomes_version_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.system_question_version_outcomes_version_id_idx",
+        "n|idx|public.system_question_version_outcomes_version_id_idx",
+        "e|idx|public.system_question_version_outcomes_version_id_idx",
+        "n|rel|public.system_question_version_outcomes_version_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.system_question_version_outcomes",
+        "n|sch|public",
+        "n|col|public.system_question_version_outcomes.version_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "system_question_version_outcomes",
+        "system_question_version_outcomes_outcome_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.system_question_version_outcomes_outcome_id_idx",
+        "n|idx|public.system_question_version_outcomes_outcome_id_idx",
+        "e|idx|public.system_question_version_outcomes_outcome_id_idx",
+        "n|rel|public.system_question_version_outcomes_outcome_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.system_question_version_outcomes",
+        "n|sch|public",
+        "n|col|public.system_question_version_outcomes.outcome_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "system_question_versions",
+        "system_question_versions_question_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.system_question_versions_question_id_idx",
+        "n|idx|public.system_question_versions_question_id_idx",
+        "e|idx|public.system_question_versions_question_id_idx",
+        "n|rel|public.system_question_versions_question_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.system_question_versions",
+        "n|sch|public",
+        "n|col|public.system_question_versions.question_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "system_questions",
+        "system_questions_qtype_idx"
+      ],
+      "writes": [
+        "s|idx|public.system_questions_qtype_idx",
+        "n|idx|public.system_questions_qtype_idx",
+        "e|idx|public.system_questions_qtype_idx",
+        "n|rel|public.system_questions_qtype_idx"
+      ],
+      "reads": [
+        "n|tbl|public.system_questions",
+        "n|sch|public",
+        "n|col|public.system_questions.qtype"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "system_questions",
+        "system_questions_status_idx"
+      ],
+      "writes": [
+        "s|idx|public.system_questions_status_idx",
+        "n|idx|public.system_questions_status_idx",
+        "e|idx|public.system_questions_status_idx",
+        "n|rel|public.system_questions_status_idx"
+      ],
+      "reads": [
+        "n|tbl|public.system_questions",
+        "n|sch|public",
+        "n|col|public.system_questions.status"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "system_outcome_package_curricula"
+      ],
+      "writes": [
+        "s|fk|public.system_outcome_package_curricula.system_outcome_package_curricula_pqbQsPtMt8pw_fkey",
+        "n|fk|public.system_outcome_package_curricula.system_outcome_package_curricula_pqbQsPtMt8pw_fkey",
+        "e|fk|public.system_outcome_package_curricula.system_outcome_package_curricula_pqbQsPtMt8pw_fkey",
+        "n|con|public.system_outcome_package_curricula.system_outcome_package_curricula_pqbQsPtMt8pw_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.system_outcome_package_curricula",
+        "n|sch|public",
+        "n|tbl|public.system_outcome_packages",
+        "n|sch|public",
+        "n|col|public.system_outcome_package_curricula.package_id",
+        "n|col|public.system_outcome_packages.id",
+        "e|uniqueness|public.system_outcome_packages.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "system_outcome_package_mappings"
+      ],
+      "writes": [
+        "s|fk|public.system_outcome_package_mappings.system_outcome_package_mappings_OScdEITI6gp9_fkey",
+        "n|fk|public.system_outcome_package_mappings.system_outcome_package_mappings_OScdEITI6gp9_fkey",
+        "e|fk|public.system_outcome_package_mappings.system_outcome_package_mappings_OScdEITI6gp9_fkey",
+        "n|con|public.system_outcome_package_mappings.system_outcome_package_mappings_OScdEITI6gp9_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.system_outcome_package_mappings",
+        "n|sch|public",
+        "n|tbl|public.system_outcome_packages",
+        "n|sch|public",
+        "n|col|public.system_outcome_package_mappings.package_id",
+        "n|col|public.system_outcome_packages.id",
+        "e|uniqueness|public.system_outcome_packages.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "system_outcome_package_nodes"
+      ],
+      "writes": [
+        "s|fk|public.system_outcome_package_nodes.system_outcome_package_nodes_vBlvjfGD82wV_fkey",
+        "n|fk|public.system_outcome_package_nodes.system_outcome_package_nodes_vBlvjfGD82wV_fkey",
+        "e|fk|public.system_outcome_package_nodes.system_outcome_package_nodes_vBlvjfGD82wV_fkey",
+        "n|con|public.system_outcome_package_nodes.system_outcome_package_nodes_vBlvjfGD82wV_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.system_outcome_package_nodes",
+        "n|sch|public",
+        "n|tbl|public.system_outcome_packages",
+        "n|sch|public",
+        "n|col|public.system_outcome_package_nodes.package_id",
+        "n|col|public.system_outcome_packages.id",
+        "e|uniqueness|public.system_outcome_packages.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "system_outcome_package_outcomes"
+      ],
+      "writes": [
+        "s|fk|public.system_outcome_package_outcomes.system_outcome_package_outcomes_gAh6cYYuvtz1_fkey",
+        "n|fk|public.system_outcome_package_outcomes.system_outcome_package_outcomes_gAh6cYYuvtz1_fkey",
+        "e|fk|public.system_outcome_package_outcomes.system_outcome_package_outcomes_gAh6cYYuvtz1_fkey",
+        "n|con|public.system_outcome_package_outcomes.system_outcome_package_outcomes_gAh6cYYuvtz1_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.system_outcome_package_outcomes",
+        "n|sch|public",
+        "n|tbl|public.system_outcome_packages",
+        "n|sch|public",
+        "n|col|public.system_outcome_package_outcomes.package_id",
+        "n|col|public.system_outcome_packages.id",
+        "e|uniqueness|public.system_outcome_packages.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "system_question_importers"
+      ],
+      "writes": [
+        "s|fk|public.system_question_importers.system_question_importers_fJtgdunFiShR_fkey",
+        "n|fk|public.system_question_importers.system_question_importers_fJtgdunFiShR_fkey",
+        "e|fk|public.system_question_importers.system_question_importers_fJtgdunFiShR_fkey",
+        "n|con|public.system_question_importers.system_question_importers_fJtgdunFiShR_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.system_question_importers",
+        "n|sch|public",
+        "n|tbl|public.system_questions",
+        "n|sch|public",
+        "n|col|public.system_question_importers.source_question_id",
+        "n|col|public.system_questions.id",
+        "e|uniqueness|public.system_questions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "system_question_version_outcomes"
+      ],
+      "writes": [
+        "s|fk|public.system_question_version_outcomes.system_question_version_outcomes_bSaivvWUM2KB_fkey",
+        "n|fk|public.system_question_version_outcomes.system_question_version_outcomes_bSaivvWUM2KB_fkey",
+        "e|fk|public.system_question_version_outcomes.system_question_version_outcomes_bSaivvWUM2KB_fkey",
+        "n|con|public.system_question_version_outcomes.system_question_version_outcomes_bSaivvWUM2KB_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.system_question_version_outcomes",
+        "n|sch|public",
+        "n|tbl|public.system_question_versions",
+        "n|sch|public",
+        "n|col|public.system_question_version_outcomes.version_id",
+        "n|col|public.system_question_versions.id",
+        "e|uniqueness|public.system_question_versions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "system_question_versions"
+      ],
+      "writes": [
+        "s|fk|public.system_question_versions.system_question_versions_question_id_system_questions_id_fkey",
+        "n|fk|public.system_question_versions.system_question_versions_question_id_system_questions_id_fkey",
+        "e|fk|public.system_question_versions.system_question_versions_question_id_system_questions_id_fkey",
+        "n|con|public.system_question_versions.system_question_versions_question_id_system_questions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.system_question_versions",
+        "n|sch|public",
+        "n|tbl|public.system_questions",
+        "n|sch|public",
+        "n|col|public.system_question_versions.question_id",
+        "n|col|public.system_questions.id",
+        "e|uniqueness|public.system_questions.id"
+      ]
+    }
+  ],
+  "ddl": [
+    {
+      "schema": "public",
+      "name": "system_bank_events",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "system_outcome_package_curricula",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "system_outcome_package_mappings",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "system_outcome_package_nodes",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "system_outcome_package_outcomes",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "system_outcome_packages",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "system_question_importers",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "system_question_version_outcomes",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "system_question_versions",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "system_questions",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "table": "system_bank_events",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_bank_events",
+      "name": "type",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_bank_events",
+      "name": "source_question_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_bank_events",
+      "name": "payload",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_bank_events",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_curricula",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_curricula",
+      "name": "package_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_curricula",
+      "name": "curriculum_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_curricula",
+      "name": "subject_slug",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_curricula",
+      "name": "grade",
+      "type": "smallint",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_mappings",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_mappings",
+      "name": "package_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_mappings",
+      "name": "from_outcome_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_mappings",
+      "name": "to_outcome_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_mappings",
+      "name": "note",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "''",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_nodes",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_nodes",
+      "name": "package_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_nodes",
+      "name": "node_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_nodes",
+      "name": "curriculum_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_nodes",
+      "name": "parent_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_nodes",
+      "name": "title",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_nodes",
+      "name": "kind",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'topic'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_nodes",
+      "name": "position",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_nodes",
+      "name": "duration_periods",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_nodes",
+      "name": "duration_percent",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_outcomes",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_outcomes",
+      "name": "package_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_outcomes",
+      "name": "outcome_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_outcomes",
+      "name": "node_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_outcomes",
+      "name": "position",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_outcomes",
+      "name": "content",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_outcomes",
+      "name": "source_kind",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'program'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_outcomes",
+      "name": "source_ref",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_packages",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_packages",
+      "name": "version",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_packages",
+      "name": "scope",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_packages",
+      "name": "checksum",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_packages",
+      "name": "outcome_count",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_packages",
+      "name": "created_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_packages",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_importers",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_importers",
+      "name": "source_question_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_importers",
+      "name": "centre_slug",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_importers",
+      "name": "imported_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_importers",
+      "name": "imported_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_version_outcomes",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_version_outcomes",
+      "name": "version_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_version_outcomes",
+      "name": "outcome_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_version_outcomes",
+      "name": "cognitive_level",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_version_outcomes",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_versions",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_versions",
+      "name": "question_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_versions",
+      "name": "version",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_versions",
+      "name": "checksum",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_versions",
+      "name": "package",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_versions",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_questions",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_questions",
+      "name": "qtype",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_questions",
+      "name": "status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'published'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_questions",
+      "name": "withdrawn_reason",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_questions",
+      "name": "withdrawn_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_questions",
+      "name": "withdrawn_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_questions",
+      "name": "created_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_questions",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_questions",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "system_bank_events",
+      "name": "system_bank_events_source_question_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "source_question_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "system_bank_events",
+      "name": "system_bank_events_created_at_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_curricula",
+      "name": "system_outcome_package_curricula_package_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "package_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_mappings",
+      "name": "system_outcome_package_mappings_package_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "package_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_nodes",
+      "name": "system_outcome_package_nodes_package_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "package_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_outcomes",
+      "name": "system_outcome_package_outcomes_package_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "package_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_packages",
+      "name": "system_outcome_packages_scope_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "scope",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_importers",
+      "name": "system_question_importers_source_question_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "source_question_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_version_outcomes",
+      "name": "system_question_version_outcomes_version_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "version_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_version_outcomes",
+      "name": "system_question_version_outcomes_outcome_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "outcome_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_versions",
+      "name": "system_question_versions_question_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "question_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "system_questions",
+      "name": "system_questions_qtype_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "qtype",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "system_questions",
+      "name": "system_questions_status_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "status",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_curricula",
+      "name": "system_outcome_package_curricula_pqbQsPtMt8pw_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "package_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "system_outcome_packages",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_mappings",
+      "name": "system_outcome_package_mappings_OScdEITI6gp9_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "package_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "system_outcome_packages",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_nodes",
+      "name": "system_outcome_package_nodes_vBlvjfGD82wV_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "package_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "system_outcome_packages",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_outcomes",
+      "name": "system_outcome_package_outcomes_gAh6cYYuvtz1_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "package_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "system_outcome_packages",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_importers",
+      "name": "system_question_importers_fJtgdunFiShR_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "source_question_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "system_questions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_version_outcomes",
+      "name": "system_question_version_outcomes_bSaivvWUM2KB_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "version_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "system_question_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_versions",
+      "name": "system_question_versions_question_id_system_questions_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "question_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "system_questions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "system_bank_events",
+      "name": "system_bank_events_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_curricula",
+      "name": "system_outcome_package_curricula_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_mappings",
+      "name": "system_outcome_package_mappings_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_nodes",
+      "name": "system_outcome_package_nodes_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_outcomes",
+      "name": "system_outcome_package_outcomes_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_packages",
+      "name": "system_outcome_packages_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_importers",
+      "name": "system_question_importers_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_version_outcomes",
+      "name": "system_question_version_outcomes_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_versions",
+      "name": "system_question_versions_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "system_questions",
+      "name": "system_questions_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_curricula",
+      "name": "system_outcome_package_curricula_package_curriculum_unique",
+      "nameExplicit": true,
+      "columns": [
+        "package_id",
+        "curriculum_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_mappings",
+      "name": "system_outcome_package_mappings_package_from_unique",
+      "nameExplicit": true,
+      "columns": [
+        "package_id",
+        "from_outcome_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_nodes",
+      "name": "system_outcome_package_nodes_package_node_unique",
+      "nameExplicit": true,
+      "columns": [
+        "package_id",
+        "node_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_outcomes",
+      "name": "system_outcome_package_outcomes_package_outcome_unique",
+      "nameExplicit": true,
+      "columns": [
+        "package_id",
+        "outcome_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_importers",
+      "name": "system_question_importers_source_centre_unique",
+      "nameExplicit": true,
+      "columns": [
+        "source_question_id",
+        "centre_slug"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_version_outcomes",
+      "name": "system_question_version_outcomes_version_outcome_unique",
+      "nameExplicit": true,
+      "columns": [
+        "version_id",
+        "outcome_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_versions",
+      "name": "system_question_versions_question_version_unique",
+      "nameExplicit": true,
+      "columns": [
+        "question_id",
+        "version"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_packages",
+      "name": "system_outcome_packages_version_key",
+      "nameExplicit": false,
+      "columns": [
+        "version"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_nodes",
+      "name": "system_outcome_package_nodes_kind_check",
+      "value": "\"kind\" in ('strand', 'topic', 'lesson')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "system_outcome_package_outcomes",
+      "name": "system_outcome_package_outcomes_source_kind_check",
+      "value": "\"source_kind\" in ('program', 'derived')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "system_question_version_outcomes",
+      "name": "system_question_version_outcomes_cognitive_level_check",
+      "value": "\"cognitive_level\" in ('biet', 'hieu', 'van_dung', 'van_dung_cao')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "system_questions",
+      "name": "system_questions_status_check",
+      "value": "\"status\" in ('published', 'withdrawn')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "system_questions",
+      "name": "system_questions_qtype_check",
+      "value": "\"qtype\" in ('multichoice', 'truefalse', 'shortanswer', 'essay')",
+      "entityType": "checks"
+    }
+  ]
+}

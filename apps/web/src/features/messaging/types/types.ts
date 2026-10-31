@@ -79,6 +79,18 @@ export interface PersonSummary {
 }
 /** Trạng thái quan hệ của một người so với chính mình. */
 export type ContactRelationship = 'contact' | 'pending_incoming' | 'pending_outgoing' | 'blocked' | 'none';
+
+/**
+ * Trạng thái hiện diện ở TẦNG HIỂN THỊ của tính năng nhắn tin
+ * (issue #608): bản demo có đủ bốn trạng thái — trực tuyến, vắng
+ * mặt (away), đang bận (busy), ngoại tuyến — với bản đồ màu và
+ * nhãn riêng. Dữ kiện hiện diện hiện hành phía server chỉ phát
+ * trực tuyến/ngoại tuyến (xem `presenceStatusOf` ở utils), nên
+ * hai trạng thái vắng mặt/bận mới chỉ tồn tại ở tầng hiển thị:
+ * khi dữ kiện mang được chúng, mọi bề mặt chat tự hiện đúng màu
+ * và nhãn mà không phải sửa lại component.
+ */
+export type PresenceStatus = 'online' | 'away' | 'busy' | 'offline';
 /** Một khoá tôi thuộc về — đầu vào của luồng tìm bạn theo khoá (GET /messages/courses). */
 export interface MessagingCourse {
   courseId: string;
@@ -162,6 +174,13 @@ export interface ConversationDetailView extends ConversationView {
  * cây Lớp → Khoá → Nhóm con theo VAI của người xem; `conversationId`
  * null = chat của nút chưa được ensure (bấm vào mới ensure ở MSG-T3),
  * `unread` của nút lớp là tổng chưa đọc của nút lớp + các nút con.
+ * Mọi nút mang `pinnedAt`: mốc ghim CÁ NHÂN của người xem trên
+ * conversation của nút, server dựng từ dòng thành viên của người
+ * xem trên cả hai tập hội thoại chưa lưu trữ và đã lưu trữ (null =
+ * chưa ghim / chưa có conversation / chưa là thành viên) — tab Nhóm
+ * phân mục Ghim/Nhóm theo chính trường này, KHÔNG tra danh sách
+ * hội thoại chưa lưu trữ (hội thoại vừa ghim vừa lưu trữ không
+ * nằm trong danh sách đó).
  */
 export type ConversationTreeRoleView = 'teaching' | 'learning' | 'staff';
 
@@ -171,6 +190,7 @@ export interface ConversationTreeGroupView {
   myRole: ConversationTreeRoleView;
   conversationId: string | null;
   unread: number;
+  pinnedAt: string | null;
 }
 
 export interface ConversationTreeFreeGroupView {
@@ -178,6 +198,7 @@ export interface ConversationTreeFreeGroupView {
   name: string;
   myRole: ConversationTreeRoleView;
   unread: number;
+  pinnedAt: string | null;
 }
 
 export interface ConversationTreeCourseView {
@@ -186,6 +207,7 @@ export interface ConversationTreeCourseView {
   myRole: ConversationTreeRoleView;
   conversationId: string | null;
   unread: number;
+  pinnedAt: string | null;
   groups: ConversationTreeGroupView[];
 }
 
@@ -195,6 +217,7 @@ export interface ConversationTreeClassView {
   myRole: ConversationTreeRoleView;
   conversationId: string | null;
   unread: number;
+  pinnedAt: string | null;
   courses: ConversationTreeCourseView[];
 }
 

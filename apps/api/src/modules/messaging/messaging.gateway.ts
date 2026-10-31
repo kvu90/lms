@@ -107,18 +107,18 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
         await client.join(conversationRoom(conversation.tenantId, conversation.id));
       }
       await this.realtime.markConnected(identity.tenantId, identity.userId, client.id);
-      // Ảnh chụp hiện diện ban đầu (issue #592): gửi cho CHÍNH
-      // socket vừa nối tập đối tác đang trực tuyến trong phạm vi
-      // các hội thoại của nó, dùng lại đúng sự kiện và định dạng
-      // `presence.changed` — client nhận như một sự kiện thay đổi
-      // bình thường nên không cần sửa phía client. Gửi sau
-      // markConnected để trạng thái của chính người này đã lan tới
-      // người khác trước; lỗi ở đây không được làm hỏng kết nối
-      // (tầng realtime tự nuốt lỗi và trả tập rỗng).
-      const onlineCounterparts = await this.realtime.listOnlineConversationCounterparts(identity.tenantId, identity.userId);
-      for (const counterpartId of onlineCounterparts) {
-        client.emit(MESSAGING_SOCKET_EVENTS.presenceChanged, { userId: counterpartId, online: true });
-      }
+      // Ảnh chụp presence lúc nối (sự kiện presence.snapshot): sự
+      // kiện presence.changed chỉ phát khi trạng thái THAY ĐỔI nên
+      // người đã trực tuyến từ trước lúc socket này nối không phát
+      // sinh sự kiện nào — không có ảnh chụp này, phía khách không
+      // bao giờ học được họ đang trực tuyến cho tới khi họ ngắt/nối
+      // lại. Ảnh chụp chỉ gửi cho CHÍNH socket vừa nối (không phát
+      // vào room) và phạm vi người được liệt kê do tầng realtime gác
+      // theo quan hệ hội thoại chung (xem listOnlineCoMemberIds).
+      // Phát SAU markConnected để presence của chính người nối đã
+      // được ghi trước khi đọc (dù chủ thể tự loại khỏi danh sách).
+      const onlineCoMemberIds = await this.realtime.listOnlineCoMemberIds(identity.userId);
+      client.emit(MESSAGING_SOCKET_EVENTS.presenceSnapshot, { onlineUserIds: onlineCoMemberIds });
     } catch (error) {
       this.logger.warn(`Kết nối realtime của messaging bị ngắt do lỗi: ${(error as Error).message}`);
       client.disconnect(true);

@@ -22,10 +22,10 @@
  * trường của chúng là ranh giới tin cậy của tầng vận hành.
  */
 import type { ConfigService } from '@nestjs/config';
-import type { SchemaMigrationStep } from '@lms/db/control-plane';
+import type { SchemaMigrationStep, SpaceRegistryRow } from '@lms/db/control-plane';
 import type { FleetSpace } from './fleet-common';
-import { ControlPlaneConnection } from './modules/control-plane/control-plane.connection';
-import { ControlPlaneRepository } from './modules/control-plane/control-plane.repository';
+import { ControlPlaneConnection } from '../control-plane/control-plane.connection';
+import { ControlPlaneRepository } from '../control-plane/control-plane.repository';
 
 /** Kết quả một lượt chạy migration mà runner báo về registry. */
 export type MigrationRunOutcome = {
@@ -76,6 +76,87 @@ export class FleetRegistryWriter {
       });
     }
     return fleet;
+  }
+
+  /** Tra cứu dòng đăng ký theo slug (đường kiểm tra chạy lại của pipeline cấp phát). */
+  async findSpaceBySlug(slug: string): Promise<SpaceRegistryRow | undefined> {
+    return this.repo.findSpaceBySlug(slug);
+  }
+
+  /** Tra cứu dòng đăng ký theo tên database đích (đường kiểm tra trùng của pipeline cấp phát). */
+  async findSpaceByDatabaseName(databaseName: string): Promise<SpaceRegistryRow | undefined> {
+    return this.repo.findSpaceByDatabaseName(databaseName);
+  }
+
+  /**
+   * Tạo dòng đăng ký cho một trung tâm mới (bước 1 của pipeline cấp
+   * phát, issue #583) + dòng lịch sử `create` trong cùng transaction
+   * — cùng bất biến "sổ + lịch sử cùng thành/bại" với
+   * `ControlPlaneRegistryService.createRegistration` nhưng không qua
+   * gác capability của tầng HTTP (ranh giới tin cậy là quyền chạy
+   * script của đội vận hành). Trả về dòng vừa tạo, hoặc undefined
+   * khi slug đã tồn tại — người gọi quyết định tiếp tục (chạy lại)
+   * hay báo xung đột, writer không tự đoán.
+   */
+  async createSpaceRegistration(
+    actorId: string,
+    values: {
+      slug: string;
+      name: string;
+      kind: 'center' | 'platform';
+      databaseName: string;
+      connectionRoleRef: string;
+      secretRef: string;
+      plan: string | null;
+    },
+  ): Promise<SpaceRegistryRow | undefined> {
+    return this.repo.transaction(async (tx) => {
+      const row = await this.repo.insertSpaceIfAbsent(
+        {
+          slug: values.slug,
+          name: values.name,
+          kind: values.kind,
+          status: 'provisioning',
+          databaseName: values.databaseName,
+          storageMode: 'dedicated',
+          connectionRoleRef: values.connectionRoleRef,
+          secretRef: values.secretRef,
+          schemaVersion: null,
+          plan: values.plan,
+        },
+        tx,
+      );
+      if (!row) return undefined;
+      await this.repo.insertHistory({ spaceId: row.id, actorId, action: 'create', before: null, after: snapshotOf(row) }, tx);
+      return row;
+    });
+  }
+
+  /**
+   * Đổi trạng thái vòng đời của một dòng đăng ký (bước kích hoạt của
+   * pipeline cấp phát và thao tác tạm ngưng/mở lại, issue #583) +
+   * dòng lịch sử `status_change` trong cùng transaction, khoá dòng
+   * trước khi đọc ảnh `before` — cùng khuôn với
+   * `ControlPlaneRegistryService.changeStatus`. Trạng thái đích
+   * trùng trạng thái hiện tại thì không ghi gì (không tạo lịch sử
+   * rỗng), trả về dòng hiện tại.
+   */
+  async changeSpaceStatus(
+    spaceId: string,
+    status: 'provisioning' | 'active' | 'suspended' | 'closed',
+    actorId: string,
+  ): Promise<SpaceRegistryRow> {
+    return this.repo.transaction(async (tx) => {
+      const existing = await this.repo.findSpaceByIdForUpdate(spaceId, tx);
+      if (!existing) throw new Error(`Space registration ${spaceId} not found`);
+      if (existing.status === status) return existing;
+      const row = await this.repo.updateSpace(spaceId, { status }, tx);
+      await this.repo.insertHistory(
+        { spaceId, actorId, action: 'status_change', before: snapshotOf(existing), after: snapshotOf(row) },
+        tx,
+      );
+      return row;
+    });
   }
 
   /**
@@ -205,4 +286,38 @@ export class FleetRegistryWriter {
   async close(): Promise<void> {
     await this.connection.onModuleDestroy();
   }
+}
+
+/**
+ * Ảnh chụp một dòng đăng ký để ghi lịch sử — cùng hình dạng với
+ * `ControlPlaneRegistryService.snapshot` (id, slug, name, kind,
+ * status, databaseName, storageMode, connectionRoleRef, secretRef,
+ * schemaVersion, plan), không kèm mốc thời gian.
+ */
+function snapshotOf(row: SpaceRegistryRow): {
+  id: string;
+  slug: string;
+  name: string;
+  kind: string;
+  status: string;
+  databaseName: string;
+  storageMode: string;
+  connectionRoleRef: string;
+  secretRef: string | null;
+  schemaVersion: string | null;
+  plan: string | null;
+} {
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    kind: row.kind,
+    status: row.status,
+    databaseName: row.databaseName,
+    storageMode: row.storageMode,
+    connectionRoleRef: row.connectionRoleRef,
+    secretRef: row.secretRef,
+    schemaVersion: row.schemaVersion,
+    plan: row.plan,
+  };
 }

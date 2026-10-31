@@ -32,8 +32,9 @@ import { SpacePoolManager } from './space-pool-manager';
  *   phơi ba đường dùng:
  *   1. `getDatabaseForSpace(slug)` — lấy handle của một trung tâm
  *      theo định danh tường minh (đường vận hành, đường kiểm chứng,
- *      và bước CHUẨN BỊ mà tầng gắn ngữ cảnh của issue kế tiếp gọi
- *      trước khi xử lý request/job của trung tâm đó).
+ *      và bước CHUẨN BỊ mà tầng gắn ngữ cảnh — `SpaceContextGuard`
+ *      cho request, bộ chạy job theo trung tâm cho job nền, issue
+ *      #582 — gọi trước khi xử lý request/job của trung tâm đó).
  *   2. `routedDatabase` — handle định tuyến theo ngữ cảnh: handle
  *      được nhà cung cấp kết nối của API trả cho MỌI điểm inject
  *      hiện hữu (xem `app.module.ts`), mỗi lần dùng sẽ uỷ thác sang
@@ -49,9 +50,9 @@ import { SpacePoolManager } from './space-pool-manager';
  *      kho chung — bên gọi đã làm đúng nghĩa vụ chuẩn bị, khung
  *      không được im lặng đổi đích dữ kiện của nó sang kho khác.
  *      Nhờ cơ chế này các điểm inject không phải sửa từng điểm
- *      gọi, và chừng nào chưa có đường nào nạp `spaceSlug` vào
- *      ngữ cảnh (việc của issue kế tiếp) thì toàn hệ chạy đúng
- *      đường kho chung như trước.
+ *      gọi, và ngữ cảnh nào không do tầng gắn ngữ cảnh của issue
+ *      #582 nạp `spaceSlug` thì toàn hệ chạy đúng đường kho chung
+ *      như trước.
  *   3. `withSpaceDatabase(slug, fn)` — đường mở kết nối theo trung
  *      tâm cho tác vụ nền: chuẩn bị handle của trung tâm, rồi chạy
  *      `fn` trong ngữ cảnh ALS mang slug của trung tâm đó (kèm
@@ -115,6 +116,7 @@ export class SpaceDatabaseService implements OnModuleDestroy {
         const [row] = await db.select().from(spaceRegistry).where(eq(spaceRegistry.slug, slug)).limit(1);
         return row
           ? {
+              id: row.id,
               slug: row.slug,
               status: row.status,
               databaseName: row.databaseName,
@@ -191,6 +193,21 @@ export class SpaceDatabaseService implements OnModuleDestroy {
    * @throws SpaceRoutingError khi slug chưa đăng ký, control plane
    *   chưa cấu hình, hoặc bí mật/role của kho riêng lệch sổ đăng ký.
    */
+  /**
+   * Trung tâm đã có handle chuẩn bị trong tiến trình này chưa.
+   * Đường đọc nhận diện công khai (issue #583) dùng để quyết định
+   * có cần chạm control plane không: khi đã chuẩn bị, handle trong
+   * bảng đã-chuẩn-bị đủ để đọc kho của trung tâm mà không phân giải
+   * lại — nên bề mặt trung tâm vẫn hiển thị đúng nhận diện ngay cả
+   * khi control plane ngừng hoạt động sau khi định tuyến đã xong.
+   * Khi chưa chuẩn bị (hoặc mục đã-chuẩn-bị đã bị thu hồi), bên
+   * gọi phải chuẩn bị qua `getDatabaseForSpace` trước — đọc thẳng
+   * qua `routedDatabase` khi chưa chuẩn bị sẽ rơi về kho chung.
+   */
+  isSpacePrepared(slug: string): boolean {
+    return this.prepared.has(slug);
+  }
+
   async getDatabaseForSpace(slug: string): Promise<Database> {
     const target = await this.resolver.resolve(slug);
     if (target.mode === 'shared') {

@@ -19,6 +19,7 @@ import {
  */
 
 const DEDICATED_ENTRY: SpaceRegistryEntry = {
+  id: 'id-dang-ky-a',
   slug: 'trung-tam-a',
   status: 'active',
   databaseName: 'lms_centre_a',
@@ -29,6 +30,7 @@ const DEDICATED_ENTRY: SpaceRegistryEntry = {
 };
 
 const SHARED_ENTRY: SpaceRegistryEntry = {
+  id: 'id-dang-ky-trang-chinh',
   slug: 'trang-chinh',
   status: 'active',
   databaseName: 'lms_shared',
@@ -63,6 +65,18 @@ afterEach(() => {
 });
 
 describe('Bộ phân giải đích kết nối theo trung tâm — bản sao phía worker', () => {
+  it('kết quả phân giải mang theo định danh của dòng đăng ký (spaceId) ở cả hai chế độ kho', async () => {
+    const { resolver } = makeResolver({
+      'trung-tam-a': { ...DEDICATED_ENTRY },
+      'trang-chinh': { ...SHARED_ENTRY },
+    });
+    await expect(resolver.resolve('trung-tam-a')).resolves.toMatchObject({ spaceId: 'id-dang-ky-a' });
+    await expect(resolver.resolve('trang-chinh')).resolves.toMatchObject({
+      spaceId: 'id-dang-ky-trang-chinh',
+    });
+    resolver.dispose();
+  });
+
   it('sự kiện đổi sổ vô hiệu hoá đệm của đúng slug đó ngay trong TTL', async () => {
     const entries = { 'trung-tam-a': { ...DEDICATED_ENTRY }, 'trang-chinh': { ...SHARED_ENTRY } };
     const { resolver, reads } = makeResolver(entries);

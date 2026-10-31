@@ -12,6 +12,7 @@ import {
   SpaceConnectionResolver,
   SpaceRoutingError,
   type ResolvedSpaceConnection,
+  type SpaceRegistryEntry,
 } from './space-connection-resolver';
 import { SpacePoolManager } from './space-pool-manager';
 
@@ -29,19 +30,24 @@ export type SpaceDatabase = NodePgDatabase<typeof relations>;
  * plane và cùng một luật phân giải. Sửa file này PHẢI sửa đồng bộ
  * bản phía API và ngược lại.
  *
- * Hai điểm khác bản API, đều do hình của tiến trình worker:
+ * Ba điểm khác bản API, đều do hình của tiến trình worker:
  * - Worker chưa có kết nối control plane dùng chung, nên service
  *   tự giữ MỘT pool đọc sổ riêng từ cùng biến
  *   `CONTROL_PLANE_DATABASE_URL` (chỉ đọc dòng đăng ký; biến chưa
  *   cấu hình thì phân giải ném `space_routing.not_configured` —
  *   các đường kho chung không qua khung này nên worker vẫn chạy
  *   như cũ khi chưa cấu hình).
- * - Worker không thay handle mà các processor/service hiện hữu
- *   inject (chúng giữ handle kho chung như hiện tại); khung ở đây
- *   phơi đường mở phiên theo trung tâm cho tác vụ nền:
- *   `withSpaceDatabase(slug, fn)` chuẩn bị handle của đúng kho của
- *   trung tâm và chạy `fn` trong ngữ cảnh ALS mang slug đó. Việc
- *   áp khung vào từng job cụ thể thuộc issue kế tiếp.
+ * - Từ issue #582, handle mà các processor/service inject là
+ *   handle định tuyến (`routedDatabase`, gắn ở
+ *   `worker.module.ts`): ngữ cảnh không mang slug của một trung
+ *   tâm đã chuẩn bị ở kho riêng thì handle uỷ thác về handle kho
+ *   chung, nên mọi đường chưa qua phiên theo trung tâm chạy đúng
+ *   như hiện tại; phiên theo trung tâm cho job được mở qua
+ *   `SpaceJobRunner`/`withSpaceDatabase(slug, fn)`.
+ * - Chỉ bản worker có `listRegisteredSpaces`: relay outbox quét
+ *   thêm outbox của từng trung tâm ở kho riêng theo danh sách
+ *   này (issue #582); phía API không có đường quét tương đương
+ *   nên không cần hàm này.
  *
  * Kỷ luật pool và GUC giống hệt phía API: pool theo database tạo
  * lười, có trần, đóng khi nhàn rỗi; pool kho riêng cũng là
@@ -104,6 +110,7 @@ export class SpaceDatabaseService implements OnModuleDestroy {
         const [row] = await db.select().from(spaceRegistry).where(eq(spaceRegistry.slug, slug)).limit(1);
         return row
           ? {
+              id: row.id,
               slug: row.slug,
               status: row.status,
               databaseName: row.databaseName,
@@ -194,7 +201,9 @@ export class SpaceDatabaseService implements OnModuleDestroy {
    * slug của trung tâm (hợp thêm tenant/user của tác vụ nếu
    * truyền; truyền tenant thì ngữ cảnh thôi là đường platform).
    * Scheduler/processor gọi đường này khi job mang định danh trung
-   * tâm — việc áp vào từng job cụ thể thuộc issue kế tiếp.
+   * tâm — từ issue #582 qua `SpaceJobRunner` ở các processor tiêu
+   * thụ job outbox, và trực tiếp ở lượt quét outbox theo trung
+   * tâm của relay.
    */
   async withSpaceDatabase<T>(
     slug: string,
@@ -210,6 +219,30 @@ export class SpaceDatabaseService implements OnModuleDestroy {
     // await quyết định ngữ cảnh ALS phải nằm trong `run` thì GUC
     // tenant mới được gắn đúng khi kết nối checkout.
     return tenantAls.run(store, async () => fn(db));
+  }
+
+  /**
+   * Toàn bộ dòng đăng ký không gian ở dạng bộ phân giải cần — chỉ
+   * bản worker có hàm này (xem mô tả lớp): relay outbox dùng để
+   * quét thêm outbox của từng trung tâm ở kho riêng ở mỗi nhịp
+   * (issue #582). Chưa cấu hình control plane thì trả danh sách
+   * rỗng — không có trung tâm nào để quét, các đường kho chung
+   * không bị ảnh hưởng.
+   */
+  async listRegisteredSpaces(): Promise<SpaceRegistryEntry[]> {
+    const db = this.registryDb;
+    if (!db) return [];
+    const rows = await db.select().from(spaceRegistry);
+    return rows.map((row) => ({
+      id: row.id,
+      slug: row.slug,
+      status: row.status,
+      databaseName: row.databaseName,
+      storageMode: row.storageMode,
+      connectionRoleRef: row.connectionRoleRef,
+      secretRef: row.secretRef,
+      schemaVersion: row.schemaVersion,
+    }));
   }
 
   /** Handle kho chung đã gắn; chưa gắn là lỗi lập trình ở đường khởi động. */

@@ -212,6 +212,26 @@
         "n|col|public.space_registry.id",
         "e|uniqueness|public.space_registry.id"
       ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "space_registry",
+        "space_registry_database_name_dedicated_unique"
+      ],
+      "writes": [
+        "s|idx|public.space_registry_database_name_dedicated_unique",
+        "n|idx|public.space_registry_database_name_dedicated_unique",
+        "e|idx|public.space_registry_database_name_dedicated_unique",
+        "n|rel|public.space_registry_database_name_dedicated_unique"
+      ],
+      "reads": [
+        "n|tbl|public.space_registry",
+        "n|sch|public",
+        "n|col|public.space_registry.database_name"
+      ]
     }
   ],
   "ddl": [
@@ -765,6 +785,27 @@
       ],
       "isUnique": false,
       "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry",
+      "name": "space_registry_database_name_dedicated_unique",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "database_name",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"space_registry\".\"storage_mode\" = 'dedicated'",
       "with": "",
       "method": "btree",
       "concurrently": false,

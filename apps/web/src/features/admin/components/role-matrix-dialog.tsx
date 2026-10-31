@@ -1,46 +1,86 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CAP, type Capability, type RoleListItem } from '@lms/contracts';
 import { Button } from '@lms/ui/components/button';
+import { Checkbox } from '@lms/ui/components/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@lms/ui/components/dialog';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
-import { X } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@lms/ui/components/table';
 import { ErrorAlert } from '#components/error-alert';
 import type { ContextRow, RoleCapabilityRow } from '#lib/access';
 import { useTranslation } from 'react-i18next';
 import '#config/i18n';
+import { contextOptionLabel } from '../api/context-labels';
 import { useCreateRole, useReplaceRoleCapabilities, useUpdateRole } from '../queries/admin-roles';
 import { groupCapabilitiesByResource, verbOfCapability, type RoleMatrixDraft } from '../types/admin-roles';
+import { NATIVE_SELECT_CLASS } from './native-select-class';
+import { isLockedPermission, PermissionCheckboxCell } from './permission-cells';
 
 /**
- * Hộp thoại thêm/sửa vai trò kèm ma trận quyền của feature admin.
+ * Hộp thoại thêm/sửa vai trò kèm ma trận quyền của feature admin,
+ * dựng trên component Dialog thật của `@lms/ui` theo số đo của hộp
+ * thoại vai trò mẫu: khung rộng tối đa 768px (sm:max-w-3xl), cao tối
+ * đa 90vh cuộn dọc, tiêu đề 16px semibold, form xếp dọc cách nhau
+ * gap-6, ma trận nằm trong khung viền bo rounded-lg.
  *
- * Luồng nghiệp vụ (theo đặc tả đợt 2):
+ * Luồng nghiệp vụ:
  *
  * 1. Mở hộp thoại: trường tên/mô tả nạp từ vai đang sửa (hoặc trống khi
  *    tạo); `shortName` chỉ hiện khi tạo, bắt buộc và duy nhất, khi sửa
  *    thì khoá không cho đổi; ngữ cảnh mặc định là ngữ cảnh hệ thống
  *    (cấp 10). Trang chứa render hộp thoại có điều kiện nên mỗi lần mở
- *    là một lượt làm việc mới với state khởi tạo sạch. Đầu hộp thoại
- *    gồm tiêu đề, một dòng mô tả phụ theo chế độ (tạo/sửa) và nút đóng
- *    × ở góc trên; hành động huỷ chỉ có đúng một nút ở hàng nút dưới
- *    cùng — đóng bằng ×, bằng Huỷ hay bằng Escape đều đi qua cùng một
- *    hàm đóng và cùng bị chặn trong lúc đang lưu.
+ *    là một lượt làm việc mới với state khởi tạo sạch. Hành động huỷ
+ *    chỉ có đúng một nút ở chân hộp thoại — đóng bằng nút × của
+ *    Dialog, bằng Huỷ hay bằng Escape đều bị chặn trong lúc đang lưu.
+ *    Nhãn của ô chọn ngữ cảnh lấy qua adapter nhãn ngữ cảnh (tên cấp
+ *    dạng chữ), không bày chuỗi kỹ thuật của dòng ngữ cảnh.
  * 2. Ma trận trình bày các ghi đè ĐÃ LƯU tại ngữ cảnh đang chọn, gom
- *    theo resource, mỗi ô là một điều khiển bốn trạng thái (ALLOW /
- *    INHERIT / PREVENT / PROHIBIT) trên năng lực thật — không dựng bốn
- *    cột Read/Write/Create/Delete. Giá trị mỗi ô suy ra từ hai nguồn:
+ *    theo resource, dưới dạng bảng checkbox theo ngôn ngữ demo (vòng
+ *    sửa 3 của PR #601 theo phán quyết "hình dạng demo, dữ kiện
+ *    thật"): mỗi ô là một checkbox trên MỘT năng lực thật — tích là
+ *    Cho phép, trống là Kế thừa — không dựng bốn cột
+ *    Read/Write/Create/Delete. Vòng sửa bố cục của PR #601 gom mỗi
+ *    resource thành đúng MỘT hàng như bảng mẫu: ô đầu là tên
+ *    resource, kế là checkbox chọn cả nhóm, rồi cụm Đọc chứa các
+ *    checkbox của năng lực loại read và cụm Ghi chứa các checkbox
+ *    của năng lực loại write — mỗi checkbox kèm nhãn hành động của
+ *    năng lực đó, mọi năng lực thật vẫn hiện và sửa được từng cái
+ *    ngay trên hàng. Giá trị mỗi ô suy ra từ hai nguồn:
  *    sửa đổi của người dùng trong lượt này (ưu tiên) rồi tới dòng đã
  *    lưu của ngữ cảnh đang chọn, vắng mặt thì là kế thừa. Đổi ngữ cảnh
  *    xoá sạch sửa đổi của ngữ cảnh trước nên ma trận không bao giờ lẫn
  *    ghi đè giữa hai ngữ cảnh; ma trận tải về muộn cũng tự đúng vì giá
  *    trị suy ra trực tiếp từ props, không qua state đồng bộ bằng effect.
+ *    Ô đang mang Ngăn chặn/Cấm hẳn đã lưu thì bị KHOÁ thao tác
+ *    boolean và mang huy hiệu trạng thái: không thao tác nào trong
+ *    hộp thoại đổi được giá trị đó, và khi lưu, giá trị đã lưu đi qua
+ *    `valueOf` vào tập thay toàn bộ nên được giữ nguyên phía server.
+ *    Biên tập đầy đủ bốn trạng thái thuộc đợt nối backend (#598).
  *    Cổng an toàn ở chế độ sửa: nút Lưu bị chặn cho tới khi ma trận tải
  *    thành công — lưu khi ma trận chưa về hoặc tải lỗi sẽ gửi PUT thay
  *    toàn bộ mang tập gần rỗng và xoá lặng ghi đè đã lưu; khi tải lỗi,
  *    hộp thoại hiện thông báo lỗi kèm nút thử lại thay vì hiện ma trận
  *    trống.
- * 3. Chọn nhanh: chọn một trạng thái rồi bấm áp — theo hàng (mọi ô
- *    trong nhóm resource đó) hoặc toàn cục (mọi ô trong ma trận).
+ * 3. Chọn theo cấp của bảng checkbox (thay cơ chế chọn nhanh bốn
+ *    trạng thái trước đây): checkbox ở hàng tiêu đề đặt Cho phép/Kế
+ *    thừa cho MỌI ô sửa được của ma trận, checkbox trên hàng của
+ *    resource đặt cho các ô sửa được của resource đó; ô khoá (Ngăn
+ *    chặn/Cấm hẳn) không thuộc phạm vi của cả hai cấp và không được
+ *    tính vào trạng thái tích/mixed của checkbox cấp.
  * 4. Lưu: khi tạo — tạo vai trò trước, rồi lưu ma trận bằng endpoint
  *    thay toàn bộ tại ngữ cảnh đang chọn nếu ma trận có ghi đè khác kế
  *    thừa; khi sửa — cập nhật tên/mô tả rồi lưu ma trận bằng đúng một
@@ -77,12 +117,6 @@ export interface RoleMatrixDialogProps {
   onClose: () => void;
 }
 
-const PERMISSION_VALUES = [CAP.ALLOW, CAP.INHERIT, CAP.PREVENT, CAP.PROHIBIT] as const;
-
-/** Lớp Tailwind dùng chung cho các ô select thuần trong hộp thoại. */
-const SELECT_CLASS =
-  'h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring';
-
 export function RoleMatrixDialog({
   open,
   mode,
@@ -96,12 +130,6 @@ export function RoleMatrixDialog({
   onClose,
 }: RoleMatrixDialogProps) {
   const { t } = useTranslation('app');
-  const PERMISSION_LABEL: Record<number, string> = {
-    [CAP.ALLOW]: t('permAllow'),
-    [CAP.INHERIT]: t('permInherit'),
-    [CAP.PREVENT]: t('permPrevent'),
-    [CAP.PROHIBIT]: t('permProhibit'),
-  };
 
   const [name, setName] = useState(role?.name ?? '');
   const [shortName, setShortName] = useState(role?.shortName ?? '');
@@ -113,8 +141,6 @@ export function RoleMatrixDialog({
   const [saveError, setSaveError] = useState<string | null>(null);
   /** Id vai trò vừa tạo trong lượt này khi lưu ma trận lỗi — lần Lưu lại dùng id này thay vì tạo mới. */
   const [createdRoleId, setCreatedRoleId] = useState<string | null>(null);
-  const [quickGlobal, setQuickGlobal] = useState('');
-  const [quickByResource, setQuickByResource] = useState<Record<string, string>>({});
 
   const createMutation = useCreateRole();
   const updateMutation = useUpdateRole();
@@ -140,36 +166,68 @@ export function RoleMatrixDialog({
     return edits[capabilityName] ?? savedByCapability[capabilityName] ?? CAP.INHERIT;
   }
 
-  /** Phím Escape đóng hộp thoại khi không trong lúc lưu. */
-  useEffect(() => {
-    if (!open || saving) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open, saving, onClose]);
+  /**
+   * Một cụm checkbox cùng loại (Đọc hoặc Ghi) trên hàng của một
+   * resource: mỗi năng lực là một checkbox kèm nhãn hành động của
+   * nó; cụm rỗng (resource không có năng lực thuộc loại đó) hiện
+   * dấu gạch ngang mờ thay vì để ô trống khó hiểu.
+   */
+  function renderCluster(cluster: Capability[]) {
+    if (cluster.length === 0) return <span className="text-muted-foreground">—</span>;
+    return (
+      <span className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {cluster.map((capability) => (
+          <span key={capability.name} className="inline-flex items-center gap-1.5">
+            <PermissionCheckboxCell
+              ariaLabel={capability.name}
+              value={valueOf(capability.name)}
+              disabled={saving}
+              onToggle={(allowed) =>
+                setEdits((prev) => ({
+                  ...prev,
+                  [capability.name]: allowed ? CAP.ALLOW : CAP.INHERIT,
+                }))
+              }
+            />
+            <span className="text-sm">{verbOfCapability(capability.name)}</span>
+          </span>
+        ))}
+      </span>
+    );
+  }
 
   if (!open) return null;
 
   const groups = groupCapabilitiesByResource(capabilities);
 
-  /** Đặt một trạng thái cho mọi năng lực trong một nhóm resource. */
-  function applyToResource(resource: string, permission: number) {
-    const group = groups.find((item) => item.resource === resource);
-    if (!group) return;
-    setEdits((prev) => {
-      const next = { ...prev };
-      for (const capability of group.capabilities) next[capability.name] = permission;
-      return next;
-    });
+  /**
+   * Trạng thái của checkbox chọn theo cấp (toàn cục hoặc một nhóm
+   * resource): chỉ tính các ô SỬA ĐƯỢC — ô khoá Ngăn chặn/Cấm hẳn
+   * không thuộc phạm vi chọn và không làm checkbox cấp thành mixed.
+   */
+  function scopeState(scope: Capability[]): { checked: boolean; indeterminate: boolean } {
+    const editable = scope.filter((capability) => !isLockedPermission(valueOf(capability.name)));
+    const allowed = editable.filter((capability) => valueOf(capability.name) === CAP.ALLOW).length;
+    return {
+      checked: editable.length > 0 && allowed === editable.length,
+      indeterminate: allowed > 0 && allowed < editable.length,
+    };
   }
 
-  /** Đặt một trạng thái cho mọi năng lực trong toàn bộ ma trận. */
-  function applyToAll(permission: number) {
+  /**
+   * Đặt Cho phép (allowed = true) hoặc Kế thừa (false) cho mọi ô
+   * sửa được trong một phạm vi; ô khoá giữ nguyên giá trị đã lưu
+   * trong bản nháp — chọn theo cấp không bao giờ ghi đè Ngăn
+   * chặn/Cấm hẳn.
+   */
+  function applyScope(scope: Capability[], allowed: boolean) {
     setEdits((prev) => {
       const next = { ...prev };
-      for (const capability of capabilities) next[capability.name] = permission;
+      for (const capability of scope) {
+        const current = next[capability.name] ?? savedByCapability[capability.name] ?? CAP.INHERIT;
+        if (isLockedPermission(current)) continue;
+        next[capability.name] = allowed ? CAP.ALLOW : CAP.INHERIT;
+      }
       return next;
     });
   }
@@ -232,209 +290,146 @@ export function RoleMatrixDialog({
   const matrixReady = mode === 'create' || (!matrixPending && !matrixError);
   const canSave =
     name.trim() !== '' && (mode === 'edit' || shortName.trim() !== '') && contextId !== '' && !saving && matrixReady;
+  /** Trạng thái checkbox chọn toàn cục ở hàng tiêu đề bảng ma trận. */
+  const allScopeState = scopeState(capabilities);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-[5vh]"
-      onClick={() => {
-        if (!saving) onClose();
+    <Dialog
+      open
+      onOpenChange={(nextOpen) => {
+        // Đang lưu thì giữ hộp thoại mở: đóng giữa chừng sẽ mất dấu
+        // lần ghi đang chạy và trạng thái lỗi của nó.
+        if (!nextOpen && !saving) onClose();
       }}
-      role="presentation"
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="w-full max-w-4xl rounded-xl border bg-background p-6 shadow-lg"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="mb-4 flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-semibold">{title}</h2>
-            <p className="text-sm text-muted-foreground">{subtitle}</p>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t('closeDialog')}
-            disabled={saving}
-            onClick={onClose}
-          >
-            <X aria-hidden />
-          </Button>
-        </div>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle className="font-semibold">{title}</DialogTitle>
+          <DialogDescription>{subtitle}</DialogDescription>
+        </DialogHeader>
 
-        {saveError ? (
-          <ErrorAlert variant="destructive" className="mb-4">
-            {saveError}
-          </ErrorAlert>
-        ) : null}
+        {saveError ? <ErrorAlert variant="destructive">{saveError}</ErrorAlert> : null}
 
-        <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="role-dialog-name">{t('roleName')}</FieldLabel>
-            <Input id="role-dialog-name" value={name} onChange={(e) => setName(e.target.value)} disabled={saving} />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="role-dialog-shortname">{t('roleShortName')}</FieldLabel>
-            <Input
-              id="role-dialog-shortname"
-              value={shortName}
-              onChange={(e) => setShortName(e.target.value)}
-              disabled={saving || mode === 'edit' || createdRoleId !== null}
-            />
-            <p className="text-xs text-muted-foreground">{t('roleShortNameHint')}</p>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="role-dialog-description">{t('roleDescription')}</FieldLabel>
-            <Input
-              id="role-dialog-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              disabled={saving}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="role-dialog-context">{t('roleContext')}</FieldLabel>
-            <select
-              id="role-dialog-context"
-              className={SELECT_CLASS}
-              value={contextId}
-              onChange={(e) => {
-                // Đổi ngữ cảnh là đổi tập ghi đè đang sửa: xoá sạch sửa
-                // đổi của ngữ cảnh trước để không lẫn sang ngữ cảnh mới.
-                setContextOverride(e.target.value);
-                setEdits({});
-              }}
-              disabled={saving || contexts.length === 0}
-            >
-              <option value="">{t('selectContext')}</option>
-              {contexts.map((ctx) => (
-                <option key={ctx.id} value={ctx.id}>
-                  {t('contextOption', { level: ctx.contextLevel, instance: ctx.instanceId, path: ctx.path })}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </FieldGroup>
-
-        <div className="mt-6">
-          <h3 className="text-sm font-semibold">{t('roleMatrix')}</h3>
-          <p className="mb-3 text-xs text-muted-foreground">{t('roleMatrixHint')}</p>
-          {matrixError ? (
-            <>
-              <ErrorAlert variant="destructive" className="mb-3">
-                {t('roleMatrixLoadFailed')}
-              </ErrorAlert>
-              <Button type="button" variant="outline" size="sm" onClick={onMatrixRetry}>
-                {t('retry')}
-              </Button>
-            </>
-          ) : matrixPending ? (
-            <p className="text-sm text-muted-foreground">{t('loading')}</p>
-          ) : (
-            <>
-              <div className="mb-4 flex flex-wrap items-center gap-2">
-                <label htmlFor="role-dialog-quick-all" className="text-sm font-medium">
-                  {t('roleQuickApply')}
-                </label>
-                <select
-                  id="role-dialog-quick-all"
-                  className={SELECT_CLASS}
-                  value={quickGlobal}
-                  onChange={(e) => setQuickGlobal(e.target.value)}
-                  disabled={saving}
-                >
-                  <option value="">—</option>
-                  {PERMISSION_VALUES.map((value) => (
-                    <option key={value} value={String(value)}>
-                      {PERMISSION_LABEL[value]}
-                    </option>
-                  ))}
-                </select>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={saving || quickGlobal === ''}
-                  onClick={() => applyToAll(Number(quickGlobal))}
-                >
-                  {t('applyToAll')}
-                </Button>
-              </div>
-
-              <div className="space-y-6">
-                {groups.map((group) => (
-                  <section key={group.resource} aria-label={group.resource}>
-                    <div className="mb-2 flex flex-wrap items-center gap-2">
-                      <h4 className="text-sm font-semibold">{group.resource}</h4>
-                      <select
-                        aria-label={t('roleQuickApplyRow', { resource: group.resource })}
-                        className={SELECT_CLASS}
-                        value={quickByResource[group.resource] ?? ''}
-                        onChange={(e) => setQuickByResource((prev) => ({ ...prev, [group.resource]: e.target.value }))}
-                        disabled={saving}
-                      >
-                        <option value="">—</option>
-                        {PERMISSION_VALUES.map((value) => (
-                          <option key={value} value={String(value)}>
-                            {PERMISSION_LABEL[value]}
-                          </option>
-                        ))}
-                      </select>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={saving || (quickByResource[group.resource] ?? '') === ''}
-                        onClick={() => applyToResource(group.resource, Number(quickByResource[group.resource]))}
-                      >
-                        {t('applyToRow')}
-                      </Button>
-                    </div>
-                    <ul className="divide-y rounded-md border">
-                      {group.capabilities.map((capability) => (
-                        <li key={capability.name} className="flex items-center justify-between gap-4 px-3 py-2">
-                          <span className="min-w-0">
-                            <strong>{verbOfCapability(capability.name)}</strong>{' '}
-                            <code className="text-xs text-muted-foreground">{capability.name}</code>
-                          </span>
-                          <select
-                            aria-label={capability.name}
-                            className={`${SELECT_CLASS} shrink-0`}
-                            value={String(valueOf(capability.name))}
-                            onChange={(e) => {
-                              const permission = Number(e.target.value);
-                              setEdits((prev) => ({ ...prev, [capability.name]: permission }));
-                            }}
-                            disabled={saving}
-                          >
-                            {PERMISSION_VALUES.map((value) => (
-                              <option key={value} value={String(value)}>
-                                {PERMISSION_LABEL[value]}
-                              </option>
-                            ))}
-                          </select>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
+        <div className="flex flex-col gap-6">
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="role-dialog-name">{t('roleName')}</FieldLabel>
+              <Input id="role-dialog-name" value={name} onChange={(e) => setName(e.target.value)} disabled={saving} />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="role-dialog-shortname">{t('roleShortName')}</FieldLabel>
+              <Input
+                id="role-dialog-shortname"
+                value={shortName}
+                onChange={(e) => setShortName(e.target.value)}
+                disabled={saving || mode === 'edit' || createdRoleId !== null}
+              />
+              <p className="text-xs text-muted-foreground">{t('roleShortNameHint')}</p>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="role-dialog-description">{t('roleDescription')}</FieldLabel>
+              <Input
+                id="role-dialog-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                disabled={saving}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="role-dialog-context">{t('roleContext')}</FieldLabel>
+              <select
+                id="role-dialog-context"
+                className={NATIVE_SELECT_CLASS}
+                value={contextId}
+                onChange={(e) => {
+                  // Đổi ngữ cảnh là đổi tập ghi đè đang sửa: xoá sạch sửa
+                  // đổi của ngữ cảnh trước để không lẫn sang ngữ cảnh mới.
+                  setContextOverride(e.target.value);
+                  setEdits({});
+                }}
+                disabled={saving || contexts.length === 0}
+              >
+                <option value="">{t('selectContext')}</option>
+                {contexts.map((ctx) => (
+                  <option key={ctx.id} value={ctx.id}>
+                    {contextOptionLabel(contexts, ctx, (key, options) => t(key, options))}
+                  </option>
                 ))}
+              </select>
+            </Field>
+          </FieldGroup>
+
+          <div>
+            <h3 className="mb-3 text-sm font-medium">{t('roleMatrix')}</h3>
+            <p className="mb-3 text-xs text-muted-foreground">{t('roleMatrixHint')}</p>
+            {matrixError ? (
+              <>
+                <ErrorAlert variant="destructive" className="mb-3">
+                  {t('roleMatrixLoadFailed')}
+                </ErrorAlert>
+                <Button type="button" variant="outline" size="sm" onClick={onMatrixRetry}>
+                  {t('retry')}
+                </Button>
+              </>
+            ) : matrixPending ? (
+              <p className="text-sm text-muted-foreground">{t('loading')}</p>
+            ) : (
+              <div className="overflow-hidden rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="p-3">{t('resource')}</TableHead>
+                      <TableHead className="w-16 p-3 text-center">
+                        <Checkbox
+                          aria-label={t('roleSelectAllPermissions')}
+                          checked={allScopeState.checked}
+                          indeterminate={allScopeState.indeterminate}
+                          disabled={saving}
+                          onCheckedChange={(checked) => applyScope(capabilities, checked)}
+                        />
+                      </TableHead>
+                      <TableHead className="p-3">{t('roleReadLabel')}</TableHead>
+                      <TableHead className="p-3">{t('roleWriteLabel')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {groups.map((group) => (
+                      <TableRow key={group.resource}>
+                        <TableCell className="p-3 font-medium whitespace-nowrap">{group.resource}</TableCell>
+                        <TableCell className="p-3 text-center">
+                          <Checkbox
+                            aria-label={t('roleSelectAllForResource', { resource: group.resource })}
+                            checked={scopeState(group.capabilities).checked}
+                            indeterminate={scopeState(group.capabilities).indeterminate}
+                            disabled={saving}
+                            onCheckedChange={(checked) => applyScope(group.capabilities, checked)}
+                          />
+                        </TableCell>
+                        <TableCell className="p-3">
+                          {renderCluster(group.capabilities.filter((capability) => capability.capType === 'read'))}
+                        </TableCell>
+                        <TableCell className="p-3">
+                          {renderCluster(group.capabilities.filter((capability) => capability.capType === 'write'))}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
-            </>
-          )}
+            )}
+            <p className="mt-3 text-xs text-muted-foreground">{t('permissionLockedNote')}</p>
+          </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-2">
+        <DialogFooter>
           <Button type="button" variant="outline" disabled={saving} onClick={onClose}>
             {t('cancel')}
           </Button>
           <Button type="button" disabled={!canSave} onClick={() => void save()}>
             {saving ? t('savingRole') : t('saveRole')}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

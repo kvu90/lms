@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundEx
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
@@ -18,6 +19,7 @@ import { BetterAuthService } from './better-auth/better-auth.service';
 import { CredentialBridgeService } from './better-auth/credential-bridge.service';
 import { SessionService } from './session.service';
 import { TotpService } from './totp.service';
+import { tenantAls } from '../tenants/tenant-als';
 import { TenantsService } from '../tenants/tenants.service';
 
 export interface TokenPair { accessToken: string; refreshToken: string; expiresIn: number }
@@ -56,9 +58,26 @@ export type SessionLoginOutcome =
  * được (kiểm ở `passMfaChallenge`): `token` → POST /auth/mfa/verify
  * (cấp cặp token), `session` → POST /auth/session/mfa/verify (tạo
  * phiên cookie), `oauth` → POST /auth/oauth/mfa/verify (tạo phiên web
- * + mã bàn giao của luồng OAuth).
+ * + mã bàn giao của luồng OAuth), `platform` → POST
+ * /auth/platform/mfa/verify (cấp access token platform).
+ * Challenge còn mang không gian kho riêng của lần đăng nhập đã cấp
+ * nó (claim `space`, issue #584): bước hai chỉ hoàn tất khi request
+ * đang ở đúng địa chỉ của không gian đó — challenge của trung tâm
+ * này không đổi được thành phiên của trung tâm khác.
  */
-export type MfaChallengeFlow = 'token' | 'session' | 'oauth';
+export type MfaChallengeFlow = 'token' | 'session' | 'oauth' | 'platform';
+
+/**
+ * Kết quả đăng nhập quản trị platform: hoặc đã đủ điều kiện cấp
+ * access token platform, hoặc bị chặn ở bước MFA với một challenge
+ * token ngắn hạn của luồng platform. Token platform CHỈ có access
+ * token (không có refresh family): hết hạn thì đăng nhập lại —
+ * bề mặt vận hành không dùng cơ chế xoay refresh của đường
+ * nghiệp vụ.
+ */
+export type PlatformLoginOutcome =
+  | { mfaRequired: false; user: UserRow; accessToken: string; expiresIn: number }
+  | { mfaRequired: true; user: UserRow; challengeToken: string };
 
 /**
  * Kết quả login-as theo chặng cutover (GĐ2 chặng 2.6/2.7, issue #7):
@@ -119,6 +138,7 @@ export class AuthService {
     private readonly lockout: LoginLockoutService,
     private readonly betterAuth: BetterAuthService,
     private readonly credentialBridge: CredentialBridgeService,
+    private readonly spaceDb: SpaceDatabaseService,
   ) {}
 
   private readonly logger = new Logger(AuthService.name);
@@ -197,13 +217,18 @@ export class AuthService {
    * biệt đích hoàn tất: `token` chỉ đổi được ở POST /auth/mfa/verify (cấp
    * cặp token), `session` chỉ đổi được ở POST /auth/session/mfa/verify
    * (tạo phiên cookie), `oauth` chỉ đổi được ở POST /auth/oauth/mfa/verify
-   * (tạo phiên web + mã bàn giao) — challenge của luồng này không dùng
-   * chéo sang luồng kia được.
+   * (tạo phiên web + mã bàn giao), `platform` chỉ đổi được ở POST
+   * /auth/platform/mfa/verify (cấp access token platform) — challenge
+   * của luồng này không dùng chéo sang luồng kia được. Claim `space`
+   * (issue #584) ghim không gian kho riêng của lần đăng nhập đã cấp
+   * challenge — có khi request đang ở địa chỉ kho riêng, vắng khi ở
+   * địa chỉ gốc — để bước hoàn tất kiểm lại đúng địa chỉ đó.
    */
   private async signMfaChallenge(user: UserRow, flow: MfaChallengeFlow): Promise<string> {
     const ttl = this.config.get<number>('MFA_CHALLENGE_TTL_SECONDS') ?? 300;
+    const spaceSlug = tenantAls.getStore()?.spaceSlug;
     return this.jwt.signAsync(
-      { sub: user.id, username: user.username, scope: 'mfa_challenge', flow },
+      { sub: user.id, username: user.username, scope: 'mfa_challenge', flow, ...(spaceSlug ? { space: spaceSlug } : {}) },
       { expiresIn: ttl },
     );
   }
@@ -254,6 +279,68 @@ export class AuthService {
     return { user, tokens };
   }
 
+  // --- đăng nhập quản trị platform (issue #584) ---------------------------
+  /**
+   * Bề mặt đăng nhập QUẢN TRỊ PLATFORM, tách khỏi bề mặt đăng nhập
+   * nghiệp vụ của trung tâm: chỉ tài khoản quản trị platform (ghi
+   * trong cấu hình `siteadmins` của kho chung) mới qua được cổng
+   * này; tài khoản thường — kể cả quản trị của một trung tâm —
+   * bị 403 `auth.platform_admin_required`. Đăng nhập ở địa chỉ kho
+   * riêng tra tài khoản trong kho đó nên quản trị platform ở kho
+   * chung không đăng nhập được tại đó — bề mặt vận hành sống ở
+   * địa chỉ gốc. Token cấp ra mang audience `platform` (không có
+   * refresh family) nên `AudienceGuard` chỉ cho nó gọi route vận
+   * hành mang `@PlatformRoute()`; user bật MFA thì dừng ở challenge
+   * của luồng platform như luồng token.
+   */
+  async platformLogin(username: string, password: string, ip?: string, userAgent?: string): Promise<PlatformLoginOutcome> {
+    const user = await this.validateCredentials(username, password, ip);
+    if (!(await this.evaluator.isSiteAdmin(user.id))) {
+      throw new ForbiddenException({ message: 'Only platform administrators may use this login surface', code: 'auth.platform_admin_required' });
+    }
+    if (await this.totp.isEnabled(user.id)) {
+      const challengeToken = await this.signMfaChallenge(user, 'platform');
+      return { mfaRequired: true, user, challengeToken };
+    }
+    await this.users.recordLogin(user.id);
+    const issued = await this.issuePlatformToken(user);
+    await this.recordAuthEvent('user_logged_in', { userId: user.id, actorId: user.id, method: 'platform-password', ip: ip ?? null });
+    return { mfaRequired: false, user, accessToken: issued.accessToken, expiresIn: issued.expiresIn };
+  }
+
+  /**
+   * Bước hai của đăng nhập platform: qua thử thách MFA của luồng
+   * platform rồi cấp access token platform như `platformLogin`.
+   */
+  async verifyPlatformMfa(challengeToken: string, code: string, ip?: string, userAgent?: string): Promise<{ user: UserRow; accessToken: string; expiresIn: number }> {
+    const user = await this.passMfaChallenge(challengeToken, code, ip, 'platform');
+    if (!(await this.evaluator.isSiteAdmin(user.id))) {
+      throw new ForbiddenException({ message: 'Only platform administrators may use this login surface', code: 'auth.platform_admin_required' });
+    }
+    await this.users.recordLogin(user.id);
+    const issued = await this.issuePlatformToken(user);
+    await this.recordAuthEvent('user_logged_in', { userId: user.id, actorId: user.id, method: 'platform-totp', ip: ip ?? null });
+    return { user, accessToken: issued.accessToken, expiresIn: issued.expiresIn };
+  }
+
+  /**
+   * Cấp access token platform: claim `tid` là tenant platform của
+   * kho chung, claim `aud` là `platform`, `sid` là UUID mới sinh
+   * KHÔNG gắn với family refresh nào — token này không refresh và
+   * không logout theo cơ chế family được; hết hạn thì đăng nhập
+   * lại. `JwtAuthStrategy` chỉ kiểm `sid` có mặt nên token qua
+   * được khâu xác thực, và `AudienceGuard` quyết định bề mặt gọi.
+   */
+  private async issuePlatformToken(user: UserRow): Promise<{ accessToken: string; expiresIn: number }> {
+    const platformTenant = await this.tenants.platformTenant();
+    const accessTtl = this.config.get<number>('ACCESS_TOKEN_TTL_SECONDS') ?? 900;
+    const accessToken = await this.jwt.signAsync(
+      { sub: user.id, username: user.username, sid: randomUUID(), tid: platformTenant.id, aud: 'platform' },
+      { expiresIn: accessTtl },
+    );
+    return { accessToken, expiresIn: accessTtl };
+  }
+
   /**
    * Ký challenge MFA cho luồng OAuth: callback OAuth thấy user đã bật
    * MFA thì dừng ở đây (chưa tạo phiên, chưa phát mã bàn giao) và
@@ -281,17 +368,28 @@ export class AuthService {
    * nhập thất bại nên dùng chung cơ chế lockout sẵn có. Trả user đã qua
    * thử thách; việc ghi nhận đăng nhập + cấp phiên/token thuộc về từng
    * luồng hoàn tất phía trên.
+   *
+   * Gắn không gian (issue #584): claim `space` của challenge phải khớp
+   * slug kho riêng của request hoàn tất — lệch nhau theo bất kỳ chiều
+   * nào (challenge cấp ở trung tâm A mà hoàn tất ở trung tâm B, hoặc
+   * cấp ở địa chỉ gốc mà hoàn tất ở địa chỉ kho riêng và ngược lại)
+   * đều bị từ chối bằng mã challenge không hợp lệ, không để lộ thêm
+   * thông tin. Challenge ký trước khi có claim này (không mang
+   * `space`) chỉ hoàn tất được ở địa chỉ gốc.
    */
   private async passMfaChallenge(challengeToken: string, code: string, ip: string | undefined, flow: MfaChallengeFlow): Promise<UserRow> {
-    let payload: { sub?: string; scope?: string; flow?: string };
+    let payload: { sub?: string; scope?: string; flow?: string; space?: string };
     try {
-      payload = await this.jwt.verifyAsync<{ sub?: string; scope?: string; flow?: string }>(challengeToken);
+      payload = await this.jwt.verifyAsync<{ sub?: string; scope?: string; flow?: string; space?: string }>(challengeToken);
     } catch {
       throw new UnauthorizedException({ message: 'MFA challenge is invalid or expired', code: 'auth.mfa_challenge_invalid' });
     }
     // Challenge ký trước khi có claim `flow` được hiểu là của luồng token.
     const challengeFlow = payload.flow ?? 'token';
     if (payload.scope !== 'mfa_challenge' || !payload.sub || challengeFlow !== flow) {
+      throw new UnauthorizedException({ message: 'MFA challenge is invalid or expired', code: 'auth.mfa_challenge_invalid' });
+    }
+    if (payload.space !== tenantAls.getStore()?.spaceSlug) {
       throw new UnauthorizedException({ message: 'MFA challenge is invalid or expired', code: 'auth.mfa_challenge_invalid' });
     }
     const user = await this.users.getByIdOrUndefined(payload.sub);
@@ -316,16 +414,61 @@ export class AuthService {
   async issueTokensFor(user: UserRow, client?: SessionClientInfo): Promise<TokenPair> { return this.issueTokens(user, client); }
 
   /**
+   * Không gian kho riêng của request hiện tại, suy từ slug trung tâm
+   * mà interceptor đã ghim vào ALS (do `SpaceContextGuard` chuẩn bị
+   * trước handler). Trả `null` khi request không ở địa chỉ kho riêng
+   * nào (địa chỉ gốc, trung tâm kho chung, hoặc tầng định tuyến
+   * chưa cấu hình/lỗi thoáng qua — các trường hợp đó rơi về luồng
+   * kho chung cũ, và `SpaceContextGuard` vẫn là chốt chặn cuối cho
+   * phiên ở địa chỉ kho riêng nên không có đường nới lỏng nào).
+   */
+  private async requestDedicatedSpace(): Promise<{ slug: string; spaceId: string } | null> {
+    const slug = tenantAls.getStore()?.spaceSlug;
+    if (!slug) return null;
+    try {
+      const target = await this.spaceDb.resolveTarget(slug);
+      return target.mode === 'dedicated' ? { slug, spaceId: target.spaceId } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Phát hành cặp token: claim `tid` ghi tenant hiệu lực của phiên
    * (TENANT-0, #168) — không truyền `tenantId` thì phân giải tenant mặc
    * định xác định của user; family refresh lưu lại tid để refresh giữ
-   * đúng tenant, switch-tenant cấp family mới.
+   * đúng tenant, switch-tenant cấp family mới. Khi tenant hiệu lực là
+   * một trung tâm ở kho riêng, access token còn mang claim `centre_id`
+   * (định danh đăng ký của trung tâm — issue #582) để
+   * `SpaceContextGuard` đối chiếu phiên với trung tâm tại địa chỉ
+   * request ở mọi request sau đó.
+   *
+   * Đường kho riêng (issue #584): request đang ở địa chỉ kho riêng
+   * thì `tid` KHÔNG phân giải từ kho chung nữa — nó là id của dòng
+   * tenant trong CHÍNH kho của trung tâm (tra bằng slug của địa
+   * chỉ), và `centre_id` là định danh đăng ký của trung tâm đó.
+   * Kho riêng chưa có dòng tenant của chính nó là trạng thái chưa
+   * cấp phát xong: từ chối cấp token thay vì cấp token mang tenant
+   * sai (tenant-zero chung) rồi để guard chặn sau.
    */
   private async issueTokens(user: UserRow, client?: SessionClientInfo, tenantId?: string): Promise<TokenPair> {
     const familyId = randomUUID();
     const refreshToken = randomBytes(48).toString('base64url');
     const ttlDays = this.config.get<number>('REFRESH_TOKEN_TTL_DAYS') ?? 30;
-    const tid = tenantId ?? (await this.tenants.resolveDefaultTenant(user.id)).id;
+    const space = await this.requestDedicatedSpace();
+    let tid: string;
+    let centreId: string | undefined;
+    if (space) {
+      const spaceTenant = await this.tenants.getTenantInSpace(space.slug);
+      if (!spaceTenant) {
+        throw new UnauthorizedException({ message: 'Space tenant is not ready in its own store', code: 'space.tenant_missing' });
+      }
+      tid = spaceTenant.id;
+      centreId = space.spaceId;
+    } else {
+      tid = tenantId ?? (await this.tenants.resolveDefaultTenant(user.id)).id;
+      centreId = await this.centreClaimForTenant(tid);
+    }
     await this.repo.createFamily({
       familyId, userId: user.id, currentTokenHash: hashToken(refreshToken),
       ip: client?.ip ?? null, userAgent: client?.userAgent ?? null,
@@ -334,10 +477,34 @@ export class AuthService {
     });
     const accessTtl = this.config.get<number>('ACCESS_TOKEN_TTL_SECONDS') ?? 900;
     const accessToken = await this.jwt.signAsync(
-      { sub: user.id, username: user.username, sid: familyId, tid },
+      { sub: user.id, username: user.username, sid: familyId, tid, ...(centreId ? { centre_id: centreId } : {}) },
       { expiresIn: accessTtl },
     );
     return { accessToken, refreshToken, expiresIn: accessTtl };
+  }
+
+  /**
+   * Định danh đăng ký của trung tâm cho claim `centre_id` của access
+   * token sắp cấp cho một phiên thuộc tenant `tenantId` (issue #582):
+   * chỉ phiên của trung tâm ở KHO RIÊNG mới mang claim — định danh là
+   * khoá chính của dòng đăng ký trong sổ control plane, lấy qua bộ
+   * phân giải của khung định tuyến từ slug của tenant (slug của
+   * tenant và slug đăng ký của trung tâm là một, xem SeedService).
+   * Tenant ở kho chung, tenant chưa có dòng đăng ký, hoặc tầng định
+   * tuyến chưa cấu hình/không đọc được lúc cấp token → không mang
+   * claim: việc cấp token không bao giờ được hỏng vì tầng định tuyến,
+   * và phiên thiếu claim vẫn bị `SpaceContextGuard` đối chiếu bằng
+   * slug của tenant hiệu lực ở địa chỉ kho riêng, nên thiếu claim
+   * không nới lỏng được việc gắn phiên vào trung tâm.
+   */
+  private async centreClaimForTenant(tenantId: string): Promise<string | undefined> {
+    try {
+      const tenant = await tenantAls.run({ platform: true }, () => this.tenants.getTenant(tenantId));
+      const target = await this.spaceDb.resolveTarget(tenant.slug);
+      return target.mode === 'dedicated' ? target.spaceId : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   /** Xoay vòng: token được trình ra phải là token hiện tại của family. Trình ra token trước đó (đã bị xoay vòng) = dùng lại ⇒ thu hồi family. */
@@ -362,24 +529,75 @@ export class AuthService {
       await this.repo.revokeFamily(family.id);
       throw new UnauthorizedException({ message: 'Account is not active', code: 'auth.account_inactive' });
     }
-    const newRefresh = randomBytes(48).toString('base64url');
-    await this.repo.rotateFamily(family.id, hashToken(newRefresh), family.currentTokenHash);
-    // Giữ `tid` của family; tenant đã khoá hoặc membership đã kết thúc
-    // thì phân giải lại tenant mặc định thay vì cấp token vào ngõ cụt.
-    let tid = family.tenantId ?? undefined;
-    if (tid) {
-      try {
-        await this.tenants.resolveSwitchTarget(user.id, tid);
-      } catch {
-        tid = undefined;
+    // Đường kho riêng (issue #584): family của phiên kho riêng sống
+    // trong chính kho đó, nên refresh tại địa chỉ kho riêng phân
+    // giải lại tenant từ kho riêng (dòng tenant mang slug của địa
+    // chỉ) thay vì kiểm lại bằng kho chung — kiểm bằng kho chung
+    // sẽ kết luận tenant không tồn tại rồi ghi đè family về
+    // tenant-zero chung. Family chỉ tra được ở kho của nó nên
+    // refresh ở địa chỉ khác vốn đã 401 từ bước tra family.
+    //
+    // Các chốt fail-closed của đường kho riêng chạy TRƯỚC khi xoay
+    // family: kho riêng chưa có dòng tenant của chính nó thì từ
+    // chối `space.tenant_missing` — cùng kết luận với `issueTokens`
+    // khi cấp phiên mới; rơi về phân giải kho chung tại đây sẽ cấp
+    // token mang tenant của kho khác. Tenant trong kho đã bị đình
+    // chỉ, hoặc membership của user trong kho đã kết thúc, cũng bị
+    // từ chối thay vì gia hạn một phiên lẽ ra đã chết. Lần từ chối
+    // ở bước này không xoay và không thu hồi family: trạng thái
+    // được khôi phục (tenant được kích hoạt lại, membership được
+    // gắn lại) thì phiên làm mới lại được bằng chính token cũ.
+    const space = await this.requestDedicatedSpace();
+    const spaceTenant = space ? await this.tenants.getTenantInSpace(space.slug) : undefined;
+    if (space) {
+      if (!spaceTenant) {
+        throw new UnauthorizedException({ message: 'Space tenant is not ready in its own store', code: 'space.tenant_missing' });
+      }
+      if (spaceTenant.status !== 'active') {
+        throw new UnauthorizedException({ message: `Tenant ${spaceTenant.slug} is ${spaceTenant.status}`, code: 'tenant.not_active' });
+      }
+      // Tenant kiểu platform là không gian công cộng — mọi tài
+      // khoản đã đăng nhập đều thuộc về nó, theo đúng quy định của
+      // `resolveSwitchTarget` — nên không gác bằng membership;
+      // tenant trung tâm/trường học thì membership còn hiệu lực
+      // trong kho là điều kiện giữ phiên.
+      if (spaceTenant.kind !== 'platform') {
+        const membership = await this.tenants.getMembershipInSpace(space.slug, spaceTenant.id, user.id);
+        if (!membership || membership.status !== 'active') {
+          throw new UnauthorizedException({ message: 'User is not an active member of this tenant', code: 'tenant.not_member' });
+        }
       }
     }
-    if (!tid) {
-      tid = (await this.tenants.resolveDefaultTenant(user.id)).id;
+    const newRefresh = randomBytes(48).toString('base64url');
+    await this.repo.rotateFamily(family.id, hashToken(newRefresh), family.currentTokenHash);
+    let tid: string | undefined;
+    let centreId: string | undefined;
+    if (space && spaceTenant) {
+      tid = spaceTenant.id;
+      centreId = space.spaceId;
       if (tid !== family.tenantId) await this.repo.setFamilyTenant(family.id, tid);
+    } else {
+      // Giữ `tid` của family; tenant đã khoá hoặc membership đã kết thúc
+      // thì phân giải lại tenant mặc định thay vì cấp token vào ngõ cụt.
+      tid = family.tenantId ?? undefined;
+      if (tid) {
+        try {
+          await this.tenants.resolveSwitchTarget(user.id, tid);
+        } catch {
+          tid = undefined;
+        }
+      }
+      if (!tid) {
+        tid = (await this.tenants.resolveDefaultTenant(user.id)).id;
+        if (tid !== family.tenantId) await this.repo.setFamilyTenant(family.id, tid);
+      }
+      centreId = await this.centreClaimForTenant(tid);
     }
     const accessTtl = this.config.get<number>('ACCESS_TOKEN_TTL_SECONDS') ?? 900;
-    const accessToken = await this.jwt.signAsync({ sub: user.id, username: user.username, sid: family.familyId, tid }, { expiresIn: accessTtl });
+    const accessToken = await this.jwt.signAsync(
+      { sub: user.id, username: user.username, sid: family.familyId, tid, ...(centreId ? { centre_id: centreId } : {}) },
+      { expiresIn: accessTtl },
+    );
     return { accessToken, refreshToken: newRefresh, expiresIn: accessTtl };
   }
 
@@ -399,6 +617,17 @@ export class AuthService {
    * hiệu lực, không mang vai từ tenant này sang tenant khác.
    */
   async switchTenant(user: UserRow, tenantId: string, currentFamilyId?: string, client?: SessionClientInfo): Promise<TokenPair> {
+    // Đường kho riêng (issue #584): phiên của trung tâm ở kho riêng
+    // không có khái niệm chuyển tenant — tài khoản của trung tâm đó
+    // không tồn tại ở trung tâm khác nên không có đích chuyển hợp lệ.
+    // Chặn tại service (không chỉ tại controller) vì mọi đường vào
+    // switch đều phải qua đây.
+    if (await this.requestDedicatedSpace()) {
+      throw new ForbiddenException({
+        message: 'Tenant switching does not apply to dedicated-store centres',
+        code: 'auth.switch_tenant_not_in_space',
+      });
+    }
     const target = await this.tenants.resolveSwitchTarget(user.id, tenantId);
     if (currentFamilyId) {
       const family = await this.repo.getFamilyById(currentFamilyId);
@@ -519,6 +748,10 @@ export class AuthService {
    * `validateCredentials`; user đã bật MFA thì dừng ở challenge của
    * luồng session (bản sửa lỗ hổng cũ — route này từng đi thẳng qua MFA),
    * phiên chỉ được tạo sau khi POST /auth/session/mfa/verify qua được.
+   *
+   * Gắn không gian (issue #584): phiên cookie ghi lại slug kho riêng
+   * của địa chỉ đã đăng nhập (vắng khi đăng nhập ở địa chỉ gốc) để
+   * `sessionUser` từ chối phiên bị mang sang địa chỉ khác.
    */
   async sessionLogin(username: string, password: string, oldSessionId?: string, ip?: string, userAgent?: string): Promise<SessionLoginOutcome> {
     const user = await this.validateCredentials(username, password, ip);
@@ -527,7 +760,7 @@ export class AuthService {
       return { mfaRequired: true, user, challengeToken };
     }
     await this.users.recordLogin(user.id);
-    const sessionId = await this.sessions.rotate(oldSessionId, { userId: user.id, username: user.username, ip, userAgent });
+    const sessionId = await this.sessions.rotate(oldSessionId, { userId: user.id, username: user.username, ip, userAgent, spaceSlug: tenantAls.getStore()?.spaceSlug });
     await this.recordAuthEvent('user_logged_in', { userId: user.id, actorId: user.id, method: 'session', ip: ip ?? null });
     return { mfaRequired: false, sessionId, user };
   }
@@ -535,21 +768,34 @@ export class AuthService {
    * Bước hai của đăng nhập phiên cookie: qua thử thách MFA (dùng chung
    * lõi với luồng token) mới ghi nhận đăng nhập và tạo phiên — phiên
    * được xoay từ id cũ như đăng nhập trực tiếp để chống fixation.
+   * Phiên mới cũng gắn không gian như `sessionLogin`.
    */
   async verifyMfaSession(challengeToken: string, code: string, oldSessionId?: string, ip?: string, userAgent?: string): Promise<{ sessionId: string; user: UserRow }> {
     const user = await this.passMfaChallenge(challengeToken, code, ip, 'session');
     await this.users.recordLogin(user.id);
-    const sessionId = await this.sessions.rotate(oldSessionId, { userId: user.id, username: user.username, ip, userAgent });
+    const sessionId = await this.sessions.rotate(oldSessionId, { userId: user.id, username: user.username, ip, userAgent, spaceSlug: tenantAls.getStore()?.spaceSlug });
     await this.recordAuthEvent('user_logged_in', { userId: user.id, actorId: user.id, method: 'session-totp', ip: ip ?? null });
     return { sessionId, user };
   }
   /**
    * User của session hiện tại; null nếu session không hợp lệ.
+   *
+   * Gắn không gian (issue #584): phiên đã ghi slug kho riêng thì
+   * request phải đang ở đúng địa chỉ của kho đó — phiên của trung
+   * tâm A bị mang sang địa chỉ trung tâm B hoặc sang địa chỉ gốc
+   * thì bị huỷ ngay và trả 401 `auth.session_space_mismatch`.
+   * Phiên cũ không ghi slug (đăng nhập ở địa chỉ gốc, trước issue
+   * này) giữ hành vi cũ: tra tài khoản trong kho của địa chỉ hiện
+   * tại, vắng mặt thì chết ở bước tra tài khoản như trước.
    */
   async sessionUser(sessionId: string | undefined): Promise<UserRow> {
     if (!sessionId) throw new UnauthorizedException({ message: 'No session', code: 'auth.unauthenticated' });
     const session = await this.sessions.get(sessionId);
     if (!session) throw new UnauthorizedException({ message: 'Session expired', code: 'auth.session_expired' });
+    if (session.spaceSlug !== undefined && session.spaceSlug !== tenantAls.getStore()?.spaceSlug) {
+      await this.sessions.destroy(sessionId);
+      throw new UnauthorizedException({ message: 'Session belongs to another space', code: 'auth.session_space_mismatch' });
+    }
     const user = await this.users.getByIdOrUndefined(session.userId);
     if (!user || user.deleted || user.suspended) {
       await this.sessions.destroy(sessionId);

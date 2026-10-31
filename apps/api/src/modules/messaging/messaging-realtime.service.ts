@@ -202,6 +202,77 @@ export class MessagingRealtimeService implements OnModuleDestroy {
     }
   }
 
+  /**
+   * Ảnh chụp presence tại thời điểm người xem nối socket: liệt kê
+   * những người ĐANG trực tuyến trong số các thành viên có quan hệ
+   * hội thoại chung với người xem. Sự kiện `presence.changed` chỉ
+   * phát lúc trạng thái THAY ĐỔI (xem {@link broadcastPresence}) nên
+   * người đã trực tuyến từ trước khi người xem mở trang không phát
+   * sinh sự kiện nào — gateway phát ảnh chụp này ngay sau khi người
+   * xem nối để lấp khoảng trống đó.
+   *
+   * Phạm vi nhìn thấy bám đúng luật của {@link broadcastPresence}:
+   * chỉ thành viên của các hội thoại người xem tham gia mới được xét;
+   * ở hội thoại 1–1, phía bên kia đang có quan hệ chặn (bất kỳ chiều
+   * nào) bị loại — presence không lộ qua bề mặt 1–1 khi đang chặn.
+   * Trạng thái đọc thẳng từ cùng tập socket trong Redis mà
+   * {@link markConnected}/{@link markDisconnected} ghi (không dựng
+   * kho presence thứ hai); presence được ghi theo đoạn tenant của
+   * TỪNG hội thoại nên một người được kiểm ở mọi đoạn mà người xem
+   * thấy họ qua đó. Đường phụ như mọi đường presence: lỗi đọc bị nuốt
+   * kèm log và trả danh sách rỗng — trang vẫn mở bình thường, trạng
+   * thái sẽ tự lấp khi có sự kiện trực tiếp kế tiếp.
+   *
+   * @param viewerId - Người dùng vừa nối socket, chủ thể được nhận ảnh chụp.
+   * @returns Danh sách userId đang trực tuyến (đã khử trùng lặp).
+   */
+  async listOnlineCoMemberIds(viewerId: string): Promise<string[]> {
+    try {
+      const conversations = await this.repo.listConversationsForUser(viewerId);
+      if (!conversations.length) return [];
+      const blockedCounterparts = new Set(await this.repo.listBlockedCounterpartIds(viewerId));
+      // userId → tập đoạn tenant của các hội thoại mà người xem thấy
+      // người đó qua đó (presence ghi theo đoạn của từng hội thoại).
+      const segmentsByUser = new Map<string, Set<string>>();
+      for (const c of conversations) {
+        const members = await this.repo.listMembers(c.id);
+        let others = members.filter((id) => id !== viewerId);
+        if (c.type === 1 && blockedCounterparts.size > 0) {
+          others = others.filter((id) => !blockedCounterparts.has(id));
+        }
+        if (!others.length) continue;
+        const segment = tenantRealtimeSegment(c.tenantId);
+        for (const id of others) {
+          let segments = segmentsByUser.get(id);
+          if (!segments) {
+            segments = new Set();
+            segmentsByUser.set(id, segments);
+          }
+          segments.add(segment);
+        }
+      }
+      if (!segmentsByUser.size) return [];
+      const pairs: { userId: string; key: string }[] = [];
+      for (const [userId, segments] of segmentsByUser) {
+        for (const segment of segments) {
+          pairs.push({ userId, key: `${PRESENCE_KEY_PREFIX}${segment}:${userId}` });
+        }
+      }
+      const pipeline = this.state().pipeline();
+      for (const pair of pairs) pipeline.exists(pair.key);
+      const results = await pipeline.exec();
+      const online = new Set<string>();
+      pairs.forEach((pair, index) => {
+        const entry = results?.[index];
+        if (entry && !entry[0] && entry[1] === 1) online.add(pair.userId);
+      });
+      return [...online];
+    } catch (error) {
+      this.logger.warn(`Không đọc được ảnh chụp presence cho ${viewerId}: ${(error as Error).message}`);
+      return [];
+    }
+  }
+
   /** Ghi socket vào sổ local và bảo đảm vòng gia hạn đang chạy. */
   private trackLocalSocket(subject: string, socketId: string): void {
     let sockets = this.localPresence.get(subject);
@@ -270,101 +341,6 @@ export class MessagingRealtimeService implements OnModuleDestroy {
         .emit(MESSAGING_SOCKET_EVENTS.presenceChanged, { userId, online });
     } catch (error) {
       this.logger.warn(`Không phát được presence: ${(error as Error).message}`);
-    }
-  }
-
-  /**
-   * Ảnh chụp hiện diện ban đầu cho một client vừa kết nối (issue
-   * #592): tập user ĐANG TRỰC TUYẾN trong phạm vi các hội thoại
-   * của chính client đó — đối tác 1–1 và mọi thành viên nhóm — để
-   * client hiển thị đúng trạng thái ngay từ đầu theo luật ba trạng
-   * thái, thay vì chờ sự kiện thay đổi tiếp theo.
-   *
-   * Phạm vi và luật ẩn giữ đúng như {@link broadcastPresence}:
-   * đối tác của hội thoại 1–1 đang chặn (bất kỳ chiều nào) bị loại
-   * khỏi tập — trạng thái của họ không lộ qua bề mặt 1–1; thành
-   * viên nhóm vẫn tính kể cả khi có quan hệ chặn song song (chặn
-   * chỉ ẩn bề mặt 1–1, không ẩn presence trong nhóm). Chính người
-   * xem không nằm trong tập (trạng thái của mình không hiển thị
-   * trên các bề mặt đối tác).
-   *
-   * Chỉ user ĐANG trực tuyến mới nằm trong tập trả về — đối tác
-   * ngoại tuyến vắng mặt, client giữ trạng thái "chưa rõ" (không
-   * hiện dòng trạng thái nào) thay vì suy đoán là ngoại tuyến.
-   * Đoạn tenant của khoá presence: đối tác ghi khoá bằng tenant
-   * phiên của chính họ lúc nối, mà gateway không biết trước được,
-   * nên kiểm tra mọi đoạn có thể là đoạn của đối tác — tenant của
-   * các hội thoại chung, tenant phiên của người xem, và đoạn
-   * 'platform' cho quản trị hệ thống (phiên không gắn tenant).
-   * Đối tác ở đoạn nào cũng bắt được; đoạn nào cũng trượt thì coi
-   * như chưa rõ, không đoán sai thành ngoại tuyến.
-   *
-   * Đường phụ như mọi đường presence khác: lỗi Redis/DB bị nuốt
-   * kèm log, trả tập rỗng — client chỉ mất ảnh chụp lần này và
-   * vẫn nhận các sự kiện thay đổi tiếp theo bình thường.
-   *
-   * @param tenantId - Tenant phiên của người xem (đoạn ứng cử viên).
-   * @param userId - Người xem vừa kết nối.
-   * @returns Id các đối tác đang trực tuyến trong phạm vi hội thoại.
-   */
-  async listOnlineConversationCounterparts(tenantId: string | null, userId: string): Promise<string[]> {
-    try {
-      const conversations = await this.repo.listConversationsForUser(userId);
-      if (!conversations.length) return [];
-      const blockedCounterparts = new Set(await this.repo.listBlockedCounterpartIds(userId));
-      // Đối tác → các đoạn tenant có thể là đoạn presence của họ.
-      const segmentsByCounterpart = new Map<string, Set<string>>();
-      const viewerSegment = tenantRealtimeSegment(tenantId);
-      const noteCounterpart = (counterpartId: string, conversationTenantId: string | null) => {
-        if (counterpartId === userId) return;
-        let segments = segmentsByCounterpart.get(counterpartId);
-        if (!segments) {
-          segments = new Set([viewerSegment, 'platform']);
-          segmentsByCounterpart.set(counterpartId, segments);
-        }
-        segments.add(tenantRealtimeSegment(conversationTenantId));
-      };
-      for (const c of conversations) {
-        const members = await this.repo.listMembers(c.id);
-        if (c.type === 1) {
-          const other = members.find((id) => id !== userId);
-          // Hội thoại 1–1 đang chặn: đối tác không lộ trạng thái.
-          if (!other || blockedCounterparts.has(other)) continue;
-          noteCounterpart(other, c.tenantId);
-        } else {
-          for (const memberId of members) noteCounterpart(memberId, c.tenantId);
-        }
-      }
-      if (!segmentsByCounterpart.size) return [];
-      const redis = this.state();
-      const pipeline = redis.pipeline();
-      const checks: { counterpartId: string; segments: string[] }[] = [];
-      for (const [counterpartId, segments] of segmentsByCounterpart) {
-        const segmentList = [...segments];
-        checks.push({ counterpartId, segments: segmentList });
-        for (const segment of segmentList) {
-          pipeline.scard(`${PRESENCE_KEY_PREFIX}${segment}:${counterpartId}`);
-        }
-      }
-      const results = await pipeline.exec();
-      if (!results) return [];
-      const online: string[] = [];
-      let cursor = 0;
-      for (const check of checks) {
-        let isOnline = false;
-        for (let i = 0; i < check.segments.length; i++) {
-          const result = results?.[cursor++];
-          const count = result?.[1];
-          if (typeof count === 'number' && count > 0) {
-            isOnline = true;
-          }
-        }
-        if (isOnline) online.push(check.counterpartId);
-      }
-      return online;
-    } catch (error) {
-      this.logger.warn(`Không lấy được ảnh chụp presence: ${(error as Error).message}`);
-      return [];
     }
   }
 

@@ -3387,3 +3387,91 @@ ALTER TABLE "exam_contributions" ADD CONSTRAINT "exam_contributions_mode_check" 
 ALTER TABLE "exam_contributions" ADD CONSTRAINT "exam_contributions_status_check" CHECK ("status" in ('pending', 'pending_board', 'approved', 'rejected'));--> statement-breakpoint
 CREATE INDEX "exam_contributions_dossier_matrix_idx" ON "exam_contributions" ("dossier_matrix_id");--> statement-breakpoint
 CREATE INDEX "exam_contributions_dossier_matrix_version_idx" ON "exam_contributions" ("dossier_matrix_version_id");
+--> statement-breakpoint
+CREATE TABLE "centre_identity" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"tenant_id" uuid NOT NULL CONSTRAINT "centre_identity_tenant_unique" UNIQUE,
+	"display_name" text NOT NULL,
+	"logo_path" text,
+	"brand_color" text,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "centre_invites" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"tenant_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"email" text NOT NULL,
+	"token_hash" text NOT NULL UNIQUE,
+	"expires_at" timestamp with time zone NOT NULL,
+	"used_at" timestamp with time zone,
+	"revoked_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "program_package_installs" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"tenant_id" uuid NOT NULL,
+	"package_key" text NOT NULL,
+	"version" text NOT NULL,
+	"checksum" text NOT NULL,
+	"installed_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "program_package_installs_tenant_key_unique" UNIQUE("tenant_id","package_key")
+);
+--> statement-breakpoint
+CREATE INDEX "centre_invites_tenant_id_idx" ON "centre_invites" ("tenant_id");--> statement-breakpoint
+CREATE INDEX "centre_invites_user_id_idx" ON "centre_invites" ("user_id");--> statement-breakpoint
+ALTER TABLE "centre_identity" ADD CONSTRAINT "centre_identity_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "centre_invites" ADD CONSTRAINT "centre_invites_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "centre_invites" ADD CONSTRAINT "centre_invites_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "program_package_installs" ADD CONSTRAINT "program_package_installs_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;
+--> statement-breakpoint
+-- Issue #583 (chương trình tenant #579): ba bảng riêng của trung tâm
+-- mang tenant_id NOT NULL — cùng khuôn RLS tenant_isolation
+-- FAIL-CLOSED của TENANT-1 như `tenant_config`: phiên platform
+-- tường minh thấy mọi dòng, phiên tenant chỉ thấy dòng của tenant
+-- mình, phiên chưa đặt GUC không thấy dòng nào. RLS viết tay ở đây
+-- vì drizzle-kit không sinh policy (xem khối RLS gốc của baseline).
+ALTER TABLE "centre_identity" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "centre_identity" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "centre_identity" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
+ALTER TABLE "centre_invites" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "centre_invites" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "centre_invites" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
+ALTER TABLE "program_package_installs" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "program_package_installs" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "program_package_installs" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
+CREATE TABLE "outcome_package_installs" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"package_version" text NOT NULL,
+	"previous_version" text,
+	"scope" text NOT NULL,
+	"installed_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"installed_by" uuid
+);
+--> statement-breakpoint
+CREATE TABLE "system_bank_event_receipts" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"event_id" uuid NOT NULL,
+	"centre_slug" text NOT NULL,
+	"received_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "system_bank_event_receipts_event_centre_unique" UNIQUE("event_id","centre_slug")
+);
+--> statement-breakpoint
+CREATE TABLE "system_question_imports" (
+	"question_id" uuid PRIMARY KEY,
+	"source_question_id" uuid NOT NULL,
+	"source_version_id" uuid NOT NULL,
+	"source_version_number" integer NOT NULL,
+	"package_checksum" text NOT NULL,
+	"imported_version_number" integer NOT NULL,
+	"imported_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"imported_by" uuid,
+	"kind" text DEFAULT 'pristine' NOT NULL,
+	CONSTRAINT "system_question_imports_kind_check" CHECK ("kind" in ('pristine', 'derived'))
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX "outcome_package_installs_package_version_unique" ON "outcome_package_installs" ("package_version");--> statement-breakpoint
+CREATE INDEX "system_bank_event_receipts_centre_slug_idx" ON "system_bank_event_receipts" ("centre_slug");--> statement-breakpoint
+CREATE INDEX "system_question_imports_source_question_id_idx" ON "system_question_imports" ("source_question_id");--> statement-breakpoint
+ALTER TABLE "system_question_imports" ADD CONSTRAINT "system_question_imports_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;

@@ -4,6 +4,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { ControlPlaneRepository } from '../../../src/modules/control-plane/control-plane.repository';
 import {
   ControlPlaneRegistryService,
   SHARED_DATABASE_SCHEMA_VERSION,
@@ -261,6 +262,91 @@ describe('Control plane: sổ đăng ký không gian và registry phiên bản s
     expect(latest.before?.plan).toBe('standard');
     expect(latest.after.plan).toBe('premium');
     expect(latest.before?.name).toBe('Trung tâm test 580');
+  });
+
+  it('cập nhật tên database sang tên đã có ở dòng khác bị từ chối 409, kể cả khi dòng kia ở kho chung', async () => {
+    // Dòng kho chung đã gieo sẵn (trang-chinh) trỏ vào database
+    // nghiệp vụ test; chỉ mục unique từng phần không phủ hàng
+    // shared nên chỉ lớp kiểm tra ở tầng ứng dụng mới bắt được ca
+    // này — đúng lỗ hổng của đường cập nhật trước vòng sửa #611.
+    const businessDatabase = new URL(process.env.DATABASE_URL!).pathname.replace(/^\//, '');
+    const sharedClash = await registry
+      .updateRegistration(adminId, createdSpaceId, { databaseName: businessDatabase })
+      .catch((error: unknown) => error);
+    expect(sharedClash).toBeInstanceOf(ConflictException);
+    expect((sharedClash as ConflictException).getResponse()).toMatchObject({ code: 'control_plane.database_name_taken' });
+    // Trùng với một dòng dedicated khác cũng bị từ chối, còn đổi
+    // về chính tên hiện tại thì không tính là trùng.
+    const other = await registry.createRegistration(adminId, {
+      slug: 'trung-tam-test-611-khac',
+      name: 'Trung tâm test 611 khác',
+      kind: 'center',
+      databaseName: 'lms_centre_test_611_other',
+      storageMode: 'dedicated',
+      connectionRoleRef: 'lms_centre_test_611_other_app',
+    });
+    await expect(
+      registry.updateRegistration(adminId, createdSpaceId, { databaseName: 'lms_centre_test_611_other' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    const unchanged = await registry.updateRegistration(adminId, createdSpaceId, { databaseName: 'lms_centre_test_580' });
+    expect(unchanged.databaseName).toBe('lms_centre_test_580');
+    expect(other.databaseName).toBe('lms_centre_test_611_other');
+  });
+
+  it('chỉ đổi storageMode sang dedicated mà giữ nguyên tên database đã có ở dòng kho chung khác cũng bị từ chối 409', async () => {
+    // Hai không gian gieo sẵn đều ở kho chung và cùng trỏ vào
+    // database nghiệp vụ test; chỉ số duy nhất riêng phần không phủ
+    // hàng shared nên đường cập nhật chỉ kiểm tra khi đổi tên sẽ bỏ
+    // qua ca chỉ đổi chế độ lưu trữ — lỗ hổng vòng chấm lại hẹp
+    // PR #611: lật một dòng shared sang dedicated mà giữ nguyên tên
+    // sẽ tạo một hàng dedicated mang tên đã có ở dòng shared kia.
+    const school = await registry.getBySlug(adminId, 'truong-mac-dinh');
+    expect(school.storageMode).toBe('shared');
+    const rejected = await registry
+      .updateRegistration(adminId, school.id, { storageMode: 'dedicated' })
+      .catch((error: unknown) => error);
+    expect(rejected).toBeInstanceOf(ConflictException);
+    expect((rejected as ConflictException).getResponse()).toMatchObject({ code: 'control_plane.database_name_taken' });
+    // Bị từ chối thì dòng giữ nguyên chế độ kho chung, không đổi gì.
+    const after = await registry.getBySlug(adminId, 'truong-mac-dinh');
+    expect(after.storageMode).toBe('shared');
+    expect(after.databaseName).toBe(school.databaseName);
+  });
+
+  it('chỉ đổi storageMode của dòng gieo đầu tiên sang dedicated cũng bị từ chối 409 (ca tự khớp)', async () => {
+    // Ca tự khớp của truy vấn LIMIT 1 (phán quyết vòng chấm lại hẹp
+    // thứ hai PR #611): trang-chinh là dòng gieo đầu tiên trong hai
+    // dòng cùng tên database; truy vấn không loại trừ dòng đang sửa
+    // có thể trả về chính dòng này và bỏ qua va chạm với dòng còn
+    // lại. Ca trên lật dòng gieo thứ hai; ca này lật dòng gieo đầu
+    // tiên để kiểm tra đường loại trừ trong truy vấn.
+    const platform = await registry.getBySlug(adminId, 'trang-chinh');
+    expect(platform.storageMode).toBe('shared');
+    const rejected = await registry
+      .updateRegistration(adminId, platform.id, { storageMode: 'dedicated' })
+      .catch((error: unknown) => error);
+    expect(rejected).toBeInstanceOf(ConflictException);
+    expect((rejected as ConflictException).getResponse()).toMatchObject({ code: 'control_plane.database_name_taken' });
+    // Bị từ chối thì dòng giữ nguyên chế độ kho chung, không đổi gì.
+    const unchanged = await registry.getBySlug(adminId, 'trang-chinh');
+    expect(unchanged.storageMode).toBe('shared');
+    expect(unchanged.databaseName).toBe(platform.databaseName);
+  });
+
+  it('tra cứu loại trừ theo tên database trả về dòng khác, không trả chính dòng bị loại', async () => {
+    // Chứng minh xác định cho phương thức loại trừ: với hai dòng cùng
+    // tên, tra cứu loại trừ dòng nào cũng phải trả về đúng dòng còn
+    // lại; với tên chỉ một dòng dùng, tra cứu loại trừ chính dòng đó
+    // phải trả về rỗng — không bao giờ tự khớp.
+    const platform = await registry.getBySlug(adminId, 'trang-chinh');
+    const school = await registry.getBySlug(adminId, 'truong-mac-dinh');
+    const repository = app.get(ControlPlaneRepository);
+    const otherFromPlatform = await repository.findOtherSpaceByDatabaseName(platform.databaseName, platform.id);
+    expect(otherFromPlatform?.id).toBe(school.id);
+    const otherFromSchool = await repository.findOtherSpaceByDatabaseName(school.databaseName, school.id);
+    expect(otherFromSchool?.id).toBe(platform.id);
+    const onlyRow = await repository.findOtherSpaceByDatabaseName('lms_centre_test_580', createdSpaceId);
+    expect(onlyRow).toBeUndefined();
   });
 
   it('đổi trạng thái vòng đời ghi lịch sử status_change; đổi về chính trạng thái hiện tại không ghi thêm', async () => {

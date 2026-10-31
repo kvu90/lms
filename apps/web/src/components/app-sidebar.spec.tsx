@@ -10,8 +10,9 @@ import { baSessionResponse, isGetSessionUrl } from '#test/ba-session';
 /**
  * Test cho cây điều hướng sidebar sau Lát 1 của hồ sơ UI/UX (sidebar
  * collapse theo cơ chế sidebar-07): 5 mục trực tiếp + các mục cha
- * thu/mở (Học tập / Người dùng & quyền / Cài đặt hệ thống) thay cho 3
- * nhóm phẳng cũ. Mục "Tìm kiếm" không còn ở sidebar từ chốt 23:52
+ * thu/mở (Học tập / Người dùng & quyền / Vai trò & Quyền / Cài đặt hệ
+ * thống) thay cho 3 nhóm phẳng cũ — nhóm Vai trò & Quyền tách riêng
+ * mang hai mục Vai trò và Quyền. Mục "Tìm kiếm" không còn ở sidebar từ chốt 23:52
  * ngày 26/10/2026 (issue #303 — ô tìm kiếm chuyển ra giữa header).
  * Dựng đúng cây thật (App → Shell → AppSidebar) như
  * sidebar-notification-count.spec, stub fetch theo vai trò:
@@ -213,8 +214,8 @@ describe('cây điều hướng sidebar — admin', () => {
     const notifications = await screen.findByRole('link', { name: /Thông báo/ });
     expect(await within(notifications).findByText('2')).toBeInTheDocument();
 
-    // 3 mục cha là nút thu/mở thuần (button, không phải link).
-    for (const name of ['Học tập', 'Người dùng & quyền', 'Cài đặt hệ thống']) {
+    // Các mục cha là nút thu/mở thuần (button, không phải link).
+    for (const name of ['Học tập', 'Người dùng & quyền', 'Vai trò & Quyền', 'Cài đặt hệ thống']) {
       expect(await screen.findByRole('button', { name })).toBeInTheDocument();
       expect(screen.queryByRole('link', { name })).not.toBeInTheDocument();
     }
@@ -323,12 +324,14 @@ describe('cây điều hướng sidebar — admin', () => {
     }
     expect(hrefs).toEqual(expectedOrder);
 
-    // Mở thêm nhóm thứ hai: cả hai cùng mở (không accordion).
-    await userEvent.click(screen.getByRole('button', { name: 'Người dùng & quyền' }));
+    // Mở thêm nhóm thứ hai: cả hai cùng mở (không accordion). Mục Vai
+    // trò đứng ở nhóm Vai trò & Quyền riêng, không còn nằm trong nhóm
+    // Người dùng & quyền.
+    await userEvent.click(screen.getByRole('button', { name: 'Vai trò & Quyền' }));
     expect(await screen.findByRole('link', { name: 'Vai trò' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Sao lưu' })).toBeInTheDocument();
 
-    // Đóng nhóm Hệ thống: mục con của nó ẩn, nhóm Người dùng vẫn mở.
+    // Đóng nhóm Hệ thống: mục con của nó ẩn, nhóm Vai trò vẫn mở.
     await userEvent.click(screen.getByRole('button', { name: 'Cài đặt hệ thống' }));
     expect(screen.queryByRole('link', { name: 'Sao lưu' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Vai trò' })).toBeInTheDocument();
@@ -368,7 +371,7 @@ describe('cây điều hướng sidebar — trạng thái nhóm', () => {
     const child = await screen.findByRole('link', { name: 'Vai trò' });
     expect(child).toHaveAttribute('href', '/admin/roles');
     expect(child.hasAttribute('data-active')).toBe(true);
-    const parent = screen.getByRole('button', { name: 'Người dùng & quyền' });
+    const parent = screen.getByRole('button', { name: 'Vai trò & Quyền' });
     expect(parent.hasAttribute('data-active')).toBe(true);
   });
 

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { OutboxEventJobData } from '../outbox-event-routes';
 import type { CohortSyncService } from '../cohort-sync.service';
+import { SpaceJobRunner } from '../db/routing/space-job-runner';
+import type { SpaceDatabaseService } from '../db/routing/space-database.service';
 import { CohortSyncEventsProcessor } from './cohort-sync-events.processor';
 
 /**
@@ -44,15 +46,34 @@ function makeJob(partial: Partial<OutboxEventJobData> = {}) {
     type: 'cohort_member_added',
     payload: { cohortId: 'cohort-1', userId: 'user-1' },
     tenantId: null,
+    spaceSlug: null,
     occurredAt: '2026-10-30T00:00:00.000Z',
     ...partial,
   };
   return { data } as never;
 }
 
+/**
+ * Bộ chạy job THẬT với khung định tuyến không có sổ phía sau
+ * (issue #582): các job của spec này không mang slug trung tâm
+ * nên bộ chạy luôn mở ngữ cảnh platform như đường xử lý trước
+ * đợt này — spec khoá hành vi của processor, không khoá định
+ * tuyến kho (định tuyến có spec riêng của bộ chạy và của relay).
+ */
+function makeJobRunner(): SpaceJobRunner {
+  return new SpaceJobRunner({
+    resolveTarget: async () => {
+      throw new Error('spec không cấu hình sổ đăng ký');
+    },
+  } as unknown as SpaceDatabaseService);
+}
+
 function makeProcessor() {
   const cohortSync = new FakeCohortSync();
-  const processor = new CohortSyncEventsProcessor(cohortSync as unknown as CohortSyncService);
+  const processor = new CohortSyncEventsProcessor(
+    cohortSync as unknown as CohortSyncService,
+    makeJobRunner(),
+  );
   return { processor, cohortSync };
 }
 
