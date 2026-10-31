@@ -25,11 +25,31 @@ import { tenantAls } from '../tenants/tenant-als';
  * Sau khi chạy: tăng PROGRAM_DUMP_VERSION trong program-dump.ts nếu
  * đây là đợt sản xuất mới, rồi commit artifact cùng thay đổi version.
  */
+/**
+ * Tính đường file đích của lượt xuất dump từ danh sách đối số CLI.
+ *
+ * @param args - Đối số sau tên script (đã bỏ `node` và đường script);
+ *   đối số đầu tiên không bắt đầu bằng `--` là file đích tường minh.
+ * @returns File đích tường minh nếu có; không có thì đường mặc định
+ *   trỏ vào thư mục `program-data-dump` NGAY CẠNH file này. Bất biến
+ *   vị trí: file CLI nằm trong chính thư mục `modules/curriculum`
+ *   (ở src khi chạy từ mã nguồn, ở `dist/modules/curriculum` khi
+ *   chạy bản build — bước build chép `program-data-dump` vào dist
+ *   cùng vị trí tương đối), và hàm đọc artifact
+ *   `loadProgramDumpSql` trong `program-dump.ts` cũng tính đường
+ *   theo đúng thư mục cạnh đó; đường mặc định TUYỆT ĐỐI không nối
+ *   thêm đoạn `modules/curriculum`, nối thêm là nhân đôi đoạn và
+ *   đích rơi vào thư mục không tồn tại (ghi file ENOENT).
+ */
+export function resolveProgramDumpOutPath(args: string[]): string {
+  const outArg = args.find((a) => !a.startsWith('--'));
+  return outArg ?? join(__dirname, 'program-data-dump', 'program-dump.sql');
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const fromDatasets = args.includes('--from-datasets');
-  const outArg = args.find((a) => !a.startsWith('--'));
-  const outPath = outArg ?? join(__dirname, 'modules', 'curriculum', 'program-data-dump', 'program-dump.sql');
+  const outPath = resolveProgramDumpOutPath(args);
 
   const app = await NestFactory.createApplicationContext(AppModule, { logger: ['error', 'warn'] });
   try {
@@ -55,7 +75,9 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  console.error('[dump] export failed', err);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error('[dump] export failed', err);
+    process.exit(1);
+  });
+}
