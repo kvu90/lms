@@ -46,6 +46,13 @@ import { addExamSlot, createExamDraft } from '../../support/exam-pin-helpers';
  * sự kiện, ghi nhận xong thì hết; (9) nhập bị từ chối ở cổng quyền
  * `question:add` thì không để lại dòng importer ở kho ngân hàng và
  * không có dòng nhập ở kho trung tâm.
+ *
+ * Vòng sửa 2 theo phán quyết trên PR #612 bổ sung: (10) hai route
+ * sự kiện phía trung tâm (liệt kê + ghi nhận) cũng đi qua cổng
+ * `question:useall` tại context hệ thống — học sinh bị từ chối ở
+ * cả hai route, lần ghi nhận bị từ chối không để lại vết ghi nhận
+ * nào và sự kiện vẫn còn nguyên trong danh sách chờ của giáo viên,
+ * giáo viên ghi nhận xong thì sự kiện hết như hành vi hiện hành.
  */
 const BANK_DATABASE = 'lms_test_bank_585';
 const BANK_ROLE = 'lms_bank_test_585';
@@ -344,6 +351,50 @@ describe('Ngân hàng hệ thống thành kho riêng + API (issue #585)', () => 
     expect(
       (after.body as { sourceQuestionId: string }[]).find((event) => event.sourceQuestionId === questionId),
     ).toBeUndefined();
+  });
+
+  it('sự kiện rút câu chỉ người có question:useall mới xem và ghi nhận được: học sinh bị từ chối ở cả hai route, ghi nhận hụt không để lại vết, giáo viên ghi nhận xong thì hết', async () => {
+    const created = await publish('Câu rút để kiểm cổng sự kiện');
+    const questionId = created.question.id;
+    const imported = await http(app).post('/api/v1/system-bank/import').set(bearer(teacher.token)).send({
+      sourceQuestionId: questionId,
+    });
+    expect(imported.status).toBe(201);
+    const withdrawn = await http(app).post(`/api/v1/system-bank/questions/${questionId}/withdraw`).set(bearer(admin)).send({
+      reason: 'Nội dung lỗi thời',
+    });
+    expect(withdrawn.status).toBe(201);
+    // Id sự kiện đọc thẳng từ kho ngân hàng (như ca rút câu đầu
+    // tiên): học sinh không có đường hợp lệ nào để biết id này —
+    // danh sách chờ là kênh duy nhất và kênh đó cũng đóng với học
+    // sinh — nên ca này đưa id vào tay học sinh để chứng minh cổng
+    // chặn ở chính thao tác ghi nhận, không phải chặn nhờ giấu id.
+    const events = await bankPg.query(
+      `SELECT id FROM system_bank_events WHERE source_question_id = $1 AND type = 'question_withdrawn'`,
+      [questionId],
+    );
+    expect(events.rowCount).toBe(1);
+    const eventId = events.rows[0]!.id as string;
+    // (a) Học sinh bị từ chối ở cả hai route sự kiện.
+    const deniedList = await http(app).get('/api/v1/system-bank/events/pending').set(bearer(student.token));
+    expect(deniedList.status).toBe(403);
+    expect((deniedList.body as { code?: string }).code).toBe('access.capability_denied');
+    const deniedAck = await http(app).post(`/api/v1/system-bank/events/${eventId}/acknowledge`).set(bearer(student.token)).send();
+    expect(deniedAck.status).toBe(403);
+    expect((deniedAck.body as { code?: string }).code).toBe('access.capability_denied');
+    // (b) Lần ghi nhận bị từ chối không để lại vết ghi nhận nào và
+    // sự kiện vẫn nằm nguyên trong danh sách chờ của giáo viên.
+    const receipts = await pg.query(`SELECT id FROM system_bank_event_receipts WHERE event_id = $1`, [eventId]);
+    expect(receipts.rowCount).toBe(0);
+    const pending = await http(app).get('/api/v1/system-bank/events/pending').set(bearer(teacher.token));
+    expect(pending.status).toBe(200);
+    expect((pending.body as { id: string }[]).find((event) => event.id === eventId)).toBeDefined();
+    // (c) Giáo viên ghi nhận được và sự kiện biến khỏi danh sách
+    // chờ của trung tâm như hành vi hiện hành.
+    const ack = await http(app).post(`/api/v1/system-bank/events/${eventId}/acknowledge`).set(bearer(teacher.token)).send();
+    expect(ack.status).toBe(201);
+    const after = await http(app).get('/api/v1/system-bank/events/pending').set(bearer(teacher.token));
+    expect((after.body as { id: string }[]).find((event) => event.id === eventId)).toBeUndefined();
   });
 
   it('nhập bị từ chối ở cổng quyền question:add thì không để lại dòng importer ở kho ngân hàng và không có dòng nhập ở kho trung tâm', async () => {

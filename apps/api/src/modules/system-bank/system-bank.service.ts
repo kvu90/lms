@@ -125,6 +125,29 @@ export class SystemBankService {
   }
 
   /**
+   * Gác người nhận sự kiện cho hai đường sự kiện phía trung tâm
+   * (liệt kê sự kiện chưa ghi nhận + ghi nhận sự kiện): sự kiện rút
+   * câu là thông báo vận hành của TRUNG TÂM, không phải dữ kiện của
+   * từng thành viên — chỉ người giữ `question:useall` tại context
+   * hệ thống (cùng cổng với các đường đọc nội dung gói, xem
+   * `assertPackageViewer`) mới được xem và ghi nhận thay trung
+   * tâm. Đường sự kiện không gắn với một câu cụ thể nên chỉ kiểm
+   * capability thuần, không kiểm sự tồn tại của gói; trượt cổng thì
+   * ném 403 `access.capability_denied` như các cổng
+   * `requireCapability` khác trong module. Cổng luôn chạy TRƯỚC
+   * mọi thao tác đọc/ghi của hai đường này: người trượt cổng không
+   * thấy danh sách và tuyệt đối không để lại vết ghi nhận — nếu
+   * không, bất kỳ thành viên nào của trung tâm (kể cả học sinh)
+   * cũng ghi nhận thay được và sự kiện biến khỏi danh sách chờ của
+   * giáo viên cùng trung tâm, thông báo rút câu bị tiêu thụ bởi
+   * sai người.
+   */
+  private async assertEventViewer(actorId: string): Promise<void> {
+    const systemId = (await this.contexts.ensureSystemContext()).id;
+    await this.evaluator.requireCapability(actorId, 'question:useall', systemId);
+  }
+
+  /**
    * Kiểm chứng gói theo dạng câu ở mức thô (luật ở
    * `packageValidationError` trong `system-bank-package.ts`).
    * @throws BadRequestException `system_bank.bad_package` khi gói vi
@@ -467,9 +490,13 @@ export class SystemBankService {
    *    nhận không làm sự kiện biến khỏi danh sách của trung tâm này.
    * Trung tâm biết định danh sự kiện TỪ CHÍNH danh sách này rồi gọi
    * đường ghi nhận; không cần (và không có) kênh nào khác để biết id
-   * sự kiện.
+   * sự kiện. Trước mọi bước trên, người gọi phải qua cổng
+   * `assertEventViewer` (`question:useall` tại context hệ thống):
+   * danh sách là thông báo vận hành của trung tâm, không mở cho
+   * mọi thành viên của trung tâm.
    */
-  async listPendingEvents() {
+  async listPendingEvents(actorId: string) {
+    await this.assertEventViewer(actorId);
     const centreSlug = await this.resolveCentreSlug();
     const questionIds = await this.repo.listImportedQuestionIds(centreSlug);
     if (questionIds.length === 0) return [];
@@ -484,8 +511,13 @@ export class SystemBankService {
    * sự kiện rút câu): idempotent theo cặp sự kiện + slug trung tâm.
    * Trung tâm gọi sau khi nhận thông báo rút câu qua kênh sự kiện
    * platform; vết này để platform đối chiếu trung tâm nào đã nhận.
+   * Người gọi phải qua cổng `assertEventViewer` (`question:useall`
+   * tại context hệ thống) TRƯỚC khi ghi: trượt cổng thì không có
+   * vết ghi nhận nào được tạo, sự kiện vẫn nằm nguyên trong danh
+   * sách chờ của trung tâm.
    */
-  async acknowledgeEvent(eventId: string) {
+  async acknowledgeEvent(actorId: string, eventId: string) {
+    await this.assertEventViewer(actorId);
     const centreSlug = await this.resolveCentreSlug();
     return this.centreRepo.insertEventReceipt({ eventId, centreSlug });
   }

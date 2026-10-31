@@ -274,19 +274,19 @@ describe('Kho ngân hàng hệ thống (issue #585)', () => {
     await service.withdrawQuestion(ADMIN_ID, questionId, { reason: 'Nội dung lỗi thời' });
     // Trung tâm A liệt kê mà không biết trước id sự kiện: sự kiện
     // rút của câu vừa nhập hiện ra từ chính danh sách này.
-    const pendingA = await tenantAls.run({ spaceSlug: 'trung-tam-a' }, () => service.listPendingEvents());
+    const pendingA = await tenantAls.run({ spaceSlug: 'trung-tam-a' }, () => service.listPendingEvents(ADMIN_ID));
     const mine = pendingA.filter((event) => event.sourceQuestionId === questionId);
     expect(mine).toHaveLength(1);
     expect(mine[0]!.type).toBe('question_withdrawn');
     // Ghi nhận bằng id lấy từ danh sách: danh sách của A hết sự
     // kiện đó, trung tâm B chưa ghi nhận nên vẫn thấy.
-    await tenantAls.run({ spaceSlug: 'trung-tam-a' }, () => service.acknowledgeEvent(mine[0]!.id));
-    const pendingAfterAck = await tenantAls.run({ spaceSlug: 'trung-tam-a' }, () => service.listPendingEvents());
+    await tenantAls.run({ spaceSlug: 'trung-tam-a' }, () => service.acknowledgeEvent(ADMIN_ID, mine[0]!.id));
+    const pendingAfterAck = await tenantAls.run({ spaceSlug: 'trung-tam-a' }, () => service.listPendingEvents(ADMIN_ID));
     expect(pendingAfterAck.find((event) => event.sourceQuestionId === questionId)).toBeUndefined();
-    const pendingB = await tenantAls.run({ spaceSlug: 'trung-tam-b' }, () => service.listPendingEvents());
+    const pendingB = await tenantAls.run({ spaceSlug: 'trung-tam-b' }, () => service.listPendingEvents(ADMIN_ID));
     expect(pendingB.find((event) => event.sourceQuestionId === questionId)).toBeDefined();
     // Trung tâm C chưa từng nhập câu này thì không thấy sự kiện.
-    const pendingC = await tenantAls.run({ spaceSlug: 'trung-tam-c' }, () => service.listPendingEvents());
+    const pendingC = await tenantAls.run({ spaceSlug: 'trung-tam-c' }, () => service.listPendingEvents(ADMIN_ID));
     expect(pendingC.find((event) => event.sourceQuestionId === questionId)).toBeUndefined();
   });
 
