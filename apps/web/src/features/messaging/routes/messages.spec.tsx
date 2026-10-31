@@ -4088,6 +4088,40 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     expect(videoTooltip.closest('[data-slot="tooltip-content"]')).not.toBeNull();
   });
 
+  it('panel thông tin 1–1 hiện email thật từ endpoint hồ sơ khi endpoint trả dữ kiện (issue #592)', async () => {
+    const calls: RecordedCall[] = [];
+    stub591Fetch(calls);
+    // Chặn riêng endpoint hồ sơ của đợt backend #592, các
+    // endpoint còn lại vẫn đi qua stub chung của đợt UI #591.
+    const baseFetch = globalThis.fetch as typeof fetch;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url === `/api/v1/messages/users/${OTHER_ID}/profile`) {
+          return new Response(
+            JSON.stringify({ userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser', email: 'banhoc@example.com' }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return baseFetch(url, init);
+      }),
+    );
+    renderMessages();
+
+    // Mẫu chọn hàng 1–1 phải kèm xem trước tin cuối: sau khi hợp
+    // nhất với main, dòng nhóm cũng mang tiền tố tên người gửi
+    // ("Bạn Học: …") nên mẫu /Bạn Học/ trần bắt trùng hai hàng.
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Học.*tin mới của bạn học/ }));
+    await userEvent.click(await screen.findByLabelText('Thông tin cuộc trò chuyện'));
+    const panel = await screen.findByTestId('partner-panel');
+    // Email lấy từ endpoint hồ sơ thay cho dấu gạch ngang chờ
+    // backend của đợt UI; trường chưa có nguồn (điện thoại)
+    // thì KHÔNG dựng hàng theo luật đã hợp nhất ở #608 — không
+    // bịa giá trị, cũng không giữ hàng gạch ngang.
+    expect(await within(panel).findByText('banhoc@example.com')).toBeInTheDocument();
+    expect(within(panel).queryByText('Số điện thoại')).not.toBeInTheDocument();
+  });
+
   it('hộp thoại mời là hộp thoại ở giữa màn hình và khối liên kết mời chỉ là hình dạng vô hiệu', async () => {
     const calls: RecordedCall[] = [];
     stub591Fetch(calls);

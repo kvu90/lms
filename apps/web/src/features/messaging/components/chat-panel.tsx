@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type Dispatch, type FormEvent, type ReactNode, type RefObject, type SetStateAction } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Bell, BellOff, Building2, Check, CheckCheck, ChevronLeft, Clock, Ellipsis, EllipsisVertical,
   Eraser, FileText, Flag, Globe, Link2, Mail, MapPin, MessageSquare, MessagesSquare, Paperclip,
@@ -35,6 +36,7 @@ import { useTranslation } from 'react-i18next';
 
 import { formatWithOptions } from '#utils/date-format';
 import { getPersonProfile, getSharedFiles, QUICK_REPLY_SHAPE_SAMPLES } from '../api/person-profile-adapter';
+import { messagingPersonProfileQueryOptions } from '../queries/messaging';
 import type { ConversationStatePatch, ConversationView, MessageQuoteView, MessageSearchResultView, MessageView, PersonSummary, ScrollerHandle } from '../types/types';
 import { FileCard } from './file-card';
 import { MemberActionMenu, MemberPanel, MemberProfileSheet, useMemberProfile, type MemberPanelBundle } from './member-panel';
@@ -330,6 +332,21 @@ export function ChatPanel({
     setEmojiOpen(false);
   };
 
+  /**
+   * Query hồ sơ đối tác 1–1 phục vụ panel thông tin (issue #592):
+   * đặt ở đây — trước return sớm khi chưa chọn hội thoại — nên id
+   * đối tác tính trực tiếp từ props (cùng luật với `otherId` tính
+   * lại ở dưới sau return sớm: thành viên khác mình đầu tiên của
+   * hội thoại 1–1). Query chỉ bật khi panel thông tin đang mở và
+   * đang ở hội thoại 1–1; chưa mở panel thì không tải hồ sơ.
+   */
+  const panelPartnerId = active && active.type !== 2
+    ? active.members.find((memberId) => memberId !== myId)
+    : undefined;
+  const personProfileQuery = useQuery({
+    ...messagingPersonProfileQueryOptions(panelPartnerId ?? ''),
+    enabled: panelPartnerId !== undefined && infoOpen,
+  });
   useEffect(() => {
     setSearchOpen(false);
     setInfoOpen(false);
@@ -388,15 +405,17 @@ export function ChatPanel({
    * kiện client: `true` khi đã có sự kiện hiện diện xác nhận
    * trực tuyến, `false` khi đã có sự kiện xác nhận ngoại tuyến,
    * `undefined` khi CHƯA BIẾT — chưa nhận sự kiện nào của đối
-   * tác. Client không nhận được ảnh chụp hiện diện ban đầu từ
-   * máy chủ: đối tác đã trực tuyến hay ngoại tuyến sẵn từ
-   * trước khi trang tải thì bản đồ không có bản ghi của họ,
-   * nên `undefined` tuyệt đối không được gộp thành ngoại
-   * tuyến — bề mặt hiện chữ trạng thái chỉ được khẳng định
-   * khi đã có sự kiện xác nhận. Chấm hiện diện trên avatar
-   * (đầu khung và panel) bám đúng ba trạng thái này: xanh lá
-   * khi `true`, xám khi `false`, vắng hẳn khi `undefined` —
-   * vắng chấm khi chưa biết không khẳng định điều gì sai.
+   * tác. Từ đợt backend #592, máy chủ gửi ảnh chụp hiện diện ban
+   * đầu cho socket vừa nối (tập đối tác đang trực tuyến trong phạm
+   * vi hội thoại), nên đối tác trực tuyến sẵn từ trước khi trang
+   * tải đã có bản ghi `true` ngay từ đầu; đối tác ngoại tuyến lúc
+   * nối vắng khỏi ảnh chụp nên vẫn là `undefined` — `undefined`
+   * tuyệt đối không được gộp thành ngoại tuyến, bề mặt hiện chữ
+   * trạng thái chỉ được khẳng định khi đã có sự kiện xác nhận.
+   * Chấm hiện diện trên avatar (đầu khung và panel) bám đúng ba
+   * trạng thái này: xanh lá khi `true`, xám khi `false`, vắng hẳn
+   * khi `undefined` — vắng chấm khi chưa biết không khẳng định
+   * điều gì sai.
    */
   const otherPresence = otherId ? onlineUsers[otherId] : undefined;
   /**
@@ -963,15 +982,29 @@ export function ChatPanel({
   const showInfoAside = infoOpen && ((isGroup && memberPanelBundle !== null) || (!isGroup && otherId !== undefined));
   /**
    * Hồ sơ hiển thị của đối tác 1–1 qua lớp adapter (issue
-   * #591): tên + tên đăng nhập là dữ kiện thật từ trang; các
-   * trường hồ sơ mở rộng chờ đợt backend thay nguồn.
+   * #591) + nguồn backend (issue #592): tên + tên đăng nhập là
+   * dữ kiện thật từ trang; email lấy từ endpoint hồ sơ khi query
+   * đã về (trước đó giữ giá trị rỗng của adapter để panel không
+   * hiện email giả trong lúc tải); các trường hồ sơ mở rộng còn
+   * lại chưa có nguồn trong hệ nên vẫn qua adapter với giá trị
+   * rỗng (xem `person-profile-adapter.ts`).
    */
+  const serverPersonProfile = personProfileQuery.data;
   const partnerProfile = !isGroup && otherId
-    ? getPersonProfile({
-      userId: otherId,
-      displayName: nameOf(otherId),
-      username: people[otherId]?.username ?? '',
-    })
+    ? {
+        ...getPersonProfile({
+          userId: otherId,
+          displayName: nameOf(otherId),
+          username: people[otherId]?.username ?? '',
+        }),
+        ...(serverPersonProfile
+          ? {
+              displayName: serverPersonProfile.displayName,
+              username: serverPersonProfile.username,
+              email: serverPersonProfile.email,
+            }
+          : {}),
+      }
     : null;
   /** Các tệp đã chia sẻ của hội thoại đang mở qua adapter — nguồn hiện tại rỗng (đính kèm chưa có phán quyết chức năng). */
   const sharedFiles = getSharedFiles(active.id);

@@ -36,8 +36,9 @@ const SYNC_MAX_CONVERSATIONS = 50;
  * relay duy nhất → hàng đợi ở worker → consumer phân phối theo luật
  * ở `@lms/messaging`, phát qua Redis emitter về adapter của gateway
  * này (issue #521). Gateway chỉ xử lý các tương tác theo kết nối:
- * join/leave room, `sync` (xin tin còn thiếu theo seq khi nối lại)
- * và `typing`.
+ * join/leave room, `sync` (xin tin còn thiếu theo seq khi nối lại),
+ * `typing`, và ảnh chụp hiện diện ban đầu gửi cho chính socket vừa
+ * nối ngay sau khi ghi presence (issue #592).
  */
 // @Public ở đây KHÔNG có nghĩa là không cần đăng nhập: nó chỉ tắt
 // JwtAuthGuard toàn cục (guard HTTP đọc header Authorization qua

@@ -5,6 +5,7 @@ import {
   fetchClassConversation, fetchConversationDetail, fetchConversationMessagesPage, fetchCourseConversation,
   fetchMessagingArchivedConversations, fetchMessagingBlockedContacts, fetchMessagingContactRequests,
   fetchMessagingContacts, fetchMessagingConversations, fetchMessagingCourses, fetchMessagingGroupTree,
+  fetchMessagingPersonProfile,
   fetchRosterPage, hardDeleteMessage, markConversationRead, recallMessage, removeConversationMember,
   reportConversation, respondContactRequest, searchConversationMessages, sendContactRequest, sendMessage,
   setContactBlocked, setConversationEnabled, setConversationState,
@@ -60,6 +61,19 @@ export function messagingConversationsQueryOptions() {
   return queryOptions({
     queryKey: queryKeys.messagingConversations,
     queryFn: () => fetchMessagingConversations(),
+  });
+}
+
+/**
+ * Hồ sơ người phục vụ panel thông tin của chat 1–1 (issue #592,
+ * GET /messages/users/:id/profile): tên + tên đăng nhập + email từ
+ * dữ kiện thật của hệ. Nơi gọi tự bật/tắt query theo trạng thái mở
+ * panel (panel chỉ render khi mở nên query lười theo panel).
+ */
+export function messagingPersonProfileQueryOptions(userId: string) {
+  return queryOptions({
+    queryKey: queryKeys.messagingPersonProfile(userId),
+    queryFn: () => fetchMessagingPersonProfile(userId),
   });
 }
 

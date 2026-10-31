@@ -154,7 +154,7 @@ export class MessagingService {
     // thiểu hoá.
     private readonly i18n: I18nService,
   ) {
-    const membershipSync = new MessagingMembershipSyncService(this.repo, this.realtime);
+    const membershipSync = new MessagingMembershipSyncService(this.repo, this.realtime, this.evaluator);
     this.groupTree = new MessagingGroupTreeService(this.repo, membershipSync);
     this.notifications = new MessagingNotificationsService(
       this.repo, this.users, this.evaluator, this.outbox, this.unreadStream,
@@ -438,6 +438,14 @@ export class MessagingService {
    */
   async listContacts(userId: string): Promise<string[]> {
     return this.contacts.listContacts(userId);
+  }
+
+  /**
+   * Hồ sơ người phục vụ panel thông tin của chat 1–1 (issue #592).
+   * Uỷ quyền cho MessagingContactsService.getPersonProfile — đặc tả luồng đầy đủ nằm tại method đích.
+   */
+  async getPersonProfile(viewerId: string, targetId: string): Promise<{ userId: string; displayName: string; username: string; email: string }> {
+    return this.contacts.getPersonProfile(viewerId, targetId);
   }
 
   // --- cụm cây nhóm/roster (MessagingGroupTreeService) ---

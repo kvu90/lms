@@ -38,6 +38,19 @@ export class MessagingController {
   async listConversations(@Query({ schema: listConversationsQueryServerSchema }) query: ListConversationsQueryDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.listConversations(actor.id, { archivedOnly: query.archived });
   }
+  @Get('users/:id/profile')
+  /**
+   * GET /messages/users/:id/profile — hồ sơ người phục vụ panel
+   * thông tin của chat 1–1 (issue #592): định danh, tên hiển thị,
+   * tên đăng nhập và email từ dữ kiện người dùng thật. Chỉ trả khi
+   * người xem chung ít nhất một conversation nhìn thấy được với
+   * đối tác (người lạ hoặc đối tác của hội thoại 1–1 đang chặn
+   * nhận 404 như đối tác không tồn tại); các trường panel còn lại
+   * không có nguồn trong hệ nên không nằm trong response này.
+   */
+  async getPersonProfile(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.getPersonProfile(actor.id, id);
+  }
   @Patch('conversations/:id/state')
   /**
    * PATCH /messages/conversations/:id/state — đặt trạng thái cá nhân

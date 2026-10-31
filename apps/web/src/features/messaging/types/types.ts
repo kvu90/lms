@@ -132,6 +132,14 @@ export interface ConversationView {
   members: string[];
   /** Tên hiển thị của từng thành viên (API trả kèm) — client tra tên từ đây. */
   memberProfiles?: Record<string, PersonSummary>;
+  /**
+   * Số tin chưa đọc THEO VŨ TRỤ CHUẨN (issue #592): server trả 0
+   * cho hội thoại đã tắt tiếng dù tin chưa đọc vẫn còn, nên mọi
+   * số đếm suy từ danh sách này (huy hiệu đầu trang, chip lọc,
+   * huy hiệu hàng) khớp với huy hiệu thanh bên mà không cần lọc
+   * lại ở client; hội thoại 1–1 bị ẩn do chặn không có trong
+   * danh sách nên cũng không đóng góp số.
+   */
   unread?: number;
   lastReadSeq?: number;
   lastMessageSeq?: number;

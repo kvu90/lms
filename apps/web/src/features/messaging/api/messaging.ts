@@ -41,6 +41,30 @@ export function fetchMessagingConversations() {
 }
 
 /**
+ * Hồ sơ người phục vụ panel thông tin của chat 1–1 (issue #592,
+ * GET /messages/users/:id/profile): chỉ các trường hệ có dữ kiện
+ * nguồn — định danh, tên hiển thị, tên đăng nhập và email. Các
+ * trường panel còn lại không có nguồn nên không nằm trong
+ * response này (xem `person-profile-adapter.ts`).
+ */
+export interface PersonProfileServer {
+  userId: string;
+  displayName: string;
+  username: string;
+  email: string;
+}
+
+/**
+ * Đọc hồ sơ người phục vụ panel thông tin của chat 1–1.
+ *
+ * @param userId - Người cần xem hồ sơ.
+ * @returns Hồ sơ người từ dữ kiện thật của hệ.
+ */
+export function fetchMessagingPersonProfile(userId: string) {
+  return apiJson<PersonProfileServer>(`/api/v1/messages/users/${userId}/profile`);
+}
+
+/**
  * Đọc danh sách hội thoại đã lưu (GET /messages/conversations?archived=true).
  *
  * @returns Danh sách hội thoại đã lưu.

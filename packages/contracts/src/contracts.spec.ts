@@ -12,6 +12,7 @@ import {
   mcpCreateQuestionInputSchema, mcpAnswerInputSchema, mcpBatchQuestionItemSchema, mcpStimulusQuestionItemSchema, mcpQuestionOptionsInputSchema,
   searchMessagesQuerySchema, messageSearchResultSchema, markNotificationsReadSchema,
   updateConversationStateSchema, conversationMemberStateSchema, listConversationsQuerySchema,
+  personProfileSchema,
   createExamMatrixCellSchema, createExamMatrixSchema, examMatrixCellViewSchema,
   createExamContributionSchema, withdrawExamSchema, withdrawExamMatrixSchema,
   examMatrixViewSchema, examMatrixContributionViewSchema,
@@ -135,6 +136,28 @@ describe('Hợp đồng engagement', () => {
     });
     expect(state.pinned).toBe(true);
     expect(state.archivedAt).toBeNull();
+  });
+
+  it('hồ sơ người phục vụ panel chat 1–1 (issue #592): đủ bốn trường thật, thiếu email hoặc id không phải UUID thì hỏng', () => {
+    // Chỉ các trường hệ có dữ kiện nguồn mới nằm trong hợp đồng:
+    // email là cột của bảng người dùng; các trường panel còn lại
+    // (giới thiệu, điện thoại, website, …) không có nguồn nên
+    // không được bịa thành trường hợp đồng.
+    const profile = personProfileSchema.parse({
+      userId: '01900000-0000-7000-8000-000000000001', displayName: 'Lan Anh Nguyễn',
+      username: 'teacher1', email: 'teacher1@example.com',
+    });
+    expect(profile.email).toBe('teacher1@example.com');
+    expect(() => personProfileSchema.parse({
+      userId: '01900000-0000-7000-8000-000000000001', displayName: 'Lan Anh Nguyễn', username: 'teacher1',
+    })).toThrow();
+    expect(() => personProfileSchema.parse({
+      userId: 'not-a-uuid', displayName: 'Lan Anh Nguyễn', username: 'teacher1', email: 'teacher1@example.com',
+    })).toThrow();
+    expect(() => personProfileSchema.parse({
+      userId: '01900000-0000-7000-8000-000000000001', displayName: 'Lan Anh Nguyễn',
+      username: 'teacher1', email: 'teacher1@example.com', bio: 'Xin chào',
+    })).toThrow();
   });
 
   it('khoá thân yêu cầu mark-read (R6-A2, #344): phạm vi chỉ nhận "all", thiếu hoặc lạ đều bị chặn', () => {

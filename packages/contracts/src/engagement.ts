@@ -627,6 +627,26 @@ export const personSummarySchema = z.strictObject({
 });
 export type PersonSummary = z.infer<typeof personSummarySchema>;
 
+/**
+ * Hồ sơ người phục vụ panel thông tin của chat 1–1 (issue #592):
+ * chỉ gồm các trường hệ thật sự có dữ kiện nguồn — định danh, tên
+ * hiển thị, tên đăng nhập và email từ bảng người dùng. Các trường
+ * panel khác (giới thiệu, điện thoại, website, công ty, quốc gia,
+ * múi giờ, địa điểm, trạng thái sẵn sàng, các thẻ, dòng vai trò)
+ * KHÔNG có cột/bảng nguồn trong hệ nên không xuất hiện ở đây —
+ * client giữ chúng qua lớp adapter với giá trị rỗng, không bịa dữ
+ * kiện. Email chỉ trả cho người xem có chung hội thoại với đối tác
+ * (cổng ở tầng API), không phải cho mọi người xem như tóm tắt hiển
+ * thị dùng chung ở trên.
+ */
+export const personProfileSchema = z.strictObject({
+  userId: uuidIdSchema,
+  displayName: z.string(),
+  username: z.string(),
+  email: z.string(),
+});
+export type PersonProfile = z.infer<typeof personProfileSchema>;
+
 /** Trạng thái quan hệ của một người so với người xem. */
 export const contactRelationshipSchema = z.enum([
   'contact',

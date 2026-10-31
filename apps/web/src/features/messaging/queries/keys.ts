@@ -19,4 +19,5 @@ export const queryKeys = {
   messagingSearch: (conversationId: string, q: string) => ['messages', 'conversations', conversationId, 'search', q] as const,
   messagingRosterPage: (url: string) => ['messages', 'roster', url] as const,
   messagingClassConversation: (classId: string) => ['messages', 'classes', classId, 'conversation'] as const,
+  messagingPersonProfile: (userId: string) => ['messages', 'users', userId, 'profile'] as const,
 };
