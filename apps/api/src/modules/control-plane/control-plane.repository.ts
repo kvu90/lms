@@ -10,7 +10,7 @@ import {
   type SpaceSchemaMigrationRunRow,
   type SpaceSchemaRegistryRow,
 } from '@lms/db/control-plane';
-import { asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, ne } from 'drizzle-orm';
 import { ControlPlaneConnection, type ControlPlaneDatabase } from './control-plane.connection';
 
 /** Handle transaction của control plane — cùng khuôn `DbTx` của kho nghiệp vụ nhưng trên kết nối riêng. */
@@ -142,6 +142,31 @@ export class ControlPlaneRepository {
    */
   async findSpaceByDatabaseName(databaseName: string, db: CpDb = this.db()): Promise<SpaceRegistryRow | undefined> {
     const [row] = await db.select().from(spaceRegistry).where(eq(spaceRegistry.databaseName, databaseName)).limit(1);
+    return row;
+  }
+
+  /**
+   * Tra cứu dòng đăng ký KHÁC theo tên database đích — đường kiểm tra
+   * trùng của cập nhật (issue #583, phán quyết vòng chấm lại hẹp thứ
+   * hai PR #611): khi kiểm tra một dòng đang cập nhật, dòng đó PHẢI
+   * bị loại trừ NGAY TRONG TRUY VẤN (`id <> ...`). Tra cứu `LIMIT 1`
+   * không loại trừ có thể trả về chính dòng đang sửa — hai dòng cùng
+   * tên là tiền đề thật vì các không gian kho chung cùng trỏ vào một
+   * database — khiến điều kiện `clash.id !== id` bỏ qua va chạm với
+   * dòng còn lại, mà chỉ số duy nhất riêng phần không cứu được vì
+   * dòng còn lại vẫn là `shared`. Lọc bằng code sau `LIMIT 1` không
+   * sửa được lỗi này vì dòng còn lại có thể đã bị truy vấn bỏ qua.
+   */
+  async findOtherSpaceByDatabaseName(
+    databaseName: string,
+    excludeId: string,
+    db: CpDb = this.db(),
+  ): Promise<SpaceRegistryRow | undefined> {
+    const [row] = await db
+      .select()
+      .from(spaceRegistry)
+      .where(and(eq(spaceRegistry.databaseName, databaseName), ne(spaceRegistry.id, excludeId)))
+      .limit(1);
     return row;
   }
 

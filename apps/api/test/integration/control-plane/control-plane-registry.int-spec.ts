@@ -4,6 +4,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { ControlPlaneRepository } from '../../../src/modules/control-plane/control-plane.repository';
 import {
   ControlPlaneRegistryService,
   SHARED_DATABASE_SCHEMA_VERSION,
@@ -310,6 +311,42 @@ describe('Control plane: sổ đăng ký không gian và registry phiên bản s
     const after = await registry.getBySlug(adminId, 'truong-mac-dinh');
     expect(after.storageMode).toBe('shared');
     expect(after.databaseName).toBe(school.databaseName);
+  });
+
+  it('chỉ đổi storageMode của dòng gieo đầu tiên sang dedicated cũng bị từ chối 409 (ca tự khớp)', async () => {
+    // Ca tự khớp của truy vấn LIMIT 1 (phán quyết vòng chấm lại hẹp
+    // thứ hai PR #611): trang-chinh là dòng gieo đầu tiên trong hai
+    // dòng cùng tên database; truy vấn không loại trừ dòng đang sửa
+    // có thể trả về chính dòng này và bỏ qua va chạm với dòng còn
+    // lại. Ca trên lật dòng gieo thứ hai; ca này lật dòng gieo đầu
+    // tiên để kiểm tra đường loại trừ trong truy vấn.
+    const platform = await registry.getBySlug(adminId, 'trang-chinh');
+    expect(platform.storageMode).toBe('shared');
+    const rejected = await registry
+      .updateRegistration(adminId, platform.id, { storageMode: 'dedicated' })
+      .catch((error: unknown) => error);
+    expect(rejected).toBeInstanceOf(ConflictException);
+    expect((rejected as ConflictException).getResponse()).toMatchObject({ code: 'control_plane.database_name_taken' });
+    // Bị từ chối thì dòng giữ nguyên chế độ kho chung, không đổi gì.
+    const unchanged = await registry.getBySlug(adminId, 'trang-chinh');
+    expect(unchanged.storageMode).toBe('shared');
+    expect(unchanged.databaseName).toBe(platform.databaseName);
+  });
+
+  it('tra cứu loại trừ theo tên database trả về dòng khác, không trả chính dòng bị loại', async () => {
+    // Chứng minh xác định cho phương thức loại trừ: với hai dòng cùng
+    // tên, tra cứu loại trừ dòng nào cũng phải trả về đúng dòng còn
+    // lại; với tên chỉ một dòng dùng, tra cứu loại trừ chính dòng đó
+    // phải trả về rỗng — không bao giờ tự khớp.
+    const platform = await registry.getBySlug(adminId, 'trang-chinh');
+    const school = await registry.getBySlug(adminId, 'truong-mac-dinh');
+    const repository = app.get(ControlPlaneRepository);
+    const otherFromPlatform = await repository.findOtherSpaceByDatabaseName(platform.databaseName, platform.id);
+    expect(otherFromPlatform?.id).toBe(school.id);
+    const otherFromSchool = await repository.findOtherSpaceByDatabaseName(school.databaseName, school.id);
+    expect(otherFromSchool?.id).toBe(platform.id);
+    const onlyRow = await repository.findOtherSpaceByDatabaseName('lms_centre_test_580', createdSpaceId);
+    expect(onlyRow).toBeUndefined();
   });
 
   it('đổi trạng thái vòng đời ghi lịch sử status_change; đổi về chính trạng thái hiện tại không ghi thêm', async () => {

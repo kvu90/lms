@@ -205,7 +205,10 @@ export class ControlPlaneRegistryService {
    * đó áp cho cả ca chỉ đổi `storageMode`: lật một dòng từ `shared`
    * sang `dedicated` mà giữ nguyên tên cũng phải kiểm tra theo tổ
    * hợp hiệu lực sau cập nhật, vì dòng kia có thể vẫn là `shared`
-   * nên chỉ số riêng phần không bắt được va chạm này.
+   * nên chỉ số riêng phần không bắt được va chạm này. Cả hai điểm
+   * kiểm tra đều loại trừ dòng đang sửa NGAY TRONG TRUY VẤN: tra
+   * cứu `LIMIT 1` không loại trừ có thể trả về chính dòng đang sửa
+   * và bỏ qua dòng còn lại cùng tên.
    */
   async updateRegistration(actorId: string, id: string, dto: UpdateSpaceRegistration): Promise<SpaceRegistration> {
     await this.assertPlatformManager(actorId);
@@ -217,8 +220,8 @@ export class ControlPlaneRegistryService {
           throw new NotFoundException({ message: `Space registration ${id} not found`, code: 'control_plane.space_not_found' });
         }
         if (dto.databaseName !== undefined && dto.databaseName !== existing.databaseName) {
-          const clash = await this.repo.findSpaceByDatabaseName(dto.databaseName, tx);
-          if (clash && clash.id !== id) {
+          const clash = await this.repo.findOtherSpaceByDatabaseName(dto.databaseName, id, tx);
+          if (clash) {
             throw new ConflictException({ message: `Database name ${dto.databaseName} is already registered`, code: 'control_plane.database_name_taken' });
           }
         }
@@ -227,12 +230,16 @@ export class ControlPlaneRegistryService {
         // phải bắt, vì dòng đang giữ tên đó có thể vẫn là `shared`
         // nên chỉ số duy nhất riêng phần không chặn được va chạm.
         // Kiểm tra đổi tên ở trên vẫn giữ nguyên để ca đổi tên ở
-        // chế độ `shared` cũng bị chặn như trước.
+        // chế độ `shared` cũng bị chặn như trước. Cả hai điểm đều
+        // dùng tra cứu loại trừ dòng đang sửa NGAY TRONG TRUY VẤN:
+        // tra cứu `LIMIT 1` không loại trừ có thể trả về chính dòng
+        // này và bỏ qua dòng còn lại cùng tên (phán quyết vòng chấm
+        // lại hẹp thứ hai PR #611).
         const effectiveDatabaseName = dto.databaseName ?? existing.databaseName;
         const effectiveStorageMode = dto.storageMode ?? existing.storageMode;
         if (effectiveStorageMode === 'dedicated') {
-          const clash = await this.repo.findSpaceByDatabaseName(effectiveDatabaseName, tx);
-          if (clash && clash.id !== id) {
+          const clash = await this.repo.findOtherSpaceByDatabaseName(effectiveDatabaseName, id, tx);
+          if (clash) {
             throw new ConflictException({ message: `Database name ${effectiveDatabaseName} is already registered`, code: 'control_plane.database_name_taken' });
           }
         }
