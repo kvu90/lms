@@ -5,6 +5,8 @@ import {
   type RichTextDocument, type RichTextInput,
 } from '@lms/contracts';
 import type { DbTx } from '../../db/database';
+import { and, eq } from 'drizzle-orm';
+import { systemQuestionImports } from '@lms/db';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
@@ -1157,6 +1159,15 @@ export class QuestionsService {
       } else {
         await this.cloneVersionContent(tx, q.qtype as SupportedQtype, latestVersion.id, version.id);
       }
+      // Câu nhập từ Ngân hàng hệ thống bị sửa ở trung tâm thì thành bản
+      // phái sinh (issue #585): đổi cờ trong CÙNG transaction với việc
+      // tạo version mới — phiên bản nguyên trạng vẫn đọc lại được theo
+      // số hiệu version đã nhập, chỉ kind đổi từ `pristine` sang
+      // `derived`. Điều kiện kind = 'pristine' giữ tính idempotent.
+      await tx
+        .update(systemQuestionImports)
+        .set({ kind: 'derived' })
+        .where(and(eq(systemQuestionImports.questionId, q.id), eq(systemQuestionImports.kind, 'pristine')));
     });
     await this.repo.updateEntry(entry.id, { latestVersion: nextVersion });
     await this.repo.updateQuestion(q.id, { modifiedBy: actorId });

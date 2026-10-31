@@ -1,6 +1,6 @@
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildOwnershipTransferQuery } from '../../../src/runtime-roles';
+import { buildOwnershipTransferQuery } from '../../../src/modules/fleet/runtime-roles';
 
 /**
  * Ca hồi quy của việc CHUYỂN CHỦ SỞ HỮU ĐỐI TƯỢNG sang role

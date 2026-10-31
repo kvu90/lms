@@ -43,3 +43,4 @@ export * from './reports.schema';
 export * from './content-bank.schema';
 export * from './payments.schema';
 export * from './privacy.schema';
+export * from './system-bank-centre.schema';

@@ -157,9 +157,22 @@ export class AccessRepository {
    * sau phép đọc ở ngữ cảnh platform, `undefined` chỉ còn nghĩa thật là
    * tenant không tồn tại, và evaluator dựa vào đó để từ chối khi không
    * xác minh được (fail-closed).
+   *
+   * Đường kho riêng (issue #584): ngữ cảnh platform ở đây giữ nguyên
+   * không gian của request (`platformScope`): bọc platform thuần túy sẽ
+   * đánh rơi slug khỏi ALS khiến `routedDatabase` rơi về kho chung, và
+   * cổng sẽ đọc membership của kho chung thay vì kho của trung tâm —
+   * tài khoản chỉ tồn tại ở kho riêng bị từ chối oan ở mọi cổng
+   * capability. Giữ slug thì phép đọc vẫn ở đúng kho của request, chỉ
+   * khác ở mức GUC platform (bỏ qua RLS) như ý đồ ban đầu.
    */
+  private platformScope<T>(fn: () => Promise<T>): Promise<T> {
+    const spaceSlug = tenantAls.getStore()?.spaceSlug;
+    return tenantAls.run({ platform: true, ...(spaceSlug ? { spaceSlug } : {}) }, fn);
+  }
+
   async getTenantGateInfo(tenantId: string): Promise<{ kind: string; status: string } | undefined> {
-    return tenantAls.run({ platform: true }, async () => {
+    return this.platformScope(async () => {
       const [row] = await this.db.select({ kind: tenants.kind, status: tenants.status }).from(tenants).where(eq(tenants.id, tenantId));
       return row;
     });
@@ -167,7 +180,7 @@ export class AccessRepository {
 
   /** Trạng thái membership của user trong tenant; undefined khi chưa từng là thành viên. Đọc ở ngữ cảnh platform — xem `getTenantGateInfo`. */
   async getMembershipStatus(tenantId: string, userId: string): Promise<string | undefined> {
-    return tenantAls.run({ platform: true }, async () => {
+    return this.platformScope(async () => {
       const [row] = await this.db
         .select({ status: tenantMemberships.status })
         .from(tenantMemberships)
@@ -179,7 +192,7 @@ export class AccessRepository {
   /** Thông tin cổng (kind + status) của NHIỀU tenant trong một truy vấn — bản theo lô của getTenantGateInfo, phục vụ phép phân giải theo lô của ảnh chụp quyền. Đọc ở ngữ cảnh platform — xem `getTenantGateInfo`. */
   async getTenantGateInfos(tenantIds: string[]): Promise<{ id: string; kind: string; status: string }[]> {
     if (tenantIds.length === 0) return [];
-    return tenantAls.run({ platform: true }, async () =>
+    return this.platformScope(async () =>
       this.db.select({ id: tenants.id, kind: tenants.kind, status: tenants.status })
         .from(tenants).where(inArray(tenants.id, tenantIds)));
   }
@@ -187,7 +200,7 @@ export class AccessRepository {
   /** Trạng thái membership của một user trong NHIỀU tenant trong một truy vấn — bản theo lô của getMembershipStatus. Đọc ở ngữ cảnh platform — xem `getTenantGateInfo`. */
   async getMembershipStatuses(tenantIds: string[], userId: string): Promise<{ tenantId: string; status: string }[]> {
     if (tenantIds.length === 0) return [];
-    return tenantAls.run({ platform: true }, async () =>
+    return this.platformScope(async () =>
       this.db
         .select({ tenantId: tenantMemberships.tenantId, status: tenantMemberships.status })
         .from(tenantMemberships)

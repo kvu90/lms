@@ -13,6 +13,16 @@ export const envSchema = z.object({
    */
   CONTROL_PLANE_DATABASE_URL: z.string().min(1).optional(),
   /**
+   * URL kết nối của database KHO NGÂN HÀNG HỆ THỐNG (issue #585):
+   * database riêng trên cùng cụm Postgres với kho nghiệp vụ, role kết
+   * nối riêng, bộ migration riêng. TUỲ CHỌN ở tầng env: hệ chưa cấu
+   * hình biến này vẫn khởi động như cũ (module system bank báo chưa
+   * cấu hình khi được gọi); môi trường triển khai bằng compose chỉ
+   * chạy bước cấp phát + migration kho ngân hàng khi biến đã đặt.
+   * Giá trị là bí mật kết nối — không ghi ra log.
+   */
+  SYSTEM_BANK_DATABASE_URL: z.string().min(1).optional(),
+  /**
    * Trần kết nối của pool nghiệp vụ (issue #586 — ngân sách kết nối
    * của cụm): số kết nối tối đa mà MỘT tiến trình (api hoặc worker)
    * được mở tới kho nghiệp vụ. TUỲ CHỌN — chưa đặt thì giữ mặc định

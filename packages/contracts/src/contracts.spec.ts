@@ -26,6 +26,9 @@ import {
   createSpaceRegistrationSchema, updateSpaceRegistrationSchema, changeSpaceStatusSchema,
   updateSpaceSchemaRegistrySchema, recordSpaceSchemaMigrationRunSchema,
   SPACE_KINDS, SPACE_STATUSES, SPACE_STORAGE_MODES,
+  createSystemBankQuestionSchema, createSystemBankVersionSchema, createSystemOutcomePackageSchema,
+  discoverSystemBankQuestionsSchema, importSystemBankQuestionSchema, withdrawSystemBankQuestionSchema,
+  systemBankPackageSchema, SYSTEM_BANK_QUESTION_TYPES,
 } from './index.js';
 
 describe('Khối contracts', () => {
@@ -1319,5 +1322,118 @@ describe('Hợp đồng control plane (sổ đăng ký không gian, #580)', () =
     const parsed = recordSpaceSchemaMigrationRunSchema.parse({ runId: 'run-1', status: 'success', toVersion: 'v2' });
     expect(parsed.steps).toEqual([]);
     expect(() => recordSpaceSchemaMigrationRunSchema.parse({ runId: 'run-1', status: 'passed' })).toThrow();
+  });
+});
+
+describe('Hợp đồng kho ngân hàng hệ thống (gói phiên bản bất biến, #585)', () => {
+  const validPackage = {
+    questionText: { type: 'doc', content: [] },
+    generalFeedback: null,
+    stimulusContent: null,
+    answers: [
+      { answer: { type: 'doc', content: [] }, isCorrect: false, feedback: null, sortOrder: 0 },
+      { answer: { type: 'doc', content: [] }, isCorrect: true, feedback: null, sortOrder: 1 },
+    ],
+    answerKey: null,
+    options: null,
+    outcomes: [{ outcomeId: '11111111-1111-7111-8111-111111111111', cognitiveLevel: 'hieu' }],
+  };
+
+  it('tập dạng câu là tập đóng đúng 4 dạng của hệ, không thêm dạng', () => {
+    expect(SYSTEM_BANK_QUESTION_TYPES).toEqual(['multichoice', 'truefalse', 'shortanswer', 'essay']);
+  });
+
+  it('gói hợp lệ thì qua, gói thiếu khoá bắt buộc hoặc thừa khoá lạ bị từ chối (strict)', () => {
+    expect(systemBankPackageSchema.parse(validPackage)).toMatchObject({ answers: expect.any(Array) });
+    const { questionText, ...missingText } = validPackage;
+    expect(() => systemBankPackageSchema.parse(missingText)).toThrow();
+    expect(() => systemBankPackageSchema.parse({ ...validPackage, checksum: 'abc' })).toThrow();
+  });
+
+  it('liên kết YCCĐ trong gói: id chuẩn phải là uuid, mức độ chỉ thuộc 4 mức đã chốt', () => {
+    expect(() =>
+      systemBankPackageSchema.parse({ ...validPackage, outcomes: [{ outcomeId: 'khong-phai-uuid', cognitiveLevel: 'hieu' }] }),
+    ).toThrow();
+    expect(() =>
+      systemBankPackageSchema.parse({ ...validPackage, outcomes: [{ outcomeId: '11111111-1111-7111-8111-111111111111', cognitiveLevel: 'ghi-nho' }] }),
+    ).toThrow();
+  });
+
+  it('tạo câu: dạng ngoài tập đóng bị từ chối, id truyền vào phải là uuid, checksum không thuộc hợp đồng tạo', () => {
+    expect(createSystemBankQuestionSchema.parse({ qtype: 'multichoice', package: validPackage })).toMatchObject({ qtype: 'multichoice' });
+    expect(() => createSystemBankQuestionSchema.parse({ qtype: 'matching', package: validPackage })).toThrow();
+    expect(() => createSystemBankQuestionSchema.parse({ id: 'khong-phai-uuid', qtype: 'essay', package: validPackage })).toThrow();
+    expect(() => createSystemBankQuestionSchema.parse({ qtype: 'essay', package: validPackage, checksum: 'abc' })).toThrow();
+  });
+
+  it('phiên bản mới chỉ nhận gói, rút câu bắt buộc có lý do không rỗng', () => {
+    expect(createSystemBankVersionSchema.parse({ package: validPackage })).toMatchObject({ package: expect.any(Object) });
+    expect(withdrawSystemBankQuestionSchema.parse({ reason: 'Nội dung lỗi thời' })).toEqual({ reason: 'Nội dung lỗi thời' });
+    expect(() => withdrawSystemBankQuestionSchema.parse({ reason: '' })).toThrow();
+    expect(() => withdrawSystemBankQuestionSchema.parse({})).toThrow();
+  });
+
+  it('khám phá: lọc theo dạng/YCCĐ/mức độ đều tuỳ chọn, limit/offset có mặc định và trần 100', () => {
+    expect(discoverSystemBankQuestionsSchema.parse({})).toMatchObject({ limit: 20, offset: 0 });
+    expect(
+      discoverSystemBankQuestionsSchema.parse({
+        qtype: 'multichoice',
+        outcomeId: '11111111-1111-7111-8111-111111111111',
+        cognitiveLevel: 'van_dung',
+        limit: '10',
+        offset: '5',
+      }),
+    ).toMatchObject({ qtype: 'multichoice', limit: 10, offset: 5 });
+    expect(() => discoverSystemBankQuestionsSchema.parse({ qtype: 'matching' })).toThrow();
+    expect(() => discoverSystemBankQuestionsSchema.parse({ outcomeId: 'khong-phai-uuid' })).toThrow();
+    expect(() => discoverSystemBankQuestionsSchema.parse({ cognitiveLevel: 'ghi-nho' })).toThrow();
+    expect(() => discoverSystemBankQuestionsSchema.parse({ limit: 101 })).toThrow();
+    expect(() => discoverSystemBankQuestionsSchema.parse({ offset: -1 })).toThrow();
+  });
+
+  it('phát hành gói YCCĐ: phiên bản và phạm vi bắt buộc, ánh xạ mã cũ→mã mới tuỳ chọn và phải là uuid hai đầu', () => {
+    expect(createSystemOutcomePackageSchema.parse({ version: '2026.10.31.1', scope: 'all' })).toMatchObject({
+      version: '2026.10.31.1',
+      scope: 'all',
+      mappings: [],
+    });
+    expect(
+      createSystemOutcomePackageSchema.parse({
+        version: '2026.10.31.1',
+        scope: 'toan',
+        mappings: [
+          {
+            fromOutcomeId: '11111111-1111-7111-8111-111111111111',
+            toOutcomeId: '22222222-2222-7222-8222-222222222222',
+            note: 'Tách YCCĐ',
+          },
+        ],
+      }),
+    ).toMatchObject({ scope: 'toan' });
+    expect(() => createSystemOutcomePackageSchema.parse({ scope: 'all' })).toThrow();
+    expect(() => createSystemOutcomePackageSchema.parse({ version: '2026.10.31.1', scope: '' })).toThrow();
+    expect(() =>
+      createSystemOutcomePackageSchema.parse({
+        version: '2026.10.31.1',
+        scope: 'all',
+        mappings: [{ fromOutcomeId: 'khong-phai-uuid', toOutcomeId: '22222222-2222-7222-8222-222222222222' }],
+      }),
+    ).toThrow();
+  });
+
+  it('nhập bản chụp: bắt buộc có id câu nguồn, phiên bản đích và bank/category đích đều tuỳ chọn', () => {
+    const sourceId = '22222222-2222-7222-8222-222222222222';
+    expect(importSystemBankQuestionSchema.parse({ sourceQuestionId: sourceId })).toMatchObject({ sourceQuestionId: sourceId });
+    expect(
+      importSystemBankQuestionSchema.parse({
+        sourceQuestionId: sourceId,
+        sourceVersionNumber: '2',
+        targetBankId: '33333333-3333-7333-8333-333333333333',
+        targetCategoryId: '44444444-4444-7444-8444-444444444444',
+      }),
+    ).toMatchObject({ sourceVersionNumber: 2 });
+    expect(() => importSystemBankQuestionSchema.parse({})).toThrow();
+    expect(() => importSystemBankQuestionSchema.parse({ sourceQuestionId: 'khong-phai-uuid' })).toThrow();
+    expect(() => importSystemBankQuestionSchema.parse({ sourceQuestionId: sourceId, sourceVersionNumber: 0 })).toThrow();
   });
 });

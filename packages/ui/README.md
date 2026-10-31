@@ -206,3 +206,18 @@ build + test của `@lms/web`, đối chiếu diff của `components.json` và
   sau lần chạy CLI này. Khi đồng bộ upstream lần tới: chạy
   `shadcn add popover --overwrite` tại thư mục này và đối chiếu
   diff của file, đặc biệt dòng import `cn`.
+- `src/components/input-group.tsx` (issue #597, vòng sửa 2 của PR #601):
+  THÊM MỚI bằng shadcn CLI (`shadcn add input-group --yes`, preset
+  base-vega) chạy tại thư mục package này — nội dung file là đúng
+  bản InputGroup của registry cho preset đang dùng, chỉ thích ứng một
+  điểm duy nhất như native-select và popover: dòng import `cn` đổi từ
+  package `cn` mà CLI hiện sinh sang `#lib/utils`. Bước cài phụ thuộc
+  của CLI tự thêm `cn` vào `package.json`/`pnpm-lock.yaml` nhưng đã
+  được gỡ ngay sau lần chạy (`cn` không phải dependency thật: `cn` là
+  module utils nội bộ của package, đã có sẵn trong `src/lib/utils.ts`);
+  ba file stock đã có trong package (`button.tsx`, `input.tsx`,
+  `textarea.tsx`) được giữ nguyên khi CLI hỏi ghi đè.
+  `components.json` + `src/styles/globals.css` không đổi sau lần chạy
+  CLI này. Khi đồng bộ upstream lần tới: chạy
+  `shadcn add input-group --overwrite` tại thư mục này và đối chiếu
+  diff của file, đặc biệt dòng import `cn`.
