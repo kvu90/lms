@@ -63,6 +63,13 @@ import { AdminRolesPage } from './admin-roles';
  * chỉ thao tác trên các ô sửa được; ô đang mang Ngăn chặn đã lưu
  * (course:view ở ngữ cảnh hệ thống trong fixture) bị khoá kèm huy
  * hiệu và giữ nguyên giá trị trong tập thay toàn bộ khi lưu.
+ *
+ * Vòng sửa theo phán quyết 6540064754 trên PR #601 (bổ sung bằng
+ * chứng kiểm thử cho riêng đường hộp thoại): một ca ghim cả hai
+ * giá trị khoá Ngăn chặn và Cấm hẳn cùng tồn tại trong một ngữ
+ * cảnh — chọn toàn cục cả hai chiều không đổi được ô khoá, tập
+ * thay toàn bộ khi lưu giữ nguyên cả hai giá trị, và bỏ tích ô
+ * đang Cho phép thì năng lực đó rời khỏi tập ghi đè ở lần lưu sau.
  */
 const ROLE_ID = '01900000-0000-7000-8000-0000000000b1';
 const NEW_ROLE_ID = '01900000-0000-7000-8000-0000000000b2';
@@ -106,6 +113,8 @@ interface StubOptions {
   pagedUsersTotal?: number;
   /** Người đầu tiên giữ cùng vai ở hai khoá học (hai ngữ cảnh cùng cấp 50) để kiểm chứng nhãn phân biệt. */
   dualCourseAssignments?: boolean;
+  /** Ma trận ngữ cảnh hệ thống chứa đồng thời một ô Ngăn chặn, một ô Cấm hẳn và một ô Cho phép để kiểm chứng bảo toàn hai giá trị khoá. */
+  prohibitMatrix?: boolean;
 }
 
 function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
@@ -369,6 +378,12 @@ function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
           matrixCalls += 1;
           if (matrixCalls === 1) return respond({ type: 'about:blank', title: 'Lỗi tải ma trận', status: 500 }, 500);
         }
+        if (options.prohibitMatrix)
+          return respond([
+            { roleId: ROLE_ID, capability: 'course:view', contextId: SYSTEM_CONTEXT_ID, permission: -1 },
+            { roleId: ROLE_ID, capability: 'course:edit', contextId: SYSTEM_CONTEXT_ID, permission: -1000 },
+            { roleId: ROLE_ID, capability: 'user:view', contextId: SYSTEM_CONTEXT_ID, permission: 1 },
+          ]);
         return respond([
           { roleId: ROLE_ID, capability: 'course:view', contextId: SYSTEM_CONTEXT_ID, permission: -1 },
           { roleId: ROLE_ID, capability: 'course:edit', contextId: TENANT_CONTEXT_ID, permission: 1 },
@@ -536,6 +551,119 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
         { capability: 'course:view', permission: -1 },
         { capability: 'course:edit', permission: 1 },
         { capability: 'user:view', permission: 1 },
+      ],
+    });
+  });
+
+  it('sửa vai trò: chọn toàn cục giữ nguyên cả Ngăn chặn lẫn Cấm hẳn khi lưu, bỏ tích ô Cho phép thì năng lực rời khỏi tập ghi đè', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, { prohibitMatrix: true });
+    renderPage();
+
+    await screen.findByRole('button', { name: 'Thêm vai trò mới' });
+    await openEditDialog();
+    const dialog = screen.getByRole('dialog', { name: 'Sửa vai trò' });
+    // Fixture của ngữ cảnh hệ thống mặc định: course:view đã lưu
+    // Ngăn chặn (−1), course:edit đã lưu Cấm hẳn (−1000) — cả hai ô
+    // đều khoá kèm huy hiệu; user:view đang Cho phép (1) là ô sửa
+    // được duy nhất.
+    const preventBox = await within(dialog).findByRole('checkbox', { name: 'course:view' });
+    expect(preventBox).toHaveAttribute('aria-disabled', 'true');
+    expect(preventBox).toHaveAttribute('aria-checked', 'false');
+    const prohibitBox = within(dialog).getByRole('checkbox', { name: 'course:edit' });
+    expect(prohibitBox).toHaveAttribute('aria-disabled', 'true');
+    expect(prohibitBox).toHaveAttribute('aria-checked', 'false');
+    expect(within(dialog).getByText('Ngăn chặn')).toBeInTheDocument();
+    expect(within(dialog).getByText('Cấm hẳn')).toBeInTheDocument();
+    expect(within(dialog).getByRole('checkbox', { name: 'user:view' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    // Bấm thẳng vào ô Cấm hẳn cũng không đổi được trạng thái của nó.
+    await userEvent.click(prohibitBox);
+    expect(within(dialog).getByRole('checkbox', { name: 'course:edit' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    // Checkbox chọn toàn cục chỉ tính ô sửa được: user:view đang
+    // bật nên nó hiện tích. Bỏ chọn toàn cục rồi chọn lại toàn cục
+    // — cả hai chiều chỉ đổi ô sửa được, hai ô khoá giữ nguyên.
+    const selectAll = within(dialog).getByRole('checkbox', { name: 'Chọn tất cả các quyền' });
+    expect(selectAll).toHaveAttribute('aria-checked', 'true');
+    await userEvent.click(selectAll);
+    expect(within(dialog).getByRole('checkbox', { name: 'user:view' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Chọn tất cả các quyền' }));
+    expect(within(dialog).getByRole('checkbox', { name: 'user:view' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(within(dialog).getByRole('checkbox', { name: 'course:view' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(within(dialog).getByRole('checkbox', { name: 'course:view' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    expect(within(dialog).getByRole('checkbox', { name: 'course:edit' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(within(dialog).getByRole('checkbox', { name: 'course:edit' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    // Lưu lần thứ nhất: tập thay toàn bộ giữ nguyên cả hai giá trị
+    // khoá kèm ô Cho phép — chọn toàn cục không ghi đè lặng giá trị
+    // chặn đã lưu ở bất kỳ chiều nào.
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Lưu vai trò' }));
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.url === `/api/v1/access/roles/${ROLE_ID}/capabilities` && c.method === 'PUT'),
+      ).toBe(true),
+    );
+    const firstPut = calls.find(
+      (c) => c.url === `/api/v1/access/roles/${ROLE_ID}/capabilities` && c.method === 'PUT',
+    );
+    expect(firstPut?.body).toEqual({
+      contextId: SYSTEM_CONTEXT_ID,
+      overrides: [
+        { capability: 'course:view', permission: -1 },
+        { capability: 'course:edit', permission: -1000 },
+        { capability: 'user:view', permission: 1 },
+      ],
+    });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    // Mở lại hộp thoại, bỏ tích ô đang Cho phép rồi lưu lần thứ
+    // hai: user:view về Kế thừa nên rời khỏi tập ghi đè, hai giá
+    // trị khoá vẫn giữ nguyên trong thân PUT.
+    await openEditDialog();
+    const dialogAgain = screen.getByRole('dialog', { name: 'Sửa vai trò' });
+    const allowedBox = await within(dialogAgain).findByRole('checkbox', { name: 'user:view' });
+    expect(allowedBox).toHaveAttribute('aria-checked', 'true');
+    await userEvent.click(allowedBox);
+    expect(within(dialogAgain).getByRole('checkbox', { name: 'user:view' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    await userEvent.click(within(dialogAgain).getByRole('button', { name: 'Lưu vai trò' }));
+    await waitFor(() =>
+      expect(
+        calls.filter((c) => c.url === `/api/v1/access/roles/${ROLE_ID}/capabilities` && c.method === 'PUT')
+          .length,
+      ).toBe(2),
+    );
+    const puts = calls.filter(
+      (c) => c.url === `/api/v1/access/roles/${ROLE_ID}/capabilities` && c.method === 'PUT',
+    );
+    expect(puts[1]?.body).toEqual({
+      contextId: SYSTEM_CONTEXT_ID,
+      overrides: [
+        { capability: 'course:view', permission: -1 },
+        { capability: 'course:edit', permission: -1000 },
       ],
     });
   });
