@@ -1,6 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { AssignmentListItem } from '@lms/contracts';
 import { Button } from '@lms/ui/components/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@lms/ui/components/dialog';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import '#config/i18n';
@@ -13,8 +21,8 @@ import { useDeleteRoleAssignment } from '../queries/admin-roles';
  * API, không tự phân giải định danh.
  */
 export interface UnassignTarget {
-  /** Dòng gán cần gỡ. */
-  assignment: AssignmentListItem;
+  /** Dòng gán cần gỡ (chỉ cần định danh để gọi API gỡ). */
+  assignment: Pick<AssignmentListItem, 'id'>;
   /** Tên người dùng hiển thị của dòng gán. */
   userLabel: string;
   /** Tên vai trò hiển thị của dòng gán. */
@@ -24,7 +32,8 @@ export interface UnassignTarget {
 }
 
 /**
- * Hộp thoại xác nhận gỡ dòng gán vai (đợt 3, issue #547).
+ * Hộp thoại xác nhận gỡ dòng gán vai, dựng trên component Dialog
+ * thật của `@lms/ui`.
  *
  * Luồng nghiệp vụ: hộp thoại nêu rõ bộ ba sắp gỡ (người dùng × vai trò
  * × ngữ cảnh) và yêu cầu xác nhận. Khi backend từ chối, hộp thoại GIỮ
@@ -65,16 +74,6 @@ export function RoleUnassignDialog({ open, target, onClose }: RoleUnassignDialog
   const [error, setError] = useState<string | null>(null);
   const deleteMutation = useDeleteRoleAssignment();
 
-  /** Phím Escape đóng hộp thoại khi không trong lúc gỡ. */
-  useEffect(() => {
-    if (!open || deleteMutation.isPending) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open, deleteMutation.isPending, onClose]);
-
   if (!open || !target) return null;
 
   /** Gỡ gán: lỗi thì giữ hộp thoại mở kèm lý do; thành công thì đóng. */
@@ -90,34 +89,25 @@ export function RoleUnassignDialog({ open, target, onClose }: RoleUnassignDialog
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[20vh]"
-      onClick={() => {
-        if (!deleteMutation.isPending) onClose();
+    <Dialog
+      open
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && !deleteMutation.isPending) onClose();
       }}
-      role="presentation"
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('unassignRoleTitle')}
-        className="w-full max-w-md rounded-xl border bg-background p-6 shadow-lg"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <h2 className="mb-2 text-lg font-semibold">{t('unassignRoleTitle')}</h2>
-        <p className="mb-4 text-sm">
-          {t('unassignRoleConfirm', {
-            role: target.roleLabel,
-            user: target.userLabel,
-            context: target.contextLabel,
-          })}
-        </p>
-        {error ? (
-          <ErrorAlert variant="destructive" className="mb-4">
-            {error}
-          </ErrorAlert>
-        ) : null}
-        <div className="flex justify-end gap-2">
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-semibold">{t('unassignRoleTitle')}</DialogTitle>
+          <DialogDescription>
+            {t('unassignRoleConfirm', {
+              role: target.roleLabel,
+              user: target.userLabel,
+              context: target.contextLabel,
+            })}
+          </DialogDescription>
+        </DialogHeader>
+        {error ? <ErrorAlert variant="destructive">{error}</ErrorAlert> : null}
+        <DialogFooter>
           <Button type="button" variant="outline" disabled={deleteMutation.isPending} onClick={onClose}>
             {t('cancel')}
           </Button>
@@ -129,8 +119,8 @@ export function RoleUnassignDialog({ open, target, onClose }: RoleUnassignDialog
           >
             {deleteMutation.isPending ? t('unassigningRole') : t('unassignRole')}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

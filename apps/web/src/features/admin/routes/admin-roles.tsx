@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@lms/ui/components/dropdown-menu';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
-import { Ellipsis } from 'lucide-react';
+import { Ellipsis, Pencil, Plus, Trash2 } from 'lucide-react';
 import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
@@ -19,37 +19,45 @@ import { useAccessCapabilities, useAccessContexts, useAccessRoles, useRoleCapabi
 import { RoleAssignmentsSection } from '../components/role-assignments';
 import { RoleDeleteDialog } from '../components/role-delete-dialog';
 import { RoleMatrixDialog } from '../components/role-matrix-dialog';
+import { UsersWithRolesSection } from '../components/users-with-roles';
 
 /**
- * Trang quản trị vai trò: lưới thẻ vai trò + hộp thoại ma trận (đợt 2)
- * và khu vực bảng người dùng theo vai trò (đợt 3) thay thế form gán vai
- * rời rạc cũ — bảng này là lối gán/gỡ vai duy nhất của trang, form cũ
- * đã bị thay thế hoàn toàn vì hộp thoại gán từ bảng bao phủ đủ các
- * trường của nó (người dùng, vai trò, ngữ cảnh mặc định hệ thống) kèm
- * hiển thị đúng lý do của các chốt chặn gán mà form cũ không có.
+ * Trang quản trị vai trò: lưới thẻ vai trò + hộp thoại ma trận, bảng
+ * gán vai và bảng người dùng kèm vai trò — các hộp thoại gán từ hai
+ * bảng bao phủ đủ các trường của form gán rời rạc cũ (người dùng, vai
+ * trò, ngữ cảnh mặc định hệ thống) kèm hiển thị đúng lý do của các
+ * chốt chặn gán mà form cũ không có, nên form cũ đã bị thay thế hoàn
+ * toàn.
  *
  * Luồng hiển thị:
  *
  * 1. Ba query TanStack dùng chung (lib/access.ts): danh sách vai kèm
- *    tổng hợp đợt 1, danh mục capability, cây context. Trang vào thẳng
- *    lưới thẻ, không có khối tiêu đề riêng phía trên lưới. Lưới thẻ
- *    dựng từ ĐÚNG MỘT lần gọi danh sách — mỗi thẻ hiện tên vai, số
- *    người giữ phân biệt và một dải số nền xám gồm đúng ba con số thật
- *    (Đọc / Ghi / Tổng số resource vai chạm tới, số lớn với nhãn nằm
- *    dưới số); thẻ cuối của lưới là một thẻ đầy đủ cùng kích thước
- *    gồm tiêu đề, mô tả ngắn và nút mở hộp thoại tạo vai trò — lối
- *    vào tạo vai trò duy nhất của trang.
+ *    tổng hợp, danh mục capability, cây context. Trang vào thẳng lưới
+ *    thẻ, không có khối tiêu đề riêng phía trên lưới. Lưới thẻ dựng từ
+ *    ĐÚNG MỘT lần gọi danh sách theo số đo của lưới thẻ mẫu: khe 20px,
+ *    1/2/3 cột theo bề rộng; mỗi thẻ hiện tên vai 16px medium, dòng số
+ *    người giữ 12px màu phụ ngay dưới tên, và một dải số nền xám nhạt
+ *    (bo 8px, đệm 12×8) gồm đúng ba con số thật của hệ (ghi đè Đọc /
+ *    ghi đè Ghi / Tổng số resource vai chạm tới — số 14px semibold,
+ *    nhãn 10px màu phụ, vạch ngăn đứng trước con số Tổng; hệ không có
+ *    khái niệm quyền Create/Delete tách riêng nên không bày thêm con
+ *    số như các mẫu quản trị chung). Thẻ cuối của lưới là thẻ thêm vai
+ *    cùng kích thước với nội dung căn giữa: tiêu đề 18px medium, dòng
+ *    phụ 14px và nút outline kèm dấu cộng mở hộp thoại tạo vai trò —
+ *    lối vào tạo vai trò duy nhất của trang.
  * 2. Menu ba chấm trên mỗi thẻ chỉ có hai mục: Sửa vai trò (mở hộp
  *    thoại ma trận ở chế độ sửa) và Xoá vai trò (mở hộp thoại xác nhận
- *    xoá). Hộp thoại thêm/sửa dùng chung cho tạo và sửa, lưu qua
- *    endpoint thay toàn bộ của đợt 1.
+ *    xoá, mục destructive). Hộp thoại thêm/sửa dùng chung cho tạo và
+ *    sửa, lưu qua endpoint thay toàn bộ.
  * 3. Ma trận của vai đang sửa là query theo vai được chọn, lọc theo
  *    ngữ cảnh trong hộp thoại — đổi ngữ cảnh không gọi lại API, chỉ
  *    đổi tập ghi đè đang sửa.
- * 4. Khu vực bảng gán vai (component riêng) nhận danh sách vai và cây
- *    context đã tải ở đây để phân giải tên vai trò, nhãn ngữ cảnh và
- *    làm lựa chọn cho bộ lọc — bảng tự giữ trạng thái lọc/tìm/trang
- *    và gọi API đợt 1 theo đúng tham số đó.
+ * 4. Hai khu vực bảng dưới lưới (component riêng) nhận danh sách vai
+ *    và cây context đã tải ở đây: bảng gán vai (lọc theo vai trò/ngữ
+ *    cảnh, tìm kiếm, phân trang phía server, hộp thoại gán/gỡ) và
+ *    bảng người dùng kèm vai trò (một người một dòng kèm mọi gán của
+ *    họ, đọc từ endpoint gộp) — mỗi bảng tự giữ trạng thái lọc/tìm/
+ *    trang và gọi API theo đúng tham số đó.
  */
 export function AdminRolesPage() {
   const { t } = useTranslation('app');
@@ -94,92 +102,96 @@ export function AdminRolesPage() {
           </div>
         </>
       ) : null}
-      <Card>
-        <CardContent>
-          {loading ? (
-            <PageSkeleton label={t('loading')} rows={['h-9 w-full', 'h-9 w-full', 'h-9 w-full']} />
-          ) : (
-            <>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {roles.map((r) => (
-                  <Card key={r.id}>
-                    <CardContent className="space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <strong>{r.name}</strong>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            render={
-                              <Button type="button" variant="ghost" size="icon-sm" aria-label={t('roleActions')} />
-                            }
-                          >
-                            <Ellipsis aria-hidden />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setMatrixDialog({ mode: 'edit', role: r })}>
-                              {t('editRole')}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem variant="destructive" onClick={() => setDeleteTarget(r)}>
-                              {t('deleteRole')}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
+      {loading ? (
+        <PageSkeleton label={t('loading')} rows={['h-9 w-full', 'h-9 w-full', 'h-9 w-full']} />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {roles.map((r) => (
+              <Card key={r.id}>
+                <CardContent className="flex flex-col gap-3">
+                  <div className="flex justify-between gap-2">
+                    <div>
+                      <h4 className="text-base leading-tight font-medium">{r.name}</h4>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
                         {t('roleUsersCount', { count: r.userCount ?? 0 })}
                       </p>
-                      {/* Dải số của thẻ: đúng ba con số thật của hệ (ghi
-                          đè Đọc, ghi đè Ghi, tổng resource) — hệ không có
-                          khái niệm quyền Create/Delete tách riêng nên
-                          không bày thêm con số như các mẫu quản trị
-                          chung. */}
-                      <div className="flex divide-x rounded-lg bg-muted text-center">
-                        <div className="flex-1 px-2 py-3">
-                          <div className="text-xl font-semibold">{r.readOverrideCount ?? 0}</div>
-                          <div className="text-xs text-muted-foreground">{t('roleReadLabel')}</div>
-                        </div>
-                        <div className="flex-1 px-2 py-3">
-                          <div className="text-xl font-semibold">{r.writeOverrideCount ?? 0}</div>
-                          <div className="text-xs text-muted-foreground">{t('roleWriteLabel')}</div>
-                        </div>
-                        <div className="flex-1 px-2 py-3">
-                          <div className="text-xl font-semibold">{r.resourceCount ?? 0}</div>
-                          <div className="text-xs text-muted-foreground">{t('roleTotalLabel')}</div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-                {/* Thẻ thêm vai trò: một thẻ đầy đủ trong lưới (tiêu đề,
-                    mô tả ngắn, nút nằm trong thẻ) thay cho dải nét đứt
-                    trước đây, để lối vào tạo vai trò ngang hàng thị giác
-                    với các thẻ vai trò. */}
-                <Card>
-                  <CardContent className="flex h-full flex-col items-start gap-2">
-                    <strong>{t('addRoleCard')}</strong>
-                    <p className="text-sm text-muted-foreground">{t('addRoleCardDescription')}</p>
-                    <Button
-                      type="button"
-                      className="mt-auto"
-                      onClick={() => setMatrixDialog({ mode: 'create', role: null })}
-                    >
-                      {t('addRoleCard')}
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-              {roles.length === 0 ? (
-                <Empty className="p-6">
-                  <EmptyHeader>
-                    <EmptyTitle>{t('noRolesYet')}</EmptyTitle>
-                  </EmptyHeader>
-                </Empty>
-              ) : null}
-            </>
-          )}
-        </CardContent>
-      </Card>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button type="button" variant="ghost" size="icon-sm" aria-label={t('roleActions')} />
+                        }
+                      >
+                        <Ellipsis aria-hidden className="size-4" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setMatrixDialog({ mode: 'edit', role: r })}>
+                          <Pencil aria-hidden className="size-4" />
+                          {t('editRole')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem variant="destructive" onClick={() => setDeleteTarget(r)}>
+                          <Trash2 aria-hidden className="size-4" />
+                          {t('deleteRole')}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  {/* Dải số của thẻ: đúng ba con số thật của hệ (ghi đè
+                      Đọc, ghi đè Ghi, tổng resource) trên nền xám nhạt,
+                      vạch ngăn đứng chỉ đặt trước con số Tổng. */}
+                  <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2">
+                    <div className="flex flex-1 flex-col items-center gap-0.5">
+                      <span className="text-sm font-semibold">{r.readOverrideCount ?? 0}</span>
+                      <span className="text-[10px] text-muted-foreground">{t('roleReadLabel')}</span>
+                    </div>
+                    <div className="flex flex-1 flex-col items-center gap-0.5">
+                      <span className="text-sm font-semibold">{r.writeOverrideCount ?? 0}</span>
+                      <span className="text-[10px] text-muted-foreground">{t('roleWriteLabel')}</span>
+                    </div>
+                    <div className="h-6 w-px bg-border" aria-hidden />
+                    <div className="flex flex-1 flex-col items-center gap-0.5">
+                      <span className="text-sm font-semibold">{r.resourceCount ?? 0}</span>
+                      <span className="text-[10px] text-muted-foreground">{t('roleTotalLabel')}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {/* Thẻ thêm vai trò ở cuối lưới: nội dung căn giữa (tiêu
+                đề, dòng phụ, nút outline kèm dấu cộng) — lối vào tạo
+                vai trò ngang hàng thị giác với các thẻ vai trò. */}
+            <Card className="items-center justify-center">
+              <CardContent className="flex flex-col items-center justify-center gap-4">
+                <div className="text-center">
+                  <p className="text-lg font-medium">{t('addRoleCard')}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{t('addRoleCardDescription')}</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => setMatrixDialog({ mode: 'create', role: null })}
+                >
+                  <Plus aria-hidden className="size-4" />
+                  {t('addRoleCard')}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+          {roles.length === 0 ? (
+            <Empty className="p-6">
+              <EmptyHeader>
+                <EmptyTitle>{t('noRolesYet')}</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
+          ) : null}
+        </>
+      )}
 
       <RoleAssignmentsSection roles={roles} contexts={contexts} />
+
+      <UsersWithRolesSection roles={roles} contexts={contexts} />
 
       {/* Render có điều kiện: mỗi lần mở hộp thoại là một lượt làm việc mới với state khởi tạo sạch. */}
       {matrixDialog !== null ? (

@@ -17,6 +17,10 @@
     "./control-plane": {
       "types": "./dist/control-plane.d.ts",
       "default": "./dist/control-plane.js"
+    },
+    "./system-bank": {
+      "types": "./dist/system-bank.d.ts",
+      "default": "./dist/system-bank.js"
     }
   },
   "main": "./dist/index.js",

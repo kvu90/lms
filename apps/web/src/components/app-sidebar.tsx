@@ -250,13 +250,26 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 ? [{ title: t('app:navTenants'), url: '/admin/tenants', icon: IconBuildingCommunity }]
                 : []),
               ...(perms.canAdminister
-                ? [
-                    { title: t('app:navRoles'), url: '/admin/roles', icon: IconShieldLock },
-                    { title: t('app:navTokens'), url: '/tokens', icon: IconSettings },
-                  ]
+                ? [{ title: t('app:navTokens'), url: '/tokens', icon: IconSettings }]
                 : []),
             ],
           },
+          // Nhóm vai trò & quyền: mục Vai trò rời khỏi nhóm Người dùng
+          // & quyền để đứng chung với trang Quyền độc lập, Vai trò
+          // trước rồi Quyền sau; chỉ quản trị site mới thấy nhóm này.
+          ...(perms.canAdminister
+            ? [
+                {
+                  groupId: 'roles-permissions',
+                  title: t('app:navGroupRolesPermissions'),
+                  icon: IconShieldLock,
+                  children: [
+                    { title: t('app:navRoles'), url: '/admin/roles', icon: IconShieldLock },
+                    { title: t('app:navPermissions'), url: '/admin/permissions', icon: IconShieldLock },
+                  ],
+                },
+              ]
+            : []),
           ...(perms.canAdminister
             ? [
                 {
