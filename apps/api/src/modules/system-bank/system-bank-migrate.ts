@@ -66,7 +66,7 @@ import {
   systemQuestionVersions,
   systemQuestions,
 } from '@lms/db/system-bank';
-import { canonicalizeJson, checksumPackage, packageValidationError, type SystemQuestionPackage } from './modules/system-bank/system-bank-package';
+import { canonicalizeJson, checksumPackage, packageValidationError, type SystemQuestionPackage } from './system-bank-package';
 
 async function main(): Promise<void> {
   const businessUrl = process.env.DATABASE_URL;
