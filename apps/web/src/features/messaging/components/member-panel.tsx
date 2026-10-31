@@ -311,7 +311,7 @@ export function MemberProfileSheet({ entry, contextName, online, onClose }: Memb
                   <AvatarFallback>{initialsOf(entry.displayName)}</AvatarFallback>
                 </Avatar>
                 {online ? (
-                  <span className="absolute right-0 bottom-0 size-2.5 rounded-full bg-emerald-500 ring-2 ring-background" />
+                  <span className="absolute right-0 bottom-0 size-2.5 rounded-full bg-green-500 ring-2 ring-background" />
                 ) : null}
               </span>
               <div className="min-w-0">
@@ -429,7 +429,7 @@ export function MemberPanel({
               <AvatarFallback>{initialsOf(entry.displayName)}</AvatarFallback>
             </Avatar>
             {online ? (
-              <span className="absolute right-0 bottom-0 size-2.5 rounded-full bg-emerald-500 ring-2 ring-background" />
+              <span className="absolute right-0 bottom-0 size-2.5 rounded-full bg-green-500 ring-2 ring-background" />
             ) : null}
           </span>
           {/*

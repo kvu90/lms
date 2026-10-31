@@ -31,6 +31,14 @@ export interface UseConversationRestoreParams {
   setConversations: (conversations: ConversationView[] | ((prev: ConversationView[]) => ConversationView[])) => void;
   /** Mở conversation (trang nối qua callback dùng-chung). */
   open: (conv: ConversationView) => Promise<void> | void;
+  /**
+   * Tab khung trái hiện hành (trang đưa xuống): khi tab đang
+   * là Nhóm thì KHÔNG khôi phục hội thoại đã lưu (issue #608,
+   * điểm A-BS5 — tab Nhóm của bản demo mở vào là trạng thái
+   * chưa chọn; hội thoại đã lưu bền thuộc ngữ cảnh tab Trò
+   * chuyện). Deep-link không chịu cổng này.
+   */
+  sidebarTab: string;
 }
 
 export function useConversationRestore({
@@ -39,6 +47,7 @@ export function useConversationRestore({
   conversations,
   setConversations,
   open,
+  sidebarTab,
 }: UseConversationRestoreParams) {
   const queryClient = useQueryClient();
   /** Deep-link ?conversation= chỉ xử lý một lần khi trang vừa nạp (không giành cuộc trò chuyện đang mở ở các lần nạp lại sau). */
@@ -94,6 +103,14 @@ export function useConversationRestore({
   // qua êm, trang giữ trạng thái chưa chọn như không có gì đã lưu.
   useEffect(() => {
     if (deepLinkId || !listLoaded || contextRestoredRef.current) return;
+    // Tab Nhóm không khôi phục hội thoại đã lưu (issue #608,
+    // điểm A-BS5): mở trang ở tab Nhóm là gặp trạng thái chưa
+    // chọn như bản demo — đánh dấu đã xử lý để các lần chạy
+    // sau không mở muộn khi dữ kiện đổi.
+    if (sidebarTab === 'groups') {
+      contextRestoredRef.current = true;
+      return;
+    }
     contextRestoredRef.current = true;
     const savedId = readStoredConversationId();
     if (!savedId) return;
@@ -116,5 +133,5 @@ export function useConversationRestore({
     // chạy một lần do contextRestoredRef gác (cùng kỷ luật với
     // deep-link ở trên) nên các lần chạy thêm thoát ngay ở đầu
     // hiệu ứng, hành vi không đổi.
-  }, [deepLinkId, listLoaded, conversations, open, queryClient, setConversations]);
+  }, [deepLinkId, listLoaded, conversations, open, queryClient, setConversations, sidebarTab]);
 }

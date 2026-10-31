@@ -9,9 +9,10 @@
  * tên hiển thị và tên đăng nhập (`PersonSummary`). Mọi trường
  * backend chưa có PHẢI đi qua lớp adapter này — component không
  * tự chứa dữ kiện tạm và không bịa giá trị: trường nào chưa có
- * nguồn thì adapter trả `null` (hoặc danh sách rỗng), panel hiện
- * dấu gạch ngang ở đúng vị trí của trường đó để hình dạng khớp
- * demo mà không khẳng định dữ kiện không tồn tại.
+ * nguồn thì adapter trả `null` (hoặc danh sách rỗng), và panel
+ * KHÔNG dựng hàng của trường đó (đúng luật hiển thị của bản
+ * demo, căn ở issue #608 — trước đây panel hiện dấu gạch ngang
+ * ở vị trí của trường, đã bỏ).
  *
  * Đợt backend (#592) chỉ thay nguồn dữ kiện của các hàm trong
  * file này (đọc từ API thật khi hợp đồng có đủ trường); chữ ký

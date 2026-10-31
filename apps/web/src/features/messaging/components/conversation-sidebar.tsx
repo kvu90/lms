@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { BellOff, ChevronDown, Pin, Plus } from 'lucide-react';
+import { BellOff, ChevronDown, Ellipsis, MessageSquare, Pin, Search, UserPlus } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
@@ -10,6 +10,8 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@lms/ui/components/dropdown-menu';
 import { Input } from '@lms/ui/components/input';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@lms/ui/components/input-group';
+import { Separator } from '@lms/ui/components/separator';
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@lms/ui/components/tabs';
 import { cn } from '@lms/ui/lib/utils';
@@ -26,7 +28,10 @@ import type {
   PeoplePickerContext,
   RosterMember,
 } from '../types/types';
-import { CHAT_MENU_CONTENT_CLASS, CHAT_MENU_ITEM_CLASS, initialsOf, relativeTime } from '../utils/utils';
+import {
+  CHAT_MENU_CONTENT_CLASS, CHAT_MENU_ITEM_CLASS, PRESENCE_DOT_CLASS, conversationTime,
+  initialsOf, presenceStatusOf,
+} from '../utils/utils';
 
 /**
  * Khung trái màn Tin nhắn (lát MSG-T3, issue #33) — tổ chức lại
@@ -72,7 +77,6 @@ interface ConversationSidebarProps {
   /** Cây nhóm của tôi do server dựng (lát MSG-T1) cho tab Nhóm. */
   groupTree: ConversationGroupTreeView | null;
   active: ConversationView | null;
-  unread: number;
   error: string | null;
   myId: string | undefined;
   onlineUsers: Record<string, boolean>;
@@ -162,7 +166,7 @@ type ConversationFilterChip = 'all' | 'unread';
  * @returns Khung trái hoàn chỉnh của màn master–detail.
  */
 export function ConversationSidebar({
-  conversations, archivedConversations, onRequestArchived, groupTree, active, unread, error, myId, onlineUsers,
+  conversations, archivedConversations, onRequestArchived, groupTree, active, error, myId, onlineUsers,
   onOpenConversation, onOpenConversationById, onOpenClassChat, onOpenCourseChat, onOpenGroupConversation,
   canCreateFreeGroup, onCreateFreeGroup, groupCreateError,
   onUpdateConversationState, stateError, nameOf, tab, onTabChange,
@@ -171,7 +175,7 @@ export function ConversationSidebar({
   pickerContext, onSelectPickerContext, pickerClasses, pickerCourses, pickerMembers,
   pickerRosterError, pickerRosterCursor, onLoadMorePicker, loading, groupTreeLoading, groupTreeError,
 }: ConversationSidebarProps) {
-  const { t } = useTranslation('app');
+  const { t, i18n } = useTranslation('app');
   const open = onOpenConversation;
   const [chip, setChip] = useState<ConversationFilterChip>('all');
   const [newMessageOpen, setNewMessageOpen] = useState(false);
@@ -274,6 +278,7 @@ export function ConversationSidebar({
      * — không gộp chưa biết thành ngoại tuyến.
      */
     const otherPresence = otherId ? onlineUsers[otherId] : undefined;
+    const otherStatus = presenceStatusOf(otherPresence);
     const avatarLabel = c.name ?? (otherId ? nameOf(otherId) : labelOf(c));
     const unreadCount = c.unread ?? 0;
     return (
@@ -282,30 +287,41 @@ export function ConversationSidebar({
           <button
             type="button"
             aria-current={isActive || undefined}
-            className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2.5 py-2.5 text-left hover:bg-muted"
+            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left hover:bg-muted/75"
             onClick={() => void open(c)}
           >
             <span className="relative shrink-0">
-              <Avatar>
+              <Avatar size="lg">
                 <AvatarFallback>{initialsOf(avatarLabel)}</AvatarFallback>
               </Avatar>
-              {otherPresence !== undefined ? (
+              {otherStatus !== undefined ? (
                 <span
                   className={cn(
                     'absolute right-0 bottom-0 size-2.5 rounded-full ring-2 ring-background',
-                    otherPresence ? 'bg-green-500' : 'bg-muted-foreground',
+                    PRESENCE_DOT_CLASS[otherStatus],
                   )}
                 />
               ) : null}
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex items-baseline gap-2">
-                <span className={cn('min-w-0 flex-1 truncate text-sm font-medium', unreadCount > 0 && !c.muted && 'font-semibold')}>
+                {/*
+                  Độ đậm tên trên hàng theo LOẠI hội thoại như
+                  bản demo (issue #608): nhóm đậm 600 màu đầy
+                  đủ, 1–1 vừa 500 màu 90% — cố định, không phụ
+                  thuộc trạng thái đã đọc như trước.
+                */}
+                <span
+                  className={cn(
+                    'min-w-0 flex-1 truncate text-sm',
+                    c.type === 2 ? 'font-semibold text-foreground' : 'font-medium text-foreground/90',
+                  )}
+                >
                   {labelOf(c)}
                 </span>
                 {c.lastMessage ? (
                   <span className="shrink-0 text-xs leading-5 text-muted-foreground tabular-nums" data-testid={`conversation-last-time-${c.id}`}>
-                    {relativeTime(c.lastMessage.createdAt, t)}
+                    {conversationTime(c.lastMessage.createdAt, t, i18n.language)}
                   </span>
                 ) : null}
               </span>
@@ -318,18 +334,29 @@ export function ConversationSidebar({
                 ) : (
                   <span className="min-w-0 flex-1" />
                 )}
+                {/*
+                  Cụm biểu tượng cuối hàng theo đúng khuôn demo
+                  (issue #608, trích từ SSR và chunk của demo):
+                  mỗi biểu tượng nằm trong ô lưới 20px căn giữa;
+                  ghim là icon 12px tô đặc mờ 70%, tắt tiếng là
+                  icon 12px màu muted.
+                */}
                 {c.pinnedAt ? (
-                  <Pin data-testid={`conversation-pinned-${c.id}`} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                  <span data-testid={`conversation-pinned-${c.id}`} className="grid size-5 shrink-0 place-items-center">
+                    <Pin className="size-3 fill-current opacity-70" aria-hidden />
+                  </span>
                 ) : null}
                 {c.muted ? (
-                  <BellOff data-testid={`conversation-muted-${c.id}`} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                  <span data-testid={`conversation-muted-${c.id}`} className="grid size-5 shrink-0 place-items-center">
+                    <BellOff className="size-3 text-muted-foreground" aria-hidden />
+                  </span>
                 ) : null}
                 {unreadCount > 0
                   ? c.muted
                     ? <span className="shrink-0 text-xs opacity-60">{t('unreadSuffix', { count: unreadCount })}</span>
                     : (
                       <>
-                        <Badge className="shrink-0">{unreadCount}</Badge>
+                        <Badge className="h-5 min-w-5 shrink-0 justify-center rounded-full px-1">{unreadCount}</Badge>
                         <span className="sr-only">{t('unreadSuffix', { count: unreadCount })}</span>
                       </>
                     )
@@ -337,19 +364,28 @@ export function ConversationSidebar({
               </span>
             </span>
           </button>
+          {/*
+            Menu trạng thái trên hàng (issue #608 — điểm giữ
+            chức năng): bản demo không có nút phụ trên hàng,
+            nhưng ghim/lưu trữ/tắt tiếng là chức năng thật của
+            sản phẩm và hàng là đường vào chính của chúng ở cột
+            danh sách — giữ menu, hình dạng theo ngôn ngữ demo
+            (nút ghost 32px, icon Ellipsis), liệt kê trong
+            thân PR chờ phán.
+          */}
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon"
+                  size="icon-sm"
                   aria-label={t('conversationActionsLabel')}
                   data-testid={`conversation-actions-${c.id}`}
                 />
               }
             >
-              …
+              <Ellipsis aria-hidden />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" sideOffset={4} className={CHAT_MENU_CONTENT_CLASS}>
               <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => onUpdateConversationState(c, { pinned: !c.pinnedAt })}>
@@ -387,16 +423,15 @@ export function ConversationSidebar({
   const initialLoading = Boolean(loading) && conversations.length === 0 && !error;
 
   /**
-   * Một mục thu gọn trong tab Trò chuyện (issue #564): tiêu đề
-   * phẳng kiểu demo (nhãn + số đếm + chevron), dựng trên primitive
-   * Collapsible của @lms/ui — KHÔNG dùng vỏ Card của
-   * CollapsibleSection dùng chung (vỏ đó không khớp section phẳng
-   * của demo) và không tự chế kiểu collapse riêng. Số đếm đặt
-   * trong span `aria-hidden` để tên truy cập của nút vẫn đúng
-   * nhãn của mục, như chip lọc bên dưới.
+   * Một mục thu gọn trong tab Trò chuyện (issue #564; số đo
+   * căn lại theo bản demo ở issue #608): tiêu đề phẳng kiểu
+   * demo — nhãn 12px vừa màu muted, đệm ngang 12px, đệm dưới
+   * 8px, chevron 12px, KHÔNG số đếm, hover chỉ đổi màu chữ —
+   * dựng trên primitive Collapsible của @lms/ui, không dùng vỏ
+   * Card của CollapsibleSection dùng chung và không tự chế
+   * kiểu collapse riêng.
    *
    * @param title - Nhãn của mục.
-   * @param count - Số dòng trong mục (hiện sau nhãn).
    * @param open - Mục đang mở hay đóng.
    * @param onOpenChange - Đổi trạng thái mở của mục.
    * @param children - Nội dung mục khi mở.
@@ -404,16 +439,14 @@ export function ConversationSidebar({
    */
   const renderSection = (
     title: string,
-    count: number,
     open: boolean,
     onOpenChange: (next: boolean) => void,
     children: ReactNode,
   ) => (
     <Collapsible open={open} onOpenChange={onOpenChange}>
-      <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-muted-foreground hover:bg-muted">
+      <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 pb-2 text-left text-xs font-medium text-muted-foreground hover:text-foreground">
         <span>{title}</span>
-        <span aria-hidden className="text-xs text-muted-foreground">{count}</span>
-        <ChevronDown aria-hidden className={cn('ml-auto size-4 shrink-0 transition-transform', open && 'rotate-180')} />
+        <ChevronDown aria-hidden className={cn('ml-auto size-3 shrink-0 transition-transform', open && 'rotate-180')} />
       </CollapsibleTrigger>
       {/*
         Nội dung chỉ render khi mục mở: section đóng thì các dòng
@@ -426,52 +459,78 @@ export function ConversationSidebar({
   );
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex items-center justify-between gap-2 px-4 pt-3">
+    /*
+      Nhịp của cột danh sách theo bản demo (issue #608): cột là
+      flex dọc khoảng 12px, đệm dọc 12px; các mục con mang đệm
+      ngang 12px. Dưới hàng đầu cột là một Separator như demo.
+    */
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 py-3">
+      <div className="flex items-center justify-between gap-2 px-3">
         <div className="flex min-w-0 items-center gap-2">
           {myId ? (
-            <Avatar>
-              <AvatarFallback>{initialsOf(nameOf(myId))}</AvatarFallback>
-            </Avatar>
+            /*
+              Avatar của chính người xem mang chấm hiện diện
+              xanh như bản demo (issue #608): người xem đang
+              dùng app là đang trực tuyến theo đúng bản đồ
+              trạng thái hiển thị.
+            */
+            <span className="relative shrink-0">
+              <Avatar>
+                <AvatarFallback>{initialsOf(nameOf(myId))}</AvatarFallback>
+              </Avatar>
+              <span
+                className={cn(
+                  'absolute right-0 bottom-0 size-2.5 rounded-full ring-2 ring-background',
+                  PRESENCE_DOT_CLASS.online,
+                )}
+              />
+            </span>
           ) : null}
           {/*
-            Tiêu đề KHÔNG được cắt ba chấm: hậu tố số chưa đọc là
-            một phần của tiêu đề và phải hiện trọn. Tiêu đề và hậu
-            tố là hai khối không tách rời (whitespace-nowrap) xếp
-            bằng flex-wrap — khi cột danh sách không đủ bề ngang
-            cho cả hai trên một dòng, hậu tố xuống dòng nguyên
-            khối thay vì bị truncate nuốt mất phần đuôi. (Bản
-            trước mang class truncate nên khi có số chưa đọc,
-            tiêu đề bị rút thành dạng "Tin nhắn (2 chưa…" dù nút
-            cạnh nó đã shrink-0: bề ngang thật của cả dòng vượt
-            bề ngang cột, phần thiếu dồn hết vào tiêu đề.)
+            Tiêu đề cột chỉ gồm chữ như bản demo (issue #608):
+            hậu tố số chưa đọc tổng từng nằm trong tiêu đề đã
+            bỏ — số chưa đọc sống ở huy hiệu trên từng hàng và
+            trên tab Nhóm. Tiêu đề cắt ba chấm khi thiếu chỗ
+            như demo.
           */}
-          <h2 className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-lg font-semibold">
-            <span className="whitespace-nowrap">{t('messagesTitle')}</span>
-            {unread > 0 ? (
-              <span className="whitespace-nowrap">{t('unreadSuffix', { count: unread })}</span>
-            ) : null}
-          </h2>
+          <h2 className="min-w-0 truncate text-lg font-semibold">{t('messagesTitle')}</h2>
         </div>
-        <Button type="button" size="sm" className="shrink-0" aria-label={t('newMessage')} onClick={() => setNewMessageOpen(true)}>
-          <Plus className="size-4" />
-          {t('newMessage')}
+        {/*
+          Nút mở hộp thoại Tin nhắn mới theo đúng hình dạng
+          demo (issue #608): nút ghost chỉ biểu tượng UserPlus
+          32px. Số lời mời kết bạn đang chờ là chức năng thật
+          của sản phẩm (đường vào trả lời lời mời nằm trong
+          hộp thoại) nên giữ làm huy hiệu nhỏ ở góc nút, kèm
+          nhãn đọc màn hình — liệt kê trong thân PR.
+        */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="relative shrink-0"
+          aria-label={t('newMessage')}
+          onClick={() => setNewMessageOpen(true)}
+        >
+          <UserPlus aria-hidden />
           {incomingRequests.length > 0 ? (
             <>
-              <Badge className="shrink-0">{incomingRequests.length}</Badge>
+              <Badge className="absolute -top-1 -right-1 h-5 min-w-5 justify-center rounded-full px-1">
+                {incomingRequests.length}
+              </Badge>
               <span className="sr-only">{t('incomingRequestsTitle')}</span>
             </>
           ) : null}
         </Button>
       </div>
-      {error ? <p role="alert" className="px-4 pt-2 text-sm">{error}</p> : null}
-      {stateError ? <p role="alert" className="px-4 pt-2 text-sm">{stateError}</p> : null}
+      <Separator />
+      {error ? <p role="alert" className="px-3 text-sm">{error}</p> : null}
+      {stateError ? <p role="alert" className="px-3 text-sm">{stateError}</p> : null}
       <Tabs
         value={tab}
         onValueChange={(value) => {
           onTabChange(value);
         }}
-        className="min-h-0 min-w-0 flex-1 px-2 pt-2"
+        className="min-h-0 min-w-0 flex-1 px-3"
       >
         <TabsList className="w-full">
           <TabsTrigger value="chats">{t('messagesTabChats')}</TabsTrigger>
@@ -481,14 +540,26 @@ export function ConversationSidebar({
           </TabsTrigger>
         </TabsList>
         <TabsContent value="chats" className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="space-y-2 px-2 pt-1">
-            <Input
-              type="search"
-              aria-label={t('conversationSearchLabel')}
-              placeholder={t('conversationSearchPlaceholder')}
-              value={conversationFilter}
-              onChange={(e) => setConversationFilter(e.target.value)}
-            />
+          <div className="space-y-2 pt-1">
+            {/*
+              Ô tìm hội thoại theo đúng cấu trúc InputGroup
+              của bản demo (issue #608): hộp 36px bo 8px có
+              addon kính lúp 16px màu muted ở đầu, ô nhập
+              trong suốt không viền bên trong component
+              InputGroup của @lms/ui.
+            */}
+            <InputGroup>
+              <InputGroupAddon>
+                <Search aria-hidden />
+              </InputGroupAddon>
+              <InputGroupInput
+                type="search"
+                aria-label={t('conversationSearchLabel')}
+                placeholder={t('conversationSearchPlaceholder')}
+                value={conversationFilter}
+                onChange={(e) => setConversationFilter(e.target.value)}
+              />
+            </InputGroup>
             <div className="flex flex-wrap gap-1.5">
               {chips.map(({ key, label, count }) => (
                 <Button
@@ -524,7 +595,7 @@ export function ConversationSidebar({
               </Button>
             </div>
           </div>
-          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-1 py-2">
+          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 py-2">
             {initialLoading ? (
               /*
                 Khung đang tải lần đầu (issue #591): các dòng
@@ -533,7 +604,7 @@ export function ConversationSidebar({
                 hình khi dữ kiện về; trạng thái rỗng chỉ được
                 hiện ở nhánh dưới, sau khi nạp xong.
               */
-              <div data-testid="conversations-loading" className="space-y-3 px-2" aria-label={t('conversationsLoading')}>
+              <div data-testid="conversations-loading" className="space-y-3" aria-label={t('conversationsLoading')}>
                 {[0, 1, 2, 3, 4].map((i) => (
                   <div key={i} className="flex items-center gap-3">
                     <Skeleton className="size-10 shrink-0 rounded-full" />
@@ -552,34 +623,42 @@ export function ConversationSidebar({
                 đường lỗi là trạng thái rỗng giả mà issue #591
                 cấm (chưa tải xong, chưa xác nhận là rỗng thật).
               */
-              <p className="px-2 text-sm text-muted-foreground">
-                {filterNeedle
-                  ? t('conversationSearchNoResults')
-                  : chip === 'unread'
-                    ? t('conversationsUnreadEmpty')
-                    : t('conversationsEmpty')}
-              </p>
+              /*
+                Khối rỗng của danh sách theo đúng khuôn demo
+                (issue #608): icon MessageSquare 36px màu
+                muted ở 40%, chữ 14px font-medium màu
+                foreground, căn giữa, đệm 40px — cùng một
+                khuôn cho cả ba câu rỗng của danh sách (rỗng
+                thật, lọc chưa đọc, tìm không khớp).
+              */
+              <div className="flex flex-col items-center gap-2 p-10 text-center">
+                <MessageSquare className="size-9 text-muted-foreground/40" aria-hidden />
+                <p className="text-sm font-medium">
+                  {filterNeedle
+                    ? t('conversationSearchNoResults')
+                    : chip === 'unread'
+                      ? t('conversationsUnreadEmpty')
+                      : t('conversationsEmpty')}
+                </p>
+              </div>
             ) : (
               <div className="space-y-1">
                 {pinnedConversations.length > 0 ? renderSection(
                   t('messagesPinnedSection'),
-                  pinnedConversations.length,
                   pinnedOpen,
                   setPinnedOpen,
-                  <ul className="space-y-0.5">{pinnedConversations.map(renderConversationItem)}</ul>,
+                  <ul className="flex flex-col gap-1">{pinnedConversations.map(renderConversationItem)}</ul>,
                 ) : null}
                 {recentConversations.length > 0 ? renderSection(
                   t('messagesRecentSection'),
-                  recentConversations.length,
                   recentOpen,
                   setRecentOpen,
-                  <ul className="space-y-0.5">{recentConversations.map(renderConversationItem)}</ul>,
+                  <ul className="flex flex-col gap-1">{recentConversations.map(renderConversationItem)}</ul>,
                 ) : null}
               </div>
             )}
             {initialLoading ? null : renderSection(
               t('archivedConversationsTitle'),
-              visibleArchived.length,
               archivedOpen,
               (next) => {
                 // Cơ chế lười của M5 giữ nguyên: mở mục là nạp
@@ -592,13 +671,13 @@ export function ConversationSidebar({
                   {filterNeedle ? t('conversationSearchNoResults') : t('archivedEmpty')}
                 </p>
               ) : (
-                <ul className="space-y-0.5">{visibleArchived.map(renderConversationItem)}</ul>
+                <ul className="flex flex-col gap-1">{visibleArchived.map(renderConversationItem)}</ul>
               ),
             )}
           </div>
         </TabsContent>
         <TabsContent value="groups" className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="px-2 pt-1">
+          <div className="pt-1">
             <Input
               type="search"
               aria-label={t('groupTreeSearchPlaceholder')}
@@ -607,7 +686,7 @@ export function ConversationSidebar({
               onChange={(e) => setGroupFilter(e.target.value)}
             />
           </div>
-          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-1 py-2">
+          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 py-2">
             <GroupTreeNav
               tree={groupTree}
               filter={groupFilter}

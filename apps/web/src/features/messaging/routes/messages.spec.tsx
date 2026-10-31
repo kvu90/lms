@@ -6,7 +6,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '#lib/auth';
 import { createQueryClient } from '#lib/query-client';
 import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
-import { formatTime } from '#utils/date-format';
+import { formatWithOptions } from '#utils/date-format';
 import { MessagesPage } from './messages';
 
 /**
@@ -982,11 +982,11 @@ describe('Messages page — M1: sắp xếp, thời gian tương đối, nháp, 
     localStorage.clear();
   });
 
-  it('hiện thời gian tương đối của tin cuối và đẩy conversation có tin mới lên đầu khi nhận conversation.updated', async () => {
+  it('hiện nhãn giờ của tin cuối theo định dạng demo và đẩy conversation có tin mới lên đầu khi nhận conversation.updated', async () => {
     // Ghim đồng hồ cho riêng ca này về một mốc cố định lấy tại đầu
-    // ca: nhãn tương đối tính từ Date.now() ở CẢ hai phía — stub dựng
+    // ca: nhãn giờ tính từ Date.now() ở CẢ hai phía — stub dựng
     // mốc tin cuối bằng isoMinutesAgo (Date.now lúc dựng stub) còn
-    // relativeTime đọc Date.now lúc hiển thị — hai lần đọc đồng hồ
+    // hàm nhãn giờ đọc Date.now lúc hiển thị — hai lần đọc đồng hồ
     // thật lệch nhau qua biên phút/giờ làm nhãn "30 phút trước" /
     // "2 giờ trước" trượt ngẫu nhiên trên máy tải nặng. Ghim để cả
     // hai phía dùng chung một đồng hồ; khôi phục khi ca kết thúc.
@@ -1001,9 +1001,14 @@ describe('Messages page — M1: sắp xếp, thời gian tương đối, nháp, 
     // Thứ tự ban đầu theo đúng đáp ứng của server: A trước, B sau.
     await screen.findByRole('button', { name: /Hội thoại A/ });
     expect(conversationOrderShort()).toEqual(['A', 'B']);
-    // Mốc thời gian tương đối của tin cuối: A 2 giờ trước, B 30 phút trước.
-    expect(screen.getByTestId(`conversation-last-time-${CONV_A}`)).toHaveTextContent('2 giờ trước');
-    expect(screen.getByTestId(`conversation-last-time-${CONV_B}`)).toHaveTextContent('30 phút trước');
+    // Nhãn giờ của tin cuối theo đúng hàm phía demo (issue
+    // #608): dưới 1 giờ hiện dạng "30m"; trong cùng ngày hiện
+    // giờ đồng hồ 12 giờ — không còn nhãn "x giờ/phút trước".
+    const twoHoursAgoIso = new Date(Date.now() - 120 * 60_000).toISOString();
+    expect(screen.getByTestId(`conversation-last-time-${CONV_A}`)).toHaveTextContent(
+      formatWithOptions(twoHoursAgoIso, 'vi', { hour: 'numeric', minute: '2-digit', hour12: true }),
+    );
+    expect(screen.getByTestId(`conversation-last-time-${CONV_B}`)).toHaveTextContent('30m');
 
     // Tin mới tới B qua realtime: B lên đầu, xem trước và mốc thời
     // gian đổi theo tin mới, số chưa đọc của B hiện theo sự kiện.
@@ -1024,24 +1029,22 @@ describe('Messages page — M1: sắp xếp, thời gian tương đối, nháp, 
     expect(conversationOrder()[0]).toContain('(1 chưa đọc)');
   });
 
-  it('tiêu đề danh sách hiện trọn số chưa đọc: tiêu đề không mang cơ chế cắt ba chấm và hậu tố là khối không tách rời', async () => {
-    // Khuyết tật nằm ở cơ chế CSS: class truncate trên tiêu
-    // đề rút chữ bằng dấu ba chấm khi dòng đầu cột thiếu bề
-    // ngang. jsdom không có layout thật nên không quan sát
-    // được dấu ba chấm trực tiếp; ca này ghim đúng cơ chế
-    // sinh lỗi — tiêu đề không được mang truncate, và cả
-    // tiêu đề lẫn hậu tố số chưa đọc phải là các khối
-    // whitespace-nowrap riêng để hậu tố xuống dòng nguyên
-    // khối thay vì bị cắt mất phần đuôi. Trên bản cũ tiêu đề
-    // mang truncate và hậu tố là chữ trần chung một nút chữ
-    // với tiêu đề — ca này đỏ.
+  it('tiêu đề danh sách chỉ là chữ Tin nhắn cắt gọn một dòng và không còn hậu tố số chưa đọc', async () => {
+    // Hình dạng phía demo (issue #608): tiêu đề đầu cột là
+    // đúng một chữ tiêu đề mang truncate (thiếu bề ngang thì
+    // cắt ba chấm ở chính tiêu đề) và KHÔNG mang hậu tố tổng
+    // số chưa đọc — số chưa đọc chỉ sống ở huy hiệu trên từng
+    // hàng hội thoại. jsdom không có layout thật nên ca này
+    // ghim đúng cơ chế: tiêu đề mang class truncate, nội dung
+    // chữ của tiêu đề là đúng "Tin nhắn" kể cả sau khi có tin
+    // chưa đọc, và hàng của hội thoại nhận tin mới mang hậu tố
+    // chưa đọc của riêng nó.
     const calls: RecordedCall[] = [];
     stubFetchM1(calls);
     renderMessages();
 
     await screen.findByRole('button', { name: /Hội thoại A/ });
-    // Sự kiện realtime đẩy số chưa đọc của B lên 1: tiêu đề
-    // danh sách mang hậu tố "(1 chưa đọc)".
+    // Sự kiện realtime đẩy số chưa đọc của B lên 1.
     act(() => {
       realtime.handlers?.onConversationUpdated({
         conversationId: CONV_B,
@@ -1056,9 +1059,11 @@ describe('Messages page — M1: sắp xếp, thời gian tương đối, nháp, 
 
     const heading = [...document.querySelectorAll('h2')].find((el) => el.textContent?.includes('Tin nhắn'));
     expect(heading).toBeDefined();
-    expect(heading).not.toHaveClass('truncate');
-    expect(within(heading as HTMLElement).getByText('Tin nhắn')).toHaveClass('whitespace-nowrap');
-    expect(within(heading as HTMLElement).getByText('(1 chưa đọc)')).toHaveClass('whitespace-nowrap');
+    expect(heading).toHaveClass('truncate');
+    expect((heading as HTMLElement).textContent?.trim()).toBe('Tin nhắn');
+    // Số chưa đọc nằm ở hàng của B (hậu tố sr-only của hàng),
+    // không nằm trong tiêu đề.
+    expect(conversationOrder()[0]).toContain('(1 chưa đọc)');
   });
 
   it('giữ nháp riêng theo từng conversation và chỉ xoá nháp của conversation vừa gửi', async () => {
@@ -1523,7 +1528,11 @@ describe('Messages page — M4: tìm kiếm (issue #237)', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
     // Tìm trong hội thoại ẩn sau nút bật/tắt ở header (issue #256).
-    await userEvent.click(screen.getByRole('button', { name: 'Tìm trong cuộc trò chuyện' }));
+    // Đường vào tìm kiếm đã dời vào menu đầu khung như phía
+    // demo (issue #608): mở menu ⋯ rồi chọn mục Tìm trong cuộc
+    // trò chuyện — chức năng tìm kiếm giữ nguyên.
+    await userEvent.click(screen.getByTestId('header-actions'));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Tìm trong cuộc trò chuyện' }));
 
     const searchInput = screen.getByRole('searchbox', { name: 'Tìm trong cuộc trò chuyện' });
     await userEvent.type(searchInput, 'cần tìm');
@@ -1560,7 +1569,11 @@ describe('Messages page — M4: tìm kiếm (issue #237)', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
     // Tìm trong hội thoại ẩn sau nút bật/tắt ở header (issue #256).
-    await userEvent.click(screen.getByRole('button', { name: 'Tìm trong cuộc trò chuyện' }));
+    // Đường vào tìm kiếm đã dời vào menu đầu khung như phía
+    // demo (issue #608): mở menu ⋯ rồi chọn mục Tìm trong cuộc
+    // trò chuyện — chức năng tìm kiếm giữ nguyên.
+    await userEvent.click(screen.getByTestId('header-actions'));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Tìm trong cuộc trò chuyện' }));
 
     const searchInput = screen.getByRole('searchbox', { name: 'Tìm trong cuộc trò chuyện' });
     await userEvent.type(searchInput, 'xyz không khớp');
@@ -1575,7 +1588,11 @@ describe('Messages page — M4: tìm kiếm (issue #237)', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
     // Tìm trong hội thoại ẩn sau nút bật/tắt ở header (issue #256).
-    await userEvent.click(screen.getByRole('button', { name: 'Tìm trong cuộc trò chuyện' }));
+    // Đường vào tìm kiếm đã dời vào menu đầu khung như phía
+    // demo (issue #608): mở menu ⋯ rồi chọn mục Tìm trong cuộc
+    // trò chuyện — chức năng tìm kiếm giữ nguyên.
+    await userEvent.click(screen.getByTestId('header-actions'));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Tìm trong cuộc trò chuyện' }));
 
     const searchInput = screen.getByRole('searchbox', { name: 'Tìm trong cuộc trò chuyện' });
     await userEvent.type(searchInput, 'cần tìm');
@@ -2579,7 +2596,7 @@ describe('Messages page — MSG-T4 phía học sinh: không nới luật nhắn 
  * DOM người dùng thật sự nhận được; hành vi/handler không đổi nên
  * các describe cũ ở trên vẫn là nơi gác luồng nghiệp vụ.
  */
-describe('Messages page — dọn gọn trình bày (avatar neo đầu dòng + menu không xuống dòng)', () => {
+describe('Messages page — dọn gọn trình bày (avatar neo đáy dòng + menu không xuống dòng)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -2588,13 +2605,17 @@ describe('Messages page — dọn gọn trình bày (avatar neo đầu dòng + m
     realtime.handlers = null;
   });
 
-  /** Mọi avatar trong khung chat: neo đầu dòng (self-start), hết hack translate theo footer và hết neo đáy. */
-  function expectAvatarsAnchoredToMessageTop(thread: HTMLElement) {
+  /**
+   * Mọi avatar trong khung chat: neo ĐÁY dòng tin (self-end)
+   * như bản demo (issue #608 — đảo lựa chọn neo đầu dòng trước
+   * đây của package ui), hết hack translate theo footer.
+   */
+  function expectAvatarsAnchoredToMessageBottom(thread: HTMLElement) {
     const avatars = thread.querySelectorAll('[data-slot="message-avatar"]');
     expect(avatars.length).toBeGreaterThan(0);
     for (const avatar of avatars) {
-      expect(avatar.className).toContain('self-start');
-      expect(avatar.className).not.toContain('self-end');
+      expect(avatar.className).toContain('self-end');
+      expect(avatar.className).not.toContain('self-start');
       expect(avatar.className).not.toContain('-translate-y-8');
       expect(avatar.className).not.toContain('message-footer');
     }
@@ -2618,7 +2639,7 @@ describe('Messages page — dọn gọn trình bày (avatar neo đầu dòng + m
     }
   }
 
-  it('avatar neo đầu dòng tin cho cả tin của mình và tin người khác', async () => {
+  it('avatar neo đáy dòng tin cho cả tin của mình và tin người khác', async () => {
     const calls: RecordedCall[] = [];
     stubDomainFetch(calls);
     renderMessages();
@@ -2627,7 +2648,7 @@ describe('Messages page — dọn gọn trình bày (avatar neo đầu dòng + m
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin của tôi sẽ xoá')).toBeInTheDocument();
     expect(await within(thread).findByText('tin của bạn học')).toBeInTheDocument();
-    expectAvatarsAnchoredToMessageTop(thread);
+    expectAvatarsAnchoredToMessageBottom(thread);
   });
 
   it('menu quan hệ mở từ avatar trên dòng tin: bề rộng tử tế, mọi mục một dòng', async () => {
@@ -2638,7 +2659,7 @@ describe('Messages page — dọn gọn trình bày (avatar neo đầu dòng + m
     await openT4CourseChat();
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('em chào cô')).toBeInTheDocument();
-    expectAvatarsAnchoredToMessageTop(thread);
+    expectAvatarsAnchoredToMessageBottom(thread);
 
     await userEvent.click(within(thread).getByRole('button', { name: 'Thao tác với Bạn Học' }));
     expect(await screen.findByRole('menuitem', { name: 'Nhắn riêng' })).toBeInTheDocument();
@@ -2748,7 +2769,12 @@ describe('Messages page — sửa dứt điểm trình bày (toolbar nổi + gi�
     expect(lastTime).not.toBeNull();
     expect(firstTime!.closest('[data-slot="bubble"]')).not.toBeNull();
     expect(lastTime!.closest('[data-slot="bubble"]')).not.toBeNull();
-    expect(lastTime!.textContent).toContain(formatTime('2026-01-01T00:01:00.000Z'));
+    // Giờ trong bong bóng theo định dạng 12 giờ của bản demo
+    // (issue #608): tính giá trị kỳ vọng bằng đúng bộ tuỳ chọn
+    // Intl mà component dùng, không dùng formatTime 24 giờ nữa.
+    expect(lastTime!.textContent).toContain(
+      formatWithOptions('2026-01-01T00:01:00.000Z', 'vi', { hour: 'numeric', minute: '2-digit', hour12: true }),
+    );
     // Không tin nào mang ghi chú trạng thái nên không còn
     // footer dòng tin nào trong luồng.
     expect(thread.querySelectorAll('[data-slot="message-footer"]')).toHaveLength(0);
@@ -3495,20 +3521,26 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     localStorage.clear();
   });
 
-  it('dòng Đã xem nằm ngay dưới tin của tôi mà đối tác đã xem, không nằm ở cuối luồng khi còn tin mới hơn chưa xem', async () => {
+  it('không còn dòng Đã xem riêng trong luồng: trạng thái đã xem chỉ thể hiện bằng dấu tích đủ đậm trong bong bóng của tin đã được xem', async () => {
     const calls: RecordedCall[] = [];
     stub591Fetch(calls);
     renderMessages();
 
     await userEvent.click(await screen.findByRole('button', { name: /Bạn Học/ }));
     const thread = await screen.findByLabelText('Tin nhắn');
-    const seen = await within(thread).findByTestId('seen-status');
+    expect(await within(thread).findByText('tin của tôi đã được xem')).toBeInTheDocument();
+    // Bản demo không có dòng trạng thái đã xem riêng dưới tin
+    // (issue #608): phần tử seen-status không tồn tại ở bất kỳ
+    // vị trí nào trong luồng dù đối tác đã xem tới seq 1.
+    expect(within(thread).queryByTestId('seen-status')).not.toBeInTheDocument();
     const mineRow = within(thread).getByText('tin của tôi đã được xem').closest('[data-slot="message"]')!;
     const peerRow = within(thread).getByText('tin mới của bạn học').closest('[data-slot="message"]')!;
-    // Thứ tự trong DOM: tin của tôi → dòng Đã xem → tin mới của đối tác.
-    expect(mineRow.compareDocumentPosition(seen) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(seen.compareDocumentPosition(peerRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // Bong bóng tin của tôi mang dấu đã xem kép, và tin đó có giờ riêng trong bong bóng.
+    // Bong bóng tin của tôi mang nhãn đã xem đi kèm dấu tích
+    // (văn bản sr-only trong dòng giờ của bong bóng); bong bóng
+    // của đối tác không mang nhãn đó.
+    expect(within(mineRow as HTMLElement).getByText('Đã xem')).toBeInTheDocument();
+    expect(within(peerRow as HTMLElement).queryByText('Đã xem')).not.toBeInTheDocument();
+    // Tin đó vẫn có giờ riêng trong bong bóng như mọi tin khác.
     expect(within(thread).getByTestId(`message-time-${SEEN_MINE_ID}`)).toBeInTheDocument();
   });
 
@@ -3647,7 +3679,7 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     expect(within(groupRow).getByTestId(`conversation-muted-${KT_GROUP_MUTED_EMPTY_ID}`)).toBeInTheDocument();
   });
 
-  it('panel thông tin 1–1 là hồ sơ người theo hình dạng demo: đủ nhãn trường hồ sơ với dấu gạch ngang chờ backend và hành động Tắt tiếng thật', async () => {
+  it('panel thông tin 1–1 theo hình dạng demo: danh sách hành động dọc đầy đủ, trường chưa có dữ kiện thì không dựng hàng, hành động Tắt tiếng là thật', async () => {
     const calls: RecordedCall[] = [];
     stub591Fetch(calls);
     renderMessages();
@@ -3656,15 +3688,29 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     // Mở panel bằng nút avatar ở đầu khung.
     await userEvent.click(await screen.findByLabelText('Thông tin cuộc trò chuyện'));
     const panel = await screen.findByTestId('partner-panel');
-    for (const label of ['Giới thiệu', 'Email', 'Số điện thoại', 'Website', 'Công ty', 'Quốc gia', 'Múi giờ', 'Địa điểm', 'Trạng thái sẵn sàng', 'Thẻ', 'Tệp đã chia sẻ']) {
-      expect(within(panel).getByText(label)).toBeInTheDocument();
+    // Danh sách hành động của demo hiện đủ theo thứ tự của nó:
+    // Tắt tiếng, Ghim, Thêm vào yêu thích, Xoá lịch sử trò
+    // chuyện, Chặn — và nút Xoá nằm ở đáy panel.
+    for (const label of ['Tắt tiếng', 'Ghim cuộc trò chuyện', 'Thêm vào yêu thích', 'Xoá lịch sử trò chuyện', 'Chặn liên lạc', 'Xoá']) {
+      expect(within(panel).getByRole('button', { name: label })).toBeInTheDocument();
     }
-    // Trường backend chưa có hiện dấu gạch ngang ở đúng vị trí, không bịa giá trị.
-    expect(within(panel).getAllByText('—').length).toBeGreaterThanOrEqual(9);
+    // Hai hành động sản phẩm chưa có chức năng thì ở trạng
+    // thái vô hiệu (hình dạng thuần theo luật điểm chưa quyết).
+    expect(within(panel).getByRole('button', { name: 'Thêm vào yêu thích' })).toBeDisabled();
+    expect(within(panel).getByRole('button', { name: 'Xoá lịch sử trò chuyện' })).toBeDisabled();
+    // Khối tệp đã chia sẻ giữ nguyên bề mặt của nó.
+    expect(within(panel).getByText('Tệp đã chia sẻ')).toBeInTheDocument();
+    // Các trường hồ sơ backend chưa có dữ kiện thì KHÔNG dựng
+    // hàng nào và không còn dấu gạch ngang chờ như trước
+    // (issue #608 — đúng luật hiển thị của demo).
+    for (const label of ['Giới thiệu', 'Email', 'Số điện thoại', 'Website', 'Công ty', 'Quốc gia', 'Múi giờ', 'Địa điểm', 'Trạng thái sẵn sàng', 'Thẻ']) {
+      expect(within(panel).queryByText(label)).not.toBeInTheDocument();
+    }
+    expect(within(panel).queryByText('—')).not.toBeInTheDocument();
     // Hành động Tắt tiếng trong panel là hành động thật: bấm
-    // xong biểu tượng tắt tiếng hiện ở đầu khung.
+    // xong chính nút đó đổi nhãn thành Bật tiếng.
     await userEvent.click(within(panel).getByRole('button', { name: 'Tắt tiếng' }));
-    expect(await screen.findByTestId('header-muted-icon')).toBeInTheDocument();
+    expect(await within(panel).findByRole('button', { name: 'Bật tiếng' })).toBeInTheDocument();
   });
 
   it('hộp thoại mời là hộp thoại ở giữa màn hình và khối liên kết mời chỉ là hình dạng vô hiệu', async () => {
@@ -3673,7 +3719,7 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     renderMessages();
 
     const dialog = await openNewMessageSheet();
-    expect(dialog.className).toContain('sm:max-w-lg');
+    expect(dialog.className).toContain('sm:max-w-md');
     const inviteInput = within(dialog).getByPlaceholderText('Liên kết mời sẽ hiện ở đây');
     expect(inviteInput).toBeDisabled();
     expect(within(dialog).getByRole('button', { name: 'Sao chép' })).toBeDisabled();
