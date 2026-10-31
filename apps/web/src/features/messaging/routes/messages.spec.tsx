@@ -1764,9 +1764,17 @@ const T3_GROUP_CONV = '01900000-0000-7000-8000-0000000000d5';
  * (mặc định chưa ghim) — hai tuỳ chọn này phục vụ các ca về
  * ngữ nghĩa hợp của tab Tất cả / Chưa đọc và mục Ghim của tab
  * Nhóm theo phán quyết nghiệm thu preview của PR #607.
+ * `groupPinnedArchived` đặt hội thoại nhóm vào trạng thái VỪA
+ * GHIM VỪA LƯU TRỮ: hội thoại rời danh sách chính, chỉ còn ở
+ * danh sách đã lưu (đường ?archived=true), còn cây nhóm mang
+ * mốc ghim trên chính nút nhóm tự do — đúng hình dữ kiện server
+ * trả khi hai trạng thái cá nhân độc lập cùng bật; ca dùng
+ * tuỳ chọn này kiểm mục Ghim của tab Nhóm phân loại theo dữ
+ * kiện cây chứ không theo danh sách chưa lưu trữ.
  */
-function stubMsgT3Fetch(calls: RecordedCall[], opts: { studentView?: boolean; canCreateFreeGroup?: boolean; groupUnread?: number; groupPinnedAt?: string | null } = {}) {
+function stubMsgT3Fetch(calls: RecordedCall[], opts: { studentView?: boolean; canCreateFreeGroup?: boolean; groupUnread?: number; groupPinnedAt?: string | null; groupPinnedArchived?: boolean } = {}) {
   const role = opts.studentView ? 'learning' : 'teaching';
+  const groupPinnedAt = opts.groupPinnedAt ?? (opts.groupPinnedArchived ? '2026-01-02T00:00:00.000Z' : null);
   const dmMessage = {
     id: '01900000-0000-7000-8000-0000000000e1', conversationId: T3_DM_A, userIdFrom: OTHER_ID,
     subject: '', fullMessage: 'tin của bạn một', createdAt: '2026-01-01T00:00:00.000Z', seq: 1, clientMessageId: null,
@@ -1784,21 +1792,30 @@ function stubMsgT3Fetch(calls: RecordedCall[], opts: { studentView?: boolean; ca
         return respond([
           { id: T3_DM_A, type: 1, name: 'Bạn Một', members: [ME_ID, OTHER_ID], unread: 1, lastReadSeq: 0, lastMessageSeq: 1, lastMessage: dmMessage },
           { id: T3_DM_B, type: 1, name: 'Bạn Hai', members: [ME_ID, THIRD_ID], unread: 0, lastReadSeq: 0, lastMessageSeq: 0, lastMessage: null },
-          { id: T3_GROUP_CONV, type: 2, name: 'Nhóm Riêng', members: [ME_ID, OTHER_ID], unread: opts.groupUnread ?? 0, lastReadSeq: 0, lastMessageSeq: 0, lastMessage: null, pinnedAt: opts.groupPinnedAt ?? null },
+          // Nhóm vừa ghim vừa lưu trữ thì KHÔNG còn ở danh sách
+          // chính (chỉ ở danh sách đã lưu) — đúng cổng hiển thị
+          // của server cho hai trạng thái cá nhân độc lập.
+          ...(opts.groupPinnedArchived
+            ? []
+            : [{ id: T3_GROUP_CONV, type: 2, name: 'Nhóm Riêng', members: [ME_ID, OTHER_ID], unread: opts.groupUnread ?? 0, lastReadSeq: 0, lastMessageSeq: 0, lastMessage: null, pinnedAt: groupPinnedAt }]),
         ]);
+      if (url === '/api/v1/messages/conversations?archived=true' && method === 'GET')
+        return respond(opts.groupPinnedArchived
+          ? [{ id: T3_GROUP_CONV, type: 2, name: 'Nhóm Riêng', members: [ME_ID, OTHER_ID], unread: opts.groupUnread ?? 0, lastReadSeq: 0, lastMessageSeq: 0, lastMessage: null, pinnedAt: groupPinnedAt, archivedAt: '2026-01-03T00:00:00.000Z' }]
+          : []);
       if (url === '/api/v1/messages/group-tree')
         return respond({
           classes: [{
-            classId: T3_CLASS_ID, name: 'Lớp 10A1', myRole: role, conversationId: T3_CLASS_CONV, unread: 1,
+            classId: T3_CLASS_ID, name: 'Lớp 10A1', myRole: role, conversationId: T3_CLASS_CONV, unread: 1, pinnedAt: null,
             courses: [{
-              courseId: T3_COURSE_ID, name: 'Toán 10', myRole: role, conversationId: T3_COURSE_CONV, unread: 1,
-              groups: [{ groupId: '01900000-0000-7000-8000-0000000000c3', name: 'Nhóm 1', myRole: role, conversationId: null, unread: 0 }],
+              courseId: T3_COURSE_ID, name: 'Toán 10', myRole: role, conversationId: T3_COURSE_CONV, unread: 1, pinnedAt: null,
+              groups: [{ groupId: '01900000-0000-7000-8000-0000000000c3', name: 'Nhóm 1', myRole: role, conversationId: null, unread: 0, pinnedAt: null }],
             }],
           }],
           coursesOutsideClasses: [],
           freeGroups: opts.studentView
             ? []
-            : [{ id: T3_GROUP_CONV, name: 'Nhóm Riêng', myRole: 'staff', conversationId: T3_GROUP_CONV, unread: opts.groupUnread ?? 0 }],
+            : [{ id: T3_GROUP_CONV, name: 'Nhóm Riêng', myRole: 'staff', conversationId: T3_GROUP_CONV, unread: opts.groupUnread ?? 0, pinnedAt: groupPinnedAt }],
           canCreateFreeGroup: opts.canCreateFreeGroup ?? !opts.studentView,
         });
       if (url === `/api/v1/messages/classes/${T3_CLASS_ID}/conversation`)
@@ -1945,6 +1962,33 @@ describe('Messages page — phân tab, danh sách nhóm, sheet Tin nhắn mới'
     expect(await screen.findByRole('button', { name: /Nhóm Riêng/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Ghim' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Nhóm' })).not.toBeInTheDocument();
+  });
+
+  it('tab Nhóm xếp nhóm tự do vừa ghim vừa lưu trữ vào mục Ghim theo mốc ghim trên cây, dù hội thoại không nằm trong danh sách chưa lưu trữ', async () => {
+    // Ghim và lưu trữ là hai trạng thái cá nhân độc lập: nhóm
+    // bật cả hai thì rời danh sách hội thoại chính (chỉ còn ở
+    // danh sách đã lưu, vốn nạp lười và tab Nhóm không hề gọi
+    // tới), nhưng cây nhóm vẫn mang mốc ghim trên chính nút
+    // nhóm tự do. Hàng của nhóm phải nằm ở mục Ghim — phân
+    // loại theo dữ kiện cây; nếu phân loại theo danh sách chưa
+    // lưu trữ thì nhóm bị xếp sai vào mục Nhóm.
+    const calls: RecordedCall[] = [];
+    stubMsgT3Fetch(calls, { groupPinnedArchived: true });
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
+    expect(await screen.findByRole('button', { name: 'Ghim' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Nhóm' })).toBeInTheDocument();
+    // Hàng nhóm nằm TRONG mục Ghim và không có ở mục Nhóm.
+    const pinnedSection = screen.getByRole('button', { name: 'Ghim' }).parentElement as HTMLElement;
+    expect(within(pinnedSection).getByRole('button', { name: /Nhóm Riêng/ })).toBeInTheDocument();
+    const groupsSection = screen.getByRole('button', { name: 'Nhóm' }).parentElement as HTMLElement;
+    expect(within(groupsSection).queryByRole('button', { name: /Nhóm Riêng/ })).not.toBeInTheDocument();
+    expect(within(groupsSection).getByRole('button', { name: /Lớp 10A1/ })).toBeInTheDocument();
+    // Việc phân mục diễn ra mà trang không hề nạp danh sách đã
+    // lưu trữ: trạng thái ghim đến từ cây, không phải từ danh
+    // sách đã lưu nạp lười phía web.
+    expect(calls.some((c) => c.method === 'GET' && c.url === '/api/v1/messages/conversations?archived=true')).toBe(false);
   });
 
   it('tab Nhóm hiện mọi mục nhóm dạng danh sách phẳng theo vai; bấm dòng khoá và dòng lớp mở ngay chat qua ensure', async () => {

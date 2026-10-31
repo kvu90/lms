@@ -59,19 +59,23 @@ import { initialsOf, relativeTime } from '../utils/utils';
  *    của API — chỉ quản trị viên hệ thống/chủ trung tâm); cổng
  *    chặn tạo nhóm nằm ở server, đây chỉ là trình bày.
  * 6. Mục **Ghim** như bản demo (điểm quan sát của phán quyết
- *    nghiệm thu preview PR #607): cây server KHÔNG mang trường
- *    ghim — trạng thái ghim là trạng thái cá nhân trên từng
- *    hội thoại, nằm ở danh sách hội thoại (`pinnedAt`), và
- *    hàng nhóm lấy nó qua đúng cơ chế tra hội thoại tương ứng
- *    (`conversationsById`) đang dùng cho xem trước tin cuối và
- *    biểu tượng tắt tiếng. Khi có ít nhất một hàng đã ghim,
- *    danh sách tách hai mục thu gọn **Ghim** (các hàng đã ghim,
- *    giữ thứ tự cây) và **Nhóm** (mọi hàng còn lại, giữ đúng
- *    thứ tự và vị trí nút Tạo nhóm như danh sách phẳng); khi
- *    chưa có hàng nào ghim, danh sách giữ nguyên dạng phẳng
- *    không tiêu đề mục như trước. Hàng chưa có hội thoại
- *    (chưa ensure) không có trạng thái ghim nên luôn ở mục
- *    Nhóm.
+ *    nghiệm thu preview PR #607): trạng thái ghim là trạng thái
+ *    cá nhân trên từng hội thoại và cây server mang nó theo
+ *    từng nút (`pinnedAt` trên chính dữ kiện cây — server dựng
+ *    từ dòng thành viên của người xem trên cả hai tập hội
+ *    thoại chưa lưu trữ và đã lưu trữ). Hàng nhóm phân mục
+ *    theo trường này, KHÔNG tra danh sách hội thoại của trang
+ *    để phân mục: danh sách đó chỉ chứa hội thoại chưa lưu trữ
+ *    (tập đã lưu nạp lười theo yêu cầu) nên hội thoại vừa ghim
+ *    vừa lưu trữ sẽ bị xếp sai mục. Xem trước tin cuối và biểu
+ *    tượng tắt tiếng vẫn tra `conversationsById` như trước.
+ *    Khi có ít nhất một hàng đã ghim, danh sách tách hai mục
+ *    thu gọn **Ghim** (các hàng đã ghim, giữ thứ tự cây) và
+ *    **Nhóm** (mọi hàng còn lại, giữ đúng thứ tự và vị trí nút
+ *    Tạo nhóm như danh sách phẳng); khi chưa có hàng nào ghim,
+ *    danh sách giữ nguyên dạng phẳng không tiêu đề mục như
+ *    trước. Hàng chưa có hội thoại (chưa ensure) mang
+ *    `pinnedAt` null nên luôn ở mục Nhóm.
  *
  * Bất biến: component không tự gọi API; mọi hành động mở chat đi
  * lên trang chứa qua các callback — trang là nơi duy nhất biết
@@ -169,6 +173,8 @@ interface GroupListEntry {
   unread: number;
   /** Conversation tương ứng của nút; null khi nút chưa có conversation (mở qua đường ensure). */
   conversationId: string | null;
+  /** Mốc ghim cá nhân của người xem trên conversation của nút, lấy từ chính dữ kiện cây (null = chưa ghim). */
+  pinnedAt: string | null;
   onOpen: () => void;
 }
 
@@ -252,6 +258,7 @@ export function GroupListNav({
       role: course.myRole,
       unread: course.unread,
       conversationId: course.conversationId,
+      pinnedAt: course.pinnedAt,
       onOpen: () => onOpenCourseChat(course.courseId),
     },
     ...course.groups.map((g): GroupListEntry => ({
@@ -260,6 +267,7 @@ export function GroupListNav({
       role: g.myRole,
       unread: g.unread,
       conversationId: g.conversationId,
+      pinnedAt: g.pinnedAt,
       onOpen: () => (g.conversationId ? onOpenConversationById(g.conversationId) : onOpenGroupConversation(g.groupId)),
     })),
   ];
@@ -271,6 +279,7 @@ export function GroupListNav({
       role: cls.myRole,
       unread: cls.unread,
       conversationId: cls.conversationId,
+      pinnedAt: cls.pinnedAt,
       onOpen: () => onOpenClassChat(cls.classId),
     },
     ...cls.courses.flatMap(courseEntries),
@@ -284,6 +293,7 @@ export function GroupListNav({
     role: g.myRole,
     unread: g.unread,
     conversationId: g.conversationId,
+    pinnedAt: g.pinnedAt,
     onOpen: () => onOpenConversationById(g.conversationId),
   }));
   const nothingVisible = classEntries.length === 0 && outsideEntries.length === 0 && freeEntries.length === 0;
@@ -356,17 +366,18 @@ export function GroupListNav({
   };
 
   /**
-   * Trạng thái ghim của một hàng: tra hội thoại tương ứng của
-   * nút trong danh sách hội thoại của trang — cùng cơ chế tra
-   * đang dùng cho xem trước tin cuối và biểu tượng tắt tiếng ở
-   * {@link renderEntry}. Hàng chưa có hội thoại hoặc hội thoại
-   * không nằm trong danh sách chưa lưu thì không có trạng thái
-   * ghim, coi như chưa ghim.
+   * Trạng thái ghim của một hàng: đọc thẳng mốc ghim trên
+   * chính dữ kiện cây của nút — server đã gắn từ dòng thành
+   * viên của người xem trên cả hai tập hội thoại chưa lưu trữ
+   * và đã lưu trữ. Không tra `conversationsById` cho việc phân
+   * mục này: bản đồ đó dựng từ danh sách chưa lưu trữ duy nhất
+   * của trang, nên hội thoại vừa ghim vừa lưu trữ không có mặt
+   * ở đó và sẽ bị xếp vào mục Nhóm thay vì mục Ghim (bản đồ vẫn
+   * dùng cho xem trước tin cuối và biểu tượng tắt tiếng ở
+   * {@link renderEntry} như trước). Hàng chưa có hội thoại
+   * mang mốc ghim null, coi như chưa ghim.
    */
-  const isPinnedEntry = (entry: GroupListEntry): boolean => {
-    const conversation = entry.conversationId ? conversationsById?.get(entry.conversationId) : undefined;
-    return Boolean(conversation?.pinnedAt);
-  };
+  const isPinnedEntry = (entry: GroupListEntry): boolean => Boolean(entry.pinnedAt);
   const pinnedClassEntries = classEntries.filter(isPinnedEntry);
   const pinnedOutsideEntries = outsideEntries.filter(isPinnedEntry);
   const pinnedFreeEntries = freeEntries.filter(isPinnedEntry);

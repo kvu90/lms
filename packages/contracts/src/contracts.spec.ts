@@ -186,15 +186,15 @@ describe('Hợp đồng engagement', () => {
     const tree = conversationGroupTreeSchema.parse({
       classes: [{
         classId: '01900000-0000-7000-8000-000000000010', name: 'Lớp 10A1', myRole: 'teaching',
-        conversationId: null, unread: 3,
+        conversationId: null, unread: 3, pinnedAt: null,
         courses: [{
           courseId: '01900000-0000-7000-8000-000000000003', name: 'Toán 10', myRole: 'teaching',
-          conversationId: '01900000-0000-7000-8000-000000000001', unread: 3,
-          groups: [{ groupId: '01900000-0000-7000-8000-000000000020', name: 'Tổ 1', myRole: 'staff', conversationId: null, unread: 0 }],
+          conversationId: '01900000-0000-7000-8000-000000000001', unread: 3, pinnedAt: '2026-01-02T00:00:00.000Z',
+          groups: [{ groupId: '01900000-0000-7000-8000-000000000020', name: 'Tổ 1', myRole: 'staff', conversationId: null, unread: 0, pinnedAt: null }],
         }],
       }],
       coursesOutsideClasses: [],
-      freeGroups: [{ conversationId: '01900000-0000-7000-8000-000000000030', name: 'Nhóm ôn thi', myRole: 'learning', unread: 0 }],
+      freeGroups: [{ conversationId: '01900000-0000-7000-8000-000000000030', name: 'Nhóm ôn thi', myRole: 'learning', unread: 0, pinnedAt: null }],
       canCreateFreeGroup: true,
     });
     expect(tree.classes[0]!.courses[0]!.groups[0]!.conversationId).toBeNull();
@@ -203,9 +203,20 @@ describe('Hợp đồng engagement', () => {
     // thiếu cờ thì schema từ chối, tránh client tự suy quyền từ vai.
     expect(tree.canCreateFreeGroup).toBe(true);
     expect(() => conversationGroupTreeSchema.parse({ classes: [], coursesOutsideClasses: [], freeGroups: [] })).toThrow();
+    // Mốc ghim cá nhân của nút là trường BẮT BUỘC (có thể null):
+    // server phải luôn gửi trạng thái ghim của người gọi cho mọi
+    // nút để client xếp mục Ghim của tab Nhóm — thiếu trường thì
+    // schema từ chối, tránh client tự suy trạng thái ghim từ danh
+    // sách hội thoại chưa lưu (hội thoại vừa ghim vừa lưu trữ
+    // không nằm trong danh sách đó).
+    expect(tree.classes[0]!.courses[0]!.pinnedAt).toBe('2026-01-02T00:00:00.000Z');
+    expect(() => conversationGroupTreeSchema.parse({
+      ...tree,
+      freeGroups: [{ conversationId: '01900000-0000-7000-8000-000000000030', name: 'X', myRole: 'staff', unread: 0 }],
+    })).toThrow();
     // Vai ngoài tập chốt (teaching/learning/staff) và unread âm đều bị từ chối.
-    expect(() => conversationGroupTreeSchema.parse({ ...tree, freeGroups: [{ conversationId: '01900000-0000-7000-8000-000000000030', name: 'X', myRole: 'owner', unread: 0 }] })).toThrow();
-    expect(() => conversationGroupTreeSchema.parse({ ...tree, freeGroups: [{ conversationId: '01900000-0000-7000-8000-000000000030', name: 'X', myRole: 'staff', unread: -1 }] })).toThrow();
+    expect(() => conversationGroupTreeSchema.parse({ ...tree, freeGroups: [{ conversationId: '01900000-0000-7000-8000-000000000030', name: 'X', myRole: 'owner', unread: 0, pinnedAt: null }] })).toThrow();
+    expect(() => conversationGroupTreeSchema.parse({ ...tree, freeGroups: [{ conversationId: '01900000-0000-7000-8000-000000000030', name: 'X', myRole: 'staff', unread: -1, pinnedAt: null }] })).toThrow();
   });
 });
 
