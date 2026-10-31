@@ -191,7 +191,14 @@ describe('Khoá chính UUIDv7 (kiểm chứng platform PostgreSQL 18)', () => {
     // uuidv7(). (Lát S4/S5 còn cộng cột vào exam_contributions,
     // exams, exam_matrices, exam_matrix_contributions — không đổi
     // số bảng/PK.)
-    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(182);
+    // + 2 bảng vệ tinh ngân hàng hệ thống của issue #585
+    // (system_bank_event_receipts — vết nhận sự kiện rút câu của
+    // trung tâm, và outcome_package_installs — bản cài gói YCCĐ của
+    // trung tâm; cả hai PK id uuidv7; bảng thứ ba cùng đợt là
+    // system_question_imports có PK là FK question_id, không cột id,
+    // không tính vào số này) → 199 bảng tổng, 184 bảng có PK mặc
+    // định uuidv7().
+    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(184);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);
     // Sequence DUY NHẤT được phép trong baseline: payment_code_seq —
@@ -230,8 +237,12 @@ describe('Khoá chính UUIDv7 (kiểm chứng platform PostgreSQL 18)', () => {
     // 2 ngoại lệ text (lát MCP-1, issue #163) liệt kê
     // tường minh dưới đây — bảng nào khác lọt vào allowlist này là
     // hồi quy định danh, không phải ngoại lệ mới.
+    // + 2 bảng vệ tinh ngân hàng hệ thống của issue #585 có cột id
+    // (system_bank_event_receipts, outcome_package_installs; bảng
+    // system_question_imports cùng đợt không có cột id nên không
+    // tính) → 186 dòng.
     const TEXT_ID_ALLOWLIST = ['oauth_client', 'oauth_client_assertion'];
-    expect(defaults.rows.length).toBe(184);
+    expect(defaults.rows.length).toBe(186);
     for (const row of defaults.rows) {
       if (TEXT_ID_ALLOWLIST.includes(row.table_name)) {
         if (row.table_name === 'oauth_client') {

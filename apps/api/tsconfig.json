@@ -13,6 +13,11 @@
       // `exports` trong package.json của @lms/db như thường.
       "@lms/db/control-plane": [
         "../../packages/db/dist/control-plane.d.ts"
+      ],
+      // Subpath kho ngân hàng của @lms/db (issue #585) — cùng lý do như
+      // subpath control plane ở trên.
+      "@lms/db/system-bank": [
+        "../../packages/db/dist/system-bank.d.ts"
       ]
     },
     // Chương trình typecheck (noEmit) bao gồm cả cầu dẫn test
