@@ -194,6 +194,9 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
     }
     // Bảng chỉ còn đúng hai hàng thân (một hàng mỗi resource) cộng hàng tiêu đề.
     expect(screen.getAllByRole('row')).toHaveLength(3);
+    // Tiêu đề cột đầu của bảng là "Tài nguyên" — cột đó chứa tên
+    // resource của từng hàng, không mang nhãn năng lực.
+    expect(screen.getByRole('columnheader', { name: 'Tài nguyên' })).toBeInTheDocument();
     // Tiêu đề cột vai trò kèm số người giữ phân biệt.
     expect(screen.getByText('Giáo viên')).toBeInTheDocument();
     expect(screen.getByText('5 người dùng')).toBeInTheDocument();
@@ -201,7 +204,10 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
     expect(screen.getByText('2 người dùng')).toBeInTheDocument();
     // Ba thẻ: 2 vai trò, 2 resource, 1 ô Cho phép tại ngữ cảnh hệ thống.
     expect(screen.getByText('Vai trò')).toBeInTheDocument();
-    expect(screen.getByText('Tài nguyên')).toBeInTheDocument();
+    // "Tài nguyên" xuất hiện đúng hai lần trên trang: tiêu đề cột
+    // đầu của bảng (đã khẳng định theo role ở trên) và nhãn của thẻ
+    // tổng kết số resource ở đây.
+    expect(screen.getAllByText('Tài nguyên')).toHaveLength(2);
     expect(screen.getByText('Quyền đang cho phép')).toBeInTheDocument();
     const cards = document.querySelectorAll('[data-slot="card"]');
     expect(cards.length).toBeGreaterThanOrEqual(3);

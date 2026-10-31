@@ -378,7 +378,7 @@ export function RoleMatrixDialog({
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
-                      <TableHead className="p-3">{t('capability')}</TableHead>
+                      <TableHead className="p-3">{t('resource')}</TableHead>
                       <TableHead className="w-16 p-3 text-center">
                         <Checkbox
                           aria-label={t('roleSelectAllPermissions')}

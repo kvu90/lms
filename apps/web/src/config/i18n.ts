@@ -605,7 +605,7 @@ export const appResources = {
       assignRole: 'Gán vai trò',
       matrixTitle: 'Ma trận quyền — {{shortName}}',
       matrixDescription: 'Các ghi đè lưu theo context (mặc định theo nguyên mẫu nằm ở context hệ thống).',
-      capability: 'Quyền (capability)',
+      resource: 'Tài nguyên',
       permission: 'Mức quyền',
       permAllow: 'Cho phép',
       permInherit: 'Kế thừa',

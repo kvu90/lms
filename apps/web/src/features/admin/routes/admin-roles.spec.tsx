@@ -524,6 +524,9 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     // (có hai cụm cột Đọc/Ghi) + đúng một hàng cho course + một
     // hàng cho user — không còn hàng riêng cho từng năng lực.
     expect(within(dialog).getAllByRole('row')).toHaveLength(3);
+    // Tiêu đề cột đầu của bảng là "Tài nguyên" — cột đó chứa tên
+    // resource của từng hàng, không mang nhãn năng lực.
+    expect(within(dialog).getByRole('columnheader', { name: 'Tài nguyên' })).toBeInTheDocument();
     expect(within(dialog).getByText('Đọc')).toBeInTheDocument();
     expect(within(dialog).getByText('Ghi')).toBeInTheDocument();
     // Bấm vào ô khoá không đổi được trạng thái của nó.

@@ -76,7 +76,7 @@ export function PermissionsMatrix({
     <Table>
       <TableHeader>
         <TableRow className="hover:bg-transparent">
-          <TableHead className="h-10 p-4 font-semibold text-foreground">{t('capability')}</TableHead>
+          <TableHead className="h-10 p-4 font-semibold text-foreground">{t('resource')}</TableHead>
           {matrix.roles.map((role) => (
             <TableHead key={role.id} className="h-10 p-4 text-foreground">
               <span className="block font-semibold">{role.name}</span>

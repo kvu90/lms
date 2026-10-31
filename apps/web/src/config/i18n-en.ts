@@ -604,7 +604,7 @@ export const enResources = {
     assignRole: 'Assign role',
     matrixTitle: 'Capability matrix — {{shortName}}',
     matrixDescription: 'Overrides stored per context (seeded archetype defaults live at the system context).',
-    capability: 'Capability',
+    resource: 'Resource',
     permission: 'Permission',
     permAllow: 'Allow',
     permInherit: 'Inherit',
