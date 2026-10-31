@@ -25,7 +25,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { messagingArchivedConversationsQueryOptions, messagingConversationsQueryOptions, messagingCoursesQueryOptions, messagingGroupTreeQueryOptions, useMarkConversationRead, useSetConversationState } from '../queries/messaging';
 import { queryKeys } from '#lib/query-keys';
 import { queryKeys as messagingQueryKeys } from '../queries/keys';
-import { readStoredMessagesTab, storeMessagesTab } from '../utils/page-helpers';
+import { readStoredMessagesTab, storeMessagesTab, withTreeUnread } from '../utils/page-helpers';
 import type {
   ConversationGroupTreeView,
   ConversationStatePatch,
@@ -266,18 +266,27 @@ export function useConversationList({ myId, applyReadMarker, lastSeqRef }: UseCo
    * Đánh dấu đã đọc ở server: đột biến vá tại chỗ mục hội thoại
    * trong cache danh sách (unread về 0) + invalidate huy hiệu chưa
    * đọc; mốc đọc của chính mình áp lên cache chi tiết qua callback
-   * của trang để dòng "đã xem" của khung chat khớp ngay.
+   * của trang để dòng "đã xem" của khung chat khớp ngay. Cây nhóm
+   * cũng được vá tại đây (vòng sửa sau nghiệm thu PR #610): cây
+   * là cache RIÊNG mang số chưa đọc theo từng nút mà đột biến
+   * không đụng tới, nên trước vòng này tab Nhóm giữ huy hiệu cũ
+   * sau khi hội thoại lớp/khoá đã đọc trong lúc tab Tất cả/Chưa
+   * đọc đã xoá số — vá bằng đúng bộ chuyển đổi `withTreeUnread`
+   * mà kênh realtime dùng cho sự kiện tin mới, để số của nút
+   * đích về 0 và tổng của các nút cha (lớp = chat lớp + mọi nút
+   * con) được tính lại theo cùng một luật.
    */
   const markRead = useCallback(
     async (conversationId: string) => {
       try {
         const res = await markReadMutation.mutateAsync(conversationId);
         if (myId) applyReadMarker(conversationId, myId, res.lastReadSeq);
+        setGroupTree((prev) => withTreeUnread(prev, conversationId, 0));
       } catch {
         // Đánh dấu đã đọc lỗi thì để lần mở/đọc sau thử lại — không chặn đọc tin.
       }
     },
-    [applyReadMarker, markReadMutation, myId],
+    [applyReadMarker, markReadMutation, myId, setGroupTree],
   );
 
   return {

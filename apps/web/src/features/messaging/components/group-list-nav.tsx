@@ -36,7 +36,12 @@ import { initialsOf, relativeTime } from '../utils/utils';
  *    cùng một danh sách, theo đúng thứ tự của cây (lớp, rồi các
  *    khoá trong lớp và các nhóm con của từng khoá, rồi khoá
  *    ngoài lớp, rồi nhóm tự do), không còn cây thu/mở bằng
- *    chevron. Vai của chính người xem tại từng nút (`myRole`)
+ *    chevron. Hàng con THỤT TRÁI theo cấp lồng (vòng sửa sau
+ *    nghiệm thu PR #610): khoá trong lớp thụt một cấp dưới
+ *    hàng lớp, nhóm con thụt thêm một cấp dưới hàng khoá —
+ *    quan hệ cha–con của cây đọc được bằng mắt ngay trên danh
+ *    sách phẳng, hình dạng còn lại của hàng giữ nguyên. Vai
+ *    của chính người xem tại từng nút (`myRole`)
  *    quyết định nhãn vai trên hàng khi hàng chưa có xem trước
  *    tin cuối — cây của giáo viên và của học sinh khác nhau từ
  *    dữ kiện server, không phải hai giao diện riêng.
@@ -175,6 +180,13 @@ interface GroupListEntry {
   conversationId: string | null;
   /** Mốc ghim cá nhân của người xem trên conversation của nút, lấy từ chính dữ kiện cây (null = chưa ghim). */
   pinnedAt: string | null;
+  /**
+   * Cấp lồng của nút trong cây — căn cứ thụt trái của hàng:
+   * 0 cho nút gốc (lớp, khoá ngoài lớp, nhóm tự do), 1 cho
+   * khoá trong lớp và nhóm con của khoá ngoài lớp, 2 cho
+   * nhóm con của khoá trong lớp.
+   */
+  depth: number;
   onOpen: () => void;
 }
 
@@ -249,9 +261,11 @@ export function GroupListNav({
    * Duỗi một nút khoá và các nhóm con của nó thành các hàng liên
    * tiếp: hàng khoá trước (mở qua ensure), rồi từng hàng nhóm
    * con (đã có conversation thì mở theo id, chưa có thì trang
-   * chứa tạo/lấy qua đường nhóm con).
+   * chứa tạo/lấy qua đường nhóm con). `depth` là cấp lồng của
+   * chính hàng khoá trong cây; hàng nhóm con mang cấp sâu hơn
+   * một bậc.
    */
-  const courseEntries = (course: ConversationTreeCourseView): GroupListEntry[] => [
+  const courseEntries = (course: ConversationTreeCourseView, depth: number): GroupListEntry[] => [
     {
       key: `course-${course.courseId}`,
       label: course.name,
@@ -259,6 +273,7 @@ export function GroupListNav({
       unread: course.unread,
       conversationId: course.conversationId,
       pinnedAt: course.pinnedAt,
+      depth,
       onOpen: () => onOpenCourseChat(course.courseId),
     },
     ...course.groups.map((g): GroupListEntry => ({
@@ -268,6 +283,7 @@ export function GroupListNav({
       unread: g.unread,
       conversationId: g.conversationId,
       pinnedAt: g.pinnedAt,
+      depth: depth + 1,
       onOpen: () => (g.conversationId ? onOpenConversationById(g.conversationId) : onOpenGroupConversation(g.groupId)),
     })),
   ];
@@ -280,12 +296,13 @@ export function GroupListNav({
       unread: cls.unread,
       conversationId: cls.conversationId,
       pinnedAt: cls.pinnedAt,
+      depth: 0,
       onOpen: () => onOpenClassChat(cls.classId),
     },
-    ...cls.courses.flatMap(courseEntries),
+    ...cls.courses.flatMap((course) => courseEntries(course, 1)),
   ]);
   /** Các hàng khoá ngoài lớp kèm nhóm con của chúng. */
-  const outsideEntries = outsideCourses.flatMap(courseEntries);
+  const outsideEntries = outsideCourses.flatMap((course) => courseEntries(course, 0));
   /** Các hàng nhóm tự do: luôn đã có conversation, mở thẳng theo id. */
   const freeEntries = freeGroups.map((g): GroupListEntry => ({
     key: `free-${g.conversationId}`,
@@ -294,6 +311,7 @@ export function GroupListNav({
     unread: g.unread,
     conversationId: g.conversationId,
     pinnedAt: g.pinnedAt,
+    depth: 0,
     onOpen: () => onOpenConversationById(g.conversationId),
   }));
   const nothingVisible = classEntries.length === 0 && outsideEntries.length === 0 && freeEntries.length === 0;
@@ -307,7 +325,12 @@ export function GroupListNav({
 
   /**
    * Một hàng của danh sách nhóm: avatar chữ + tên + dòng phụ +
-   * huy hiệu chưa đọc; bấm là mở chat của hàng.
+   * huy hiệu chưa đọc; bấm là mở chat của hàng. Đệm trái của
+   * hàng tăng theo cấp lồng của nút (vòng sửa sau nghiệm thu
+   * PR #610): gốc 0,625rem như mọi hàng của danh sách, mỗi cấp
+   * con cộng 1,25rem — hàng khoá thụt rõ dưới hàng lớp của nó
+   * và hàng nhóm con thụt dưới hàng khoá, trong khi nền/ring
+   * của hàng đang chọn và mọi hình dạng còn lại giữ nguyên.
    *
    * Dòng phụ (issue #591): hàng nào đã có hội thoại tương ứng
    * trong danh sách của trang và hội thoại đó có tin cuối thì
@@ -330,9 +353,10 @@ export function GroupListNav({
         type="button"
         aria-current={isActive || undefined}
         className={cn(
-          'flex w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-lg px-2.5 py-2.5 text-left ring-inset transition-colors',
+          'flex w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-lg py-2.5 pr-2.5 text-left ring-inset transition-colors',
           isActive ? 'bg-muted ring-1 ring-border' : 'hover:bg-muted/75',
         )}
+        style={{ paddingLeft: `${0.625 + entry.depth * 1.25}rem` }}
         onClick={entry.onOpen}
       >
         <Avatar className="size-8">

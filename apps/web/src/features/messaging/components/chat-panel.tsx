@@ -1,4 +1,4 @@
-import { useEffect, useState, type Dispatch, type FormEvent, type ReactNode, type RefObject, type SetStateAction } from 'react';
+import { useEffect, useRef, useState, type Dispatch, type FormEvent, type ReactNode, type RefObject, type SetStateAction } from 'react';
 import {
   Bell, BellOff, Building2, Check, CheckCheck, ChevronLeft, Clock, Ellipsis, EllipsisVertical,
   Eraser, FileText, Flag, Globe, Link2, Mail, MapPin, MessageSquare, MessagesSquare, Paperclip,
@@ -197,6 +197,17 @@ export function ChatPanel({
   const [emojiOpen, setEmojiOpen] = useState(false);
   /** Hồ sơ rút gọn của thành viên đang xem từ menu avatar/tên (lát MSG-T4) — một sheet dùng chung cho cả panel và dòng tin. */
   const memberProfile = useMemberProfile();
+  /**
+   * Lần chạm gần nhất lên một bong bóng (vòng sửa sau nghiệm
+   * thu PR #610): cơ chế trả lời của bản demo là nhấn đúp /
+   * chạm hai lần trên bong bóng (hồ sơ trích xuất E21) — chuột
+   * có sự kiện nhấn đúp sẵn của trình duyệt, nhưng cảm ứng
+   * không có sự kiện tương đương đáng tin nên khung chat tự
+   * nhận diện hai lần chạm liên tiếp trên CÙNG một bong bóng
+   * (khoảng cách thời gian + vị trí gần nhau) từ ref này. Chỉ
+   * là bộ nhớ thao tác thoáng qua, không phải dữ kiện.
+   */
+  const lastBubbleTapRef = useRef<{ messageId: string; at: number; x: number; y: number } | null>(null);
   useEffect(() => {
     setSearchOpen(false);
     setInfoOpen(false);
@@ -477,10 +488,56 @@ export function ChatPanel({
             {!mine && isGroup && firstOfCluster ? (
               <MessageHeader className="px-1">{nameOf(m.userIdFrom)}</MessageHeader>
             ) : null}
+            {/*
+              Thao tác trên chính bong bóng (vòng sửa sau
+              nghiệm thu PR #610 — cơ chế của bản demo, hồ sơ
+              trích xuất E21): nhấn đúp chuột, chạm hai lần
+              trên cảm ứng, hoặc Enter/Space khi bong bóng
+              đang được focus đều bắt đầu trả lời ĐÚNG tin
+              này — cùng một hiệu lực với nút Trả lời trên
+              toolbar nổi (`onStartReply`), và chỉ gắn ở
+              những tin mà hành động Trả lời đang khả dụng
+              (`showReplyAction`). Nhấn đơn không làm gì như
+              demo. Nhấn đúp chuột còn bôi đen chữ theo mặc
+              định trình duyệt: ngăn mặc định + xoá vùng chọn
+              để thao tác chỉ còn nghĩa trả lời. Đường bàn
+              phím chỉ nhận khi sự kiện nhắm thẳng vào bong
+              bóng (không phải phần tử con tương tác được như
+              khối trích dẫn hay nút trên toolbar nổi).
+            */}
             <Bubble
               variant={m.deletedAt || m.recalledAt ? 'destructive' : mine ? 'default' : 'muted'}
               align={mine ? 'end' : 'start'}
               className={cn('max-w-sm', m.id === highlightedMessageId && 'rounded-lg ring-2 ring-primary ring-offset-1')}
+              data-testid={`message-bubble-${m.id}`}
+              tabIndex={showReplyAction ? 0 : undefined}
+              onDoubleClick={showReplyAction ? (e) => {
+                e.preventDefault();
+                window.getSelection()?.removeAllRanges();
+                onStartReply(m);
+              } : undefined}
+              onTouchEnd={showReplyAction ? (e) => {
+                const touch = e.changedTouches[0];
+                if (!touch) return;
+                const now = Date.now();
+                const last = lastBubbleTapRef.current;
+                if (
+                  last && last.messageId === m.id && now - last.at <= 350
+                  && Math.hypot(touch.clientX - last.x, touch.clientY - last.y) <= 24
+                ) {
+                  lastBubbleTapRef.current = null;
+                  onStartReply(m);
+                  return;
+                }
+                lastBubbleTapRef.current = { messageId: m.id, at: now, x: touch.clientX, y: touch.clientY };
+              } : undefined}
+              onKeyDown={showReplyAction ? (e) => {
+                if (e.target !== e.currentTarget) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onStartReply(m);
+                }
+              } : undefined}
             >
               {/*
                 Nội dung bong bóng (issue #591): khối trích dẫn
@@ -508,6 +565,13 @@ export function ChatPanel({
                         : 'border-primary/70 bg-background',
                     )}
                     onClick={() => onJumpToQuote(m.replyTo!)}
+                    onDoubleClick={(e) => {
+                      // Khối trích dẫn có thao tác riêng (nhảy
+                      // tới tin gốc): nhấn đúp trên khối không
+                      // được rò lên bong bóng thành thao tác
+                      // trả lời (vòng sửa PR #610).
+                      e.stopPropagation();
+                    }}
                   >
                     <span className="block text-xs font-semibold">{nameOf(m.replyTo.userIdFrom)}</span>
                     <span className="block text-xs opacity-80">
@@ -570,6 +634,13 @@ export function ChatPanel({
                   data-slot="message-actions"
                   data-placement="floating"
                   className={`absolute top-0 z-10 flex items-center gap-0.5 opacity-100 transition-opacity focus-within:opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/message:opacity-100 [@media(hover:hover)]:focus-within:opacity-100 [@media(hover:none)]:opacity-60 ${mine ? 'right-full mr-1' : 'left-full ml-1'}`}
+                  onDoubleClick={(e) => {
+                    // Toolbar nổi nằm trong bong bóng nhưng các
+                    // nút của nó có thao tác riêng: nhấn đúp trên
+                    // toolbar không thành thao tác trả lời của
+                    // bong bóng (vòng sửa PR #610).
+                    e.stopPropagation();
+                  }}
                 >
                 {showReplyAction ? (
                   <Button

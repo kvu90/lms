@@ -4073,3 +4073,218 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     expect(within(dialog).getByRole('button', { name: 'Sao chép' })).toBeDisabled();
   });
 });
+
+/**
+ * Vòng sửa sau nghiệm thu trình duyệt PR #610 (phán quyết điều
+ * phối 6546169639, trên bằng chứng nghiệm thu 6546152871): bốn
+ * điểm hỏng ở lượt nghiệm thu đầu — (1) panel thành viên không
+ * hiện chữ trạng thái trực tuyến dù presence đã biết qua sự
+ * kiện socket; (2) bong bóng thiếu cơ chế trả lời của demo
+ * (nhấn đúp / chạm hai lần / Enter–Space trên bong bóng); (3)
+ * cây nhóm ở tab Nhóm bày hàng khoá cùng lề với hàng lớp,
+ * không thấy quan hệ lồng nhau; (4) tab Nhóm giữ huy hiệu chưa
+ * đọc cũ sau khi hội thoại lớp/khoá đã được đọc. Các ca dưới
+ * khoá đúng bốn hành vi đó.
+ */
+function stubFix610TreeReadFetch(calls: RecordedCall[]) {
+  const classMessage = {
+    id: '01900000-0000-7000-8000-0000000000d9', conversationId: T3_CLASS_CONV, userIdFrom: OTHER_ID,
+    subject: '', fullMessage: 'thông báo lớp mới nhất', createdAt: '2026-01-01T00:05:00.000Z', seq: 5, clientMessageId: null,
+  };
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const respond = (body: unknown) =>
+        new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/messages/conversations' && method === 'GET')
+        return respond([
+          {
+            id: T3_CLASS_CONV, type: 2, name: 'Lớp 10A1', itemType: 'class', itemId: T3_CLASS_ID,
+            members: [ME_ID, OTHER_ID], unread: 3, lastReadSeq: 2, lastMessageSeq: 5, lastMessage: classMessage,
+            memberProfiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } },
+          },
+          {
+            id: T3_COURSE_CONV, type: 2, name: 'Toán 10', itemType: 'course', itemId: T3_COURSE_ID,
+            members: [ME_ID, OTHER_ID], unread: 0, lastReadSeq: 3, lastMessageSeq: 3, lastMessage: null,
+            memberProfiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } },
+          },
+        ]);
+      if (url === '/api/v1/messages/group-tree')
+        return respond({
+          classes: [{
+            classId: T3_CLASS_ID, name: 'Lớp 10A1', myRole: 'teaching', conversationId: T3_CLASS_CONV, unread: 3, pinnedAt: null,
+            courses: [{
+              courseId: T3_COURSE_ID, name: 'Toán 10', myRole: 'teaching', conversationId: T3_COURSE_CONV, unread: 0, pinnedAt: null,
+              groups: [],
+            }],
+          }],
+          coursesOutsideClasses: [],
+          freeGroups: [],
+          canCreateFreeGroup: false,
+        });
+      if (url === `/api/v1/messages/conversations/${T3_CLASS_CONV}`)
+        return respond({
+          id: T3_CLASS_CONV, type: 2, name: 'Lớp 10A1', itemType: 'class', itemId: T3_CLASS_ID,
+          members: [ME_ID, OTHER_ID], messages: [classMessage], hasMoreBefore: false,
+          memberReadMarkers: [
+            { userId: ME_ID, lastReadSeq: 2 },
+            { userId: OTHER_ID, lastReadSeq: 5 },
+          ],
+          memberProfiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } },
+        });
+      if (url === `/api/v1/messages/conversations/${T3_COURSE_CONV}`)
+        return respond({
+          id: T3_COURSE_CONV, type: 2, name: 'Toán 10', itemType: 'course', itemId: T3_COURSE_ID,
+          members: [ME_ID, OTHER_ID], messages: [], hasMoreBefore: false, memberReadMarkers: [],
+          memberProfiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } },
+        });
+      if (url === `/api/v1/messages/conversations/${T3_CLASS_CONV}/read`) return respond({ marked: 3, lastReadSeq: 5 });
+      if (/^\/api\/v1\/messages\/conversations\/[^/]+\/read$/.test(url)) return respond({ marked: 0, lastReadSeq: 0 });
+      if (url === '/api/v1/messages/unread-count') return respond({ conversations: 1, notifications: 0 });
+      if (url === '/api/v1/messages/contacts')
+        return respond({ contacts: [OTHER_ID], profiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } } });
+      if (url === '/api/v1/messages/contacts/requests') return respond({ incoming: [], outgoing: [], profiles: {} });
+      if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [], profiles: {} });
+      if (url === '/api/v1/messages/courses') return respond({ courses: [] });
+      return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
+}
+
+describe('Trang tin nhắn — vòng sửa sau nghiệm thu PR #610', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+    realtime.handlers = null;
+  });
+
+  it('nhấn đúp vào bong bóng thì bắt đầu trả lời đúng tin đó như nút Trả lời; nhấn đơn không làm gì', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetchM3(calls, [M3_ORIG, M3_REPLY]);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+    const bubble = await screen.findByTestId(`message-bubble-${M3_ORIG.id}`);
+
+    // Nhấn đơn: không chip trả lời — khớp demo (nhấn đơn không
+    // đổi chế độ nào).
+    fireEvent.click(bubble);
+    expect(screen.queryByTestId('reply-chip')).not.toBeInTheDocument();
+
+    // Nhấn đúp: chip trả lời của ĐÚNG tin gốc hiện ở ô soạn.
+    fireEvent.doubleClick(bubble);
+    const chip = await screen.findByTestId('reply-chip');
+    expect(chip).toHaveTextContent('Đang trả lời Bạn Học');
+    expect(chip).toHaveTextContent('Câu gốc để trả lời');
+  });
+
+  it('Enter và Space trên bong bóng đang focus cũng bắt đầu trả lời tin đó', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetchM3(calls, [M3_ORIG, M3_REPLY]);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+    const bubble = await screen.findByTestId(`message-bubble-${M3_ORIG.id}`);
+
+    bubble.focus();
+    fireEvent.keyDown(bubble, { key: 'Enter' });
+    expect(await screen.findByTestId('reply-chip')).toHaveTextContent('Câu gốc để trả lời');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Huỷ trả lời' }));
+    expect(screen.queryByTestId('reply-chip')).not.toBeInTheDocument();
+
+    bubble.focus();
+    fireEvent.keyDown(bubble, { key: ' ' });
+    expect(await screen.findByTestId('reply-chip')).toHaveTextContent('Câu gốc để trả lời');
+  });
+
+  it('chạm hai lần liên tiếp trên cùng một bong bóng cũng bắt đầu trả lời tin đó', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetchM3(calls, [M3_ORIG, M3_REPLY]);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+    const bubble = await screen.findByTestId(`message-bubble-${M3_ORIG.id}`);
+
+    // Một lần chạm đơn chưa đủ thành thao tác trả lời.
+    fireEvent.touchEnd(bubble, { changedTouches: [{ clientX: 120, clientY: 200 }] });
+    expect(screen.queryByTestId('reply-chip')).not.toBeInTheDocument();
+
+    fireEvent.touchEnd(bubble, { changedTouches: [{ clientX: 122, clientY: 201 }] });
+    expect(await screen.findByTestId('reply-chip')).toHaveTextContent('Câu gốc để trả lời');
+  });
+
+  it('tab Nhóm: hàng khoá thụt trái một cấp dưới hàng lớp, hàng nhóm con thụt thêm một cấp dưới hàng khoá', async () => {
+    const calls: RecordedCall[] = [];
+    stubMsgT3Fetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
+    const classRow = await screen.findByRole('button', { name: /Lớp 10A1/ });
+    const courseRow = await screen.findByRole('button', { name: /Toán 10/ });
+    const groupRow = await screen.findByRole('button', { name: /Nhóm 1/ });
+
+    // Đệm trái là hình dạng đọc được bằng mắt của quan hệ lồng:
+    // lớp ở lề gốc, khoá thụt vào, nhóm con thụt sâu hơn nữa.
+    const classPad = parseFloat(classRow.style.paddingLeft);
+    const coursePad = parseFloat(courseRow.style.paddingLeft);
+    const groupPad = parseFloat(groupRow.style.paddingLeft);
+    expect(coursePad).toBeGreaterThan(classPad);
+    expect(groupPad).toBeGreaterThan(coursePad);
+  });
+
+  it('đọc hội thoại lớp xong thì huy hiệu chưa đọc của hàng lớp ở tab Nhóm cũng về 0 cùng nhịp với tab Tất cả', async () => {
+    const calls: RecordedCall[] = [];
+    stubFix610TreeReadFetch(calls);
+    renderMessages();
+
+    // Trước khi đọc: hàng lớp ở tab Tất cả mang huy hiệu 3.
+    const allRow = await screen.findByRole('button', { name: /Lớp 10A1/ });
+    expect(within(allRow).getByText('3')).toBeInTheDocument();
+
+    // Mở hội thoại lớp — trang đánh dấu đã đọc ở server.
+    await userEvent.click(allRow);
+    await screen.findByText('thông báo lớp mới nhất');
+    await waitFor(() => {
+      expect(calls.some((c) => c.method === 'POST' && c.url === `/api/v1/messages/conversations/${T3_CLASS_CONV}/read`)).toBe(true);
+    });
+    // Tab Tất cả xoá huy hiệu ngay (đường vá danh sách sẵn có).
+    await waitFor(() => {
+      expect(within(allRow).queryByText('3')).not.toBeInTheDocument();
+    });
+
+    // Sang tab Nhóm: hàng lớp trên cây cũng không còn huy hiệu
+    // 3 — trước vòng sửa cây giữ nguyên số cũ ở bước này.
+    await userEvent.click(screen.getByRole('tab', { name: 'Nhóm' }));
+    const treeRow = await screen.findByRole('button', { name: /Lớp 10A1/ });
+    expect(within(treeRow).queryByText('3')).not.toBeInTheDocument();
+    expect(within(treeRow).queryByText('(3 chưa đọc)')).not.toBeInTheDocument();
+  });
+
+  it('panel thành viên: thành viên được sự kiện hiện diện xác nhận trực tuyến thì dòng hiện chữ Trực tuyến cạnh chấm xanh; chưa có sự kiện thì không hiện', async () => {
+    const calls: RecordedCall[] = [];
+    stubMsgT4Fetch(calls);
+    renderMessages();
+
+    await openT4CourseChat();
+    await openT4InfoPanel(`member-panel-row-${OTHER_ID}`);
+    const row = screen.getByTestId(`member-panel-row-${OTHER_ID}`);
+
+    // Chưa có sự kiện hiện diện nào của học sinh: trạng thái
+    // CHƯA BIẾT — dòng không khẳng định trực tuyến.
+    expect(within(row).queryByText('Trực tuyến')).not.toBeInTheDocument();
+
+    act(() => {
+      realtime.handlers?.onPresence({ userId: OTHER_ID, online: true } as never);
+    });
+
+    // Đã xác nhận trực tuyến: dòng hiện chữ "Trực tuyến" (chấm
+    // xanh trên avatar có cùng điều kiện — khẳng định ở chữ).
+    expect(await within(row).findByText('Trực tuyến')).toBeInTheDocument();
+  });
+});
