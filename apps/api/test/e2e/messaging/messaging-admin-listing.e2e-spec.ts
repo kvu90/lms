@@ -132,10 +132,13 @@ describe('Messaging — danh sách chat của quản trị viên có hàng lớp
     expect(courseRow!.unread).toBe(2);
     expect(classRow).toBeDefined();
     expect(classRow!.unread).toBe(1);
-    // Huy hiệu tăng đúng 3 so với mốc trước dàn dựng (2 tin khoá +
-    // 1 tin lớp); tổng tuyệt đối phụ thuộc dữ kiện spec khác trong
-    // cùng shard nên không khẳng định.
-    expect(await adminBadge()).toBe(baselineBadge + 3);
+    // Huy hiệu đếm theo CONVERSATION có tin chưa đọc (vũ trụ chuẩn),
+    // không đếm theo tin: dàn dựng thêm đúng 2 conversation có tin
+    // chưa đọc (khoá + lớp) nên huy hiệu tăng đúng 2 so với mốc trước
+    // dàn dựng; số tin trong hai hàng (khoá 2, lớp 1) đã khẳng định ở
+    // trên. Tổng tuyệt đối phụ thuộc dữ kiện spec khác trong cùng
+    // shard nên không khẳng định.
+    expect(await adminBadge()).toBe(baselineBadge + 2);
   });
 
   it('quản trị viên mở được chi tiết cả hai hội thoại và đọc xong thì số chưa đọc hội tụ', async () => {
