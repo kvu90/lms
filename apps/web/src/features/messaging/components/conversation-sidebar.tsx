@@ -9,7 +9,6 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@lms/ui/components/dropdown-menu';
-import { Input } from '@lms/ui/components/input';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@lms/ui/components/input-group';
 import { Separator } from '@lms/ui/components/separator';
 import { Skeleton } from '@lms/ui/components/skeleton';
@@ -17,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@lms/ui/components/tab
 import { cn } from '@lms/ui/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { CreateGroupSheet } from './create-group-sheet';
-import { GroupTreeNav } from './group-tree-nav';
+import { GroupListNav, countGroupListEntries } from './group-list-nav';
 import { NewMessageDialog } from './new-message-dialog';
 import type {
   ContactRequestView,
@@ -34,24 +33,38 @@ import {
 } from '../utils/utils';
 
 /**
- * Khung trái màn Tin nhắn (lát MSG-T3, issue #33) — tổ chức lại
- * theo cấu trúc đã chốt 11:36 ngày 26/10/2026 (hồ sơ
- * `messaging-structure-research-2026-10-26.md`), thay cấu trúc
- * #256 cũ (danh sách phẳng trộn mọi loại + tab Danh bạ làm đường
- * chính — cách tổ chức đã bị tuyên bố là sai phải thay):
+ * Khung trái màn Tin nhắn: một ô tìm kiếm duy nhất phía trên
+ * một thanh tab gồm bốn tab lọc ngang hàng như bản demo — Tất
+ * cả / Chưa đọc / Nhóm / Yêu thích (issue #606; cấu trúc hai
+ * tab Trò chuyện / Nhóm kèm chip lọc của lát MSG-T3 đã được
+ * thay bằng đúng hình dạng demo này):
  *
- * - Tab **Trò chuyện**: CHỈ hội thoại cá nhân 1–1 (`type === 1`),
- *   giữ ô tìm theo tên hiển thị (chỉ lọc hội thoại đã có — không
- *   phải tìm người) và chip Tất cả / Chưa đọc kèm số đếm trên toàn
- *   bộ hội thoại 1–1. Trong tab, danh sách chia thành các mục thu
- *   gọn **Ghim** (chỉ hiện khi có hội thoại đã ghim), **Gần đây**
- *   và **Đã lưu trữ** (issue #564 — thay tab Đã lưu trữ cũ; mục
- *   này giữ nguyên cơ chế M5: danh sách riêng của server, nạp khi
+ * - Tab **Tất cả**: CHỈ hội thoại cá nhân 1–1 (`type === 1`).
+ *   Trong tab, danh sách chia thành các mục thu gọn **Ghim**
+ *   (chỉ hiện khi có hội thoại đã ghim), **Gần đây** và **Đã
+ *   lưu trữ** (issue #564 — thay tab Đã lưu trữ cũ; mục này
+ *   giữ nguyên cơ chế M5: danh sách riêng của server, nạp khi
  *   mở mục lần đầu).
- * - Tab **Nhóm**: cây Lớp → Khoá → Nhóm con + Khoá ngoài lớp +
- *   Nhóm tự do do server dựng sẵn ({@link GroupTreeNav}); bấm một
- *   nút là mở ngay chat của nút đó ở khung phải. Tab mang huy hiệu
- *   tổng số chưa đọc của cả cây.
+ * - Tab **Chưa đọc**: cùng danh sách 1–1 đó nhưng chỉ gồm hội
+ *   thoại có tin chưa đọc — đúng bộ lọc của chip Chưa đọc
+ *   trước đây, nay là một tab ngang hàng như bản demo.
+ * - Tab **Nhóm**: mọi mục nhóm của cây server (Lớp → Khoá →
+ *   Nhóm con + Khoá ngoài lớp + Nhóm tự do) trình bày thành
+ *   một danh sách phẳng ({@link GroupListNav}); bấm một hàng
+ *   là mở ngay chat của hàng đó ở khung phải, kể cả hàng chưa
+ *   có hội thoại (đi đường ensure của trang chứa như cây
+ *   trước đây).
+ * - Tab **Yêu thích**: chưa có dữ kiện yêu thích ở bất kỳ
+ *   tầng nào và chức năng yêu thích chưa có phán quyết — tab
+ *   chỉ có hình dạng bề mặt với trạng thái rỗng, không bịa dữ
+ *   kiện và không gắn tác dụng giả.
+ * - Mỗi tab hiện số đếm của chính tab đó trong ngoặc đơn ngay
+ *   trên trigger (số hội thoại 1–1, số hội thoại 1–1 chưa
+ *   đọc, số mục nhóm, 0 cho Yêu thích), tính trên toàn bộ tập
+ *   của tab, không chịu ô tìm — như số đếm trên chip lọc
+ *   trước đây. Ô tìm phía trên thanh tab lọc nội dung của tab
+ *   đang mở theo tên hiển thị (chỉ lọc mục đã có — không phải
+ *   tìm người).
  * - Nút **Tin nhắn mới** cạnh tiêu đề mở hộp thoại cùng tên
  *   ({@link NewMessageDialog} — hộp thoại nằm giữa màn hình như
  *   bản demo từ issue #591, thay ngăn kéo trượt bên phải trước
@@ -64,17 +77,17 @@ import {
  *
  * Tab đang chọn do TRANG chứa giữ (và lưu bền cùng hội thoại đang
  * mở) để quay lại màn Tin nhắn là gặp đúng ngữ cảnh gần nhất; các
- * trạng thái thoáng qua của riêng khung trái (chip lọc, từ khoá
- * tìm, sheet đang mở) ở lại component này.
+ * trạng thái thoáng qua của riêng khung trái (từ khoá tìm, trạng
+ * thái mở của các mục thu gọn, sheet đang mở) ở lại component này.
  */
 interface ConversationSidebarProps {
-  /** Danh sách hội thoại CHƯA lưu của tôi (mọi loại — tab Trò chuyện tự lọc 1–1). */
+  /** Danh sách hội thoại CHƯA lưu của tôi (mọi loại — tab Tất cả và Chưa đọc tự lọc 1–1). */
   conversations: ConversationView[];
-  /** Mục ĐÃ LƯU (lát M5): danh sách riêng của server, nạp khi mở mục Đã lưu trữ trong tab Trò chuyện. */
+  /** Mục ĐÃ LƯU (lát M5): danh sách riêng của server, nạp khi mở mục Đã lưu trữ trong tab Tất cả. */
   archivedConversations: ConversationView[];
   /** Nạp (lại) mục đã lưu từ server — gọi khi người dùng mở mục Đã lưu trữ. */
   onRequestArchived: () => void;
-  /** Cây nhóm của tôi do server dựng (lát MSG-T1) cho tab Nhóm. */
+  /** Cây nhóm của tôi do server dựng (lát MSG-T1) cho danh sách của tab Nhóm. */
   groupTree: ConversationGroupTreeView | null;
   active: ConversationView | null;
   error: string | null;
@@ -141,26 +154,26 @@ interface ConversationSidebarProps {
   /**
    * Cây nhóm đang nạp (vòng sửa PR #593): trạng thái tải của
    * cây lấy từ chính query cây nhóm của trang — khung trái
-   * truyền thẳng xuống cây để cây hiện khung đang tải theo
-   * nhịp của nó, không mượn cờ đang tải của danh sách hội
-   * thoại (hai query về lệch nhịp nhau).
+   * truyền thẳng xuống danh sách nhóm để nó hiện khung đang
+   * tải theo nhịp của nó, không mượn cờ đang tải của danh sách
+   * hội thoại (hai query về lệch nhịp nhau).
    */
   groupTreeLoading?: boolean;
   /**
    * Lỗi nạp cây nhóm lần đầu (vòng sửa 2 PR #593): khung trái
-   * truyền thẳng xuống cây để cây hiện thông báo lỗi thay cho
-   * câu rỗng giả; null khi cây đã có dữ kiện hoặc chưa lỗi.
+   * truyền thẳng xuống danh sách nhóm để nó hiện thông báo lỗi
+   * thay cho câu rỗng giả; null khi cây đã có dữ kiện hoặc
+   * chưa lỗi.
    */
   groupTreeError?: string | null;
 }
 
-type ConversationFilterChip = 'all' | 'unread';
-
 /**
  * Trình bày khung trái Tin nhắn: tiêu đề + avatar người xem + nút
- * Tin nhắn mới, hai tab Trò chuyện / Nhóm (trong tab Trò chuyện là
- * các mục thu gọn Ghim / Gần đây / Đã lưu trữ), hộp thoại Tin
- * nhắn mới và sheet Tạo nhóm.
+ * Tin nhắn mới, bốn tab Tất cả / Chưa đọc / Nhóm / Yêu thích dưới
+ * một ô tìm kiếm duy nhất (trong tab Tất cả là các mục thu gọn
+ * Ghim / Gần đây / Đã lưu trữ), hộp thoại Tin nhắn mới và sheet
+ * Tạo nhóm.
  *
  * @param props - Dữ kiện và sự kiện do trang Tin nhắn đưa xuống.
  * @returns Khung trái hoàn chỉnh của màn master–detail.
@@ -177,11 +190,10 @@ export function ConversationSidebar({
 }: ConversationSidebarProps) {
   const { t, i18n } = useTranslation('app');
   const open = onOpenConversation;
-  const [chip, setChip] = useState<ConversationFilterChip>('all');
   const [newMessageOpen, setNewMessageOpen] = useState(false);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   /**
-   * Trạng thái mở của ba mục thu gọn trong tab Trò chuyện (issue
+   * Trạng thái mở của ba mục thu gọn trong tab Tất cả (issue
    * #564): Ghim và Gần đây mở mặc định để hội thoại đã ghim không
    * bị giấu sau một lần bấm thêm; Đã lưu trữ đóng mặc định vì nó
    * là danh sách riêng chỉ cần khi người dùng tìm lại.
@@ -190,25 +202,27 @@ export function ConversationSidebar({
   const [recentOpen, setRecentOpen] = useState(true);
   const [archivedOpen, setArchivedOpen] = useState(false);
   /**
-   * Lọc danh sách hội thoại theo TÊN HIỂN THỊ (lát M4, issue #237):
-   * lọc ngay tại client trên danh sách đã tải — tên hiển thị là đúng
-   * chuỗi người dùng thấy (tên hội thoại hoặc tên các thành viên),
-   * khớp chuỗi con không phân biệt hoa thường. Chỉ lọc hội thoại ĐÃ
-   * CÓ — không phải tìm người theo tên.
+   * Lọc theo TÊN HIỂN THỊ bằng ô tìm duy nhất phía trên thanh
+   * tab (lát M4, issue #237; tính duy nhất và vị trí của ô từ
+   * issue #606): lọc ngay tại client trên dữ kiện đã tải — tên
+   * hiển thị là đúng chuỗi người dùng thấy (tên hội thoại hoặc
+   * tên các thành viên), khớp chuỗi con không phân biệt hoa
+   * thường. Chỉ lọc mục ĐÃ CÓ — không phải tìm người theo tên.
+   * Cùng một từ khoá áp cho tab đang mở: danh sách hội thoại
+   * 1–1 ở tab Tất cả / Chưa đọc; các mục nhóm ở tab Nhóm theo
+   * luật lọc nút của {@link GroupListNav}.
    */
-  const [conversationFilter, setConversationFilter] = useState('');
-  /** Từ khoá lọc cây nhóm theo tên lớp/khoá/nhóm (chỉ lọc cây đã có — cùng luật M4). */
-  const [groupFilter, setGroupFilter] = useState('');
+  const [searchText, setSearchText] = useState('');
   /**
    * Nhắn tin từ sheet Tin nhắn mới thì đóng sheet, khung trái về
-   * tab Trò chuyện để thấy hội thoại 1–1 vừa mở ở khung phải.
+   * tab Tất cả để thấy hội thoại 1–1 vừa mở ở khung phải.
    */
   const messageContact = (userId: string) => {
     setNewMessageOpen(false);
-    onTabChange('chats');
+    onTabChange('all');
     onMessageContact(userId);
   };
-  /** Tạo nhóm thành công thì đóng sheet tạo nhóm và về tab Nhóm để thấy nhóm vừa tạo trong cây. */
+  /** Tạo nhóm thành công thì đóng sheet tạo nhóm và về tab Nhóm để thấy nhóm vừa tạo trong danh sách. */
   const createFreeGroup = async (name: string, memberIds: string[]) => {
     const created = await onCreateFreeGroup(name, memberIds);
     if (created) {
@@ -231,40 +245,34 @@ export function ConversationSidebar({
       ? nameOf(otherId)
       : t('conversationWithUser', { members: c.members.map((id) => nameOf(id)).join(', ') });
   };
-  const filterNeedle = conversationFilter.trim().toLocaleLowerCase('vi');
+  const filterNeedle = searchText.trim().toLocaleLowerCase('vi');
   const matchesFilter = (c: ConversationView) =>
     !filterNeedle || labelOf(c).toLocaleLowerCase('vi').includes(filterNeedle);
-  // Tab Trò chuyện CHỈ chứa hội thoại cá nhân 1–1 (cấu trúc MSG-T3):
-  // mọi hội thoại type 2 (nhóm tự do/nhóm con/chat khoá/chat lớp)
-  // đều thuộc tab Nhóm, không trộn vào đây theo bất kỳ chip nào.
-  const visibleConversations = conversations
+  // Tab Tất cả và tab Chưa đọc CHỈ chứa hội thoại cá nhân 1–1:
+  // mọi hội thoại type 2 (nhóm tự do/nhóm con/chat khoá/chat
+  // lớp) đều thuộc tab Nhóm, không trộn vào hai tab này. Tab
+  // Chưa đọc thêm đúng một điều kiện so với tab Tất cả: hội
+  // thoại có tin chưa đọc — đúng bộ lọc của chip Chưa đọc
+  // trước đây.
+  const directConversations = (unreadOnly: boolean) => conversations
     .filter((c) => c.type === 1)
     .filter(matchesFilter)
-    .filter((c) => (chip === 'unread' ? (c.unread ?? 0) > 0 : true));
+    .filter((c) => (unreadOnly ? (c.unread ?? 0) > 0 : true));
   const visibleArchived = archivedConversations.filter(matchesFilter);
   /**
-   * Tách danh sách đã lọc thành mục Ghim / Gần đây (issue #564):
-   * hội thoại mang `pinnedAt` lên mục Ghim, còn lại về Gần đây.
-   * Mục Ghim chỉ render khi có hội thoại đã ghim.
-   */
-  const pinnedConversations = visibleConversations.filter((c) => c.pinnedAt);
-  const recentConversations = visibleConversations.filter((c) => !c.pinnedAt);
-  /**
-   * Số đếm trên chip lọc: tính trên TOÀN BỘ hội thoại 1–1 (không
-   * chịu ô tìm hay chip đang chọn) để chip luôn cho biết quy mô
-   * thật của từng tập; danh sách bên dưới vẫn lọc theo ô tìm +
-   * chip như trước.
+   * Số đếm trong ngoặc đơn trên thanh tab: tính trên TOÀN BỘ
+   * tập của từng tab (không chịu ô tìm hay tab đang chọn) để
+   * tab luôn cho biết quy mô thật của tập đó — như số đếm trên
+   * chip lọc trước đây; danh sách bên dưới vẫn lọc theo ô tìm
+   * như trước. Số của tab Nhóm là số hàng của danh sách nhóm
+   * phẳng trên cây chưa lọc; số của tab Yêu thích là 0 vì hệ
+   * chưa có dữ kiện yêu thích ở bất kỳ tầng nào (issue #606).
    */
   const allConversations = conversations.filter((c) => c.type === 1);
   const allCount = allConversations.length;
   const unreadCountTotal = allConversations.filter((c) => (c.unread ?? 0) > 0).length;
-  // Tổng chưa đọc của cả cây — huy hiệu trên tab Nhóm (nút lớp đã
-  // mang tổng của các nút con trong nó theo hợp đồng MSG-T1).
-  const treeUnreadTotal = groupTree
-    ? groupTree.classes.reduce((sum, c) => sum + c.unread, 0)
-      + groupTree.coursesOutsideClasses.reduce((sum, c) => sum + c.unread, 0)
-      + groupTree.freeGroups.reduce((sum, g) => sum + g.unread, 0)
-    : 0;
+  const groupCount = groupTree ? countGroupListEntries(groupTree) : 0;
+  const favouritesCount = 0;
 
   /** Một dòng hội thoại chuẩn app nhắn tin: avatar + tên + trích đoạn/giờ + huy hiệu + menu trạng thái M5. */
   const renderConversationItem = (c: ConversationView) => {
@@ -404,15 +412,11 @@ export function ConversationSidebar({
     );
   };
 
-  const chips: { key: ConversationFilterChip; label: string; count: number }[] = [
-    { key: 'all', label: t('messagesFilterAll'), count: allCount },
-    { key: 'unread', label: t('messagesFilterUnread'), count: unreadCountTotal },
-  ];
   /**
-   * Bản đồ hội thoại theo id cho cây nhóm (issue #591): dòng
-   * nhóm trong tab Nhóm tra hội thoại tương ứng ở đây để hiện
-   * xem trước tin cuối + ngày + biểu tượng tắt tiếng như các
-   * hàng còn lại.
+   * Bản đồ hội thoại theo id cho danh sách nhóm (issue #591):
+   * hàng nhóm trong tab Nhóm tra hội thoại tương ứng ở đây để
+   * hiện xem trước tin cuối + ngày + biểu tượng tắt tiếng như
+   * các hàng còn lại.
    */
   const conversationsById = new Map(conversations.map((c) => [c.id, c]));
   /**
@@ -423,7 +427,7 @@ export function ConversationSidebar({
   const initialLoading = Boolean(loading) && conversations.length === 0 && !error;
 
   /**
-   * Một mục thu gọn trong tab Trò chuyện (issue #564; số đo
+   * Một mục thu gọn trong các tab danh sách (issue #564; số đo
    * căn lại theo bản demo ở issue #608): tiêu đề phẳng kiểu
    * demo — nhãn 12px vừa màu muted, đệm ngang 12px, đệm dưới
    * 8px, chevron 12px, KHÔNG số đếm, hover chỉ đổi màu chữ —
@@ -457,6 +461,107 @@ export function ConversationSidebar({
       <CollapsibleContent>{open ? children : null}</CollapsibleContent>
     </Collapsible>
   );
+
+  /**
+   * Nội dung cuộn của tab Tất cả / Chưa đọc: danh sách hội
+   * thoại 1–1 đã lọc, tách thành mục Ghim / Gần đây (issue
+   * #564: hội thoại mang `pinnedAt` lên mục Ghim, còn lại về
+   * Gần đây; mục Ghim chỉ render khi có hội thoại đã ghim).
+   * Riêng tab Tất cả có thêm mục Đã lưu trữ ở dưới cùng — mục
+   * này thuộc về danh sách đầy đủ, còn tab Chưa đọc là một
+   * danh sách lọc thuần như các tab lọc của bản demo nên
+   * không mang mục đã lưu.
+   *
+   * @param unreadOnly - true ở tab Chưa đọc: chỉ hội thoại có tin chưa đọc.
+   * @returns Khối cuộn của panel tab.
+   */
+  const renderDirectPanel = (unreadOnly: boolean) => {
+    const visible = directConversations(unreadOnly);
+    const pinned = visible.filter((c) => c.pinnedAt);
+    const recent = visible.filter((c) => !c.pinnedAt);
+    return (
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 py-2">
+        {initialLoading ? (
+          /*
+            Khung đang tải lần đầu (issue #591): các dòng
+            skeleton giữ đúng hình dạng hàng hội thoại
+            (avatar tròn + hai dòng chữ) để trang không nhảy
+            hình khi dữ kiện về; trạng thái rỗng chỉ được
+            hiện ở nhánh dưới, sau khi nạp xong.
+          */
+          <div data-testid="conversations-loading" className="space-y-3 px-2" aria-label={t('conversationsLoading')}>
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex items-center gap-3">
+                <Skeleton className="size-10 shrink-0 rounded-full" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-3.5 w-2/3" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : !error && visible.length === 0 ? (
+          /*
+            Nhánh rỗng chỉ hiện khi KHÔNG có lỗi tải (vòng
+            sửa 2 PR #593): tải lần đầu lỗi thì chỉ banner
+            lỗi ở trên hiện — câu "chưa có hội thoại" trên
+            đường lỗi là trạng thái rỗng giả mà issue #591
+            cấm (chưa tải xong, chưa xác nhận là rỗng thật).
+          */
+          /*
+            Khối rỗng của danh sách theo đúng khuôn demo
+            (issue #608): icon MessageSquare 36px màu muted ở
+            40%, chữ 14px font-medium màu foreground, căn
+            giữa, đệm 40px — cùng một khuôn cho cả ba câu
+            rỗng của danh sách (rỗng thật, lọc chưa đọc, tìm
+            không khớp).
+          */
+          <div className="flex flex-col items-center gap-2 p-10 text-center">
+            <MessageSquare className="size-9 text-muted-foreground/40" aria-hidden />
+            <p className="text-sm font-medium">
+              {filterNeedle
+                ? t('conversationSearchNoResults')
+                : unreadOnly
+                  ? t('conversationsUnreadEmpty')
+                  : t('conversationsEmpty')}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {pinned.length > 0 ? renderSection(
+              t('messagesPinnedSection'),
+              pinnedOpen,
+              setPinnedOpen,
+              <ul className="flex flex-col gap-1">{pinned.map(renderConversationItem)}</ul>,
+            ) : null}
+            {recent.length > 0 ? renderSection(
+              t('messagesRecentSection'),
+              recentOpen,
+              setRecentOpen,
+              <ul className="flex flex-col gap-1">{recent.map(renderConversationItem)}</ul>,
+            ) : null}
+          </div>
+        )}
+        {unreadOnly || initialLoading ? null : renderSection(
+          t('archivedConversationsTitle'),
+          archivedOpen,
+          (next) => {
+            // Cơ chế lười của M5 giữ nguyên: mở mục là nạp
+            // (lại) danh sách riêng từ server.
+            if (next) onRequestArchived();
+            setArchivedOpen(next);
+          },
+          visibleArchived.length === 0 ? (
+            <p className="px-2 text-sm text-muted-foreground">
+              {filterNeedle ? t('conversationSearchNoResults') : t('archivedEmpty')}
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1">{visibleArchived.map(renderConversationItem)}</ul>
+          ),
+        )}
+      </div>
+    );
+  };
 
   return (
     /*
@@ -532,164 +637,70 @@ export function ConversationSidebar({
         }}
         className="min-h-0 min-w-0 flex-1 px-3"
       >
-        <TabsList className="w-full">
-          <TabsTrigger value="chats">{t('messagesTabChats')}</TabsTrigger>
-          <TabsTrigger value="groups" aria-label={t('messagesTabGroups')}>
+        {/*
+          Ô tìm DUY NHẤT phía trên thanh tab (issue #606 — đúng
+          vị trí của bản demo): lọc nội dung của tab đang mở.
+          Nhãn và gợi ý của ô đổi theo tab: tab Nhóm lọc các mục
+          nhóm theo tên lớp/khoá/nhóm; các tab còn lại lọc danh
+          sách hội thoại theo tên hiển thị.
+        */}
+        {/*
+          Cấu trúc ô tìm theo bản demo (issue #608): InputGroup
+          của @lms/ui — hộp 36px bo 8px, addon kính lúp 16px
+          màu muted ở đầu, ô nhập trong suốt không viền bên
+          trong.
+        */}
+        <InputGroup>
+          <InputGroupAddon>
+            <Search aria-hidden />
+          </InputGroupAddon>
+          <InputGroupInput
+            type="search"
+            aria-label={tab === 'groups' ? t('groupTreeSearchPlaceholder') : t('conversationSearchLabel')}
+            placeholder={tab === 'groups' ? t('groupTreeSearchPlaceholder') : t('conversationSearchPlaceholder')}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+          />
+        </InputGroup>
+        {/*
+          Thanh tab bốn tab lọc ngang hàng như bản demo (issue
+          #606): TabsList variant `line` của @lms/ui, mỗi trigger
+          là nhãn chữ nhỏ độ đậm thường kèm số đếm của tab trong
+          ngoặc đơn dạng chữ màu phụ — đúng dạng "Tất cả (3)"
+          của demo. Số đếm nằm trong span `aria-hidden` và
+          trigger mang `aria-label` là nhãn thuần, để tên truy
+          cập của tab vẫn đúng nhãn của nó (như huy hiệu trên
+          trigger Nhóm trước đây).
+        */}
+        <TabsList variant="line" className="w-full border-b">
+          <TabsTrigger value="all" aria-label={t('messagesFilterAll')} className="gap-1 text-xs font-normal">
+            {t('messagesFilterAll')}
+            <span aria-hidden className="text-xs text-muted-foreground">({allCount})</span>
+          </TabsTrigger>
+          <TabsTrigger value="unread" aria-label={t('messagesFilterUnread')} className="gap-1 text-xs font-normal">
+            {t('messagesFilterUnread')}
+            <span aria-hidden className="text-xs text-muted-foreground">({unreadCountTotal})</span>
+          </TabsTrigger>
+          <TabsTrigger value="groups" aria-label={t('messagesTabGroups')} className="gap-1 text-xs font-normal">
             {t('messagesTabGroups')}
-            {treeUnreadTotal > 0 ? <Badge className="ml-1.5 shrink-0">{treeUnreadTotal}</Badge> : null}
+            <span aria-hidden className="text-xs text-muted-foreground">({groupCount})</span>
+          </TabsTrigger>
+          <TabsTrigger value="favourites" aria-label={t('messagesFilterFavourites')} className="gap-1 text-xs font-normal">
+            {t('messagesFilterFavourites')}
+            <span aria-hidden className="text-xs text-muted-foreground">({favouritesCount})</span>
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="chats" className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="space-y-2 pt-1">
-            {/*
-              Ô tìm hội thoại theo đúng cấu trúc InputGroup
-              của bản demo (issue #608): hộp 36px bo 8px có
-              addon kính lúp 16px màu muted ở đầu, ô nhập
-              trong suốt không viền bên trong component
-              InputGroup của @lms/ui.
-            */}
-            <InputGroup>
-              <InputGroupAddon>
-                <Search aria-hidden />
-              </InputGroupAddon>
-              <InputGroupInput
-                type="search"
-                aria-label={t('conversationSearchLabel')}
-                placeholder={t('conversationSearchPlaceholder')}
-                value={conversationFilter}
-                onChange={(e) => setConversationFilter(e.target.value)}
-              />
-            </InputGroup>
-            <div className="flex flex-wrap gap-1.5">
-              {chips.map(({ key, label, count }) => (
-                <Button
-                  key={key}
-                  type="button"
-                  size="sm"
-                  variant={chip === key ? 'default' : 'outline'}
-                  aria-pressed={chip === key}
-                  className="rounded-full"
-                  onClick={() => setChip(key)}
-                >
-                  {label}
-                  <span aria-hidden>{count}</span>
-                </Button>
-              ))}
-              {/*
-                Chip Yêu thích (issue #591): tab Yêu thích riêng
-                của bản demo là điểm CHƯA có phán quyết về chức
-                năng và chưa có dữ kiện yêu thích nào — ở đợt này
-                chỉ dựng đúng HÌNH DẠNG chip trong hàng lọc, ở
-                trạng thái vô hiệu (không lọc gì, không phát sinh
-                tác dụng giả); chức năng chờ phán quyết ở đợt
-                backend.
-              */}
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="rounded-full"
-                disabled
-              >
-                {t('messagesFilterFavourites')}
-              </Button>
-            </div>
-          </div>
-          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 py-2">
-            {initialLoading ? (
-              /*
-                Khung đang tải lần đầu (issue #591): các dòng
-                skeleton giữ đúng hình dạng hàng hội thoại
-                (avatar tròn + hai dòng chữ) để trang không nhảy
-                hình khi dữ kiện về; trạng thái rỗng chỉ được
-                hiện ở nhánh dưới, sau khi nạp xong.
-              */
-              <div data-testid="conversations-loading" className="space-y-3" aria-label={t('conversationsLoading')}>
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <Skeleton className="size-10 shrink-0 rounded-full" />
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <Skeleton className="h-3.5 w-2/3" />
-                      <Skeleton className="h-3 w-1/2" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : !error && visibleConversations.length === 0 ? (
-              /*
-                Nhánh rỗng chỉ hiện khi KHÔNG có lỗi tải (vòng
-                sửa 2 PR #593): tải lần đầu lỗi thì chỉ banner
-                lỗi ở trên hiện — câu "chưa có hội thoại" trên
-                đường lỗi là trạng thái rỗng giả mà issue #591
-                cấm (chưa tải xong, chưa xác nhận là rỗng thật).
-              */
-              /*
-                Khối rỗng của danh sách theo đúng khuôn demo
-                (issue #608): icon MessageSquare 36px màu
-                muted ở 40%, chữ 14px font-medium màu
-                foreground, căn giữa, đệm 40px — cùng một
-                khuôn cho cả ba câu rỗng của danh sách (rỗng
-                thật, lọc chưa đọc, tìm không khớp).
-              */
-              <div className="flex flex-col items-center gap-2 p-10 text-center">
-                <MessageSquare className="size-9 text-muted-foreground/40" aria-hidden />
-                <p className="text-sm font-medium">
-                  {filterNeedle
-                    ? t('conversationSearchNoResults')
-                    : chip === 'unread'
-                      ? t('conversationsUnreadEmpty')
-                      : t('conversationsEmpty')}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {pinnedConversations.length > 0 ? renderSection(
-                  t('messagesPinnedSection'),
-                  pinnedOpen,
-                  setPinnedOpen,
-                  <ul className="flex flex-col gap-1">{pinnedConversations.map(renderConversationItem)}</ul>,
-                ) : null}
-                {recentConversations.length > 0 ? renderSection(
-                  t('messagesRecentSection'),
-                  recentOpen,
-                  setRecentOpen,
-                  <ul className="flex flex-col gap-1">{recentConversations.map(renderConversationItem)}</ul>,
-                ) : null}
-              </div>
-            )}
-            {initialLoading ? null : renderSection(
-              t('archivedConversationsTitle'),
-              archivedOpen,
-              (next) => {
-                // Cơ chế lười của M5 giữ nguyên: mở mục là nạp
-                // (lại) danh sách riêng từ server.
-                if (next) onRequestArchived();
-                setArchivedOpen(next);
-              },
-              visibleArchived.length === 0 ? (
-                <p className="px-2 text-sm text-muted-foreground">
-                  {filterNeedle ? t('conversationSearchNoResults') : t('archivedEmpty')}
-                </p>
-              ) : (
-                <ul className="flex flex-col gap-1">{visibleArchived.map(renderConversationItem)}</ul>
-              ),
-            )}
-          </div>
+        <TabsContent value="all" className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {renderDirectPanel(false)}
+        </TabsContent>
+        <TabsContent value="unread" className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {renderDirectPanel(true)}
         </TabsContent>
         <TabsContent value="groups" className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="pt-1">
-            <Input
-              type="search"
-              aria-label={t('groupTreeSearchPlaceholder')}
-              placeholder={t('groupTreeSearchPlaceholder')}
-              value={groupFilter}
-              onChange={(e) => setGroupFilter(e.target.value)}
-            />
-          </div>
           <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 py-2">
-            <GroupTreeNav
+            <GroupListNav
               tree={groupTree}
-              filter={groupFilter}
+              filter={searchText}
               activeConversationId={active?.id ?? null}
               onOpenConversationById={onOpenConversationById}
               onOpenClassChat={onOpenClassChat}
@@ -703,6 +714,19 @@ export function ConversationSidebar({
               loading={initialLoading || Boolean(groupTreeLoading)}
               treeError={groupTreeError ?? null}
             />
+          </div>
+        </TabsContent>
+        <TabsContent value="favourites" className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {/*
+            Tab Yêu thích (issue #606): chức năng yêu thích
+            chưa có phán quyết và hệ chưa có dữ kiện yêu thích
+            ở bất kỳ tầng nào — tab chỉ dựng đúng hình dạng bề
+            mặt với trạng thái rỗng này; không dùng hội thoại
+            đã ghim thay cho yêu thích và không gắn tác dụng
+            giả nào.
+          */}
+          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 py-2">
+            <p className="px-2 text-sm text-muted-foreground">{t('messagesFavouritesEmpty')}</p>
           </div>
         </TabsContent>
       </Tabs>

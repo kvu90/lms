@@ -2098,6 +2098,7 @@ export const appResources = {
       emojiPickerLabel: 'Chèn biểu tượng cảm xúc',
       messagesOfflineNow: 'Ngoại tuyến',
       messagesFilterFavourites: 'Yêu thích',
+      messagesFavouritesEmpty: 'Chưa có hội thoại yêu thích nào.',
       conversationsLoading: 'Đang tải cuộc trò chuyện…',
       inviteLinkLabel: 'Liên kết mời',
       inviteLinkPlaceholder: 'Liên kết mời sẽ hiện ở đây',

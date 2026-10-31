@@ -32,9 +32,12 @@ import type { ContactRelationship, ConversationView } from '../types/types';
  * ?conversation=<id> (contextUrl của thông báo message_new, #49) mở
  * đúng cuộc trò chuyện khi trang nạp — việc nối tiếp của #33.
  *
- * Cấu trúc khung trái theo MSG-T3: tab Trò chuyện chỉ 1–1, tab Nhóm
- * là cây Lớp → Khoá → Nhóm con dựng từ API cây của MSG-T1, Danh bạ
- * hạ thành sheet "Tin nhắn mới". Tab đang chọn + hội thoại đang mở
+ * Cấu trúc khung trái: thanh tab bốn tab lọc ngang hàng như
+ * bản demo (Tất cả / Chưa đọc / Nhóm / Yêu thích, issue #606) —
+ * tab Tất cả và Chưa đọc chỉ chứa hội thoại 1–1, tab Nhóm là
+ * danh sách phẳng các mục nhóm dựng từ API cây của MSG-T1,
+ * Danh bạ hạ thành sheet "Tin nhắn mới". Tab đang chọn + hội
+ * thoại đang mở
  * được LƯU BỀN ở localStorage (hai khoá trong `page-helpers.ts`)
  * để quay lại màn Tin nhắn là gặp đúng ngữ cảnh gần nhất; deep-link
  * có mặt thì thắng ngữ cảnh đã lưu.

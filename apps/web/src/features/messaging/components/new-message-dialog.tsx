@@ -46,7 +46,7 @@ import { initialsOf } from '../utils/utils';
  *    (điểm chưa có phán quyết về chức năng, issue #591).
  * 4. Bấm Nhắn tin ở bất kỳ dòng nào: sự kiện đi lên trang chứa —
  *    trang tạo/lấy hội thoại 1–1, đóng hộp thoại, chuyển khung
- *    trái về tab Trò chuyện và mở hội thoại ở khung phải.
+ *    trái về tab Tất cả và mở hội thoại ở khung phải.
  *
  * Bất biến: hộp thoại chỉ trình bày + phát sự kiện; luật được
  * phép nhắn ai là của server (cổng `assertCanContact` khi tạo
