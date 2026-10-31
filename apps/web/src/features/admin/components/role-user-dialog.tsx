@@ -11,7 +11,8 @@ import {
 } from '@lms/ui/components/dialog';
 import { useTranslation } from 'react-i18next';
 import '#config/i18n';
-import { contextLevelLabelKey } from '../api/context-labels';
+import type { ContextRow } from '#lib/access';
+import { assignmentContextLabel } from '../api/context-labels';
 import { RoleUnassignDialog, type UnassignTarget } from './role-unassign-dialog';
 
 /**
@@ -20,17 +21,20 @@ import { RoleUnassignDialog, type UnassignTarget } from './role-unassign-dialog'
  * kèm vai trò, dựng trên component Dialog thật của `@lms/ui`.
  *
  * Luồng nghiệp vụ: hộp thoại liệt kê mọi gán vai của người dùng — mỗi
- * gán bày tên vai kèm nhãn cấp ngữ cảnh dạng chữ (qua adapter nhãn
- * ngữ cảnh), không bày mã định danh hay đường dẫn ngữ cảnh. Gán tay
- * có nút gỡ mở hộp thoại xác nhận gỡ hiện hành; gán do ghi danh cấp
- * (`component = 'enrol'`) không có thao tác gỡ và hiện thẳng lý do
- * không gỡ trực tiếp được. Nút gán thêm mở hộp thoại gán hiện hành
- * với người dùng này chọn sẵn (qua hàm gọi lại của trang, hộp thoại
- * quản lý đóng trước để không chồng hai hộp thoại). Sau gán/gỡ thành
- * công, bảng tải lại qua việc làm mới gốc khoá truy vấn nên lần mở
- * lại hộp thoại thấy gán mới nhất; trong một lần mở, danh sách lấy từ
- * dữ kiện bảng hiện tại do trang truyền vào nên cũng tự cập nhật khi
- * bảng tải lại.
+ * gán bày tên vai kèm nhãn ngữ cảnh qua adapter nhãn ngữ cảnh (cấp
+ * dạng chữ kèm số thứ tự trong cấp khi cây có nhiều ngữ cảnh cùng
+ * cấp), không bày mã định danh hay đường dẫn ngữ cảnh, để hai gán
+ * cùng vai ở hai ngữ cảnh cùng cấp phân biệt được — hộp thoại xác
+ * nhận gỡ dùng đúng nhãn này nên quản trị viên biết mình đang gỡ gán
+ * nào. Gán tay có nút gỡ mở hộp thoại xác nhận gỡ hiện hành; gán do
+ * ghi danh cấp (`component = 'enrol'`) không có thao tác gỡ và hiện
+ * thẳng lý do không gỡ trực tiếp được. Nút gán thêm mở hộp thoại gán
+ * hiện hành với người dùng này chọn sẵn (qua hàm gọi lại của trang,
+ * hộp thoại quản lý đóng trước để không chồng hai hộp thoại). Sau
+ * gán/gỡ thành công, bảng tải lại qua việc làm mới gốc khoá truy vấn
+ * nên lần mở lại hộp thoại thấy gán mới nhất; trong một lần mở, danh
+ * sách lấy từ dữ kiện bảng hiện tại do trang truyền vào nên cũng tự
+ * cập nhật khi bảng tải lại.
  *
  * Về lồng hộp thoại: hộp thoại xác nhận gỡ được render BÊN TRONG nội
  * dung của hộp thoại quản lý (không phải hộp thoại anh em bên ngoài)
@@ -38,14 +42,17 @@ import { RoleUnassignDialog, type UnassignTarget } from './role-unassign-dialog'
  * hiểu là bấm ra ngoài mà tự đóng; yêu cầu đóng từ hộp thoại quản lý
  * cũng bị giữ lại trong lúc hộp thoại xác nhận đang mở.
  *
- * @param props - Trạng thái mở, dòng người dùng kèm gán vai, hàm đóng
- * và hàm mở hộp thoại gán cho chính người này.
+ * @param props - Trạng thái mở, dòng người dùng kèm gán vai, cây
+ * ngữ cảnh để phân giải nhãn gán, hàm đóng và hàm mở hộp thoại gán
+ * cho chính người này.
  */
 export interface RoleUserDialogProps {
   /** Hộp thoại đang mở hay không. */
   open: boolean;
   /** Dòng người dùng kèm toàn bộ gán vai của người đó. */
   user: UserWithAssignmentsListItem;
+  /** Cây ngữ cảnh đã tải ở trang, dùng để phân giải nhãn từng dòng gán. */
+  contexts: ContextRow[];
   /** Đóng hộp thoại. */
   onClose: () => void;
   /** Mở hộp thoại gán vai cho chính người dùng này (người dùng chọn sẵn). */
@@ -61,7 +68,7 @@ export function userDisplayName(user: UserWithAssignmentsListItem): string {
   return fullName === '' ? user.username : fullName;
 }
 
-export function RoleUserDialog({ open, user, onClose, onAssignForUser }: RoleUserDialogProps) {
+export function RoleUserDialog({ open, user, contexts, onClose, onAssignForUser }: RoleUserDialogProps) {
   const { t } = useTranslation('app');
   /** Dòng gán đang chờ xác nhận gỡ; null khi hộp thoại xác nhận đóng. */
   const [unassignTarget, setUnassignTarget] = useState<UnassignTarget | null>(null);
@@ -88,9 +95,9 @@ export function RoleUserDialog({ open, user, onClose, onAssignForUser }: RoleUse
         ) : (
           <ul className="space-y-2">
             {user.assignments.map((assignment) => {
-              const contextLabel = t(contextLevelLabelKey(assignment.contextLevel), {
-                level: assignment.contextLevel,
-              });
+              const contextLabel = assignmentContextLabel(contexts, assignment, (key, options) =>
+                t(key, options),
+              );
               return (
                 <li
                   key={assignment.id}

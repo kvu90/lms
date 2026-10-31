@@ -47,7 +47,11 @@ import { NATIVE_SELECT_CLASS } from './permission-select';
  * chung, không hiện mã kỹ thuật và không báo thành công giả. Danh sách
  * người dùng tải thêm từng đợt 20 (nút "Tải thêm người dùng" hiện khi
  * còn người chưa tải) để từ khoá khớp trên 20 người vẫn chọn được
- * người ở đợt sau, thay vì chặn ở 20 kết quả đầu như trước.
+ * người ở đợt sau, thay vì chặn ở 20 kết quả đầu như trước — nhưng
+ * chỉ tới trần 100 của API danh sách người dùng: chạm trần thì nút
+ * tải thêm ẩn đi kèm gợi ý thu hẹp từ khoá, vì gửi `pageSize` vượt
+ * trần bị server trả HTTP 400 và người sau 100 kết quả không chọn
+ * được bằng cách bấm thêm nữa.
  *
  * @param props - Trạng thái mở, danh sách vai trò và cây context đã tải
  * ở trang, người dùng chọn sẵn (tuỳ chọn) và hàm đóng hộp thoại.
@@ -84,6 +88,9 @@ function assignErrorMessage(error: unknown, t: (key: string) => string): string 
   return t('assignRoleFailed');
 }
 
+/** Trần `pageSize` của API danh sách người dùng — gửi vượt trần bị HTTP 400. */
+const MAX_USER_PAGE_SIZE = 100;
+
 export function RoleAssignmentDialog({
   open,
   roles,
@@ -93,7 +100,7 @@ export function RoleAssignmentDialog({
 }: RoleAssignmentDialogProps) {
   const { t } = useTranslation('app');
   const [userSearch, setUserSearch] = useState('');
-  /** Số người tối đa tải về cho ô chọn; nút tải thêm tăng từng đợt 20. */
+  /** Số người tối đa tải về cho ô chọn; nút tải thêm tăng từng đợt 20 tới trần của API. */
   const [userPageSize, setUserPageSize] = useState(20);
   /** Người dùng đã chọn trong danh sách tìm kiếm; null khi chưa chọn (và không có người chọn sẵn). */
   const [selectedUser, setSelectedUser] = useState<Pick<UserProfile, 'id' | 'username' | 'email'> | null>(null);
@@ -206,14 +213,18 @@ export function RoleAssignmentDialog({
                     })}
                   </ul>
                   {users.length > 0 && users.length < (usersQuery.data?.total ?? 0) ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={usersQuery.isFetching}
-                      onClick={() => setUserPageSize((s) => s + 20)}
-                    >
-                      {t('assignLoadMoreUsers')}
-                    </Button>
+                    userPageSize < MAX_USER_PAGE_SIZE ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={usersQuery.isFetching}
+                        onClick={() => setUserPageSize((s) => Math.min(s + 20, MAX_USER_PAGE_SIZE))}
+                      >
+                        {t('assignLoadMoreUsers')}
+                      </Button>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">{t('assignLoadMoreAtCap')}</p>
+                    )
                   ) : null}
                 </>
               )}

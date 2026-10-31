@@ -22,7 +22,7 @@ import { useTranslation } from 'react-i18next';
 import '#config/i18n';
 import type { ContextRow } from '#lib/access';
 import { formatWithOptions } from '#utils/date-format';
-import { contextLevelLabelKey } from '../api/context-labels';
+import { assignmentContextLabel } from '../api/context-labels';
 import { usersWithAssignmentsQueryOptions } from '../queries/admin-roles';
 import { NATIVE_SELECT_CLASS } from './permission-select';
 import { RoleAssignmentDialog } from './role-assignment-dialog';
@@ -71,12 +71,13 @@ import { TablePagination } from './table-pagination';
  *    qua tiền tố `access`.
  *
  * @param props - Danh sách vai trò (dùng cho bộ lọc vai trò và hộp
- * thoại gán) và cây context (dùng cho hộp thoại gán) do trang đã tải.
+ * thoại gán) và cây context (dùng cho hộp thoại gán, hộp thoại quản
+ * lý gán và cột vai trò) do trang đã tải.
  */
 export interface UsersWithRolesSectionProps {
   /** Danh sách vai trò (lưới thẻ của trang đã tải). */
   roles: RoleListItem[];
-  /** Cây context (trang đã tải, dùng cho hộp thoại gán). */
+  /** Cây context (trang đã tải, dùng cho hộp thoại gán, hộp thoại quản lý và cột vai trò). */
   contexts: ContextRow[];
 }
 
@@ -289,7 +290,7 @@ export function UsersWithRolesSection({ roles, contexts }: UsersWithRolesSection
                           <span key={assignment.id} className="block text-sm">
                             {assignment.roleName}{' '}
                             <span className="text-muted-foreground">
-                              · {t(contextLevelLabelKey(assignment.contextLevel), { level: assignment.contextLevel })}
+                              · {assignmentContextLabel(contexts, assignment, (key, options) => t(key, options))}
                             </span>
                           </span>
                         ))
@@ -337,6 +338,7 @@ export function UsersWithRolesSection({ roles, contexts }: UsersWithRolesSection
         <RoleUserDialog
           open
           user={manageUser}
+          contexts={contexts}
           onClose={() => setManageUserId(null)}
           onAssignForUser={(user) => {
             setManageUserId(null);

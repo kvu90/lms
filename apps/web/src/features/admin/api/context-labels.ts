@@ -51,6 +51,31 @@ export function contextLevelLabelKey(level: number): string {
 }
 
 /**
+ * Nhãn hiển thị của một dòng gán vai: khi ngữ cảnh của dòng gán có
+ * trong cây ngữ cảnh đã tải thì dùng nhãn ô chọn của chính ngữ cảnh
+ * đó (cấp dạng chữ kèm số thứ tự trong cấp) để hai dòng gán cùng vai
+ * ở hai ngữ cảnh cùng cấp phân biệt được; khi cây không chứa ngữ cảnh
+ * đó (dữ kiện cũ, cây tải thiếu) thì lùi về nhãn cấp trần như trước
+ * thay vì lộ định danh hay đường dẫn kỹ thuật.
+ *
+ * @param contexts - Toàn bộ cây ngữ cảnh đã tải ở trang.
+ * @param assignment - Dòng gán cần lấy nhãn (định danh và cấp ngữ cảnh).
+ * @param translate - Hàm dịch i18n của nơi gọi (namespace `app`).
+ * @returns Nhãn dạng chữ đọc được của ngữ cảnh dòng gán.
+ */
+export function assignmentContextLabel(
+  contexts: ContextRow[],
+  assignment: { contextId: string; contextLevel: number },
+  translate: (key: string, options?: Record<string, unknown>) => string,
+): string {
+  const context = contexts.find((ctx) => ctx.id === assignment.contextId);
+  if (context) return contextOptionLabel(contexts, context, translate);
+  return translate(contextLevelLabelKey(assignment.contextLevel), {
+    level: assignment.contextLevel,
+  });
+}
+
+/**
  * Nhãn hiển thị của một ngữ cảnh trong ô chọn: nhãn cấp dạng chữ đã
  * dịch, kèm số thứ tự trong cùng cấp khi cấp đó có nhiều ngữ cảnh —
  * tuyệt đối không chứa định danh, đường dẫn hay chuỗi kỹ thuật.

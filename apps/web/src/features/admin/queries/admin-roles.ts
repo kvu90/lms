@@ -32,7 +32,12 @@ import { queryKeys } from './keys';
  * /access/roles`) và ma trận đã lưu của vai (`GET
  * /access/roles/:id/capabilities`) đều nằm dưới tiền tố này nên cùng
  * về trạng thái mới; lưới thẻ vì thế cập nhật ngay mà không cần tải
- * lại trang. Lời gọi API thuần nằm ở tầng `api/` của feature.
+ * lại trang. Riêng ba đột biến vai trò (tạo/đổi tên/xoá) làm mới thêm
+ * gốc bảng người dùng kèm vai trò, vì bảng này bày tên vai ngay trên
+ * cùng trang vai trò — không làm mới thì bảng giữ tên cũ (đổi tên)
+ * hoặc dòng gán của vai đã xoá tới khi tải lại trang. Đổi tên vai
+ * làm mới thêm gốc ma trận toàn trang, vì trang Quyền độc lập cũng
+ * bày tên vai. Lời gọi API thuần nằm ở tầng `api/` của feature.
  */
 
 /** Đột biến tạo vai trò (POST /access/roles). */
@@ -40,7 +45,10 @@ export function useCreateRole() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (draft: CreateRole) => createRole(draft),
-    onSuccess: () => client.invalidateQueries({ queryKey: sharedQueryKeys.access }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: sharedQueryKeys.access });
+      void client.invalidateQueries({ queryKey: queryKeys.usersWithAssignmentsRoot });
+    },
   });
 }
 
@@ -49,7 +57,11 @@ export function useUpdateRole() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (input: { roleId: string; draft: UpdateRole }) => updateRole(input),
-    onSuccess: () => client.invalidateQueries({ queryKey: sharedQueryKeys.access }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: sharedQueryKeys.access });
+      void client.invalidateQueries({ queryKey: queryKeys.usersWithAssignmentsRoot });
+      void client.invalidateQueries({ queryKey: queryKeys.capabilityMatrixRoot });
+    },
   });
 }
 
@@ -67,7 +79,10 @@ export function useDeleteRole() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (roleId: string) => deleteRole(roleId),
-    onSuccess: () => client.invalidateQueries({ queryKey: sharedQueryKeys.access }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: sharedQueryKeys.access });
+      void client.invalidateQueries({ queryKey: queryKeys.usersWithAssignmentsRoot });
+    },
   });
 }
 

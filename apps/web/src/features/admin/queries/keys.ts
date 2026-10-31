@@ -8,6 +8,9 @@
 import type { ListAssignmentsParams, ListUsersWithAssignmentsParams } from '../api/admin-roles';
 import type { ListAdminUsersParams } from '../api/admin-users';
 
+/** Gốc khoá ma trận quyền toàn trang (dùng chung cho khoá theo ngữ cảnh bên dưới). */
+const capabilityMatrixRoot = ['admin', 'capability-matrix'] as const;
+
 export const queryKeys = {
   adminUsersRoot: ['admin', 'users'] as const,
   /**
@@ -81,12 +84,14 @@ export const queryKeys = {
       params.pageSize,
     ] as const,
   adminUserDetail: (userId: string) => ['admin', 'users', 'detail', userId] as const,
+  /** Gốc khoá ma trận quyền toàn trang — tiền tố làm mới mọi ngữ cảnh (đổi tên vai). */
+  capabilityMatrixRoot,
   /**
    * Khoá ma trận quyền toàn trang theo ngữ cảnh (trang Quyền độc lập):
    * đổi ngữ cảnh là đổi khoá và gọi lại server; đột biến đặt một ô làm
    * mới đúng khoá này sau khi ghi thành công.
    */
-  capabilityMatrix: (contextId: string) => ['admin', 'capability-matrix', contextId] as const,
+  capabilityMatrix: (contextId: string) => [...capabilityMatrixRoot, contextId] as const,
   /** Gốc khoá bảng người dùng kèm vai trò — tiền tố làm mới bảng sau gán/gỡ vai. */
   usersWithAssignmentsRoot: ['admin', 'users-with-assignments'] as const,
   /**

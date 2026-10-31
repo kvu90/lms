@@ -706,6 +706,7 @@ export const enResources = {
     assignUserSearchPlaceholder: 'Search by name or email…',
     assignNoUserFound: 'No users found.',
     assignLoadMoreUsers: 'Load more users',
+    assignLoadMoreAtCap: 'Showing at most 100 people — narrow the keyword to find the rest.',
     assignUsersLoadFailed: 'Could not load the user list.',
     assignSlotLimitReached: 'The centre has reached its plan limit, so no more teaching roles can be assigned.',
     assignRoleContextConflict:

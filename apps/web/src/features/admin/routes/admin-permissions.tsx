@@ -42,8 +42,12 @@ import { groupCapabilitiesByResource } from '../types/admin-roles';
  *    lần gọi cho một lần đổi, thân gồm vai trò + năng lực + ngữ cảnh
  *    + giá trị): trong lúc chờ, chỉ ô đó bị khoá (khoá mang cả ngữ
  *    cảnh nên đổi ngữ cảnh không khoá nhầm ô cùng vị trí ở ngữ cảnh
- *    mới); ghi lỗi thì ô hoàn lại giá trị trước đó kèm thông báo lỗi
- *    cho người dùng. Không có nút Lưu toàn trang, không tìm kiếm/lọc/
+ *    mới); ghi thành công thì nháp của lần ghi đó bị xoá để giá trị
+ *    mới từ server hiện lên thay vì bị nháp cũ che; ghi lỗi thì ô
+ *    hoàn lại giá trị trước đó kèm thông báo lỗi cho người dùng.
+ *    Nháp mang cả ngữ cảnh của lần ghi nên lỗi muộn của ngữ cảnh cũ
+ *    không xoá nhầm nháp mới ở ngữ cảnh hiện tại. Không có nút Lưu
+ *    toàn trang, không tìm kiếm/lọc/
  *    phân trang cho bảng (bảng mẫu cũng không có), không cột
  *    Read/Write/Create/Delete tách riêng — hệ chỉ có năng lực loại
  *    đọc và ghi, không có trục Create/Delete trong dữ kiện.
@@ -57,11 +61,18 @@ export function AdminPermissionsPage() {
   /** Ngữ cảnh người dùng đã chọn; trống nghĩa là dùng ngữ cảnh hệ thống mặc định. */
   const [contextOverride, setContextOverride] = useState('');
   /**
-   * Sửa đổi lạc quan theo từng ô: vai trò → năng lực → giá trị bốn
-   * trạng thái. Giá trị này ưu tiên trước ghi đè đã lưu khi hiển thị;
-   * ghi lỗi thì mục tương ứng bị xoá để ô hoàn lại giá trị đã lưu.
+   * Sửa đổi lạc quan theo từng ô: vai trò → năng lực → {giá trị bốn
+   * trạng thái, ngữ cảnh của lần ghi}. Giá trị này ưu tiên trước ghi
+   * đè đã lưu khi hiển thị. Ghi thành công thì mục tương ứng bị xoá
+   * để ma trận tải lại không bị nháp cũ che; ghi lỗi thì mục tương
+   * ứng bị xoá để ô hoàn lại giá trị đã lưu. Ngữ cảnh đi kèm mỗi mục
+   * để lần ghi thất bại muộn của ngữ cảnh khác không xoá nhầm nháp
+   * mới — hai lần ghi cùng ô ở hai ngữ cảnh có thể trùng giá trị,
+   * chỉ so giá trị thì không phân biệt được.
    */
-  const [edits, setEdits] = useState<Record<string, Record<string, number>>>({});
+  const [edits, setEdits] = useState<
+    Record<string, Record<string, { permission: number; contextId: string }>>
+  >({});
   /** Khoá `ngữ cảnh:vai trò:năng lực` của các ô đang chờ ghi xong. */
   const [savingCells, setSavingCells] = useState<ReadonlySet<string>>(new Set());
   /** Thông báo lỗi ghi của lần đổi ô gần nhất; null khi không có lỗi. */
@@ -104,7 +115,9 @@ export function AdminPermissionsPage() {
   /** Giá trị hiển thị của một ô: sửa đổi lạc quan, rồi ghi đè đã lưu, rồi kế thừa. */
   const valueOf = useCallback(
     (roleId: string, capability: string) =>
-      edits[roleId]?.[capability] ?? savedValues.get(`${roleId}:${capability}`) ?? CAP.INHERIT,
+      edits[roleId]?.[capability]?.permission ??
+      savedValues.get(`${roleId}:${capability}`) ??
+      CAP.INHERIT,
     [edits, savedValues],
   );
   /** Số ô Cho phép tại ngữ cảnh đang chọn, đếm từ các ô đang hiển thị. */
@@ -129,40 +142,68 @@ export function AdminPermissionsPage() {
     (capabilitiesQuery.isPending || contextsQuery.isPending || matrixQuery.isPending);
   const matrixReady = !loadFailed && !loading && matrix !== undefined;
 
-  /** Đổi một ô: ghi lạc quan ngay, khoá riêng ô đó, lỗi thì hoàn lại. */
+  /**
+   * Xoá mục nháp của đúng một lần ghi — chỉ khi mục hiện tại vẫn là
+   * lần ghi đó (cùng giá trị và cùng ngữ cảnh): người dùng đổi tiếp
+   * ô đó trong lúc chờ, hoặc sửa cùng ô ở ngữ cảnh khác sang cùng
+   * giá trị, thì giữ lại sửa mới nhất thay vì xoá nhầm.
+   */
+  function dropEditFor(roleId: string, capability: string, permission: number, editContextId: string) {
+    return (prev: Record<string, Record<string, { permission: number; contextId: string }>>) => {
+      const roleEdits = prev[roleId];
+      const edit = roleEdits?.[capability];
+      if (!edit || edit.permission !== permission || edit.contextId !== editContextId) return prev;
+      const next = { ...prev };
+      const nextRole = { ...roleEdits };
+      delete nextRole[capability];
+      if (Object.keys(nextRole).length === 0) delete next[roleId];
+      else next[roleId] = nextRole;
+      return next;
+    };
+  }
+
+  /** Đổi một ô: ghi lạc quan ngay, khoá riêng ô đó, xong thì dọn nháp, lỗi thì hoàn lại. */
   const handleCellChange = (roleId: string, capability: string, permission: number) => {
     const key = `${contextId}:${roleId}:${capability}`;
-    setEdits((prev) => ({ ...prev, [roleId]: { ...prev[roleId], [capability]: permission } }));
+    setEdits((prev) => ({
+      ...prev,
+      [roleId]: { ...prev[roleId], [capability]: { permission, contextId } },
+    }));
     setSavingCells((prev) => new Set(prev).add(key));
     setSaveError(null);
-    setOverrideMutation.mutate(
-      { roleId, capability, contextId, permission },
-      {
-        onSuccess: () => {
+    // Mỗi lần ghi đi qua promise riêng của nó (mutateAsync), không
+    // gắn callback theo lần gọi của mutate: callback gắn theo lần gọi
+    // chỉ chạy cho lần gọi mới nhất — lần gọi sau tách observer của
+    // lần gọi trước — nên lỗi muộn của lần gọi cũ sẽ không bao giờ
+    // chạy tới callback lỗi, và guard ngữ cảnh trong dropEditFor
+    // cũng không bao giờ được gọi. Promise riêng giữ cho mỗi lần ghi
+    // tự dọn khoá/nháp của chính nó dù lần ghi khác đã chen vào.
+    void setOverrideMutation
+      .mutateAsync({ roleId, capability, contextId, permission })
+      .then(
+        () => {
           setSavingCells((prev) => {
             const next = new Set(prev);
             next.delete(key);
             return next;
           });
+          // Ghi thành công thì dọn nháp của lần ghi này để giá trị
+          // mới từ server (ma trận làm mới sau ghi) hiện lên thay vì
+          // bị nháp cũ che; guard trong dropEditFor giữ lại sửa mới
+          // hơn nếu người dùng đã đổi tiếp ô đó trong lúc chờ.
+          setEdits(dropEditFor(roleId, capability, permission, contextId));
         },
-        onError: () => {
+        () => {
           setSavingCells((prev) => {
             const next = new Set(prev);
             next.delete(key);
             return next;
           });
-          // Chỉ hoàn lại khi ô vẫn đang giữ đúng giá trị ghi lỗi (người
-          // dùng đổi tiếp ô đó trong lúc chờ thì giữ giá trị mới nhất).
-          setEdits((prev) => {
-            const roleEdits = prev[roleId];
-            if (!roleEdits || roleEdits[capability] !== permission) return prev;
-            const next = { ...prev };
-            const nextRole = { ...roleEdits };
-            delete nextRole[capability];
-            if (Object.keys(nextRole).length === 0) delete next[roleId];
-            else next[roleId] = nextRole;
-            return next;
-          });
+          // Chỉ hoàn lại nháp của đúng lần ghi thất bại (cùng giá trị
+          // và cùng ngữ cảnh): lỗi muộn của ngữ cảnh cũ không được
+          // xoá nháp mới ở ngữ cảnh hiện tại dù hai lần ghi trùng
+          // giá trị.
+          setEdits(dropEditFor(roleId, capability, permission, contextId));
           // Lỗi muộn về sau khi đã đổi ngữ cảnh thì không hiện sai
           // chỗ: chỉ hiện lỗi khi vẫn đang xem đúng ngữ cảnh của
           // lần ghi đó (gương ngữ cảnh mới nhất ở trên).
@@ -170,8 +211,7 @@ export function AdminPermissionsPage() {
             setSaveError(t('permissionsSaveFailed'));
           }
         },
-      },
-    );
+      );
   };
 
   return (

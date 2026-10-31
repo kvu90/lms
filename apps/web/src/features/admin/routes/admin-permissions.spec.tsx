@@ -16,6 +16,11 @@ import { AdminPermissionsPage } from './admin-permissions';
  * Nhãn của bộ chọn ngữ cảnh là tên cấp dạng chữ qua adapter (Hệ
  * thống / Trung tâm). Stub giữ kho ma trận theo ngữ cảnh để các lần
  * gọi POST đổi thật dữ kiện mà lần gọi GET sau đó trả về.
+ *
+ * Vòng sửa theo phán quyết điều phối (PR #601): ghi ô thành công thì
+ * nháp của lần ghi đó bị xoá để giá trị mới từ server hiện lên thay
+ * vì bị nháp cũ che; nháp mang cả ngữ cảnh của lần ghi nên lỗi muộn
+ * của ngữ cảnh cũ không xoá nháp mới ở ngữ cảnh mới dù trùng giá trị.
  */
 const ROLE_A_ID = '01900000-0000-7000-8000-0000000000b1';
 const ROLE_B_ID = '01900000-0000-7000-8000-0000000000b2';
@@ -38,6 +43,8 @@ interface StubOptions {
     resolvePost: () => void;
     rejectPost: (reason?: unknown) => void;
   }) => void;
+  /** Ghi đè kho sau khi POST ghi từng ô áp dụng xong (mô phỏng quản trị viên khác đổi cùng ô). */
+  afterPostApply?: (store: Record<string, Record<string, Record<string, number>>>) => void;
 }
 
 /** Kho ghi đè theo ngữ cảnh, khởi tạo lại mỗi lần stub. */
@@ -105,6 +112,7 @@ function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
           const roleStore = (contextStore[body.roleId] ??= {});
           if (body.permission === 0) delete roleStore[body.capability];
           else roleStore[body.capability] = body.permission;
+          options.afterPostApply?.(store);
           return respond({ updated: true });
         };
         if (options.onPostDeferred) {
@@ -298,6 +306,80 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
     });
     const systemCell = cellSelect('Giáo viên', 'course:edit');
     expect(systemCell).not.toBeDisabled();
+  });
+
+  it('ghi ô thành công thì xoá nháp để giá trị mới từ server hiện lên thay vì bị nháp cũ che', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, {
+      afterPostApply: (store) => {
+        // Quản trị viên khác đổi cùng ô ngay sau lần ghi của mình,
+        // trước khi ma trận tải lại sau ghi thành công.
+        const roleStore = store[SYSTEM_CONTEXT_ID]?.[ROLE_A_ID];
+        if (roleStore) roleStore['course:view'] = 1;
+      },
+    });
+    renderPage();
+
+    const cell = await screen.findByRole('combobox', { name: 'Quyền course:view của vai trò Giáo viên' });
+    expect(cell).toHaveValue('1');
+    await userEvent.selectOptions(cell, '-1');
+    await waitFor(() => {
+      expect(calls.filter((call) => call.url === '/api/v1/access/overrides' && call.method === 'POST')).toHaveLength(1);
+    });
+    // Ma trận làm mới sau ghi thành công trả về giá trị mới (1): ô
+    // phải hiện 1, không giữ nháp cũ (-1) che mất giá trị mới.
+    await waitFor(() => {
+      expect(cellSelect('Giáo viên', 'course:view')).toHaveValue('1');
+    });
+  });
+
+  it('lỗi muộn của ngữ cảnh cũ không xoá nháp mới ở ngữ cảnh mới dù hai lần ghi trùng giá trị', async () => {
+    const calls: RecordedCall[] = [];
+    const posts: Array<{
+      resolvePost: () => void;
+      rejectPost: (reason?: unknown) => void;
+    }> = [];
+    stubFetch(calls, {
+      onPostDeferred: (controls) => {
+        posts.push(controls);
+      },
+    });
+    renderPage();
+
+    const systemCell = await screen.findByRole('combobox', { name: 'Quyền course:view của vai trò Giáo viên' });
+    expect(systemCell).toHaveValue('1');
+    // Ghi ở ngữ cảnh hệ thống sang -1, treo chờ.
+    await userEvent.selectOptions(systemCell, '-1');
+    await waitFor(() => expect(posts).toHaveLength(1));
+    // Đổi sang ngữ cảnh tenant: nháp cũ bị xoá theo hành vi gốc, ô
+    // cùng vị trí hiện giá trị đã lưu tại ngữ cảnh mới (Kế thừa).
+    const picker = screen.getByLabelText('Ngữ cảnh');
+    await userEvent.selectOptions(picker, TENANT_CONTEXT_ID);
+    await waitFor(() => {
+      expect(
+        calls.filter((call) => call.url.startsWith('/api/v1/access/capability-matrix')),
+      ).toHaveLength(2);
+    });
+    const tenantCell = cellSelect('Giáo viên', 'course:view');
+    expect(tenantCell).toHaveValue('0');
+    // Sửa cùng ô ở ngữ cảnh mới sang CÙNG GIÁ TRỊ (-1), treo chờ.
+    await userEvent.selectOptions(tenantCell, '-1');
+    await waitFor(() => expect(posts).toHaveLength(2));
+    // Lỗi muộn của lần ghi ở ngữ cảnh hệ thống về: nháp mới ở tenant
+    // phải còn nguyên, ô vẫn hiện -1, không hiện banner sai chỗ.
+    await act(async () => {
+      posts[0]?.rejectPost(new Error('Lỗi ghi muộn'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await waitFor(() => {
+      expect(cellSelect('Giáo viên', 'course:view')).toHaveValue('-1');
+    });
+    expect(screen.queryByText('Không lưu được ô này — giá trị đã hoàn lại.')).not.toBeInTheDocument();
+    // Dọn lần ghi tenant còn treo để không rò rỉ promise qua cuối test.
+    await act(async () => {
+      posts[1]?.resolvePost();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
   });
 
   it('ma trận chưa tải xong thì không có ô nào sửa được', async () => {

@@ -709,6 +709,8 @@ export const appResources = {
       assignUserSearchPlaceholder: 'Tìm theo tên hoặc email…',
       assignNoUserFound: 'Không tìm thấy người dùng nào.',
       assignLoadMoreUsers: 'Tải thêm người dùng',
+      assignLoadMoreAtCap:
+        'Đã hiển thị tối đa 100 người — hãy thu hẹp từ khoá để tìm người còn lại.',
       assignUsersLoadFailed: 'Không tải được danh sách người dùng.',
       assignSlotLimitReached: 'Trung tâm đã chạm hạn mức gói nên không gán thêm vai trò giảng dạy được.',
       assignRoleContextConflict:
