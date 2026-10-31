@@ -3504,6 +3504,23 @@ function stub591Fetch(calls: RecordedCall[], gateList?: Promise<void>) {
           memberProfiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } },
         });
       if (url === `/api/v1/messages/conversations/${CONV_ID}/read`) return respond({ marked: 2, lastReadSeq: 2 });
+      // Chi tiết + mốc đọc của nhóm kiểm chứng: chỉ ca
+      // deep-link hai id (A-BS5) mở tới nhóm này qua
+      // deep-link; các ca khác không gọi hai đường này.
+      if (url === `/api/v1/messages/conversations/${KT_GROUP_ID}`)
+        return respond({
+          id: KT_GROUP_ID, type: 2, name: '[KT] Nhóm kiểm chứng', members: [ME_ID, OTHER_ID], muted: true,
+          messages: [
+            { id: '01900000-0000-7000-8000-000000000594', conversationId: KT_GROUP_ID, userIdFrom: OTHER_ID, subject: '', fullMessage: 'nội dung tin nhóm cuối', createdAt: '2026-01-01T00:03:00.000Z', seq: 1, clientMessageId: null },
+          ],
+          hasMoreBefore: false,
+          memberReadMarkers: [
+            { userId: ME_ID, lastReadSeq: 1 },
+            { userId: OTHER_ID, lastReadSeq: 1 },
+          ],
+          memberProfiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } },
+        });
+      if (url === `/api/v1/messages/conversations/${KT_GROUP_ID}/read`) return respond({ marked: 0, lastReadSeq: 1 });
       if (url === `/api/v1/messages/conversations/${CONV_ID}/state` && method === 'PATCH') {
         const patch = (init?.body ? JSON.parse(String(init.body)) : {}) as { muted?: boolean };
         if (typeof patch.muted === 'boolean') serverState.mutedDm = patch.muted;
@@ -3783,25 +3800,81 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     ).toBe(false);
   });
 
-  it('deep-link trên cùng trạng thái đã lưu (tab Nhóm và hội thoại đã lưu) thì deep-link vẫn được ưu tiên và mở đúng hội thoại', async () => {
+  it('deep-link trỏ tới hội thoại khác với hội thoại đã lưu (tab Nhóm và hội thoại 1–1 đã lưu) thì deep-link vẫn được ưu tiên và mở đúng hội thoại của nó', async () => {
     const calls: RecordedCall[] = [];
     localStorage.setItem('lms.messages.tab', 'groups');
     localStorage.setItem('lms.messages.conversationId', CONV_ID);
     stub591Fetch(calls);
-    renderMessages(`/messages?conversation=${CONV_ID}`);
+    renderMessages(`/messages?conversation=${KT_GROUP_ID}`);
 
-    // Dù tab đang lưu là Nhóm — trạng thái vốn chặn
-    // khôi phục ngữ cảnh đã lưu — deep-link vẫn thắng:
-    // hội thoại của deep-link tự mở, tin của nó hiện ra
-    // và được đánh dấu đã đọc (issue #608, điểm A-BS5 —
-    // mệnh đề deep-link ở dạng kết hợp với tab Nhóm).
+    // Hai id PHẢI khác nhau thì ca mới phân biệt được
+    // nguồn nào thắng: trạng thái đã lưu trỏ hội thoại
+    // 1–1 CONV_ID, deep-link trỏ nhóm KT_GROUP_ID. Nếu
+    // khôi phục ngữ cảnh đã lưu thắng (hoặc deep-link bị
+    // bỏ qua), hội thoại 1–1 sẽ mở thay nhóm và các khẳng
+    // định dưới đây đỏ — ca chỉ xanh khi deep-link thắng
+    // thật (issue #608, điểm A-BS5; phán quyết điều phối
+    // vòng sửa 2 trên PR #610 yêu cầu hai id khác nhau,
+    // bản trước dùng cùng một id cho cả hai nguồn nên
+    // không chứng minh được quyền ưu tiên).
     const thread = await screen.findByLabelText('Tin nhắn');
-    expect(await within(thread).findByText('tin mới của bạn học')).toBeInTheDocument();
+    expect(await within(thread).findByText('nội dung tin nhóm cuối')).toBeInTheDocument();
     await waitFor(() =>
       expect(
-        calls.some((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}/read` && c.method === 'POST'),
+        calls.some((c) => c.url === `/api/v1/messages/conversations/${KT_GROUP_ID}/read` && c.method === 'POST'),
       ).toBe(true),
     );
+    // Hội thoại đã lưu KHÔNG mở: trang không lấy chi
+    // tiết, không đánh dấu đã đọc cho nó và tin của nó
+    // không hiện trong luồng đang mở.
+    expect(
+      calls.some((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}` && c.method === 'GET'),
+    ).toBe(false);
+    expect(
+      calls.some((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}/read`),
+    ).toBe(false);
+    expect(within(thread).queryByText('tin mới của bạn học')).not.toBeInTheDocument();
+  });
+
+  it('di chuột lên vùng nút Gọi thoại và Gọi video đang vô hiệu thì tooltip hiện đúng nhãn của từng nút như demo', async () => {
+    const calls: RecordedCall[] = [];
+    stub591Fetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Học/ }));
+    await screen.findByLabelText('Tin nhắn');
+
+    // Hai nút gọi là hình dạng thuần ở trạng thái vô
+    // hiệu (issue #608, điểm D7): nút giữ disabled,
+    // nhưng vùng trigger bọc quanh nút nhận được hover
+    // nên tooltip phải hiện đúng nhãn khi di chuột.
+    // Gắn trigger thẳng lên nút vô hiệu thì hover
+    // không tới được trigger vì class gốc của Button
+    // mang disabled:pointer-events-none — ca này di
+    // chuột thật lên vùng trigger (hover + một chuyển
+    // động chuột như tay người dùng thật; cơ chế hover
+    // của Base UI mở tooltip sau khi chuột vào vùng và
+    // dừng đủ thời gian nghỉ) và chờ nhãn tooltip hiện
+    // trong popup của tooltip (phán quyết điều phối
+    // vòng sửa 2 trên PR #610).
+    const callButton = screen.getByRole('button', { name: 'Gọi thoại' });
+    expect(callButton).toBeDisabled();
+    const callTrigger = callButton.closest('[data-slot="tooltip-trigger"]');
+    expect(callTrigger).not.toBeNull();
+    await userEvent.hover(callTrigger as HTMLElement);
+    fireEvent.mouseMove(callTrigger as HTMLElement);
+    const callTooltip = await screen.findByText('Gọi thoại', {}, { timeout: 3000 });
+    expect(callTooltip.closest('[data-slot="tooltip-content"]')).not.toBeNull();
+    await userEvent.unhover(callTrigger as HTMLElement);
+
+    const videoButton = screen.getByRole('button', { name: 'Gọi video' });
+    expect(videoButton).toBeDisabled();
+    const videoTrigger = videoButton.closest('[data-slot="tooltip-trigger"]');
+    expect(videoTrigger).not.toBeNull();
+    await userEvent.hover(videoTrigger as HTMLElement);
+    fireEvent.mouseMove(videoTrigger as HTMLElement);
+    const videoTooltip = await screen.findByText('Gọi video', {}, { timeout: 3000 });
+    expect(videoTooltip.closest('[data-slot="tooltip-content"]')).not.toBeNull();
   });
 
   it('hộp thoại mời là hộp thoại ở giữa màn hình và khối liên kết mời chỉ là hình dạng vô hiệu', async () => {

@@ -853,29 +853,34 @@ export function ChatPanel({
           actions KHÔNG có tooltip — ở demo nút này là
           trigger trần của menu thả xuống, thêm tooltip
           vào sẽ thành lệch mới (phán quyết điều phối
-          trên PR #610). Nút Tìm kiếm riêng từng đứng ở
-          đây đã gỡ; chức năng tìm trong cuộc trò
-          chuyện dời vào menu More actions bên dưới (vẫn
-          một bấm tới được như demo đặt mọi hành động phụ
-          vào menu).
+          trên PR #610). Trigger của tooltip KHÔNG gắn
+          thẳng lên nút: class gốc của Button mang
+          `disabled:pointer-events-none` nên nút vô hiệu
+          không nhận được sự kiện di chuột nào — trigger
+          gắn thẳng lên nút thì tooltip không bao giờ
+          kích hoạt được. Trigger vì vậy là một phần tử
+          bọc `inline-flex` nhận hover quanh nút; nút bên
+          trong vẫn giữ nguyên trạng thái vô hiệu, kích
+          thước và vị trí trong cụm (phán quyết điều phối
+          vòng sửa 2 trên PR #610). Nút Tìm kiếm riêng
+          từng đứng ở đây đã gỡ; chức năng tìm trong
+          cuộc trò chuyện dời vào menu More actions bên
+          dưới (vẫn một bấm tới được như demo đặt mọi
+          hành động phụ vào menu).
         */}
         <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button type="button" variant="ghost" size="icon-sm" aria-label={t('callAction')} disabled />
-            }
-          >
-            <Phone aria-hidden />
+          <TooltipTrigger render={<span className="inline-flex" />}>
+            <Button type="button" variant="ghost" size="icon-sm" aria-label={t('callAction')} disabled>
+              <Phone aria-hidden />
+            </Button>
           </TooltipTrigger>
           <TooltipContent>{t('callAction')}</TooltipContent>
         </Tooltip>
         <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button type="button" variant="ghost" size="icon-sm" aria-label={t('videoCallAction')} disabled />
-            }
-          >
-            <Video aria-hidden />
+          <TooltipTrigger render={<span className="inline-flex" />}>
+            <Button type="button" variant="ghost" size="icon-sm" aria-label={t('videoCallAction')} disabled>
+              <Video aria-hidden />
+            </Button>
           </TooltipTrigger>
           <TooltipContent>{t('videoCallAction')}</TooltipContent>
         </Tooltip>
