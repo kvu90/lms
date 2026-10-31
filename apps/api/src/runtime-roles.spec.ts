@@ -68,6 +68,17 @@ describe('Cấp phát role runtime và role migration (helper thuần)', () => {
     expect(query).toContain(`'lms_migrator'`);
   });
 
+  it('sequence gắn với cột của bảng (serial/identity) không được liệt kê riêng — nó đổi chủ theo bảng, liệt kê riêng là lỗi cannot change owner of sequence', () => {
+    const query = buildOwnershipTransferQuery('postgres', 'lms_migrator');
+    // Sequence gắn cột: phụ thuộc pg_depend deptype 'a' (serial) hoặc
+    // 'i' (identity) vào một cột (refobjsubid <> 0). PostgreSQL từ
+    // chối đổi chủ riêng cho sequence dạng này ở cả hai động từ
+    // ALTER TABLE và ALTER SEQUENCE; chủ của nó đổi theo bảng chủ.
+    expect(query).toContain(`c.relkind = 'S' AND EXISTS`);
+    expect(query).toContain(`d.deptype IN ('a', 'i')`);
+    expect(query).toContain(`d.refobjsubid <> 0`);
+  });
+
   it('khoá kết nối ở mức cụm: thu hồi PUBLIC rồi chỉ cấp tường minh cho role migration và role runtime', () => {
     expect(buildRoleConnectStatements('lms', 'lms_migrator', 'lms_runtime')).toEqual([
       `REVOKE CONNECT ON DATABASE "lms" FROM PUBLIC`,
