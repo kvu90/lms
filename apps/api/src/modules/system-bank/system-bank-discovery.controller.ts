@@ -8,6 +8,10 @@
  * - `POST /system-bank/import` — nhập bản chụp một phiên bản vào kho
  *   trung tâm (đích mặc định bank cá nhân của người nhập; cổng
  *   `question:add` tại category đích).
+ * - `GET /system-bank/events/pending` — liệt kê sự kiện kho ngân
+ *   hàng (hiện tại: rút câu) về các câu chính trung tâm đã nhập mà
+ *   trung tâm chưa ghi nhận; trung tâm lấy định danh sự kiện từ
+ *   chính danh sách này.
  * - `POST /system-bank/events/:id/acknowledge` — ghi nhận trung tâm
  *   đã nhận một sự kiện kho ngân hàng (hiện tại: rút câu).
  *
@@ -41,6 +45,11 @@ export class SystemBankDiscoveryController {
     @CurrentUser() actor: AuthenticatedUser,
   ) {
     return this.bank.importSystemQuestion(actor.id, dto);
+  }
+
+  @Get('events/pending')
+  async listPendingEvents() {
+    return this.bank.listPendingEvents();
   }
 
   @Post('events/:id/acknowledge')

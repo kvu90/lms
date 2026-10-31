@@ -23,7 +23,10 @@
  *   nhật ký append-only, và trả về danh sách slug các trung tâm đã
  *   nhập câu để tầng trên phát thông báo (kênh sự kiện platform).
  * - Đọc: câu + từng phiên bản + phiên bản mới nhất, kèm checksum để
- *   phía nhập kiểm chứng trước khi ghi bản chụp.
+ *   phía nhập kiểm chứng trước khi ghi bản chụp. Vì gói chứa đáp án
+ *   và khoá đáp án, đường đọc nội dung gói đi qua cổng người xem
+ *   `question:useall` tại context hệ thống (xem
+ *   `assertPackageViewer`) — khác đường khám phá chỉ trả metadata.
  *
  * Mọi thao tác đều cần kho ngân hàng đã cấu hình
  * (`SYSTEM_BANK_DATABASE_URL`); chưa cấu hình thì repository ném
@@ -94,6 +97,31 @@ export class SystemBankService {
   private async assertPlatformManager(actorId: string): Promise<void> {
     const systemId = (await this.contexts.ensureSystemContext()).id;
     await this.evaluator.requireCapability(actorId, 'tenant:manage', systemId);
+  }
+
+  /**
+   * Gác người xem cho các đường đọc NỘI DUNG GÓI (câu + từng phiên
+   * bản): gói mang đáp án và khoá đáp án nên đường đọc đi qua cổng
+   * người xem `question:useall` theo chuẩn cổng đọc câu hỏi của hệ
+   * (issue #55). Ngữ cảnh gác là context HỆ THỐNG — câu hệ thống là
+   * nội dung platform, không thuộc category hay ngữ cảnh của bất kỳ
+   * trung tâm nào (cùng ngữ cảnh mà đường phát hành gác bằng
+   * `tenant:manage` ở trên). Không có quyền thì trả 404
+   * `system_bank.question_not_found` như câu không tồn tại: không lộ
+   * sự tồn tại của câu lẫn gói cho người không được xem (học sinh,
+   * phụ huynh không có `question:useall` trong registry capability).
+   */
+  private async assertPackageViewer(actorId: string, questionId: string): Promise<void> {
+    const systemId = (await this.contexts.ensureSystemContext()).id;
+    const canView = await this.evaluator
+      .hasCapability(actorId, 'question:useall', systemId)
+      .catch(() => false);
+    if (!canView) {
+      throw new NotFoundException({
+        message: `System question ${questionId} not found`,
+        code: 'system_bank.question_not_found',
+      });
+    }
   }
 
   /**
@@ -173,8 +201,13 @@ export class SystemBankService {
     return { question: updated, event, notifiedCentres };
   }
 
-  /** Đọc một câu hỏi hệ thống (mọi trạng thái — cả câu đã rút vẫn đọc được để đối chiếu). */
-  async getQuestion(questionId: string) {
+  /**
+   * Đọc một câu hỏi hệ thống (mọi trạng thái — cả câu đã rút vẫn
+   * đọc được để đối chiếu). Qua cổng người xem gói trước khi đọc
+   * (xem `assertPackageViewer`).
+   */
+  async getQuestion(actorId: string, questionId: string) {
+    await this.assertPackageViewer(actorId, questionId);
     const question = await this.repo.getQuestion(questionId);
     if (!question) {
       throw new NotFoundException({ message: `System question ${questionId} not found`, code: 'system_bank.question_not_found' });
@@ -182,8 +215,9 @@ export class SystemBankService {
     return question;
   }
 
-  /** Đọc một phiên bản kèm checksum (phía nhập dùng để kiểm chứng gói trước khi ghi). */
-  async getVersion(questionId: string, version: number) {
+  /** Đọc một phiên bản kèm checksum (phía nhập dùng để kiểm chứng gói trước khi ghi). Qua cổng người xem gói. */
+  async getVersion(actorId: string, questionId: string, version: number) {
+    await this.assertPackageViewer(actorId, questionId);
     const row = await this.repo.getVersionByNumber(questionId, version);
     if (!row) {
       throw new NotFoundException({
@@ -194,15 +228,15 @@ export class SystemBankService {
     return row;
   }
 
-  /** Liệt kê mọi phiên bản của một câu theo thứ tự số tăng dần. */
-  async listVersions(questionId: string) {
-    await this.getQuestion(questionId);
+  /** Liệt kê mọi phiên bản của một câu theo thứ tự số tăng dần. Qua cổng người xem gói. */
+  async listVersions(actorId: string, questionId: string) {
+    await this.getQuestion(actorId, questionId);
     return this.repo.listVersions(questionId);
   }
 
-  /** Đọc phiên bản mới nhất của một câu (phía khám phá dùng để biết bản đang phát hành). */
-  async getLatestVersion(questionId: string) {
-    await this.getQuestion(questionId);
+  /** Đọc phiên bản mới nhất của một câu (phía khám phá dùng để biết bản đang phát hành). Qua cổng người xem gói. */
+  async getLatestVersion(actorId: string, questionId: string) {
+    await this.getQuestion(actorId, questionId);
     const row = await this.repo.getLatestVersion(questionId);
     if (!row) {
       throw new NotFoundException({
@@ -287,17 +321,22 @@ export class SystemBankService {
    * 3. Mọi YCCĐ trong gói phải đã có trong bản cài YCCĐ cục bộ của
    *    trung tâm — thiếu thì fail-closed kèm danh sách id thiếu (trung
    *    tâm cập nhật gói YCCĐ trước rồi nhập lại), không nhập nửa vời.
-   * 4. Ghi dòng importer TRƯỚC khi ghi câu vào kho trung tâm (upsert
-   *    idempotent): ghi sau lỗi chỉ gây thông báo thừa lành tính khi
-   *    rút câu, còn ghi trước lỗi mới mất thông báo.
-   * 5. Đích nhập theo đúng đường copy câu hiện hữu: mặc định bank cá
+   * 4. Đích nhập theo đúng đường copy câu hiện hữu: mặc định bank cá
    *    nhân của người nhập; đích tường minh phải thuộc về bank đó;
-   *    cổng `question:add` tại category đích. Ngữ liệu trong gói (nếu
-   *    có) được tạo mới trong category đích rồi mới gắn vào câu.
+   *    cổng `question:add` tại category đích.
+   * 5. Ghi dòng importer SAU khi đích và cổng quyền đã qua, TRƯỚC
+   *    khi ghi câu vào kho trung tâm (upsert idempotent): nhập bị từ
+   *    chối ở đích/quyền thì KHÔNG để lại dòng importer — trung tâm
+   *    chưa từng nhập không bị thông báo rút câu oan. Lỗi tạo câu
+   *    sau điểm này để lại dòng importer thừa lành tính (thông báo
+   *    rút câu tới trung tâm chưa nhập thành công), đối chiếu được
+   *    bằng dòng truy vết nhập phía trung tâm vốn chỉ ghi khi tạo
+   *    câu xong.
    * 6. Tạo câu trung tâm qua `QuestionsService` (đi qua chuẩn hoá nội
-   *    dung + cổng quyền như câu soạn tay), gắn các liên kết YCCĐ của
-   *    gói, rồi ghi dòng truy vết nhập (kind `pristine`, phiên bản
-   *    nguyên trạng = version 1 của câu mới).
+   *    dung + cổng quyền như câu soạn tay) — ngữ liệu trong gói (nếu
+   *    có) được tạo mới trong category đích trước — gắn các liên kết
+   *    YCCĐ của gói, rồi ghi dòng truy vết nhập (kind `pristine`,
+   *    phiên bản nguyên trạng = version 1 của câu mới).
    * Hai kho (ngân hàng + trung tâm) không có transaction chung: thứ
    * tự trên bảo đảm lỗi ở bước nào cũng để lại trạng thái lành tính
    * và ghi rõ trong thân PR.
@@ -345,11 +384,6 @@ export class SystemBankService {
         code: 'system_bank.outcome_not_installed',
       });
     }
-    await this.repo.recordImporter({
-      sourceQuestionId: dto.sourceQuestionId,
-      centreSlug,
-      importedBy: actorId,
-    });
     const targetBank = dto.targetBankId
       ? await this.banks.getBankOrThrow(dto.targetBankId)
       : await this.banks.ensurePersonalBank(actorId, 'question', { forCopy: true });
@@ -369,6 +403,14 @@ export class SystemBankService {
       targetCategory = await this.banks.defaultCategoryOfBank(targetBank);
     }
     await this.evaluator.requireCapability(actorId, 'question:add', targetCategory.contextId);
+    // Chỉ khi đích và cổng quyền đã qua mới ghi dòng importer (bước
+    // 5 trong flow ở đầu hàm): nhập bị từ chối ở trên không để lại
+    // vết nhập nào ở phía ngân hàng.
+    await this.repo.recordImporter({
+      sourceQuestionId: dto.sourceQuestionId,
+      centreSlug,
+      importedBy: actorId,
+    });
     const stimulusId = pkg.stimulusContent
       ? (await this.questions.createStimulus(actorId, {
           categoryId: targetCategory.id,
@@ -409,6 +451,32 @@ export class SystemBankService {
       kind: 'pristine',
     });
     return { question: created, import: importRow, source: { questionId: question.id, version: version.version } };
+  }
+
+  /**
+   * Liệt kê các sự kiện kho ngân hàng mà trung tâm hiện tại CHƯA ghi
+   * nhận — đường giao thông báo phía trung tâm (hiện tại là sự kiện
+   * rút câu):
+   * 1. Suy slug trung tâm của request (fail-closed khi không có ngữ
+   *    cảnh trung tâm, như đường nhập).
+   * 2. Chỉ sự kiện về các câu CHÍNH trung tâm này đã nhập mới thuộc
+   *    diện giao: tập câu lấy từ sổ importer phía ngân hàng, sự
+   *    kiện lấy từ nhật ký append-only theo tập câu đó.
+   * 3. Loại các sự kiện đã có vết ghi nhận của chính trung tâm này
+   *    (bảng receipts trong kho trung tâm) — trung tâm khác ghi
+   *    nhận không làm sự kiện biến khỏi danh sách của trung tâm này.
+   * Trung tâm biết định danh sự kiện TỪ CHÍNH danh sách này rồi gọi
+   * đường ghi nhận; không cần (và không có) kênh nào khác để biết id
+   * sự kiện.
+   */
+  async listPendingEvents() {
+    const centreSlug = await this.resolveCentreSlug();
+    const questionIds = await this.repo.listImportedQuestionIds(centreSlug);
+    if (questionIds.length === 0) return [];
+    const events = await this.repo.listEventsForQuestions(questionIds);
+    if (events.length === 0) return [];
+    const received = new Set(await this.centreRepo.listEventReceiptEventIds(centreSlug));
+    return events.filter((event) => !received.has(event.id));
   }
 
   /**

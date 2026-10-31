@@ -11,6 +11,7 @@ import {
   http,
   login,
   roleIdByShortname,
+  setOverride,
   STRONG_PASSWORD,
   systemContextId,
   uniqueName,
@@ -37,6 +38,14 @@ import { addExamSlot, createExamDraft } from '../../support/exam-pin-helpers';
  * chấm điểm đầy đủ thuộc các suite quiz hiện hữu (chúng chỉ vận hành
  * trên slot trong kho trung tâm); ca này khoá phần delta của PR:
  * đường trung tâm không gọi kho ngân hàng.
+ *
+ * Vòng sửa theo phán quyết trên PR #612 bổ sung: (7) đường đọc nội
+ * dung gói đi qua cổng người xem `question:useall` — học sinh bị từ
+ * chối ở cả 3 route đọc, giáo viên đọc được; (8) trung tâm liệt kê
+ * được sự kiện rút chưa ghi nhận qua API mà không cần biết trước id
+ * sự kiện, ghi nhận xong thì hết; (9) nhập bị từ chối ở cổng quyền
+ * `question:add` thì không để lại dòng importer ở kho ngân hàng và
+ * không có dòng nhập ở kho trung tâm.
  */
 const BANK_DATABASE = 'lms_test_bank_585';
 const BANK_ROLE = 'lms_bank_test_585';
@@ -109,6 +118,7 @@ describe('Ngân hàng hệ thống thành kho riêng + API (issue #585)', () => 
   let appNoBank: INestApplication | null = null;
   let admin: string;
   let teacher: { id: string; token: string };
+  let student: { id: string; token: string };
   let pg: Client;
   let bankPg: Client;
 
@@ -141,6 +151,10 @@ describe('Ngân hàng hệ thống thành kho riêng + API (issue #585)', () => 
     await assignRole(app, admin, u.id, await roleIdByShortname(app, admin, 'teacher'), await systemContextId(app, admin));
     const session = await login(app, u.username, STRONG_PASSWORD);
     teacher = { id: u.id, token: session.accessToken };
+    const s = await createUserViaApi(app, admin);
+    await assignRole(app, admin, s.id, await roleIdByShortname(app, admin, 'student'), await systemContextId(app, admin));
+    const studentSession = await login(app, s.username, STRONG_PASSWORD);
+    student = { id: s.id, token: studentSession.accessToken };
   });
 
   afterAll(async () => {
@@ -278,6 +292,105 @@ describe('Ngân hàng hệ thống thành kho riêng + API (issue #585)', () => 
     expect(rows.rowCount).toBe(1);
     expect(rows.rows[0]!.kind).toBe('derived');
     expect(rows.rows[0]!.imported_version_number).toBe(1);
+  });
+
+  it('đọc nội dung gói qua cổng người xem: học sinh bị từ chối ở cả 3 route đọc, giáo viên đọc được', async () => {
+    const created = await publish('Câu để kiểm cổng người xem');
+    const questionId = created.question.id;
+    // Gói câu chứa đáp án nên cả 3 route đọc phải dừng ở cổng người
+    // xem và trả 404 như câu không tồn tại, không lộ sự tồn tại.
+    for (const path of [
+      `/api/v1/system-bank/questions/${questionId}`,
+      `/api/v1/system-bank/questions/${questionId}/versions`,
+      `/api/v1/system-bank/questions/${questionId}/versions/1`,
+    ]) {
+      const denied = await http(app).get(path).set(bearer(student.token));
+      expect(denied.status).toBe(404);
+      expect((denied.body as { code?: string }).code).toBe('system_bank.question_not_found');
+    }
+    const read = await http(app).get(`/api/v1/system-bank/questions/${questionId}/versions/1`).set(bearer(teacher.token));
+    expect(read.status).toBe(200);
+    expect(read.body.package.questionText).toMatchObject(doc('Câu để kiểm cổng người xem'));
+  });
+
+  it('trung tâm liệt kê được sự kiện rút chưa ghi nhận qua API mà không cần biết trước id, ghi nhận xong thì hết', async () => {
+    const created = await publish('Câu rút để giao thông báo qua API');
+    const questionId = created.question.id;
+    const imported = await http(app).post('/api/v1/system-bank/import').set(bearer(teacher.token)).send({
+      sourceQuestionId: questionId,
+    });
+    expect(imported.status).toBe(201);
+    // Chưa rút thì danh sách chưa ghi nhận không chứa câu này.
+    const before = await http(app).get('/api/v1/system-bank/events/pending').set(bearer(teacher.token));
+    expect(before.status).toBe(200);
+    expect(
+      (before.body as { sourceQuestionId: string }[]).find((event) => event.sourceQuestionId === questionId),
+    ).toBeUndefined();
+    const withdrawn = await http(app).post(`/api/v1/system-bank/questions/${questionId}/withdraw`).set(bearer(admin)).send({
+      reason: 'Nội dung lỗi thời',
+    });
+    expect(withdrawn.status).toBe(201);
+    // Sau khi rút, sự kiện hiện trong danh sách của trung tâm đã
+    // nhập — id sự kiện lấy TỪ danh sách này, không truy vấn DB.
+    const pending = await http(app).get('/api/v1/system-bank/events/pending').set(bearer(teacher.token));
+    expect(pending.status).toBe(200);
+    const mine = (pending.body as { id: string; type: string; sourceQuestionId: string }[])
+      .filter((event) => event.sourceQuestionId === questionId);
+    expect(mine).toHaveLength(1);
+    expect(mine[0]!.type).toBe('question_withdrawn');
+    const ack = await http(app).post(`/api/v1/system-bank/events/${mine[0]!.id}/acknowledge`).set(bearer(teacher.token)).send();
+    expect(ack.status).toBe(201);
+    const after = await http(app).get('/api/v1/system-bank/events/pending').set(bearer(teacher.token));
+    expect(
+      (after.body as { sourceQuestionId: string }[]).find((event) => event.sourceQuestionId === questionId),
+    ).toBeUndefined();
+  });
+
+  it('nhập bị từ chối ở cổng quyền question:add thì không để lại dòng importer ở kho ngân hàng và không có dòng nhập ở kho trung tâm', async () => {
+    const created = await publish('Câu để kiểm thứ tự cổng quyền');
+    const questionId = created.question.id;
+    const teacherRoleId = await roleIdByShortname(app, admin, 'teacher');
+    const systemId = await systemContextId(app, admin);
+    // Cấm hẳn question:add của vai giáo viên ở context hệ thống:
+    // PROHIBIT ở context cha thắng mọi ALLOW ở context con (kể cả
+    // vai lead ở bank cá nhân) nên đường nhập chắc chắn dừng ở cổng
+    // quyền. Gỡ cấm cũng qua API (đặt lại INHERIT) ngay trong
+    // finally: evaluator cache kết quả theo version của context,
+    // chỉ đường ghi qua service mới bump version làm mất hiệu lực
+    // cache — xoá thẳng bằng SQL sẽ để lại kết quả cấm trong cache
+    // và rò sang ca khác dùng chung DB.
+    await setOverride(app, admin, teacherRoleId, 'question:add', systemId, -1000);
+    try {
+      const denied = await http(app).post('/api/v1/system-bank/import').set(bearer(teacher.token)).send({
+        sourceQuestionId: questionId,
+      });
+      expect(denied.status).toBe(403);
+      expect((denied.body as { code?: string }).code).toBe('access.capability_denied');
+    } finally {
+      await setOverride(app, admin, teacherRoleId, 'question:add', systemId, 0);
+    }
+    const importers = await bankPg.query(
+      `SELECT id FROM system_question_importers WHERE source_question_id = $1`,
+      [questionId],
+    );
+    expect(importers.rowCount).toBe(0);
+    const importRows = await pg.query(
+      `SELECT question_id FROM system_question_imports WHERE source_question_id = $1`,
+      [questionId],
+    );
+    expect(importRows.rowCount).toBe(0);
+    // Đối chứng: gỡ cấm xong thì chính câu đó nhập được và dòng
+    // importer xuất hiện — chứng tỏ lần từ chối ở trên dừng đúng ở
+    // cổng quyền chứ không phải câu có lỗi khác.
+    const imported = await http(app).post('/api/v1/system-bank/import').set(bearer(teacher.token)).send({
+      sourceQuestionId: questionId,
+    });
+    expect(imported.status).toBe(201);
+    const importersAfter = await bankPg.query(
+      `SELECT id FROM system_question_importers WHERE source_question_id = $1`,
+      [questionId],
+    );
+    expect(importersAfter.rowCount).toBe(1);
   });
 
   it('bank-off: app không cấu hình kho ngân hàng vẫn đọc câu đã nhập và tạo đề từ câu đó', async () => {

@@ -276,6 +276,29 @@ export class SystemBankRepository {
     return result;
   }
 
+  /** Liệt kê định danh các câu một trung tâm đã nhập (căn cứ suy tập sự kiện thuộc diện giao cho trung tâm đó). */
+  async listImportedQuestionIds(centreSlug: string): Promise<string[]> {
+    const rows = await this.db()
+      .select({ sourceQuestionId: systemQuestionImporters.sourceQuestionId })
+      .from(systemQuestionImporters)
+      .where(eq(systemQuestionImporters.centreSlug, centreSlug));
+    return rows.map((row) => row.sourceQuestionId);
+  }
+
+  /**
+   * Liệt kê sự kiện của một tập câu theo thứ tự ghi nhận (cũ trước,
+   * định danh làm khoá phụ cho thứ tự ổn định) — nguồn của đường
+   * giao thông báo phía trung tâm.
+   */
+  async listEventsForQuestions(sourceQuestionIds: string[]): Promise<SystemBankEventRow[]> {
+    if (sourceQuestionIds.length === 0) return [];
+    return this.db()
+      .select()
+      .from(systemBankEvents)
+      .where(inArray(systemBankEvents.sourceQuestionId, sourceQuestionIds))
+      .orderBy(systemBankEvents.createdAt, systemBankEvents.id);
+  }
+
   /** Liệt kê slug các trung tâm đã nhập một câu (căn cứ phát thông báo khi rút câu). */
   async listImporterSlugs(sourceQuestionId: string): Promise<string[]> {
     const rows = await this.db()

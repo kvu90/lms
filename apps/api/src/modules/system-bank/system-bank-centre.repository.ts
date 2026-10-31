@@ -137,6 +137,15 @@ export class SystemBankCentreRepository {
     return existing[0];
   }
 
+  /** Liệt kê định danh các sự kiện một trung tâm đã ghi nhận (theo slug của chính trung tâm đó). */
+  async listEventReceiptEventIds(centreSlug: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ eventId: systemBankEventReceipts.eventId })
+      .from(systemBankEventReceipts)
+      .where(eq(systemBankEventReceipts.centreSlug, centreSlug));
+    return rows.map((row) => row.eventId);
+  }
+
   /** Đọc bản cài gói YCCĐ mới nhất của trung tâm (null khi chưa cài gói nào) — dùng suy phiên bản trước khi ghi vết cài mới. */
   async getOutcomePackageInstall(): Promise<OutcomePackageInstallRow | null> {
     const rows = await this.db

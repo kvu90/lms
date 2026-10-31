@@ -41,8 +41,12 @@ import { SystemBankService } from '../../../src/modules/system-bank/system-bank.
  * chương trình rồi cài lại — nội dung cập nhật tại chỗ theo id, vết
  * cài ghi phiên bản trước; (4) cài gói khi môn chưa có ở trung tâm
  * thì fail-closed; (5) cài gói khi trung tâm đã có chương trình
- * (môn, khối) khác id thì fail-closed. Đường nhập bản chụp (cần
- * QuestionsService thật) và đường bank-off thuộc tầng e2e.
+ * (môn, khối) khác id thì fail-closed; (6) đường giao thông báo
+ * rút câu phía trung tâm: mỗi trung tâm liệt kê được sự kiện chưa
+ * ghi nhận của đúng câu mình đã nhập mà không cần biết trước id sự
+ * kiện, ghi nhận xong thì hết ở trung tâm mình và còn nguyên ở
+ * trung tâm khác. Đường nhập bản chụp (cần QuestionsService thật)
+ * và đường bank-off thuộc tầng e2e.
  */
 const BANK_DATABASE = 'lms_test_bank_585';
 const BANK_ROLE = 'lms_bank_test_585';
@@ -225,14 +229,14 @@ describe('Kho ngân hàng hệ thống (issue #585)', () => {
     const created = await service.publishQuestion(ADMIN_ID, { qtype: 'multichoice', package: multichoicePackage('Câu gốc') });
     const questionId = created.question.id;
     await service.publishVersion(ADMIN_ID, questionId, { package: multichoicePackage('Câu sửa') });
-    const v1 = await service.getVersion(questionId, 1);
-    const v2 = await service.getVersion(questionId, 2);
+    const v1 = await service.getVersion(ADMIN_ID, questionId, 1);
+    const v2 = await service.getVersion(ADMIN_ID, questionId, 2);
     expect(v1.package).toMatchObject({ questionText: doc('Câu gốc') });
     expect(v2.package).toMatchObject({ questionText: doc('Câu sửa') });
     expect(checksumPackage(v1.package as never)).toBe(v1.checksum);
     expect(checksumPackage(v2.package as never)).toBe(v2.checksum);
     expect(v1.checksum).not.toBe(v2.checksum);
-    const versions = await service.listVersions(questionId);
+    const versions = await service.listVersions(ADMIN_ID, questionId);
     expect(versions.map((row) => row.version)).toEqual([1, 2]);
   });
 
@@ -251,13 +255,39 @@ describe('Kho ngân hàng hệ thống (issue #585)', () => {
       service.discover({ qtype: 'multichoice', limit: 100, offset: 0 }),
     );
     expect(discovered.items.find((item) => item.id === questionId)).toBeUndefined();
-    const stillReadable = await service.getQuestion(questionId);
+    const stillReadable = await service.getQuestion(ADMIN_ID, questionId);
     expect(stillReadable.status).toBe('withdrawn');
     const events = await bankDb.select().from(systemBankEvents).where(eq(systemBankEvents.sourceQuestionId, questionId));
     expect(events).toHaveLength(1);
     expect(events[0]!.type).toBe('question_withdrawn');
-    const oldVersion = await service.getVersion(questionId, 1);
+    const oldVersion = await service.getVersion(ADMIN_ID, questionId, 1);
     expect(oldVersion.package).toMatchObject({ questionText: doc('Câu sẽ rút') });
+  });
+
+  it('sự kiện chưa ghi nhận: trung tâm thấy sự kiện rút của câu mình đã nhập mà không cần biết trước id, ghi nhận xong thì hết ở trung tâm mình, trung tâm khác vẫn thấy', async () => {
+    const created = await service.publishQuestion(ADMIN_ID, { qtype: 'multichoice', package: multichoicePackage('Câu rút để giao thông báo') });
+    const questionId = created.question.id;
+    await bankDb.insert(systemQuestionImporters).values([
+      { sourceQuestionId: questionId, centreSlug: 'trung-tam-a', importedBy: ADMIN_ID },
+      { sourceQuestionId: questionId, centreSlug: 'trung-tam-b', importedBy: ADMIN_ID },
+    ]);
+    await service.withdrawQuestion(ADMIN_ID, questionId, { reason: 'Nội dung lỗi thời' });
+    // Trung tâm A liệt kê mà không biết trước id sự kiện: sự kiện
+    // rút của câu vừa nhập hiện ra từ chính danh sách này.
+    const pendingA = await tenantAls.run({ spaceSlug: 'trung-tam-a' }, () => service.listPendingEvents());
+    const mine = pendingA.filter((event) => event.sourceQuestionId === questionId);
+    expect(mine).toHaveLength(1);
+    expect(mine[0]!.type).toBe('question_withdrawn');
+    // Ghi nhận bằng id lấy từ danh sách: danh sách của A hết sự
+    // kiện đó, trung tâm B chưa ghi nhận nên vẫn thấy.
+    await tenantAls.run({ spaceSlug: 'trung-tam-a' }, () => service.acknowledgeEvent(mine[0]!.id));
+    const pendingAfterAck = await tenantAls.run({ spaceSlug: 'trung-tam-a' }, () => service.listPendingEvents());
+    expect(pendingAfterAck.find((event) => event.sourceQuestionId === questionId)).toBeUndefined();
+    const pendingB = await tenantAls.run({ spaceSlug: 'trung-tam-b' }, () => service.listPendingEvents());
+    expect(pendingB.find((event) => event.sourceQuestionId === questionId)).toBeDefined();
+    // Trung tâm C chưa từng nhập câu này thì không thấy sự kiện.
+    const pendingC = await tenantAls.run({ spaceSlug: 'trung-tam-c' }, () => service.listPendingEvents());
+    expect(pendingC.find((event) => event.sourceQuestionId === questionId)).toBeUndefined();
   });
 
   it('gói YCCĐ: phát hành rồi cài lại — nội dung cập nhật tại chỗ theo id, vết cài ghi phiên bản trước', async () => {

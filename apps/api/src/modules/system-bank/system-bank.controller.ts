@@ -17,9 +17,9 @@ import {
  * - `POST /system-bank/questions` — phát hành câu mới kèm phiên bản đầu tiên (quản trị platform).
  * - `POST /system-bank/questions/:id/versions` — phát hành phiên bản mới cho câu đã có (quản trị platform).
  * - `POST /system-bank/questions/:id/withdraw` — rút câu: ngừng khám phá + ngừng nhập mới, ghi sự kiện (quản trị platform).
- * - `GET /system-bank/questions/:id` — đọc một câu (mọi trạng thái).
- * - `GET /system-bank/questions/:id/versions` — liệt kê mọi phiên bản của câu.
- * - `GET /system-bank/questions/:id/versions/:version` — đọc một phiên bản kèm checksum.
+ * - `GET /system-bank/questions/:id` — đọc một câu (mọi trạng thái; cổng người xem `question:useall`).
+ * - `GET /system-bank/questions/:id/versions` — liệt kê mọi phiên bản của câu (cùng cổng người xem).
+ * - `GET /system-bank/questions/:id/versions/:version` — đọc một phiên bản kèm checksum (cùng cổng người xem).
  *
  * Khám phá có lọc (theo vị trí chương trình/YCCĐ/dạng/mức độ), nhập
  * bản chụp, ghi nhận sự kiện rút câu ở trung tâm và gói YCCĐ là các
@@ -58,24 +58,31 @@ export class SystemBankController {
   }
 
   @Get(':id')
-  async getQuestion(@Param('id', { schema: uuidIdSchema }) id: string) {
-    return this.bank.getQuestion(id);
+  async getQuestion(
+    @Param('id', { schema: uuidIdSchema }) id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.bank.getQuestion(actor.id, id);
   }
 
   @Get(':id/versions')
-  async listVersions(@Param('id', { schema: uuidIdSchema }) id: string) {
-    return this.bank.listVersions(id);
+  async listVersions(
+    @Param('id', { schema: uuidIdSchema }) id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.bank.listVersions(actor.id, id);
   }
 
   @Get(':id/versions/:version')
   async getVersion(
     @Param('id', { schema: uuidIdSchema }) id: string,
     @Param('version') version: string,
+    @CurrentUser() actor: AuthenticatedUser,
   ) {
     const versionNumber = Number(version);
     if (!Number.isInteger(versionNumber) || versionNumber < 1) {
       throw new BadRequestException({ message: `Invalid version number: ${version}`, code: 'system_bank.bad_version' });
     }
-    return this.bank.getVersion(id, versionNumber);
+    return this.bank.getVersion(actor.id, id, versionNumber);
   }
 }
