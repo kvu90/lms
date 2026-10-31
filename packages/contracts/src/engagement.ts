@@ -709,6 +709,7 @@ export const MESSAGING_SOCKET_EVENTS = {
   typing: 'typing',
   /** Server → client: trạng thái trực tuyến của một user thay đổi. */
   presenceChanged: 'presence.changed',
+  presenceSnapshot: 'presence.snapshot',
   /** Client → server: xin các tin còn thiếu theo mốc seq của từng conversation; kết quả trả qua ack. */
   sync: 'sync',
   /** Client → server: xin vào room của một conversation (server kiểm tra tư cách thành viên). */
@@ -768,6 +769,21 @@ export interface RealtimeTypingPayload {
 export interface RealtimePresencePayload {
   userId: string;
   online: boolean;
+}
+
+/**
+ * Tải sự kiện presence.snapshot: ảnh chụp trạng thái trực tuyến tại
+ * thời điểm NGƯỜI XEM nối socket — liệt kê các userId ĐANG trực tuyến
+ * trong số những người có quan hệ hội thoại chung với người xem. Sự
+ * kiện presence.changed chỉ phát khi trạng thái THAY ĐỔI nên người đã
+ * trực tuyến từ trước lúc người xem mở trang không bao giờ phát sinh
+ * sự kiện; ảnh chụp này lấp đúng khoảng trống đó. Danh sách chỉ chứa
+ * người đang trực tuyến — vắng mặt trong danh sách nghĩa là ngoại
+ * tuyến hoặc chưa biết, và phía khách không được dùng ảnh chụp để
+ * ghi đè một trạng thái đã học được từ sự kiện trực tiếp.
+ */
+export interface RealtimePresenceSnapshotPayload {
+  onlineUserIds: string[];
 }
 
 /** Payload client gửi khi nối lại: conversationId → seq cao nhất đã thấy. */

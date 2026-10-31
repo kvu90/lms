@@ -200,6 +200,19 @@ export function useMessagesRealtime({
       onPresence: ({ userId, online }) => {
         setOnlineUsers((prev) => ({ ...prev, [userId]: online }));
       },
+      onPresenceSnapshot: ({ onlineUserIds }) => {
+        // Ảnh chụp chỉ liệt kê người ĐANG trực tuyến và phản ánh thời
+        // điểm nối; một sự kiện trực tiếp mới hơn có thể đã ghi trạng
+        // thái ngoại tuyến của ai đó trong lúc ảnh chụp đang trên
+        // đường — nên ảnh chụp chỉ được BỔ SUNG trạng thái trực tuyến,
+        // tuyệt đối không ghi đè/xoá trạng thái đã biết.
+        if (!onlineUserIds.length) return;
+        setOnlineUsers((prev) => {
+          const next = { ...prev };
+          for (const userId of onlineUserIds) next[userId] = true;
+          return next;
+        });
+      },
       onReconnect: () => {
         // Nối lại: danh sách lấy tươi bằng REST (truy vấn tổng hợp đã
         // rẻ), conversation đang mở xin đúng phần thiếu theo seq.

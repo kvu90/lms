@@ -4287,4 +4287,58 @@ describe('Trang tin nhắn — vòng sửa sau nghiệm thu PR #610', () => {
     // xanh trên avatar có cùng điều kiện — khẳng định ở chữ).
     expect(await within(row).findByText('Trực tuyến')).toBeInTheDocument();
   });
+
+  it('panel thành viên: người đã trực tuyến từ TRƯỚC lúc tải trang — trạng thái chỉ đến qua ảnh chụp lúc nối, không có sự kiện thay đổi nào — vẫn hiện chữ Trực tuyến ở dòng thành viên', async () => {
+    const calls: RecordedCall[] = [];
+    stubMsgT4Fetch(calls);
+    renderMessages();
+
+    await openT4CourseChat();
+    await openT4InfoPanel(`member-panel-row-${OTHER_ID}`);
+    const row = screen.getByTestId(`member-panel-row-${OTHER_ID}`);
+    expect(within(row).queryByText('Trực tuyến')).not.toBeInTheDocument();
+
+    // Chỉ ảnh chụp lúc nối mang trạng thái (đây là ca đã hỏng ở
+    // nghiệm thu: presence.changed không bao giờ phát cho người
+    // đã trực tuyến sẵn, panel không hiện gì cả).
+    act(() => {
+      realtime.handlers?.onPresenceSnapshot({ onlineUserIds: [OTHER_ID] } as never);
+    });
+
+    expect(await within(row).findByText('Trực tuyến')).toBeInTheDocument();
+  });
+
+  it('đầu khung 1–1: ảnh chụp lúc nối hiện "Trực tuyến" cho đối tác đã trực tuyến từ trước; ảnh chụp rỗng đến sau không xoá trạng thái đã biết, sự kiện trực tiếp vẫn thắng ảnh chụp', async () => {
+    const calls: RecordedCall[] = [];
+    stubNamelessDmFetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Một/ }));
+    await screen.findByLabelText('Tin nhắn');
+    const infoButton = await screen.findByRole('button', { name: 'Thông tin cuộc trò chuyện' });
+    const header = infoButton.parentElement as HTMLElement;
+    expect(within(header).queryByText('Trực tuyến')).not.toBeInTheDocument();
+
+    // Đối tác trực tuyến từ trước lúc tải trang: chỉ ảnh chụp
+    // lúc nối mang trạng thái này tới trang.
+    act(() => {
+      realtime.handlers?.onPresenceSnapshot({ onlineUserIds: [OTHER_ID] } as never);
+    });
+    expect(await within(header).findByText('Trực tuyến')).toBeInTheDocument();
+
+    // Ảnh chụp rỗng (ví dụ lần nối lại không liệt kê ai) không
+    // được xoá trạng thái đã biết — ảnh chụp chỉ bổ sung.
+    act(() => {
+      realtime.handlers?.onPresenceSnapshot({ onlineUserIds: [] } as never);
+    });
+    expect(within(header).getByText('Trực tuyến')).toBeInTheDocument();
+
+    // Sự kiện trực tiếp đến sau vẫn là nguồn thắng: đối tác ngắt
+    // nối thì đầu khung đổi sang "Ngoại tuyến".
+    act(() => {
+      realtime.handlers?.onPresence({ userId: OTHER_ID, online: false } as never);
+    });
+    expect(await within(header).findByText('Ngoại tuyến')).toBeInTheDocument();
+    expect(within(header).queryByText('Trực tuyến')).not.toBeInTheDocument();
+  });
 });
