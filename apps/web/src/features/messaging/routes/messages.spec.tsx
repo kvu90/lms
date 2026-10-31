@@ -1934,6 +1934,39 @@ describe('Messages page — phân tab, danh sách nhóm, sheet Tin nhắn mới'
     expect(screen.getByRole('button', { name: /Nhóm Riêng/ })).toBeInTheDocument();
   });
 
+  it('hàng hội thoại trực tiếp đang mở mang đúng trạng thái chọn của demo: khung bọc có nền bg-muted, ring 1px khảm trong và overflow-hidden; nền fallback của avatar là bg-background/50', async () => {
+    const calls: RecordedCall[] = [];
+    stubMsgT3Fetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Một/ }));
+    expect(await screen.findByLabelText('Tin nhắn')).toBeInTheDocument();
+
+    const activeButton = screen.getByRole('button', { name: /Bạn Một/ });
+    expect(activeButton).toHaveAttribute('aria-current', 'true');
+    // Khung bọc hàng (phần tử cha của nút mở hội thoại) mang
+    // toàn bộ trạng thái chọn như chuỗi class hàng của demo
+    // (điểm C16): nền muted, ring 1px màu border khảm trong
+    // và overflow-hidden để nội dung hàng — gồm cả nút menu
+    // trạng thái — bị cắt theo góc bo tròn của hàng.
+    const rowFrame = activeButton.parentElement as HTMLElement;
+    expect(rowFrame).toHaveClass('overflow-hidden', 'bg-muted', 'ring-1', 'ring-border', 'ring-inset');
+    // Fallback của avatar trên hàng đang chọn mang nền
+    // background/50 như class điều kiện của demo.
+    const activeFallback = activeButton.querySelector('[data-slot="avatar-fallback"]');
+    expect(activeFallback).not.toBeNull();
+    expect(activeFallback).toHaveClass('bg-background/50');
+
+    // Hàng chưa chọn không mang bất kỳ class trạng thái chọn
+    // nào: các class trên là hệ quả của trạng thái, không
+    // phải lớp nền tĩnh của mọi hàng.
+    const inactiveButton = screen.getByRole('button', { name: /Bạn Hai/ });
+    expect(inactiveButton).not.toHaveAttribute('aria-current');
+    const inactiveFrame = inactiveButton.parentElement as HTMLElement;
+    expect(inactiveFrame).not.toHaveClass('bg-muted', 'ring-1', 'ring-border');
+    expect(inactiveButton.querySelector('[data-slot="avatar-fallback"]')).not.toHaveClass('bg-background/50');
+  });
+
   it('tab Chưa đọc chứa hội thoại nhóm có tin chưa đọc kèm huy hiệu; số đếm của tab khớp danh sách đã liệt kê', async () => {
     const calls: RecordedCall[] = [];
     stubMsgT3Fetch(calls, { groupUnread: 2 });

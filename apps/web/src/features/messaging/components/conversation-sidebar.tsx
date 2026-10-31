@@ -301,14 +301,17 @@ export function ConversationSidebar({
           Hàng đang chọn mang đúng khuôn demo (điểm C16, trích
           chuỗi class từ chunk của demo): nền `bg-muted` kèm
           ring 1px `ring-border` KHẢM TRONG (`ring-inset`);
-          nền và ring nằm ở khung bọc ngoài vì hàng của bản
-          dựng còn nút menu trạng thái ở cuối hàng (chức năng
-          thật giữ lại, điểm C3) mà demo không có — phần tử
-          mang highlight vẫn là toàn bộ hàng như demo. Nút mở
-          hội thoại chỉ mang `hover:bg-muted/75` khi CHƯA chọn
+          khung bọc còn mang `overflow-hidden` như lớp nền
+          của chuỗi demo để toàn bộ nội dung hàng — gồm cả
+          nút menu trạng thái — bị cắt theo góc bo tròn; nền
+          và ring nằm ở khung bọc ngoài vì hàng của bản dựng
+          còn nút menu trạng thái ở cuối hàng (chức năng thật
+          giữ lại, điểm C3) mà demo không có — phần tử mang
+          highlight vẫn là toàn bộ hàng như demo. Nút mở hội
+          thoại chỉ mang `hover:bg-muted/75` khi CHƯA chọn
           như class điều kiện của demo.
         */}
-        <div className={cn('flex min-w-0 items-start gap-0.5 rounded-lg ring-inset', isActive && 'bg-muted ring-1 ring-border')}>
+        <div className={cn('flex min-w-0 items-start gap-0.5 overflow-hidden rounded-lg ring-inset', isActive && 'bg-muted ring-1 ring-border')}>
           <button
             type="button"
             aria-current={isActive || undefined}
@@ -759,7 +762,17 @@ export function ConversationSidebar({
             giả nào.
           */}
           <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 py-2">
-            <p className="px-2 text-sm text-muted-foreground">{t('messagesFavouritesEmpty')}</p>
+            {/*
+              Trạng thái rỗng của tab Yêu thích theo đúng
+              khuôn I2 như khối rỗng của danh sách hội thoại
+              (issue #608): icon MessageSquare 36px màu muted
+              ở 40%, chữ 14px font-medium màu foreground, căn
+              giữa, đệm 40px.
+            */}
+            <div className="flex flex-col items-center gap-2 p-10 text-center">
+              <MessageSquare className="size-9 text-muted-foreground/40" aria-hidden />
+              <p className="text-sm font-medium">{t('messagesFavouritesEmpty')}</p>
+            </div>
           </div>
         </TabsContent>
       </Tabs>

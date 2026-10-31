@@ -34,13 +34,14 @@ import type { ContactRelationship, ConversationView } from '../types/types';
  *
  * Cấu trúc khung trái: thanh tab bốn tab lọc ngang hàng như
  * bản demo (Tất cả / Chưa đọc / Nhóm / Yêu thích, issue #606) —
- * tab Tất cả và Chưa đọc chỉ chứa hội thoại 1–1, tab Nhóm là
- * danh sách phẳng các mục nhóm dựng từ API cây của MSG-T1,
- * Danh bạ hạ thành sheet "Tin nhắn mới". Tab đang chọn + hội
- * thoại đang mở
- * được LƯU BỀN ở localStorage (hai khoá trong `page-helpers.ts`)
- * để quay lại màn Tin nhắn là gặp đúng ngữ cảnh gần nhất; deep-link
- * có mặt thì thắng ngữ cảnh đã lưu.
+ * tab Tất cả gồm MỌI hội thoại chưa lưu trữ (1–1 lẫn nhóm) và
+ * tab Chưa đọc gồm mọi hội thoại còn tin chưa đọc ở cả hai
+ * loại; tab Nhóm là danh sách phẳng các mục nhóm dựng từ API
+ * cây của MSG-T1, Danh bạ hạ thành sheet "Tin nhắn mới". Tab
+ * đang chọn + hội thoại đang mở được LƯU BỀN ở localStorage
+ * (hai khoá trong `page-helpers.ts`) để quay lại màn Tin nhắn
+ * là gặp đúng ngữ cảnh gần nhất; deep-link có mặt thì thắng
+ * ngữ cảnh đã lưu.
  *
  * Cấu trúc sau đợt C (issue #363): file này chỉ còn lắp ghép — mọi
  * trạng thái, hiệu ứng và handler điều phối nằm trong các hook ở
