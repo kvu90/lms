@@ -19,7 +19,7 @@
     "db:migrate:control-plane": "drizzle-kit migrate --config drizzle-control-plane.config.ts",
     "db:setup:control-plane": "node dist/control-plane-setup.js",
     "db:setup:runtime-roles": "node dist/runtime-roles-setup.js",
-    "space:provision": "node dist/space-provision.js",
+    "space:provision": "node dist/modules/tenants/space-provision.js",
     "fleet:migrate": "node dist/fleet-migration-runner.js",
     "fleet:backup": "node dist/fleet-backup.js",
     "fleet:restore-test": "node dist/fleet-restore-test.js",

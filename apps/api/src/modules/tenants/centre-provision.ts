@@ -19,7 +19,7 @@
  *   chứa ký tự phá URI làm bước migrate lỗi `URI malformed`).
  */
 import { createHash, randomBytes } from 'node:crypto';
-import { SPACE_LABEL_PATTERN } from './modules/tenants/space-resolution';
+import { SPACE_LABEL_PATTERN } from './space-resolution';
 
 /** Tiền tố tên database riêng của một trung tâm trên cụm chung. */
 export const CENTRE_DATABASE_PREFIX = 'lms_space_';

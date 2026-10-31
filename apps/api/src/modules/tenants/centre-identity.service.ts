@@ -7,7 +7,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { hashCentreInviteToken } from '../../centre-provision';
+import { hashCentreInviteToken } from './centre-provision';
 import { SpaceRoutingError } from '../../db/routing/space-connection-resolver';
 import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import type { ActivateCentreInviteDto, UpdateCentreIdentityDto } from './dto/centres.dto';

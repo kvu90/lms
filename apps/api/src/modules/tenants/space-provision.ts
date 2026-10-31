@@ -1,7 +1,7 @@
 /**
  * Điểm vào CLI của pipeline cấp phát trung tâm mới (issue #583) —
  * chạy ngoài NestJS như các công cụ fleet (`node
- * dist/space-provision.js <lệnh> [--khóa giá-trị]`).
+ * dist/modules/tenants/space-provision.js <lệnh> [--khóa giá-trị]`).
  *
  * Hai lệnh:
  * - `provision`: chạy toàn bộ pipeline 7 bước (xem
@@ -56,8 +56,8 @@ function optional(args: Record<string, string | true>, key: string): string | un
 }
 
 const USAGE = `Usage:
-  node dist/space-provision.js provision --slug <slug> --name <name> --admin-email <email> --actor-id <uuid> [--plan <plan>] [--admin-username <username>] [--admin-first-name <name>] [--admin-last-name <name>] [--database-name <db>] [--database-password <password>]
-  node dist/space-provision.js invite --slug <slug> --email <email> [--revoke]`;
+  node dist/modules/tenants/space-provision.js provision --slug <slug> --name <name> --admin-email <email> --actor-id <uuid> [--plan <plan>] [--admin-username <username>] [--admin-first-name <name>] [--admin-last-name <name>] [--database-name <db>] [--database-password <password>]
+  node dist/modules/tenants/space-provision.js invite --slug <slug> --email <email> [--revoke]`;
 
 async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
@@ -98,7 +98,7 @@ async function main(): Promise<void> {
       if (result.inviteToken) {
         console.log(`Send the invite token above to the first admin (${required(args, 'admin-email')}) to set their password via POST /api/v1/centres/activate-invite with { slug, token, password }.`);
       } else {
-        console.log('A pending invite already exists for the first admin — if its link was lost, re-issue with: node dist/space-provision.js invite --slug <slug> --email <email>');
+        console.log('A pending invite already exists for the first admin — if its link was lost, re-issue with: node dist/modules/tenants/space-provision.js invite --slug <slug> --email <email>');
       }
     }
     return;

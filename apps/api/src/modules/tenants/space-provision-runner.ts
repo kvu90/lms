@@ -77,22 +77,22 @@ import {
   buildEnsureDatabaseStatements,
   buildEnsureRoleStatements,
   buildRestrictConnectStatements,
-} from './control-plane-provision';
+} from '../../control-plane-provision';
 import {
   listMigrationFolders,
   readDatabaseAppliedMigrations,
   readDatabaseSchemaVersion,
   retargetUrl,
-} from './fleet-common';
-import { FleetRegistryWriter } from './fleet-registry-writer';
-import { CONTEXT_LEVELS } from './modules/access/domain/capabilities';
-import { isDedicatedDatabaseNameConflict } from './modules/control-plane/control-plane.repository';
+} from '../../fleet-common';
+import { FleetRegistryWriter } from '../../fleet-registry-writer';
+import { CONTEXT_LEVELS } from '../access/domain/capabilities';
+import { isDedicatedDatabaseNameConflict } from '../control-plane/control-plane.repository';
 import {
   loadProgramDumpSql,
   PROGRAM_DUMP_VERSION,
   restoreProgramDumpSql,
-} from './modules/curriculum/program-dump';
-import { relations } from './db/relations';
+} from '../curriculum/program-dump';
+import { relations } from '../../db/relations';
 import {
   centreIdentity,
   centreInvites,
@@ -102,7 +102,7 @@ import {
   tenantMemberships,
   tenants,
   users,
-} from './db/schema';
+} from '../../db/schema';
 
 /** Đầu vào của một lượt cấp phát. */
 export type SpaceProvisionOptions = {

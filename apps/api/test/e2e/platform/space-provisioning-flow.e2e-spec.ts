@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { emitSpaceRegistryChanged } from '../../../src/db/routing/space-routing-events';
 import { FleetRegistryWriter } from '../../../src/fleet-registry-writer';
 import { ControlPlaneConnection } from '../../../src/modules/control-plane/control-plane.connection';
-import { manageCentreInvite, runSpaceProvision } from '../../../src/space-provision-runner';
+import { manageCentreInvite, runSpaceProvision } from '../../../src/modules/tenants/space-provision-runner';
 import { STRONG_PASSWORD, createTestApp, http } from '../../support/identity-access-helpers';
 
 /**

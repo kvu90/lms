@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { runSpaceProvision, manageCentreInvite } from '../../../src/space-provision-runner';
+import { runSpaceProvision, manageCentreInvite } from '../../../src/modules/tenants/space-provision-runner';
 import { FleetRegistryWriter } from '../../../src/fleet-registry-writer';
 
 /**
