@@ -709,6 +709,49 @@ export class MessagingConversationsService {
         lastMessage: s.lastMessage ? blankRecalledContent(s.lastMessage) : null,
       });
     }
+    // Hàng tổng hợp cho quản trị có phạm vi nhưng chưa từng mở
+    // (issue #592): conversation lớp/khoá mà người xem có phạm vi
+    // quản trị nhưng chưa có dòng thành viên thì vẫn hiện hàng, số
+    // chưa đọc bằng 0 cho tới khi mở lần đầu (đúng quy ước "chưa
+    // ensure thì unread 0" của service cây). TUYỆT ĐỐI KHÔNG ghi
+    // dòng thành viên cho các conversation đó — tổng hợp hàng khác
+    // với biến quản trị thành thành viên mọi chat. Hàng tổng hợp
+    // không thuộc mục đã lưu (chưa có trạng thái cá nhân nào) nên
+    // chỉ thêm vào danh sách chính, và đứng sau các hàng thật để
+    // không xáo trộn thứ tự của chúng; xem trước để trống cho tới
+    // lần mở đầu tiên, khi đó hàng thật từ summaries thay thế
+    // hàng này.
+    if (!opts.archivedOnly) {
+      const seenIds = new Set(out.map((entry) => entry.id));
+      for (const conversation of await this.repo.listCourseAndClassConversations()) {
+        if (seenIds.has(conversation.id)) continue;
+        if (this.membershipSync.isCourseLinked(conversation)) {
+          if (!(await this.isCourseStaff(userId, conversation.itemId!))) continue;
+          out.push({
+            ...conversation,
+            members: await this.repo.listCourseConversationMemberIds(conversation.itemId!),
+            unread: 0,
+            lastReadSeq: 0,
+            pinnedAt: null,
+            archivedAt: null,
+            muted: false,
+            lastMessage: null,
+          });
+        } else if (this.membershipSync.isClassLinked(conversation)) {
+          if (!(await this.isClassStaff(userId, conversation.itemId!))) continue;
+          out.push({
+            ...conversation,
+            members: await this.repo.listClassConversationMemberIds(conversation.itemId!),
+            unread: 0,
+            lastReadSeq: 0,
+            pinnedAt: null,
+            archivedAt: null,
+            muted: false,
+            lastMessage: null,
+          });
+        }
+      }
+    }
     // Tên hiển thị của mọi thành viên (gồm người gửi tin cuối) để
     // client hiện TÊN thay cho UUID thô trong danh sách.
     const profiles = await this.contacts.profilesFor(out.flatMap((entry) => entry.members));

@@ -840,6 +840,40 @@ export class MessagingRepository {
     return Boolean(row);
   }
 
+  /**
+   * Hai người có chung ít nhất một hội thoại 1–1 KHÔNG bị chặn hay
+   * không (cổng hồ sơ chat 1–1, issue #592): cùng câu truy vấn với
+   * {@link sharesConversation} nhưng giới hạn `type = 1` — hội thoại
+   * nhóm/lớp/khoá chung không tính, và quan hệ chặn ở bất kỳ chiều
+   * nào cũng loại như luật ẩn bề mặt 1–1 khi chặn.
+   *
+   * @param viewerId - Người xem cần kiểm.
+   * @param targetId - Người cần xem hồ sơ.
+   * @returns `true` khi hai người chung một hội thoại 1–1 không bị chặn.
+   */
+  async sharesDirectConversation(viewerId: string, targetId: string): Promise<boolean> {
+    if (viewerId === targetId) return true;
+    const [row] = await this.db.select({ value: sql<number>`1` })
+      .from(messageConversationMembers)
+      .innerJoin(messageConversations, eq(messageConversations.id, messageConversationMembers.conversationId))
+      .where(and(
+        eq(messageConversationMembers.userId, viewerId),
+        eq(messageConversations.type, 1),
+        sql`exists (
+          select 1 from ${messageConversationMembers} other_m
+          where other_m.conversation_id = ${messageConversationMembers.conversationId}
+            and other_m.user_id = ${targetId}
+        )`,
+        sql`not (exists (
+          select 1 from ${messageUsersBlocked} b
+          where (b.user_id = ${viewerId} and b.blocked_user_id = ${targetId})
+             or (b.user_id = ${targetId} and b.blocked_user_id = ${viewerId})
+        ))`,
+      ))
+      .limit(1);
+    return Boolean(row);
+  }
+
   // --- contacts (quan hệ đã duyệt) + yêu cầu kết bạn -------------------------
 
   /**
@@ -1789,6 +1823,20 @@ export class MessagingRepository {
       eq(messageConversations.component, 'core_class'),
       eq(messageConversations.itemType, 'class'),
       inArray(messageConversations.itemId, classIds),
+    ));
+  }
+
+  /**
+   * Mọi conversation gắn lớp/khoá (chat toàn khoá, chat cấp lớp) —
+   * đầu vào cho hàng tổng hợp của quản trị có phạm vi nhưng chưa
+   * từng mở (issue #592): service liệt kê chỉ ĐỌC tập này để tổng
+   * hợp hàng, tuyệt đối không ghi dòng thành viên cho các
+   * conversation đó.
+   */
+  async listCourseAndClassConversations(): Promise<ConversationRow[]> {
+    return this.db.select().from(messageConversations).where(or(
+      and(eq(messageConversations.component, 'core_course'), eq(messageConversations.itemType, 'course')),
+      and(eq(messageConversations.component, 'core_class'), eq(messageConversations.itemType, 'class')),
     ));
   }
 

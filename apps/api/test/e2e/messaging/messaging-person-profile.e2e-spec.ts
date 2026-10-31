@@ -7,15 +7,20 @@ import {
 /**
  * Endpoint hồ sơ người phục vụ panel chat 1–1 (issue #592):
  * trả định danh + tên hiển thị + tên đăng nhập + email từ dữ
- * kiện người dùng thật, chỉ khi người xem chung ít nhất một
- * conversation nhìn thấy được với đối tác. Các trường hồ sơ mở
- * rộng chưa có nguồn trong hệ (giới thiệu, điện thoại, website…)
- * KHÔNG có trong response này — chúng vẫn qua adapter ở web với
- * giá trị rỗng, tuyệt đối không bịa.
+ * kiện người dùng thật, chỉ trong cổng hẹp: chính chủ, hoặc chung
+ * hội thoại 1–1 không bị chặn với đối tác, hoặc người xem có
+ * capability xem định danh. Chung nhóm tự do nhưng không chung
+ * 1–1 và không có capability thì 404 — cổng cũ "chung
+ * conversation nhìn thấy được" lộ email qua đồng bộ lười nên đã
+ * bị thu hẹp. Các trường hồ sơ mở rộng chưa có nguồn trong hệ
+ * (giới thiệu, điện thoại, website…) KHÔNG có trong response này
+ * — chúng vẫn qua adapter ở web với giá trị rỗng, tuyệt đối không
+ * bịa.
  *
- * Bốn ca: chung nhóm thì thấy hồ sơ thật; người lạ không chung
- * hội thoại nào thì 404; đối tác của hội thoại 1–1 đang chặn thì
- * 404 như không tồn tại; chính chủ xem hồ sơ của mình thì được.
+ * Năm ca: chung nhóm nhưng không chung 1–1 thì 404; chung 1–1 thì
+ * thấy hồ sơ thật; người lạ không chung hội thoại nào thì 404;
+ * đối tác của hội thoại 1–1 đang chặn thì 404 như không tồn tại;
+ * chính chủ xem hồ sơ của mình thì được.
  */
 interface Person { id: string; username: string; email: string; token: string }
 
@@ -26,6 +31,8 @@ describe('Messaging — endpoint hồ sơ người cho panel chat (issue #592)',
   let stranger: Person;
   let blockedPeer: Person;
   let blockedViewer: Person;
+  let dmViewer: Person;
+  let dmPartner: Person;
 
   async function person(firstName: string, lastName: string): Promise<Person> {
     const admin = await adminToken(app);
@@ -48,12 +55,26 @@ describe('Messaging — endpoint hồ sơ người cho panel chat (issue #592)',
     blockedViewer = await person('Duc', 'ChanNguoi');
     blockedPeer = await person('Khanh', 'BiChan');
 
-    // Người xem và đối tác chung một nhóm tự do (không cần kết
-    // bạn — cổng chung hội thoại chấp nhận mọi loại conversation
-    // nhìn thấy được).
+    // Người xem và đối tác chung một nhóm tự do (không chung 1–1,
+    // không có capability) — theo cổng hẹp thì KHÔNG được xem hồ
+    // sơ của nhau nữa.
     const group = await http(app).post('/api/v1/messages/conversations')
       .set('Authorization', `Bearer ${admin}`).send({ memberIds: [viewer.id, partner.id], type: 2 });
     expect(group.status).toBe(201);
+
+    // Cặp 1–1 không chặn: kết bạn hai chiều rồi mở 1–1 — theo
+    // cổng hẹp thì được xem hồ sơ của nhau.
+    dmViewer = await person('Minh', 'MotMot');
+    dmPartner = await person('Thu', 'HaiHai');
+    const dmReq = await http(app).post(`/api/v1/messages/contacts/${dmPartner.id}`)
+      .set('Authorization', `Bearer ${dmViewer.token}`).send({});
+    expect(dmReq.status).toBe(201);
+    const dmAcc = await http(app).post(`/api/v1/messages/contacts/requests/${dmViewer.id}/accept`)
+      .set('Authorization', `Bearer ${dmPartner.token}`).send({});
+    expect(dmAcc.status).toBe(201);
+    const dmAllowed = await http(app).post('/api/v1/messages/conversations')
+      .set('Authorization', `Bearer ${dmViewer.token}`).send({ memberIds: [dmPartner.id], type: 1 });
+    expect(dmAllowed.status).toBe(201);
 
     // Cặp chặn: kết bạn hai chiều, mở 1–1, rồi phía xem chặn phía
     // kia — hội thoại 1–1 này không còn tính là chung nữa.
@@ -75,14 +96,20 @@ describe('Messaging — endpoint hồ sơ người cho panel chat (issue #592)',
     await app.close();
   });
 
-  it('đối tác chung nhóm thì trả đủ bốn trường thật từ bảng người dùng', async () => {
+  it('chung nhóm tự do nhưng không chung 1–1 và không có capability thì nhận 404 với mã hồ sơ không tìm thấy', async () => {
     const res = await getProfile(viewer.token, partner.id);
+    expect(res.status).toBe(404);
+    expect((res.body as { code?: string }).code).toBe('messaging.person_profile_not_found');
+  });
+
+  it('đối tác chung hội thoại 1–1 không bị chặn thì trả đủ bốn trường thật từ bảng người dùng', async () => {
+    const res = await getProfile(dmViewer.token, dmPartner.id);
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
-      userId: partner.id,
-      displayName: 'Lan Anh Nguyen',
-      username: partner.username,
-      email: partner.email,
+      userId: dmPartner.id,
+      displayName: 'Thu HaiHai',
+      username: dmPartner.username,
+      email: dmPartner.email,
     });
   });
 

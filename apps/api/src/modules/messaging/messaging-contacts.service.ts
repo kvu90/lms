@@ -150,24 +150,26 @@ export class MessagingContactsService {
    * không nằm trong kết quả — client giữ chúng qua adapter với
    * giá trị rỗng, không bịa dữ kiện.
    *
-   * Cổng: người xem phải chung ít nhất một conversation NHÌN THẤY
-   * ĐƯỢC với đối tác (xem repository) — người lạ không chung hội
-   * thoại nào, và đối tác của hội thoại 1–1 đang chặn, đều nhận
-   * 404 như đối tác không tồn tại (không rò sự tồn tại). Chính chủ
-   * xem hồ sơ của mình luôn được phép. Email chỉ lộ trong phạm vi
-   * quan hệ hội thoại này — khác với tóm tắt hiển thị dùng chung
-   * (không có email) và khác với endpoint hồ sơ chung của module
-   * users (gác bằng capability xem định danh).
+   * Cổng (issue #592, thu hẹp từ cổng cũ "chung conversation nhìn
+   * thấy được" — cổng cũ lộ email qua đồng bộ lười: mở chat lớp
+   * vật chất hoá membership cho toàn bộ roster nên mọi học viên
+   * chung lớp đều lấy được email của nhau dù chưa từng có hội
+   * thoại 1–1): chính chủ, hoặc chung hội thoại 1–1 không bị chặn
+   * với đối tác (xem repository), hoặc người xem có
+   * `site:viewuseridentity` tại context hệ thống hoặc context
+   * người dùng của đối tác (luật lộ email của UsersService).
+   * Ngoài cổng này đều nhận 404 như đối tác không tồn tại (không
+   * rò sự tồn tại). Email chỉ trả trong cổng này — khác với tóm
+   * tắt hiển thị dùng chung (không có email).
    *
    * @param viewerId - Người xem hồ sơ.
    * @param targetId - Người cần xem hồ sơ.
    * @returns Hồ sơ người theo hợp đồng panel chat.
    * @throws {NotFoundException} `messaging.person_profile_not_found`
-   *   khi đối tác không tồn tại hoặc không chung conversation nhìn
-   *   thấy được với người xem.
+   *   khi đối tác không tồn tại hoặc người xem ngoài cổng trên.
    */
   async getPersonProfile(viewerId: string, targetId: string): Promise<{ userId: string; displayName: string; username: string; email: string }> {
-    if (viewerId !== targetId && !(await this.repo.sharesConversation(viewerId, targetId))) {
+    if (viewerId !== targetId && !(await this.repo.sharesDirectConversation(viewerId, targetId)) && !(await this.users.canViewUserIdentity(viewerId, targetId))) {
       throw new NotFoundException({ message: `Person profile ${targetId} not found`, code: 'messaging.person_profile_not_found' });
     }
     const row = await this.users.getUser(targetId);
