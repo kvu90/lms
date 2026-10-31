@@ -21,6 +21,7 @@
     "db:generate:system-bank": "drizzle-kit generate --config drizzle-system-bank.config.ts",
     "db:migrate:system-bank": "drizzle-kit migrate --config drizzle-system-bank.config.ts",
     "db:setup:system-bank": "node dist/modules/system-bank/system-bank-setup.js",
+    "db:setup:system-bank-centre": "node dist/modules/system-bank/system-bank-centre-tables-setup.js",
     "system-bank:migrate": "node dist/modules/system-bank/system-bank-migrate.js",
     "db:setup:runtime-roles": "node dist/runtime-roles-setup.js",
     "fleet:migrate": "node dist/fleet-migration-runner.js",
