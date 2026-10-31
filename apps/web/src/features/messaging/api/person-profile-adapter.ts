@@ -102,13 +102,15 @@ export interface SharedFileView {
   id: string;
   /** Tên tệp hiển thị. */
   name: string;
+  /** Nhãn dung lượng đã định dạng (ví dụ "1.2 MB"); nguồn hiện tại chưa có nên để trống. */
+  sizeLabel?: string;
 }
 
 /**
  * Danh sách tệp đã chia sẻ của một hội thoại cho panel thông
  * tin — hiện luôn rỗng vì chưa có nguồn dữ kiện (xem
- * {@link SharedFileView}); panel hiện dòng trống ở đúng vị trí
- * của khối tệp.
+ * {@link SharedFileView}); panel chỉ hiện khối tệp khi danh
+ * sách có phần tử, đúng hành vi của bản demo (điểm G9).
  *
  * @param conversationId - Hội thoại cần lấy tệp (giữ chữ ký
  *   cho đợt backend; đợt này chưa dùng tới vì chưa có nguồn).

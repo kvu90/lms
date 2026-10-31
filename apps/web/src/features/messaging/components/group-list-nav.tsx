@@ -329,11 +329,14 @@ export function GroupListNav({
         key={entry.key}
         type="button"
         aria-current={isActive || undefined}
-        className={cn('flex w-full min-w-0 items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left hover:bg-muted', isActive && 'bg-muted')}
+        className={cn(
+          'flex w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-lg px-2.5 py-2.5 text-left ring-inset transition-colors',
+          isActive ? 'bg-muted ring-1 ring-border' : 'hover:bg-muted/75',
+        )}
         onClick={entry.onOpen}
       >
         <Avatar className="size-8">
-          <AvatarFallback>{initialsOf(entry.label)}</AvatarFallback>
+          <AvatarFallback className={cn(isActive && 'bg-background/50')}>{initialsOf(entry.label)}</AvatarFallback>
         </Avatar>
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-2">
@@ -399,7 +402,8 @@ export function GroupListNav({
 
   /**
    * Một mục thu gọn của danh sách nhóm (mục Ghim / mục Nhóm
-   * khi tách mục): tiêu đề phẳng kèm số đếm + chevron, dựng
+   * khi tách mục): tiêu đề phẳng + chevron 12px, không số
+   * đếm, đúng khuôn nhãn mục của bản demo (điểm B16), dựng
    * trên primitive Collapsible của @lms/ui với đúng kiểu
    * trình bày của các mục trong tab Tất cả ở khung trái —
    * không tự chế kiểu thu/mở riêng. Nội dung chỉ render khi
@@ -407,16 +411,14 @@ export function GroupListNav({
    */
   const renderGroupSection = (
     title: string,
-    count: number,
     open: boolean,
     onOpenChange: (next: boolean) => void,
     children: ReactNode,
   ) => (
     <Collapsible open={open} onOpenChange={onOpenChange}>
-      <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-muted-foreground hover:bg-muted">
+      <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 pb-2 text-left text-xs font-medium text-muted-foreground hover:text-foreground">
         <span>{title}</span>
-        <span aria-hidden className="text-xs text-muted-foreground">{count}</span>
-        <ChevronDown aria-hidden className={cn('ml-auto size-4 shrink-0 transition-transform', open && 'rotate-180')} />
+        <ChevronDown aria-hidden className={cn('ml-auto size-3 shrink-0 transition-transform', open && 'rotate-180')} />
       </CollapsibleTrigger>
       <CollapsibleContent>{open ? children : null}</CollapsibleContent>
     </Collapsible>
@@ -432,7 +434,7 @@ export function GroupListNav({
   // không tiêu đề mục như trước (hình dạng đã nghiệm thu).
   if (pinnedEntries.length === 0) {
     return (
-      <div className="min-w-0 space-y-0.5">
+      <div className="flex min-w-0 flex-col gap-1">
         {classEntries.map(renderEntry)}
         {outsideEntries.map(renderEntry)}
         {renderCreateGroupButton()}
@@ -446,20 +448,18 @@ export function GroupListNav({
   // Nhóm (mọi hàng còn lại theo đúng thứ tự cũ, nút Tạo nhóm
   // vẫn ngay trước các hàng nhóm tự do trong mục này).
   return (
-    <div className="min-w-0 space-y-0.5">
+    <div className="flex min-w-0 flex-col gap-1">
       {renderGroupSection(
         t('messagesPinnedSection'),
-        pinnedEntries.length,
         pinnedSectionOpen,
         setPinnedSectionOpen,
-        <div className="space-y-0.5">{pinnedEntries.map(renderEntry)}</div>,
+        <div className="flex flex-col gap-1">{pinnedEntries.map(renderEntry)}</div>,
       )}
       {restCount > 0 || canCreateFreeGroup ? renderGroupSection(
         t('messagesTabGroups'),
-        restCount,
         groupsSectionOpen,
         setGroupsSectionOpen,
-        <div className="space-y-0.5">
+        <div className="flex flex-col gap-1">
           {restClassEntries.map(renderEntry)}
           {restOutsideEntries.map(renderEntry)}
           {renderCreateGroupButton()}

@@ -36,6 +36,7 @@ import { useTranslation } from 'react-i18next';
 import { formatWithOptions } from '#utils/date-format';
 import { getPersonProfile, getSharedFiles, QUICK_REPLY_SHAPE_SAMPLES } from '../api/person-profile-adapter';
 import type { ConversationStatePatch, ConversationView, MessageQuoteView, MessageSearchResultView, MessageView, PersonSummary, ScrollerHandle } from '../types/types';
+import { FileCard } from './file-card';
 import { MemberActionMenu, MemberPanel, MemberProfileSheet, useMemberProfile, type MemberPanelBundle } from './member-panel';
 import {
   CHAT_MENU_CONTENT_CLASS, CHAT_MENU_ITEM_CLASS, PRESENCE_DOT_CLASS, initialsOf,
@@ -1261,7 +1262,7 @@ export function ChatPanel({
                           <button
                             key={emoji}
                             type="button"
-                            className="flex items-center justify-center rounded-md p-2 text-lg transition-colors hover:bg-muted"
+                            className="rounded-md p-2 text-lg transition-colors hover:bg-muted"
                             onClick={() => {
                               setDrafts((prev) => ({ ...prev, [active.id]: `${prev[active.id] ?? ''}${emoji}` }));
                               noteTyping();
@@ -1560,24 +1561,27 @@ export function ChatPanel({
                   ))}
                 </dl>
                 {/*
-                  Khối tệp đã chia sẻ (giữ chức năng — điểm
-                  chưa quyết về đính kèm, xem adapter): giữ
-                  nguyên bề mặt và nguồn dữ kiện hiện tại,
-                  liệt kê trong thân PR theo nhóm điểm giữ
-                  chức năng.
+                  Khối tệp đã chia sẻ (điểm G9): đúng hành vi
+                  của bản demo — khối CHỈ hiện khi hội thoại
+                  có tệp đã chia sẻ, mỗi tệp là thẻ tệp theo
+                  khuôn demo (điểm E19, component FileCard).
+                  Nguồn dữ kiện qua adapter hiện luôn rỗng vì
+                  đính kèm chưa có phán quyết chức năng, nên
+                  khối không hiện ở trạng thái hiện tại; đợt
+                  backend chỉ thay nguồn của adapter.
                 */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium">{t('sharedFilesTitle')}</h4>
-                  {sharedFiles.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">{t('sharedFilesEmpty')}</p>
-                  ) : (
+                {sharedFiles.length > 0 ? (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium">{t('sharedFilesTitle')}</h4>
                     <ul className="space-y-1">
                       {sharedFiles.map((file) => (
-                        <li key={file.id} className="rounded-md border px-2 py-1.5 text-sm">{file.name}</li>
+                        <li key={file.id}>
+                          <FileCard name={file.name} sizeLabel={file.sizeLabel} />
+                        </li>
                       ))}
                     </ul>
-                  )}
-                </div>
+                  </div>
+                ) : null}
               </div>
               {/*
                 Nút Xoá ở ĐÁY panel theo đúng vị trí demo

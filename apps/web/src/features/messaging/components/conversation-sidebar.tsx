@@ -297,16 +297,30 @@ export function ConversationSidebar({
     const unreadCount = c.unread ?? 0;
     return (
       <li key={c.id}>
-        <div className={cn('flex min-w-0 items-start gap-0.5 rounded-lg', isActive && 'bg-muted')}>
+        {/*
+          Hàng đang chọn mang đúng khuôn demo (điểm C16, trích
+          chuỗi class từ chunk của demo): nền `bg-muted` kèm
+          ring 1px `ring-border` KHẢM TRONG (`ring-inset`);
+          nền và ring nằm ở khung bọc ngoài vì hàng của bản
+          dựng còn nút menu trạng thái ở cuối hàng (chức năng
+          thật giữ lại, điểm C3) mà demo không có — phần tử
+          mang highlight vẫn là toàn bộ hàng như demo. Nút mở
+          hội thoại chỉ mang `hover:bg-muted/75` khi CHƯA chọn
+          như class điều kiện của demo.
+        */}
+        <div className={cn('flex min-w-0 items-start gap-0.5 rounded-lg ring-inset', isActive && 'bg-muted ring-1 ring-border')}>
           <button
             type="button"
             aria-current={isActive || undefined}
-            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left hover:bg-muted/75"
+            className={cn(
+              'flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left transition-colors',
+              !isActive && 'hover:bg-muted/75',
+            )}
             onClick={() => void open(c)}
           >
             <span className="relative shrink-0">
               <Avatar size="lg">
-                <AvatarFallback>{initialsOf(avatarLabel)}</AvatarFallback>
+                <AvatarFallback className={cn(isActive && 'bg-background/50')}>{initialsOf(avatarLabel)}</AvatarFallback>
               </Avatar>
               {otherStatus !== undefined ? (
                 <span
