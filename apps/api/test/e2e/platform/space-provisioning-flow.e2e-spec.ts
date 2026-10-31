@@ -369,8 +369,12 @@ describe('Cấp phát trung tâm + nhận diện (đầu-cuối)', () => {
     // Ca cuối cùng của file: xoá hẳn database control plane của ca
     // test (database dùng một lần của riêng spec này). Từ đây mọi
     // đường cần sổ đăng ký đều hỏng — chứng minh bằng một request
-    // nghiệp vụ bị lỗi 500 — nhưng đọc nhận diện đi đường handle
-    // đã-chuẩn-bị nên vẫn trả đúng tên đã đổi ở ca trước.
+    // nghiệp vụ bị từ chối 401 fail-closed: sổ đăng ký không đọc
+    // được nên khung định tuyến ném not_configured, chiến lược JWT
+    // tra tài khoản ở kho chung không thấy tài khoản chỉ sống ở kho
+    // riêng nên từ chối, không phục vụ dữ kiện nào — nhưng đọc
+    // nhận diện đi đường handle đã-chuẩn-bị nên vẫn trả đúng tên
+    // đã đổi ở ca trước.
     // Đóng sạch hai pool control plane TRƯỚC khi DROP: DROP WITH
     // (FORCE) trong khi pool còn backend mở sẽ giết các backend đó
     // (lỗi 57P01), pg báo thành uncaught exception và vitest trả
@@ -387,7 +391,7 @@ describe('Cấp phát trung tâm + nhận diện (đầu-cuối)', () => {
     // dòng đăng ký còn cache.
     await new Promise((resolve) => setTimeout(resolve, 6000));
     const business = await http(app).get('/api/v1/users/me').set('Host', HOST_A).set(auth(adminAToken));
-    expect(business.status).toBe(500);
+    expect(business.status).toBe(401);
     const identity = await http(app).get(`/api/v1/centres/${SLUG_A}/identity`).set('Host', HOST_A);
     expect(identity.status).toBe(200);
     expect(identity.body).toMatchObject({ displayName: 'Trung tâm E2E A 583 — đã đổi tên', brandColor: '#1d4ed8' });
