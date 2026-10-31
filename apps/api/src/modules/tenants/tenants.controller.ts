@@ -102,7 +102,7 @@ export class TenantsController {
   }
 
   @Post(':tenantId/users')
-  /** POST /tenants/:tenantId/users — tenant admin tạo người dùng (toàn cục) + membership ngay. */
+  /** POST /tenants/:tenantId/users — tenant admin tạo người dùng + membership ngay; tenant ở kho riêng thì tài khoản chỉ tạo trong kho của trung tâm đó (issue #584). */
   async createUser(
     @Param('tenantId', { schema: uuidIdSchema }) tenantId: string,
     @Body({ schema: createUserSchema }) dto: CreateTenantUserDto,

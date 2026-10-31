@@ -59,6 +59,7 @@ import { TenantContextInterceptor } from './modules/tenants/tenant-context.inter
 import { APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { I18nStandardSchemaValidationPipe } from '@nestjs/i18n';
 import { I18nFoundationModule } from './i18n/i18n.config';
+import { AudienceGuard } from './common/audience.guard';
 import { BetterAuthSessionGuard } from './common/better-auth-session.guard';
 import { CapabilityGuard } from './common/capability.guard';
 import { JwtAuthGuard } from './common/jwt-auth.guard';
@@ -213,6 +214,11 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
     // tính cho JwtAuthGuard bỏ qua; mọi request còn lại nó không chạm.
     { provide: APP_GUARD, useClass: BetterAuthSessionGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // AudienceGuard chạy ngay sau JwtAuthGuard, trước TenantGuard
+    // (issue #584): tách bề mặt vận hành platform khỏi bề mặt nghiệp
+    // vụ bằng audience của token — chỉ cần principal đã xác thực và
+    // metadata của route, chưa cần ngữ cảnh tenant.
+    { provide: APP_GUARD, useClass: AudienceGuard },
     // TenantGuard chạy ngay sau xác thực: phân giải tenant hiệu lực từ
     // claim `tid` (kiểm chứng với DB) và nạp ngữ cảnh tenant (ALS) cho
     // mọi bề mặt đã phủ tenant (TENANT-0, #168).

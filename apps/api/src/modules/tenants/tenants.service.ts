@@ -14,6 +14,7 @@ import { UsersService } from '../users/users.service';
 import type { UserRow } from '../users/users.repository';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { tenantAls } from './tenant-als';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import {
   DEFAULT_SCHOOL_TENANT_SLUG,
   PLATFORM_TENANT_SLUG,
@@ -115,6 +116,7 @@ export class TenantsService {
     private readonly users: UsersService,
     private readonly outbox: OutboxService,
     private readonly planLimits: PlanLimitsService,
+    private readonly spaceDb: SpaceDatabaseService,
   ) {}
 
   // --- tenant-zero + hàm hỗ trợ seed ------------------------------------------
@@ -191,6 +193,27 @@ export class TenantsService {
     }
     await this.contexts.ensureTenantContext(tenant.id);
     return tenant;
+  }
+
+  /**
+   * Dòng tenant của một không gian trong CHÍNH kho của nó (đường kho
+   * riêng, issue #584): tra bằng slug của không gian — slug của
+   * tenant và slug đăng ký của trung tâm là một. Trả `undefined`
+   * khi kho riêng chưa có dòng tenant của chính nó (trung tâm đã
+   * đăng ký nhưng chưa được cấp phát xong); nơi gọi tự quyết
+   * fail-closed thay vì rơi về dòng tenant của kho chung.
+   *
+   * Tra cứu bọc ngữ cảnh platform tường minh: bảng `tenants` mang
+   * RLS theo `app.tenant_id`, mà ngữ cảnh của nơi gọi KHÔNG đáng
+   * tin cho việc này — tiêu biểu lúc đăng nhập, handler còn mang
+   * tenant-zero do `TenantGuard` gán cho request ẩn danh, nên tra
+   * không bọc sẽ bị RLS giấu mất dòng tenant của kho riêng và kết
+   * luận sai là "chưa cấp phát xong".
+   */
+  async getTenantInSpace(slug: string): Promise<TenantRow | undefined> {
+    return tenantAls.run({ platform: true }, () =>
+      this.spaceDb.withSpaceDatabase(slug, () => this.repo.getTenantBySlug(slug)),
+    );
   }
 
   /**
@@ -500,11 +523,62 @@ export class TenantsService {
    * thống (đăng nhập một lần, thuộc được nhiều tenant). Đáp ứng ra
    * HTTP là `TenantUserView` đã chiếu qua `toTenantUserView` — dòng
    * `users` đầy đủ (gồm `passwordHash`) chỉ ở lại tầng nội bộ.
+   *
+   * Đường kho riêng (issue #584): khi tenant đích là trung tâm ở kho
+   * riêng, tài khoản mới CHỈ được tạo trong kho của trung tâm đó —
+   * không tạo dòng tài khoản toàn cục, không tạo thành viên xuyên
+   * trung tâm. Membership gắn kèm là membership NỘI BỘ của kho riêng
+   * (dòng nối tài khoản trong kho với dòng tenant trong cùng kho),
+   * để cổng membership của evaluator tiếp tục hoạt động trong kho
+   * riêng mà không cần bất kỳ tra cứu nào sang kho chung. Cổng quản
+   * trị tenant cũng xét trong kho riêng: quản trị của trung tâm
+   * khác (kể cả quản trị platform ở kho chung) không tạo được tài
+   * khoản ở đây.
    */
   async createTenantUser(actorId: string, tenantId: string, dto: CreateTenantUserDto): Promise<TenantUserView> {
+    // Tra tenant đích ở kho chung trước để lấy slug — slug là khoá
+    // phân giải không gian; tra cứu này là đường hệ thống nên bọc
+    // ngữ cảnh platform như các method vòng đời khác.
+    const tenant = await tenantAls.run({ platform: true }, () => this.getTenant(tenantId));
+    let targetMode: string | undefined;
+    try {
+      targetMode = (await this.spaceDb.resolveTarget(tenant.slug)).mode;
+    } catch {
+      // Sổ chưa cấu hình hoặc slug chưa đăng ký → không phải trung
+      // tâm kho riêng: rơi xuống đường chung bên dưới như trước.
+      targetMode = undefined;
+    }
+    if (targetMode === 'dedicated') {
+      return this.createTenantUserInSpace(actorId, tenant.slug, dto);
+    }
     // Ngữ cảnh platform (HOTFIX #196 vòng 2): membership gắn ngay sau
     // khi tạo user thuộc tenant đích — cùng lý do với addMember.
     return tenantAls.run({ platform: true }, () => this.createTenantUserInContext(actorId, tenantId, dto));
+  }
+
+  private async createTenantUserInSpace(
+    actorId: string,
+    slug: string,
+    dto: CreateTenantUserDto,
+  ): Promise<TenantUserView> {
+    const spaceTenant = await this.getTenantInSpace(slug);
+    if (!spaceTenant) {
+      throw new NotFoundException({ message: `Tenant ${slug} is not ready in its own store`, code: 'tenant.not_found' });
+    }
+    return this.spaceDb.withSpaceDatabase(slug, async () => {
+      await this.assertTenantManager(actorId, spaceTenant.id);
+      const user = await this.users.createUser({
+        username: dto.username,
+        email: dto.email,
+        password: dto.password,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        forcePasswordChange: dto.forcePasswordChange,
+        customFields: dto.customFields,
+      });
+      await this.ensureActiveMembership(spaceTenant.id, user.id);
+      return toTenantUserView(user);
+    });
   }
 
   private async createTenantUserInContext(actorId: string, tenantId: string, dto: CreateTenantUserDto): Promise<TenantUserView> {
