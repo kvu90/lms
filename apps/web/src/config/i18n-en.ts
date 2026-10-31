@@ -2111,6 +2111,7 @@ export const enResources = {
     emojiPickerLabel: 'Insert emoji',
     messagesOfflineNow: 'Offline',
     messagesFilterFavourites: 'Favourites',
+    messagesFavouritesEmpty: 'No favourite conversations yet.',
     conversationsLoading: 'Loading conversations…',
     inviteLinkLabel: 'Invite link',
     inviteLinkPlaceholder: 'The invite link will appear here',
