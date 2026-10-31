@@ -36,8 +36,9 @@ const SYNC_MAX_CONVERSATIONS = 50;
  * relay duy nhất → hàng đợi ở worker → consumer phân phối theo luật
  * ở `@lms/messaging`, phát qua Redis emitter về adapter của gateway
  * này (issue #521). Gateway chỉ xử lý các tương tác theo kết nối:
- * join/leave room, `sync` (xin tin còn thiếu theo seq khi nối lại)
- * và `typing`.
+ * join/leave room, `sync` (xin tin còn thiếu theo seq khi nối lại),
+ * `typing`, và ảnh chụp hiện diện ban đầu gửi cho chính socket vừa
+ * nối ngay sau khi ghi presence (issue #592).
  */
 // @Public ở đây KHÔNG có nghĩa là không cần đăng nhập: nó chỉ tắt
 // JwtAuthGuard toàn cục (guard HTTP đọc header Authorization qua
@@ -106,6 +107,18 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
         await client.join(conversationRoom(conversation.tenantId, conversation.id));
       }
       await this.realtime.markConnected(identity.tenantId, identity.userId, client.id);
+      // Ảnh chụp hiện diện ban đầu (issue #592): gửi cho CHÍNH
+      // socket vừa nối tập đối tác đang trực tuyến trong phạm vi
+      // các hội thoại của nó, dùng lại đúng sự kiện và định dạng
+      // `presence.changed` — client nhận như một sự kiện thay đổi
+      // bình thường nên không cần sửa phía client. Gửi sau
+      // markConnected để trạng thái của chính người này đã lan tới
+      // người khác trước; lỗi ở đây không được làm hỏng kết nối
+      // (tầng realtime tự nuốt lỗi và trả tập rỗng).
+      const onlineCounterparts = await this.realtime.listOnlineConversationCounterparts(identity.tenantId, identity.userId);
+      for (const counterpartId of onlineCounterparts) {
+        client.emit(MESSAGING_SOCKET_EVENTS.presenceChanged, { userId: counterpartId, online: true });
+      }
     } catch (error) {
       this.logger.warn(`Kết nối realtime của messaging bị ngắt do lỗi: ${(error as Error).message}`);
       client.disconnect(true);

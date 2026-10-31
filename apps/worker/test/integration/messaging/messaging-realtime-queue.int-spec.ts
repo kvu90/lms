@@ -548,4 +548,34 @@ describe('Worker — phân phối realtime messaging qua hàng đợi (issue #52
     await settle();
     expect(eventsOf('x11')).toEqual([]);
   });
+
+  /**
+   * Vũ trụ đếm chưa đọc chuẩn (issue #592): conversation đã tắt
+   * thông báo thì số chưa đọc realtime cũng bằng 0 — cùng luật
+   * với badge sidebar và danh sách (luật đếm duy nhất trong
+   * `countUnreadForConversation`), nên các bề mặt hội tụ ngay
+   * trong cùng một chu kỳ cập nhật thay vì lệch nhau tới 30–60s.
+   * Thành viên không tắt vẫn nhận đúng số chưa đọc thật.
+   */
+  it('thành viên đã tắt thông báo nhận conversation.updated với unreadCount bằng 0, thành viên còn lại nhận đúng số', async () => {
+    const tenantId = randomUUID();
+    await makeTenant(tenantId);
+    const [a, b, c] = [randomUUID(), randomUUID(), randomUUID()];
+    for (const u of [a, b, c]) await makeUser(u);
+    const convId = await makeConversation({ type: 2, tenantId, memberIds: [a, b, c] });
+    await connectClient('b12', { userId: b, tenantId, conversationIds: [convId] });
+    await connectClient('c12', { userId: c, tenantId, conversationIds: [convId] });
+    await db.update(messageConversationMembers)
+      .set({ muted: true })
+      .where(sql`${messageConversationMembers.conversationId} = ${convId} and ${messageConversationMembers.userId} = ${b}`);
+
+    await sendAndDistribute({ conversationId: convId, userIdFrom: a, seq: 1, text: 'tin cho nhóm đã tắt', tenantId });
+    await waitUntil(() => eventsOf('b12', 'conversation.updated').length === 1, 10000, 'B nhận conversation.updated');
+    await waitUntil(() => eventsOf('c12', 'conversation.updated').length === 1, 10000, 'C nhận conversation.updated');
+
+    const updatedB = eventsOf('b12', 'conversation.updated')[0]!.payload as { unreadCount: number };
+    const updatedC = eventsOf('c12', 'conversation.updated')[0]!.payload as { unreadCount: number };
+    expect(updatedB.unreadCount).toBe(0);
+    expect(updatedC.unreadCount).toBe(1);
+  });
 });

@@ -199,7 +199,7 @@ describe('Messaging M5 — ghim / lưu trữ / tắt tiếng theo hội thoại 
     expect(after).toMatchObject({ pinnedAt: null, muted: false });
   });
 
-  it('tắt tiếng: huy hiệu không tăng dù có tin chưa đọc; tin vẫn đếm chưa đọc trong danh sách', async () => {
+  it('tắt tiếng: huy hiệu và danh sách đều không đếm tin chưa đọc của hội thoại đã tắt tiếng (vũ trụ chuẩn #592)', async () => {
     // Đọc hết hai hội thoại để mốc huy hiệu về 0.
     for (const convId of [convB, convD]) {
       const read = await http(app).post(`/api/v1/messages/conversations/${convId}/read`)
@@ -217,9 +217,11 @@ describe('Messaging M5 — ghim / lưu trữ / tắt tiếng theo hội thoại 
     // Huy hiệu chỉ tính hội thoại KHÔNG tắt tiếng (convD).
     expect(await unreadConversationCount(a.token)).toBe(1);
 
-    // Trong danh sách, convB vẫn hiện số chưa đọc kèm cờ muted.
+    // Trong danh sách, convB hiện cờ muted nhưng số chưa đọc bằng 0
+    // theo vũ trụ chuẩn duy nhất (issue #592) — tin vẫn tới, mốc đã
+    // đọc không đổi, chỉ số đếm là 0 cho tới khi bật lại tiếng.
     const list = await listConversations(a.token);
-    expect(list.find((c) => c.id === convB)).toMatchObject({ muted: true, unread: 1 });
+    expect(list.find((c) => c.id === convB)).toMatchObject({ muted: true, unread: 0 });
     expect(list.find((c) => c.id === convD)).toMatchObject({ muted: false, unread: 1 });
 
     // Bỏ tắt tiếng → huy hiệu tính lại cả convB.

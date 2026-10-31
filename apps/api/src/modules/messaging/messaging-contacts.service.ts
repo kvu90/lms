@@ -142,6 +142,39 @@ export class MessagingContactsService {
   }
 
   /**
+   * Hồ sơ người phục vụ panel thông tin của chat 1–1 (issue #592):
+   * định danh + tên hiển thị + tên đăng nhập + email từ bảng người
+   * dùng thật. Các trường panel khác (giới thiệu, điện thoại,
+   * website, công ty, quốc gia, múi giờ, địa điểm, trạng thái sẵn
+   * sàng, các thẻ, dòng vai trò) KHÔNG có nguồn trong hệ nên
+   * không nằm trong kết quả — client giữ chúng qua adapter với
+   * giá trị rỗng, không bịa dữ kiện.
+   *
+   * Cổng: người xem phải chung ít nhất một conversation NHÌN THẤY
+   * ĐƯỢC với đối tác (xem repository) — người lạ không chung hội
+   * thoại nào, và đối tác của hội thoại 1–1 đang chặn, đều nhận
+   * 404 như đối tác không tồn tại (không rò sự tồn tại). Chính chủ
+   * xem hồ sơ của mình luôn được phép. Email chỉ lộ trong phạm vi
+   * quan hệ hội thoại này — khác với tóm tắt hiển thị dùng chung
+   * (không có email) và khác với endpoint hồ sơ chung của module
+   * users (gác bằng capability xem định danh).
+   *
+   * @param viewerId - Người xem hồ sơ.
+   * @param targetId - Người cần xem hồ sơ.
+   * @returns Hồ sơ người theo hợp đồng panel chat.
+   * @throws {NotFoundException} `messaging.person_profile_not_found`
+   *   khi đối tác không tồn tại hoặc không chung conversation nhìn
+   *   thấy được với người xem.
+   */
+  async getPersonProfile(viewerId: string, targetId: string): Promise<{ userId: string; displayName: string; username: string; email: string }> {
+    if (viewerId !== targetId && !(await this.repo.sharesConversation(viewerId, targetId))) {
+      throw new NotFoundException({ message: `Person profile ${targetId} not found`, code: 'messaging.person_profile_not_found' });
+    }
+    const row = await this.users.getUser(targetId);
+    return { userId: row.id, displayName: displayNameOf(row), username: row.username, email: row.email };
+  }
+
+  /**
    * Chấp nhận yêu cầu kết bạn TỪ requesterId: quan hệ hình thành ở cả
    * hai chiều, yêu cầu rời hàng chờ. Không có yêu cầu như vậy thì 404.
    */

@@ -173,10 +173,23 @@ export async function getMemberLastReadSeq(db: MessagingDatabase, conversationId
  * Số tin chưa đọc của MỘT user trong MỘT conversation (đếm bằng
  * count(*) theo mốc đã đọc của chính user — consumer realtime dùng
  * để gửi kèm sự kiện cập nhật cho từng người nhận).
+ *
+ * Vũ trụ đếm chuẩn (issue #592): hội thoại đã TẮT TIẾNG không đóng
+ * góp số chưa đọc cho bất kỳ bề mặt nào — kể cả số kèm sự kiện
+ * realtime — nên hàm trả 0 ngay khi dòng thành viên mang cờ tắt
+ * tiếng, dù tin chưa đọc vẫn còn trong hộp thư. Tin vẫn tới và mốc
+ * đã đọc vẫn cập nhật bình thường; chỉ số đếm hiển thị là 0 cho
+ * tới khi bật tiếng lại.
  */
 export async function countUnreadForConversation(db: MessagingDatabase, conversationId: string, userId: string): Promise<number> {
-  const lastReadSeq = await getMemberLastReadSeq(db, conversationId, userId);
-  if (lastReadSeq === undefined) return 0;
+  const [member] = await db.select({
+    lastReadSeq: messageConversationMembers.lastReadSeq,
+    muted: messageConversationMembers.muted,
+  })
+    .from(messageConversationMembers)
+    .where(and(eq(messageConversationMembers.conversationId, conversationId), eq(messageConversationMembers.userId, userId)));
+  if (!member || member.muted) return 0;
+  const lastReadSeq = member.lastReadSeq;
   const [row] = await db.select({ value: sql<number>`count(*)::int` }).from(message)
     .where(and(
       eq(message.conversationId, conversationId),

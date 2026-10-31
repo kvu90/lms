@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
  * Ba khẳng định chính, tất cả đều dựng từ chính khai báo decorator
  * trong `messaging.controller.ts` (không chạy server, không cần DB):
  * - Bảng route (method + path) dựng từ khai báo bằng đúng bảng đã
- *   chụp sau lát đổi (57 route viết literal dưới đây) — thêm/bớt/đổi
+ *   chụp sau lát đổi (58 route viết literal dưới đây) — thêm/bớt/đổi
  *   bất kỳ route nào của module đều làm spec này đỏ, kể cả khi các
  *   flow nghiệp vụ vẫn chạy.
  * - Tập canonical (bảng trừ tập alias) chứa đúng 5 path đích đã chốt
@@ -34,10 +34,11 @@ import { describe, expect, it } from 'vitest';
  */
 
 /**
- * Bảng route kỳ vọng của module messaging (canonical + alias): 57
+ * Bảng route kỳ vọng của module messaging (canonical + alias): 58
  * cặp (method, path) dạng OpenAPI, chụp từ khai báo decorator sau
  * khi lát đổi hoàn tất và viết literal tại đây làm mốc đối chiếu bất
- * biến của lát.
+ * biến của lát. Route thứ 58 là hồ sơ người cho panel chat 1–1
+ * (issue #592): `GET /messages/users/{id}/profile`.
  */
 const EXPECTED_ROUTES: string[] = [
   'DELETE /messages/contacts/{userId}',
@@ -64,6 +65,7 @@ const EXPECTED_ROUTES: string[] = [
   'GET /messages/reports',
   'GET /messages/reports/{reportId}/conversation',
   'GET /messages/unread-count',
+  'GET /messages/users/{id}/profile',
   'GET /notifications',
   'GET /notifications/dispatch-log',
   'GET /notifications/items',

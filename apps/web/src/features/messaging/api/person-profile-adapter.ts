@@ -13,9 +13,17 @@
  * dấu gạch ngang ở đúng vị trí của trường đó để hình dạng khớp
  * demo mà không khẳng định dữ kiện không tồn tại.
  *
- * Đợt backend (#592) chỉ thay nguồn dữ kiện của các hàm trong
- * file này (đọc từ API thật khi hợp đồng có đủ trường); chữ ký
- * và hình dạng trả về giữ nguyên để component không phải sửa.
+ * Đợt backend (#592) đã thay nguồn của MỘT trường: email nay lấy
+ * từ endpoint hồ sơ `GET /messages/users/:id/profile` (dữ kiện
+ * thật từ bảng người dùng) và được chèn đè lên hồ sơ adapter ở
+ * nơi gọi; các trường còn lại (giới thiệu, điện thoại, website,
+ * công ty, quốc gia, múi giờ, địa điểm, trạng thái sẵn sàng, các
+ * thẻ, dòng vai trò ở chat 1–1) KHÔNG có cột/bảng nguồn trong hệ
+ * nên vẫn giữ qua adapter với giá trị rỗng — xem thân PR #592 để
+ * biết lý do từng trường. Đợt này chỉ thay nguồn dữ kiện của các
+ * hàm trong file này; chữ ký và hình dạng trả về giữ nguyên để
+ * component không phải sửa (ngoại trừ việc chèn đè email từ
+ * query hồ sơ ở nơi gọi).
  */
 import type { PersonSummary } from '../types/types';
 
@@ -64,6 +72,10 @@ export interface PersonProfileView {
  * Dựng hồ sơ hiển thị cho panel thông tin từ tóm tắt người dùng
  * hiện có. Chỉ ba trường định danh/tên là dữ kiện thật; mọi
  * trường hồ sơ mở rộng trả `null`/rỗng (xem TSDoc của file).
+ * Riêng email: từ đợt backend #592, nơi gọi chèn đè giá trị từ
+ * endpoint hồ sơ lên kết quả của hàm này khi query đã về — hàm
+ * này vẫn giữ `null` làm giá trị chờ để panel không hiện email
+ * giả trong lúc tải.
  *
  * @param person - Tóm tắt người dùng từ hợp đồng hiện tại.
  * @param roleLine - Dòng vai trò do nơi gọi suy từ ngữ cảnh

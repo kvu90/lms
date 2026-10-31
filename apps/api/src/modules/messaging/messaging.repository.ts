@@ -232,6 +232,15 @@ export class MessagingRepository {
    * chỉ các conversation ĐÃ lưu — hai mục không bao giờ trộn nhau.
    * Thứ tự: conversation ĐÃ GHIM lên đầu (trong nhóm ghim vẫn theo
    * hoạt động gần nhất), còn lại theo hoạt động gần nhất.
+   *
+   * Vũ trụ đếm chuẩn (issue #592): `unread` ở đây là số chưa đọc
+   * THEO VŨ TRỤ CHUẨN — hội thoại đã tắt tiếng trả 0 dù tin chưa
+   * đọc vẫn còn, để mọi bề mặt suy từ danh sách này (huy hiệu đầu
+   * trang, huy hiệu hàng, chip lọc, cây nhóm) khớp với huy hiệu
+   * thanh bên mà không cần lọc lại ở client. Hội thoại 1–1 bị ẩn
+   * do chặn không xuất hiện trong danh sách nên cũng không đóng
+   * góp số. Mốc đã đọc và tin cuối không bị ảnh hưởng: bật tiếng
+   * lại thì số thật hiện lại ngay.
    */
   async listConversationSummaries(userId: string, opts: { archivedOnly?: boolean } = {}): Promise<ConversationSummaryRow[]> {
     const archivedClause = opts.archivedOnly
@@ -257,7 +266,7 @@ export class MessagingRepository {
         FROM message_conversation_members WHERE conversation_id = c.id
       ) mem ON true
       LEFT JOIN LATERAL (
-        SELECT count(*) AS unread FROM message msg
+        SELECT CASE WHEN mine.muted THEN 0 ELSE count(*) END AS unread FROM message msg
         WHERE msg.conversation_id = c.id AND msg.seq > mine.last_read_seq AND msg.user_id_from <> mine.user_id
           AND msg.deleted_at IS NULL
           -- Tin đã THU HỒI không còn nội dung để đọc — không đếm chưa
@@ -713,8 +722,10 @@ export class MessagingRepository {
       .where(and(
         eq(messageConversationMembers.userId, userId),
         // Conversation đã TẮT TIẾNG không tính vào huy hiệu điều
-        // hướng (lát M5, quyết định đã chốt): tin vẫn tới và vẫn đếm
-        // chưa đọc trong chính danh sách, chỉ huy hiệu tổng là bỏ qua.
+        // hướng (lát M5) và cũng không tính ở bất kỳ bề mặt nào
+        // khác theo vũ trụ chuẩn duy nhất (issue #592): tin vẫn
+        // tới, mốc đã đọc và tin cuối không đổi, nhưng số chưa
+        // đọc trả về bằng 0 ở mọi nơi cho tới khi bật lại tiếng.
         eq(messageConversationMembers.muted, false),
         sql`exists (
           select 1 from ${message} msg
@@ -789,6 +800,44 @@ export class MessagingRepository {
    */
   async listBlockedCounterpartIds(userId: string): Promise<string[]> {
     return listBlockedCounterpartIdsShared(this.db, userId);
+  }
+
+  /**
+   * Hai user có chung ít nhất một conversation NHÌN THẤY ĐƯỢC với
+   * nhau hay không (issue #592 — cổng của endpoint hồ sơ người
+   * phục vụ panel chat 1–1): chung dòng thành viên ở cùng một
+   * conversation, TRỪ conversation 1–1 đang bị ẩn do quan hệ chặn
+   * ở bất kỳ chiều nào (đường đó đối với cả hai phía như không
+   * tồn tại, đúng luật ẩn bề mặt 1–1 khi chặn). Hội thoại nhóm
+   * không bị luật chặn chạm tới. Chính mình với mình luôn được
+   * coi là "chung" (hồ sơ của chính chủ không cần cổng này).
+   *
+   * @param viewerId - Người xem cần kiểm.
+   * @param targetId - Người cần xem hồ sơ.
+   * @returns `true` khi hai người chung một conversation nhìn thấy được.
+   */
+  async sharesConversation(viewerId: string, targetId: string): Promise<boolean> {
+    if (viewerId === targetId) return true;
+    const [row] = await this.db.select({ value: sql<number>`1` })
+      .from(messageConversationMembers)
+      .innerJoin(messageConversations, eq(messageConversations.id, messageConversationMembers.conversationId))
+      .where(and(
+        eq(messageConversationMembers.userId, viewerId),
+        sql`exists (
+          select 1 from ${messageConversationMembers} other_m
+          where other_m.conversation_id = ${messageConversationMembers.conversationId}
+            and other_m.user_id = ${targetId}
+        )`,
+        sql`not (
+          ${messageConversations.type} = 1 and exists (
+            select 1 from ${messageUsersBlocked} b
+            where (b.user_id = ${viewerId} and b.blocked_user_id = ${targetId})
+               or (b.user_id = ${targetId} and b.blocked_user_id = ${viewerId})
+          )
+        )`,
+      ))
+      .limit(1);
+    return Boolean(row);
   }
 
   // --- contacts (quan hệ đã duyệt) + yêu cầu kết bạn -------------------------

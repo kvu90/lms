@@ -233,7 +233,10 @@ export class MessagingConversationsService {
    * 404 cùng mã như khoá không tồn tại (không rò tồn tại). Thẩm quyền
    * quản lý (bật/tắt) theo staff khoá — người tạo bản ghi (có thể là
    * một học viên mở lần đầu) KHÔNG thành quản lý, đúng luật conversation
-   * gắn cấu trúc. Đua ensure song song: transaction tạo giữ
+   * gắn cấu trúc. Người mở qua cổng phạm vi nhưng chưa là thành viên
+   * (thực tế chỉ quản trị hệ thống) được cấp membership ngay trong lượt
+   * ensure này để lần mở thật sự đọc được và các lần liệt kê sau giữ
+   * hàng cho họ (issue #592). Đua ensure song song: transaction tạo giữ
    * `pg_advisory_xact_lock` theo courseId rồi re-check trong cùng
    * transaction — schema không có unique nên khoá này là điểm đồng bộ
    * giữ bất biến một khoá/một conversation (phán quyết 6395599464).
@@ -245,27 +248,62 @@ export class MessagingConversationsService {
       throw new NotFoundException({ message: `Course ${courseId} not found`, code: 'messaging.course_not_found' });
     }
     const existing = await this.repo.findCourseConversation(courseId);
-    if (existing) return { ...existing, members: await this.membershipSync.syncCourseConversationMembers(existing) };
-    const courseCtx = await this.contexts.getByLevelInstance(50, courseId);
-    const memberIds = await this.repo.listCourseConversationMemberIds(courseId);
-    const ensured = await this.repo.dbHandle.transaction(async (tx) => {
-      // Khoá advisory TRƯỚC, re-check SAU — trong cùng transaction:
-      // lượt ensure song song đến sau phải chờ lượt trước commit xong
-      // mới qua được khoá, và re-check lúc đó thấy conversation đã
-      // tồn tại nên không insert trùng.
-      await this.repo.acquireCourseConversationLock(tx, courseId);
-      const rechecked = await this.repo.findCourseConversation(courseId, tx);
-      if (rechecked) return { conversation: rechecked, created: false as const };
-      const created = await this.repo.insertConversation({
-        type: 2, name: course.fullName,
-        component: 'core_course', itemType: 'course', itemId: courseId,
-        contextId: courseCtx?.id ?? null, createdBy: actorId,
-      }, tx);
-      for (const id of memberIds) await this.repo.addMember(created.id, id, tx);
-      return { conversation: created, created: true as const };
-    });
-    if (!ensured.created) return { ...ensured.conversation, members: await this.membershipSync.syncCourseConversationMembers(ensured.conversation) };
-    return { ...ensured.conversation, members: memberIds };
+    let conversation: ConversationRow;
+    let members: string[];
+    if (existing) {
+      conversation = existing;
+      members = await this.membershipSync.syncCourseConversationMembers(existing);
+    } else {
+      const courseCtx = await this.contexts.getByLevelInstance(50, courseId);
+      const memberIds = await this.repo.listCourseConversationMemberIds(courseId);
+      const ensured = await this.repo.dbHandle.transaction(async (tx) => {
+        // Khoá advisory TRƯỚC, re-check SAU — trong cùng transaction:
+        // lượt ensure song song đến sau phải chờ lượt trước commit xong
+        // mới qua được khoá, và re-check lúc đó thấy conversation đã
+        // tồn tại nên không insert trùng.
+        await this.repo.acquireCourseConversationLock(tx, courseId);
+        const rechecked = await this.repo.findCourseConversation(courseId, tx);
+        if (rechecked) return { conversation: rechecked, created: false as const };
+        const created = await this.repo.insertConversation({
+          type: 2, name: course.fullName,
+          component: 'core_course', itemType: 'course', itemId: courseId,
+          contextId: courseCtx?.id ?? null, createdBy: actorId,
+        }, tx);
+        for (const id of memberIds) await this.repo.addMember(created.id, id, tx);
+        return { conversation: created, created: true as const };
+      });
+      conversation = ensured.conversation;
+      members = ensured.created
+        ? memberIds
+        : await this.membershipSync.syncCourseConversationMembers(ensured.conversation);
+    }
+    // Người mở qua được cổng phạm vi (thành viên hoặc staff) nhưng
+    // chưa nằm trong tập thành viên (thực tế chỉ quản trị hệ thống
+    // — staff đã nằm trong tập đích) thì được cấp membership ngay
+    // tại đây, để lần mở này thật sự mở được và các lần liệt kê
+    // sau giữ hàng cho họ (issue #592).
+    members = await this.grantScopeHolderMembership(actorId, members, conversation.id);
+    return { ...conversation, members };
+  }
+
+  /**
+   * Cấp membership cho người mở conversation gắn lớp/khoá khi họ
+   * qua được cổng phạm vi nhưng chưa là thành viên (xem ensure
+   * khoá/lớp): thêm dòng thành viên với mốc đã đọc mặc định — cùng
+   * ngữ nghĩa như thành viên roster mới được đồng bộ lười thêm
+   * vào (tin cũ trước lúc gia nhập tính là chưa đọc cho tới khi
+   * họ đánh dấu đọc). Người đã là thành viên thì giữ nguyên danh
+   * sách, không ghi thêm.
+   *
+   * @param actorId - Người mở conversation.
+   * @param members - Danh sách thành viên hiện tại.
+   * @param conversationId - Conversation cần cấp membership.
+   * @returns Danh sách thành viên sau khi cấp (nếu cần).
+   */
+  private async grantScopeHolderMembership(actorId: string, members: string[], conversationId: string): Promise<string[]> {
+    if (members.includes(actorId)) return members;
+    await this.repo.addMember(conversationId, actorId);
+    return [...members, actorId];
   }
 
   // --- conversation lớp (chat của chính lớp, lát MSG-T2) -------------------
@@ -295,7 +333,10 @@ export class MessagingConversationsService {
    *
    * Side-effect: ghi DB (insert conversation + dòng thành viên) ở
    * lần mở đầu tiên; các lần sau ghi thêm/gỡ dòng thành viên khi
-   * đồng bộ lười thấy roster đã đổi.
+   * đồng bộ lười thấy roster đã đổi. Người mở qua cổng phạm vi
+   * nhưng chưa là thành viên (thực tế chỉ quản trị hệ thống) được
+   * cấp membership ngay trong lượt ensure này như đường khoá
+   * (issue #592).
    *
    * @param actorId - Người mở chat lớp (phải thuộc lớp hoặc staff).
    * @param classId - Lớp cần mở chat.
@@ -313,23 +354,35 @@ export class MessagingConversationsService {
       throw new NotFoundException({ message: `Class ${classId} not found`, code: 'messaging.class_not_found' });
     }
     const existing = await this.repo.findClassConversation(classId);
-    if (existing) return { ...existing, members: await this.membershipSync.syncClassConversationMembers(existing) };
-    const classCtx = await this.contexts.getByLevelInstance(45, classId);
-    const memberIds = await this.repo.listClassConversationMemberIds(classId);
-    const ensured = await this.repo.dbHandle.transaction(async (tx) => {
-      await this.repo.acquireClassConversationLock(tx, classId);
-      const rechecked = await this.repo.findClassConversation(classId, tx);
-      if (rechecked) return { conversation: rechecked, created: false as const };
-      const created = await this.repo.insertConversation({
-        type: 2, name: cls.name,
-        component: 'core_class', itemType: 'class', itemId: classId,
-        contextId: classCtx?.id ?? null, createdBy: actorId, tenantId: cls.tenantId,
-      }, tx);
-      for (const id of memberIds) await this.repo.addMember(created.id, id, tx);
-      return { conversation: created, created: true as const };
-    });
-    if (!ensured.created) return { ...ensured.conversation, members: await this.membershipSync.syncClassConversationMembers(ensured.conversation) };
-    return { ...ensured.conversation, members: memberIds };
+    let conversation: ConversationRow;
+    let members: string[];
+    if (existing) {
+      conversation = existing;
+      members = await this.membershipSync.syncClassConversationMembers(existing);
+    } else {
+      const classCtx = await this.contexts.getByLevelInstance(45, classId);
+      const memberIds = await this.repo.listClassConversationMemberIds(classId);
+      const ensured = await this.repo.dbHandle.transaction(async (tx) => {
+        await this.repo.acquireClassConversationLock(tx, classId);
+        const rechecked = await this.repo.findClassConversation(classId, tx);
+        if (rechecked) return { conversation: rechecked, created: false as const };
+        const created = await this.repo.insertConversation({
+          type: 2, name: cls.name,
+          component: 'core_class', itemType: 'class', itemId: classId,
+          contextId: classCtx?.id ?? null, createdBy: actorId, tenantId: cls.tenantId,
+        }, tx);
+        for (const id of memberIds) await this.repo.addMember(created.id, id, tx);
+        return { conversation: created, created: true as const };
+      });
+      conversation = ensured.conversation;
+      members = ensured.created
+        ? memberIds
+        : await this.membershipSync.syncClassConversationMembers(ensured.conversation);
+    }
+    // Như đường khoá ở trên: người mở qua cổng phạm vi nhưng chưa
+    // là thành viên thì được cấp membership ngay (issue #592).
+    members = await this.grantScopeHolderMembership(actorId, members, conversation.id);
+    return { ...conversation, members };
   }
 
   // --- thẩm quyền theo phạm vi trên một conversation (Lớp B) -----------------
@@ -572,6 +625,14 @@ export class MessagingConversationsService {
    * nhập (chưa từng là thành viên conversation) để chúng xuất hiện
    * ngay; membership đã cũ (user đã rời group nhưng chưa lần đồng bộ
    * nào chạy) được đồng bộ và loại khỏi danh sách tại đây.
+   *
+   * Ngoại lệ quản trị (issue #592): hàng hội thoại lớp/khoá của
+   * người có phạm vi quản trị trên lớp/khoá đó (quản trị hệ thống
+   * hoặc staff theo ngữ cảnh) KHÔNG bị loại dù họ không nằm trong
+   * tập thành viên đúng nghĩa của cấu trúc — họ giữ hàng, giữ số
+   * chưa đọc theo vũ trụ chuẩn và mở được như mọi vai trò khác.
+   * Số chưa đọc ở đây đã theo vũ trụ chuẩn (hội thoại tắt tiếng
+   * trả 0, xem repository).
    */
   async listConversations(userId: string, opts: { archivedOnly?: boolean } = {}): Promise<(ConversationRow & {
     members: string[]; unread: number; lastReadSeq: number; lastMessage: MessageRow | null;
@@ -605,8 +666,15 @@ export class MessagingConversationsService {
         // conversation chưa được đồng bộ: đối chiếu tập thành viên đúng
         // nghĩa của khoá — không còn thuộc thì đồng bộ ngay (gỡ user
         // khỏi conversation) và ẩn khỏi danh sách như đường group.
+        // Ngoại lệ quản trị (issue #592): người có phạm vi quản trị
+        // trên khoá (quản trị hệ thống, hoặc staff khoá theo
+        // {@link isCourseStaff}) giữ hàng hội thoại dù không nằm
+        // trong tập thành viên đúng nghĩa — không đồng bộ gỡ họ
+        // (đồng bộ của người khác cũng giữ họ, xem cụm đồng bộ),
+        // hàng hiện kèm số chưa đọc theo vũ trụ chuẩn và mở được
+        // như mọi vai trò khác.
         const memberIds = await this.repo.listCourseConversationMemberIds(s.conversation.itemId!);
-        if (!memberIds.includes(userId)) {
+        if (!memberIds.includes(userId) && !(await this.isCourseStaff(userId, s.conversation.itemId!))) {
           await this.membershipSync.syncCourseConversationMembers(s.conversation);
           continue;
         }
@@ -614,9 +682,11 @@ export class MessagingConversationsService {
       if (this.membershipSync.isClassLinked(s.conversation)) {
         // Đã rời lớp (rời roster/hết vai tại lớp) nhưng membership
         // conversation chưa được đồng bộ: đối chiếu tập thành viên
-        // đúng nghĩa của lớp như đường khoá ở trên.
+        // đúng nghĩa của lớp như đường khoá ở trên. Ngoại lệ quản
+        // trị (issue #592) như nhánh khoá: người có phạm vi quản
+        // trị trên lớp giữ hàng hội thoại.
         const memberIds = await this.repo.listClassConversationMemberIds(s.conversation.itemId!);
-        if (!memberIds.includes(userId)) {
+        if (!memberIds.includes(userId) && !(await this.isClassStaff(userId, s.conversation.itemId!))) {
           await this.membershipSync.syncClassConversationMembers(s.conversation);
           continue;
         }
@@ -627,8 +697,10 @@ export class MessagingConversationsService {
         unread: s.unreadCount,
         lastReadSeq: s.lastReadSeq,
         // Trạng thái cá nhân của chính người xem (lát M5): client
-        // hiện dấu ghim, số chưa đọc dạng mờ khi tắt tiếng, và biết
-        // mình đang ở mục đã lưu hay mục chính.
+        // hiện dấu ghim, biểu tượng tắt tiếng khi tắt, và biết
+        // mình đang ở mục đã lưu hay mục chính. Số chưa đọc của
+        // hàng đã tắt tiếng bằng 0 theo vũ trụ chuẩn (issue #592)
+        // nên client không hiện số đếm cho hàng tắt tiếng nữa.
         pinnedAt: s.pinnedAt,
         archivedAt: s.archivedAt,
         muted: s.muted,
