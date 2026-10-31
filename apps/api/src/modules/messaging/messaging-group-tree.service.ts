@@ -36,40 +36,58 @@ export interface MessagingCourseView {
 /** Vai của người gọi tại một nút cây nhóm (hợp đồng ở @lms/contracts, lát MSG-T1). */
 export type ConversationTreeRole = 'teaching' | 'learning' | 'staff';
 
-/** Nút NHÓM CON của cây nhóm: chat chưa ensure thì conversationId null + unread 0. */
+/**
+ * Nút NHÓM CON của cây nhóm: chat chưa ensure thì conversationId
+ * null + unread 0. `pinnedAt` là mốc ghim CÁ NHÂN của người gọi
+ * trên conversation của nút (null = chưa ghim / chưa có
+ * conversation / chưa là thành viên) — xem ghi chú ở nút lớp.
+ */
 export interface ConversationTreeGroupView {
   groupId: string;
   name: string;
   myRole: ConversationTreeRole;
   conversationId: string | null;
   unread: number;
+  pinnedAt: Date | null;
 }
 
-/** Nút NHÓM TỰ DO của cây nhóm (conversation luôn đã tồn tại). */
+/** Nút NHÓM TỰ DO của cây nhóm (conversation luôn đã tồn tại); `pinnedAt` là mốc ghim cá nhân của người gọi. */
 export interface ConversationTreeFreeGroupView {
   conversationId: string;
   name: string;
   myRole: ConversationTreeRole;
   unread: number;
+  pinnedAt: Date | null;
 }
 
-/** Nút KHOÁ của cây nhóm: unread gồm chat khoá + các nhóm con của nó. */
+/** Nút KHOÁ của cây nhóm: unread gồm chat khoá + các nhóm con của nó; `pinnedAt` là mốc ghim cá nhân của người gọi trên chat khoá. */
 export interface ConversationTreeCourseView {
   courseId: string;
   name: string;
   myRole: ConversationTreeRole;
   conversationId: string | null;
   unread: number;
+  pinnedAt: Date | null;
   groups: ConversationTreeGroupView[];
 }
 
-/** Nút LỚP của cây nhóm: unread là tổng của nút lớp + mọi nút con. */
+/**
+ * Nút LỚP của cây nhóm: unread là tổng của nút lớp + mọi nút con.
+ * Mọi nút của cây mang `pinnedAt`: mốc ghim CÁ NHÂN của người gọi
+ * trên conversation của chính nút đó, lấy từ dòng thành viên của
+ * người gọi trên cả hai tập hội thoại chưa lưu trữ và đã lưu trữ
+ * (ghim và lưu trữ là hai trạng thái độc lập — hội thoại vừa ghim
+ * vừa lưu trữ vẫn phải báo đúng mốc ghim để client xếp hàng vào
+ * mục Ghim của tab Nhóm); null khi nút chưa có conversation hoặc
+ * người gọi chưa là thành viên của conversation đó.
+ */
 export interface ConversationTreeClassView {
   classId: string;
   name: string;
   myRole: ConversationTreeRole;
   conversationId: string | null;
   unread: number;
+  pinnedAt: Date | null;
   courses: ConversationTreeCourseView[];
 }
 
@@ -100,7 +118,10 @@ export const ROSTER_MAX_PAGE_SIZE = 100;
  * trong lớp → nhóm con của khoá, cộng khoá ngoài lớp và nhóm tự do —
  * mỗi nút mang conversation tương ứng (chưa ensure thì conversationId
  * null) và số chưa đọc đã gồm các nút con, sau khi đồng bộ lười thành
- * viên các conversation gắn cấu trúc. Roster thành viên khoá/lớp là
+ * viên các conversation gắn cấu trúc. Mỗi nút của cây còn mang
+ * mốc ghim cá nhân của người gọi trên conversation của nút —
+ * dựng từ cả hai tập tóm tắt hội thoại (chưa lưu trữ và đã lưu
+ * trữ) vì hai trạng thái ghim/lưu trữ độc lập nhau. Roster thành viên khoá/lớp là
  * bề mặt KHÁM PHÁ bạn bè duy nhất (cổng liên lạc đã chốt trên issue
  * #33: không tìm người theo tên): phân trang con trỏ keyset bắt buộc,
  * mỗi dòng kèm vai trò, trạng thái quan hệ với người xem và cờ
@@ -218,6 +239,18 @@ export class MessagingGroupTreeService {
     for (const s of [...summaries, ...summariesArchived]) {
       unreadByConversation.set(s.conversation.id, s.unreadCount);
     }
+    // Mốc ghim CÁ NHÂN của chính tôi theo conversation, dựng từ
+    // CẢ HAI tập tóm tắt như số chưa đọc ở trên: ghim và lưu trữ
+    // là hai trạng thái độc lập trên dòng thành viên, nên hội
+    // thoại vừa ghim vừa lưu trữ chỉ xuất hiện ở tập đã lưu —
+    // chỉ nhìn tập chưa lưu là mất trạng thái ghim của nó và
+    // client xếp sai mục ở tab Nhóm. Conversation không có dòng
+    // tóm tắt (tôi chưa là thành viên) thì không có trạng thái
+    // ghim cá nhân — tra bản đồ ra undefined, nút nhận null.
+    const pinnedAtByConversation = new Map<string, Date | null>();
+    for (const s of [...summaries, ...summariesArchived]) {
+      pinnedAtByConversation.set(s.conversation.id, s.pinnedAt);
+    }
     // conversationId của nút cấu trúc tra TRỰC TIẾP theo item (đã
     // ensure hay chưa là sự thật ở bảng conversation, không phụ
     // thuộc việc tôi đã là thành viên conversation hay chưa); số chưa
@@ -248,9 +281,16 @@ export class MessagingGroupTreeService {
           const gConvId = groupConvByGroup.get(g.groupId) ?? null;
           const gUnread = gConvId ? (unreadByConversation.get(gConvId) ?? 0) : 0;
           unread += gUnread;
-          return { groupId: g.groupId, name: g.name, myRole, conversationId: gConvId, unread: gUnread };
+          return {
+            groupId: g.groupId, name: g.name, myRole, conversationId: gConvId, unread: gUnread,
+            pinnedAt: gConvId ? (pinnedAtByConversation.get(gConvId) ?? null) : null,
+          };
         });
-      return { courseId, name, myRole, conversationId: convId, unread, groups };
+      return {
+        courseId, name, myRole, conversationId: convId, unread,
+        pinnedAt: convId ? (pinnedAtByConversation.get(convId) ?? null) : null,
+        groups,
+      };
     };
 
     const classNodes: ConversationTreeClassView[] = [];
@@ -272,7 +312,9 @@ export class MessagingGroupTreeService {
       const ownUnread = classConvId ? (unreadByConversation.get(classConvId) ?? 0) : 0;
       const totalUnread = ownUnread + courseNodes.reduce((sum, n) => sum + n.unread, 0);
       classNodes.push({
-        classId: rel.classId, name: rel.name, myRole, conversationId: classConvId, unread: totalUnread, courses: courseNodes,
+        classId: rel.classId, name: rel.name, myRole, conversationId: classConvId, unread: totalUnread,
+        pinnedAt: classConvId ? (pinnedAtByConversation.get(classConvId) ?? null) : null,
+        courses: courseNodes,
       });
     }
     classNodes.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
@@ -287,7 +329,10 @@ export class MessagingGroupTreeService {
 
     // Nhóm tự do: conversation type 2 KHÔNG gắn cấu trúc mà tôi là
     // thành viên (đúng tập listConversationSummaries trả về — đã qua
-    // cổng hiển thị của danh sách).
+    // cổng hiển thị của danh sách). Mốc ghim lấy thẳng từ dòng tóm
+    // tắt của chính conversation (dòng thành viên của tôi trên một
+    // trong hai tập) nên nhóm vừa ghim vừa lưu trữ vẫn mang đúng
+    // mốc ghim như nhóm chỉ ghim.
     const freeGroups: ConversationTreeFreeGroupView[] = [...summaries, ...summariesArchived]
       .filter((s) => s.conversation.type === 2 && !s.conversation.itemType)
       .sort((a, b) => b.conversation.updatedAt.getTime() - a.conversation.updatedAt.getTime())
@@ -296,6 +341,7 @@ export class MessagingGroupTreeService {
         name: s.conversation.name ?? '',
         myRole: (s.conversation.createdBy === actorId ? 'staff' : 'learning') as ConversationTreeRole,
         unread: s.unreadCount,
+        pinnedAt: s.pinnedAt,
       }));
 
     return { classes: classNodes, coursesOutsideClasses: outsideNodes, freeGroups, canCreateFreeGroup };

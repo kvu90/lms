@@ -28,7 +28,8 @@ import { CHAT_MENU_CONTENT_CLASS, CHAT_MENU_ITEM_CLASS, initialsOf } from '../ut
  *    Bật/Tắt chat khi người xem có thẩm quyền quản lý; rồi danh
  *    sách thành viên phân hai nhóm theo loại (Giáo viên/Học sinh
  *    cho nhóm cấu trúc, Quản trị viên/Thành viên cho nhóm tự do),
- *    mỗi dòng giữ chấm online và mốc đã xem như panel cũ.
+ *    mỗi dòng giữ chấm online kèm chữ trạng thái trực tuyến và
+ *    mốc đã xem như panel cũ.
  * 3. Bấm avatar/tên một thành viên — trong panel hoặc trên dòng
  *    tin — mở {@link MemberActionMenu}: các mục hiện theo ĐÚNG luật
  *    quan hệ đã chốt (nhắn riêng khi đã là liên hệ / có cờ nhắn
@@ -311,7 +312,7 @@ export function MemberProfileSheet({ entry, contextName, online, onClose }: Memb
                   <AvatarFallback>{initialsOf(entry.displayName)}</AvatarFallback>
                 </Avatar>
                 {online ? (
-                  <span className="absolute right-0 bottom-0 size-2.5 rounded-full bg-emerald-500 ring-2 ring-background" />
+                  <span className="absolute right-0 bottom-0 size-2.5 rounded-full bg-green-500 ring-2 ring-background" />
                 ) : null}
               </span>
               <div className="min-w-0">
@@ -379,8 +380,14 @@ interface MemberPanelProps {
  * (Giáo viên/Học sinh cho nhóm cấu trúc; Quản trị viên/Thành viên
  * cho nhóm tự do — người tạo nhóm tự do là dòng quản trị viên duy
  * nhất vì thẩm quyền của nhóm neo vào người tạo), giữ chấm online
- * và huy hiệu đã xem/chưa xem theo mốc đọc như panel cũ. Mỗi dòng
- * bấm được vào avatar/tên để mở {@link MemberActionMenu}.
+ * kèm chữ "Trực tuyến" và huy hiệu đã xem/chưa xem theo mốc đọc
+ * như panel cũ. Trạng thái trực tuyến đọc từ bản đồ presence của
+ * trang (`onlineUsers`): chỉ khẳng định khi bản đồ đã có bản ghi
+ * của thành viên — chưa có bản ghi (chưa nhận sự kiện hiện diện
+ * nào của họ) thì dòng không hiện cả chấm lẫn chữ, không gộp
+ * chưa-biết thành ngoại tuyến như mọi bề mặt hiện diện khác của
+ * trang chat. Mỗi dòng bấm được vào avatar/tên để mở
+ * {@link MemberActionMenu}.
  *
  * @param props - Conversation đang mở + gói panel + các bản đồ trạng thái của khung chat.
  * @returns Khối panel hiển thị dưới header khung chat khi nút Info đang bật.
@@ -429,7 +436,7 @@ export function MemberPanel({
               <AvatarFallback>{initialsOf(entry.displayName)}</AvatarFallback>
             </Avatar>
             {online ? (
-              <span className="absolute right-0 bottom-0 size-2.5 rounded-full bg-emerald-500 ring-2 ring-background" />
+              <span className="absolute right-0 bottom-0 size-2.5 rounded-full bg-green-500 ring-2 ring-background" />
             ) : null}
           </span>
           {/*
@@ -448,6 +455,19 @@ export function MemberPanel({
           <span className="min-w-0 flex-1 text-sm">
             <span className="block break-words">{entry.displayName}</span>
             <span className="block text-xs text-muted-foreground">@{entry.username}</span>
+            {/*
+              Chữ trạng thái trực tuyến đi cùng chấm xanh trên
+              avatar (vòng sửa sau nghiệm thu PR #610): trước
+              vòng này dòng chỉ có chấm khi presence đã biết,
+              nghiệm thu trình duyệt không đọc được trạng thái
+              từ một chấm đơn độc — nay thành viên đang trực
+              tuyến hiện thêm chữ "Trực tuyến" ngay dưới tên
+              đăng nhập, cùng khoá dịch `onlineNow` với dòng
+              trạng thái ở đầu khung 1–1.
+            */}
+            {online ? (
+              <span className="block text-xs font-medium text-green-600">{t('onlineNow')}</span>
+            ) : null}
           </span>
         </MemberActionMenu>
         {entry.isCreator ? <Badge variant="outline">{t('memberCreatorBadge')}</Badge> : null}

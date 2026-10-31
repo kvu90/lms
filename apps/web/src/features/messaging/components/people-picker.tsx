@@ -138,7 +138,7 @@ export function PeoplePicker({
                     <button
                       type="button"
                       aria-pressed={selected}
-                      className={cn('flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-muted', selected && 'bg-muted')}
+                      className={cn('flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left hover:bg-muted/50', selected && 'bg-muted')}
                       onClick={() => onToggleContactEntry?.(entry.userId)}
                     >
                       <Avatar>
@@ -205,13 +205,13 @@ export function PeoplePicker({
                       <button
                         type="button"
                         aria-pressed={selected}
-                        className={cn('flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-muted', selected && 'bg-muted')}
+                        className={cn('flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left hover:bg-muted/50', selected && 'bg-muted')}
                         onClick={() => onToggleMember?.(m)}
                       >
                         {row}
                       </button>
                     ) : (
-                      <div className="flex items-center gap-2 px-1 py-1">{row}</div>
+                      <div className="flex items-center gap-3 rounded-lg px-2 py-2.5">{row}</div>
                     )}
                   </li>
                 );

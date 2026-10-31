@@ -15,6 +15,12 @@ import { MessagingGateway } from './messaging.gateway';
  *
  * Trả danh sách chặn về tải lại theo từng hội thoại thì ca này đỏ
  * ở khẳng định số lượt gọi repository.
+ *
+ * Cùng file: ảnh chụp presence lúc nối — sau khi ghi presence của
+ * người nối, gateway xin tầng realtime danh sách người đang trực
+ * tuyến trong quan hệ hội thoại chung và phát `presence.snapshot`
+ * cho CHÍNH socket vừa nối, để người đã trực tuyến từ trước (không
+ * phát sinh sự kiện thay đổi nào) vẫn được người nối học được.
  */
 describe('MessagingGateway.handleConnection — danh sách chặn tải một lần cho cả lần nối', () => {
   const USER_ID = 'user-1';
@@ -50,6 +56,7 @@ describe('MessagingGateway.handleConnection — danh sách chặn tải một l�
     const realtime = {
       markConnected: vi.fn(async () => {}),
       markDisconnected: vi.fn(async () => {}),
+      listOnlineCoMemberIds: vi.fn(async () => ['user-a']),
     };
     const gateway = new MessagingGateway(auth as never, repo as never, realtime as never);
     const joinedRooms: string[] = [];
@@ -60,9 +67,10 @@ describe('MessagingGateway.handleConnection — danh sách chặn tải một l�
       join: vi.fn(async (room: string) => {
         joinedRooms.push(room);
       }),
+      emit: vi.fn(),
       disconnect: vi.fn(),
     };
-    return { gateway, repo, client, joinedRooms };
+    return { gateway, repo, client, realtime, joinedRooms };
   }
 
   it('nhiều hội thoại 1–1 trong một lần nối: danh sách chặn chỉ tải đúng một lần, room bị chặn không được vào', async () => {
@@ -81,5 +89,21 @@ describe('MessagingGateway.handleConnection — danh sách chặn tải một l�
     expect(joinedRooms.some((room) => room.includes('conv-open-b'))).toBe(true);
     expect(joinedRooms.some((room) => room.includes('conv-group'))).toBe(true);
     expect(joinedRooms.some((room) => room.includes(`user:${USER_ID}`))).toBe(true);
+  });
+
+  it('phát ảnh chụp presence cho chính socket vừa nối, sau khi đã ghi presence của người nối', async () => {
+    const { gateway, client, realtime } = build();
+
+    await gateway.handleConnection(client as never);
+
+    // Ảnh chụp lấy từ tầng realtime theo đúng người vừa nối và phát
+    // đúng một lần, chỉ tới socket này (client.emit, không qua room).
+    expect(realtime.listOnlineCoMemberIds).toHaveBeenCalledTimes(1);
+    expect(realtime.listOnlineCoMemberIds).toHaveBeenCalledWith(USER_ID);
+    expect(client.emit).toHaveBeenCalledTimes(1);
+    expect(client.emit).toHaveBeenCalledWith('presence.snapshot', { onlineUserIds: ['user-a'] });
+    // Thứ tự: ghi presence của người nối TRƯỚC, đọc ảnh chụp SAU.
+    expect(realtime.markConnected.mock.invocationCallOrder[0]!)
+      .toBeLessThan(realtime.listOnlineCoMemberIds.mock.invocationCallOrder[0]!);
   });
 });

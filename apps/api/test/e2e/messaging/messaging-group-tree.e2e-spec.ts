@@ -34,11 +34,19 @@ import { addGroupMember, contextIdByLevelInstance, createGroupViaApi } from '../
  *  (6) Phân loại trên GET /messages/conversations: chat khoá mang
  *      itemType 'course' + itemId đúng; nhóm con 'groups'; nhóm tự
  *      do cả ba trường null.
+ *  (7) Mốc ghim cá nhân trên cây (vòng bổ sung bằng chứng của PR
+ *      #607): HS vừa ghim vừa lưu trữ một nhóm tự do và chat khoá —
+ *      hai hội thoại lúc đó chỉ còn nằm ở tập đã lưu trữ của HS —
+ *      cây của HS vẫn báo pinnedAt khác null cho cả nút nhóm tự do
+ *      lẫn nút khoá, tức mốc ghim được dựng từ cả hai tập tóm tắt;
+ *      một nhóm tự do khác chỉ lưu trữ, không ghim, mang pinnedAt
+ *      null; ghim là trạng thái cá nhân nên cây của GV (không ghim)
+ *      báo null cho cùng các hội thoại đó.
  */
 
 interface Person { id: string; username: string; token: string }
 
-interface TreeLeaf { name: string; myRole: string; conversationId: string | null; unread: number }
+interface TreeLeaf { name: string; myRole: string; conversationId: string | null; unread: number; pinnedAt: string | null }
 interface TreeGroup extends TreeLeaf { groupId: string }
 interface TreeCourse extends TreeLeaf { courseId: string; groups: TreeGroup[] }
 interface TreeClass extends TreeLeaf { classId: string; courses: TreeCourse[] }
@@ -349,5 +357,59 @@ describe('Messaging — cây nhóm theo vai (MSG-T1, issue #33)', () => {
     expect(groupRow).toMatchObject({ component: 'core_group', itemType: 'groups', itemId: group1 });
     const freeRow = rows.find((r) => r.id === freeGroupId);
     expect(freeRow).toMatchObject({ component: null, itemType: null, itemId: null });
+  });
+
+  it('7. mốc ghim trên cây dựng từ cả tập đã lưu trữ: nhóm tự do và chat khoá vừa ghim vừa lưu trữ vẫn báo pinnedAt, lưu trữ không ghim thì pinnedAt null', async () => {
+    // Hai nhóm tự do mới do quản trị viên tạo, GV và HS là thành
+    // viên thường: một nhóm để HS vừa ghim vừa lưu trữ, một nhóm
+    // chỉ lưu trữ mà không ghim.
+    const pinnedFree = await http(app).post('/api/v1/messages/conversations')
+      .set('Authorization', `Bearer ${admin}`)
+      .send({ type: 2, memberIds: [teacher.id, student.id], name: 'Nhóm luyện thi' });
+    expect(pinnedFree.status).toBe(201);
+    const pinnedFreeId = pinnedFree.body.id as string;
+    const archivedFree = await http(app).post('/api/v1/messages/conversations')
+      .set('Authorization', `Bearer ${admin}`)
+      .send({ type: 2, memberIds: [teacher.id, student.id], name: 'Nhóm tài liệu' });
+    expect(archivedFree.status).toBe(201);
+    const archivedFreeId = archivedFree.body.id as string;
+
+    // HS đặt trạng thái cá nhân qua API thật: nhóm luyện thi vừa
+    // ghim vừa lưu trữ; nhóm tài liệu chỉ lưu trữ; chat khoá 1
+    // (nút cấu trúc trên cây, mốc ghim tra qua bản đồ theo
+    // conversation) cũng vừa ghim vừa lưu trữ.
+    const statePinnedFree = await http(app).patch(`/api/v1/messages/conversations/${pinnedFreeId}/state`)
+      .set('Authorization', `Bearer ${student.token}`).send({ pinned: true, archived: true });
+    expect(statePinnedFree.status).toBe(200);
+    expect(statePinnedFree.body).toMatchObject({ pinned: true, archived: true });
+    const stateArchivedFree = await http(app).patch(`/api/v1/messages/conversations/${archivedFreeId}/state`)
+      .set('Authorization', `Bearer ${student.token}`).send({ archived: true });
+    expect(stateArchivedFree.status).toBe(200);
+    expect(stateArchivedFree.body).toMatchObject({ pinned: false, archived: true });
+    const stateCourse = await http(app).patch(`/api/v1/messages/conversations/${convCourse1}/state`)
+      .set('Authorization', `Bearer ${student.token}`).send({ pinned: true, archived: true });
+    expect(stateCourse.status).toBe(200);
+    expect(stateCourse.body).toMatchObject({ pinned: true, archived: true });
+
+    // Cây của HS: cả ba hội thoại trên giờ chỉ còn nằm ở tập đã
+    // lưu trữ của HS — mốc ghim phải vẫn tới được cây từ chính
+    // tập đó, cho cả nút nhóm tự do lẫn nút khoá.
+    const t = await tree(student.token);
+    const pinnedFreeNode = t.freeGroups.find((g) => g.conversationId === pinnedFreeId)!;
+    expect(pinnedFreeNode.pinnedAt).not.toBeNull();
+    expect(typeof pinnedFreeNode.pinnedAt).toBe('string');
+    const archivedFreeNode = t.freeGroups.find((g) => g.conversationId === archivedFreeId)!;
+    expect(archivedFreeNode.pinnedAt).toBeNull();
+    const courseNode = t.classes.find((c) => c.classId === class1)!.courses
+      .find((c) => c.courseId === course1)!;
+    expect(courseNode.conversationId).toBe(convCourse1);
+    expect(courseNode.pinnedAt).not.toBeNull();
+
+    // Ghim là trạng thái CÁ NHÂN: GV không ghim các hội thoại này
+    // nên cây của GV báo pinnedAt null cho cùng các nút đó.
+    const teacherTree = await tree(teacher.token);
+    expect(teacherTree.freeGroups.find((g) => g.conversationId === pinnedFreeId)!.pinnedAt).toBeNull();
+    expect(teacherTree.classes.find((c) => c.classId === class1)!.courses
+      .find((c) => c.courseId === course1)!.pinnedAt).toBeNull();
   });
 });
