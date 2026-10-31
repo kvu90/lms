@@ -107,6 +107,16 @@ export function buildTransferDatabaseOwnerStatement(endpoint: RoleEndpoint): str
  * này; index đi theo bảng chủ của chúng, kiểu composite đi theo
  * bảng, và schema `public` thuộc `pg_database_owner` nên tự theo
  * chủ database mới.
+ *
+ * Ngoại lệ bắt buộc trong lớp quan hệ: sequence GẮN VỚI CỘT của
+ * một bảng (cột serial — phụ thuộc pg_depend deptype 'a'; cột
+ * identity — deptype 'i') KHÔNG được liệt kê riêng, vì PostgreSQL
+ * từ chối đổi chủ riêng cho sequence dạng này ở cả hai động từ
+ * ALTER TABLE và ALTER SEQUENCE ("cannot change owner of
+ * sequence", kèm DETAIL sequence linked to table). Chủ của sequence
+ * dạng này đổi theo bảng chủ của nó, nên chỉ cần chuyển bảng là
+ * đủ; sequence rời (CREATE SEQUENCE, không gắn cột) vẫn được liệt
+ * kê và chuyển trực tiếp như cũ.
  */
 export function buildOwnershipTransferQuery(fromRole: string, toRole: string): string {
   const from = quoteLiteral(fromRole);
@@ -117,6 +127,7 @@ export function buildOwnershipTransferQuery(fromRole: string, toRole: string): s
     `FROM pg_class c JOIN pg_namespace ns ON ns.oid = c.relnamespace`,
     `WHERE ${ownerPredicate('c.relowner')} AND c.relkind IN ('r', 'p', 'm', 'v', 'S')`,
     `AND ns.nspname NOT IN ('pg_catalog', 'information_schema')`,
+    `AND NOT (c.relkind = 'S' AND EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_class'::regclass AND d.objid = c.oid AND d.refclassid = 'pg_class'::regclass AND d.refobjsubid <> 0 AND d.deptype IN ('a', 'i')))`,
     `UNION ALL`,
     `SELECT format('ALTER FUNCTION %I.%I(%s) OWNER TO %I', ns.nspname, p.proname, pg_get_function_identity_arguments(p.oid), ${to})`,
     `FROM pg_proc p JOIN pg_namespace ns ON ns.oid = p.pronamespace`,

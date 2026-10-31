@@ -68,6 +68,23 @@ export function useConversationList({ myId, applyReadMarker, lastSeqRef }: UseCo
    */
   const groupTreeQuery = useQuery(messagingGroupTreeQueryOptions());
   const groupTree = groupTreeQuery.data ?? null;
+  /**
+   * Cờ đang nạp của CHÍNH cây nhóm (vòng sửa PR #593): bề mặt
+   * cây dùng cờ này để hiện khung đang tải theo nhịp của cây,
+   * không mượn cờ của query danh sách hội thoại — hai query về
+   * lệch nhịp, mượn cờ nhau làm cây hiện trạng thái rỗng giả
+   * trong lúc nó còn đang nạp.
+   */
+  const groupTreeLoading = groupTreeQuery.isPending;
+  /**
+   * Lỗi nạp cây nhóm lần đầu (vòng sửa 2 PR #593): cùng luật
+   * với lỗi danh sách chính — chỉ tính khi query lỗi mà chưa
+   * từng có dữ kiện trong cache; cây đã có dữ kiện thì vẫn
+   * hiện cây cũ, không báo lỗi. Khung trái truyền xuống cây
+   * để cây hiện thông báo lỗi thay cho câu rỗng giả.
+   */
+  const groupTreeError =
+    groupTreeQuery.isError && !groupTreeQuery.data ? t('groupTreeLoadFailed') : null;
   // Tìm bạn theo KHOÁ (mô hình chốt lại 24/10/2026): khoá của tôi →
   // chọn khoá → roster thành viên (phân trang con trỏ phía server).
   const coursesQuery = useQuery(messagingCoursesQueryOptions());
@@ -275,6 +292,8 @@ export function useConversationList({ myId, applyReadMarker, lastSeqRef }: UseCo
     people,
     myCourses,
     groupTree,
+    groupTreeLoading,
+    groupTreeError,
     setGroupTree,
     sidebarTab,
     setSidebarTab,
