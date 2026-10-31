@@ -9,10 +9,19 @@
  *    lịch sử `create`. Từ chối slug đã có (trừ khi chạy lại đúng
  *    trung tâm đó) và từ chối tên database đã có ở BẤT KỲ dòng nào
  *    (kể cả hàng shared — kho dedicated mang tên trùng kho chung
- *    sẽ khiến trung tâm trỏ thẳng vào kho chung).
+ *    sẽ khiến trung tâm trỏ thẳng vào kho chung). Chạy lại chỉ
+ *    được khi dòng đang ở trạng thái `provisioning`; trung tâm đã
+ *    đình chỉ/đóng bị từ chối, chỉ mở lại qua thao tác vòng đời
+ *    tường minh (đổi trạng thái), không mở lại lặng lẽ bằng lệnh
+ *    cấp phát.
  * 2. Database + role: role kết nối riêng + database riêng thuộc sở
  *    hữu role đó trên cụm chung, thu hồi CONNECT của PUBLIC, chỉ
- *    cấp cho role của trung tâm. Mật khẩu role: ưu tiên biến môi
+ *    cấp cho role của trung tâm. Role đã có sẵn mà mang quyền vượt
+ *    ranh giới tenant (SUPERUSER, BYPASSRLS, CREATEDB, CREATEROLE,
+ *    REPLICATION, hoặc là thành viên của một role đặc quyền) thì bị
+ *    từ chối ngay, không nhận nuôi làm role kết nối — nhận nuôi
+ *    role đặc quyền sẽ cho trung tâm quyền truy cập chéo database
+ *    hoặc bỏ qua RLS. Mật khẩu role: ưu tiên biến môi
  *    trường `SPACE_PROVISION_DB_PASSWORD` (vận hành cấp tường minh,
  *    cũng là cách xoay mật khẩu khi đã mất); chưa cấp mà role chưa
  *    có thì sinh mật khẩu chữ-số và in đúng một lần; role đã có mà
@@ -72,19 +81,20 @@ import {
   generateCentreInviteToken,
   hashCentreInviteToken,
   normalizeSpaceSlug,
+  UUIDV7_SHIM,
 } from './centre-provision';
 import {
   buildEnsureDatabaseStatements,
   buildEnsureRoleStatements,
   buildRestrictConnectStatements,
-} from '../../control-plane-provision';
+} from '../control-plane/control-plane-provision';
 import {
   listMigrationFolders,
   readDatabaseAppliedMigrations,
   readDatabaseSchemaVersion,
   retargetUrl,
-} from '../../fleet-common';
-import { FleetRegistryWriter } from '../../fleet-registry-writer';
+} from '../fleet/fleet-common';
+import { FleetRegistryWriter } from '../fleet/fleet-registry-writer';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { isDedicatedDatabaseNameConflict } from '../control-plane/control-plane.repository';
 import {
@@ -160,13 +170,48 @@ export type SpaceProvisionResult = {
 };
 
 /**
- * Shim `uuidv7()` cho cụm PostgreSQL dưới 18 (cùng công thức với
- * shim của spec fleet — môi trường kiểm thử và cụm cũ chưa có hàm
- * gốc): CHỈ áp khi phiên bản máy chủ < 18; trên 18 tuyệt đối không
- * áp vì sẽ che mất hàm gốc. Cần `pgcrypto` (extension trusted từ
- * PG13 nên chủ sở hữu database tự tạo được).
+ * Kiểm tra một role PostgreSQL đã tồn tại có sạch để nhận nuôi làm
+ * role kết nối của trung tâm hay không. Role chỉ sạch khi bản thân
+ * nó không mang quyền vượt ranh giới tenant và không là thành viên
+ * của bất kỳ role nào mang quyền đó — thành viên kế thừa quyền của
+ * role chứa nó nên chỉ xét thuộc tính của chính role là chưa đủ.
+ * Role không sạch bị từ chối dứt khoát (fail-closed) thay vì bị
+ * chuẩn hoá lặng lẽ: hạ quyền của một role đang có chủ khác có thể
+ * phá hệ thống đang dùng role đó.
+ *
+ * @param admin - Kết nối quản trị của cụm (đọc được `pg_roles` và
+ *   `pg_auth_members`).
+ * @param role - Tên role cần kiểm tra.
+ * @throws Error khi role mang quyền vượt ranh giới hoặc là thành
+ *   viên của role đặc quyền — thông điệp nêu rõ quyền/vi phạm.
  */
-const UUIDV7_SHIM = `CREATE OR REPLACE FUNCTION uuidv7() RETURNS uuid AS $$ DECLARE ts_ms bigint := (extract(epoch from clock_timestamp()) * 1000)::bigint; b bytea; BEGIN b := decode(lpad(to_hex(ts_ms), 12, '0'), 'hex') || gen_random_bytes(10); b := set_byte(b, 6, (get_byte(b, 6) & 15) | 112); b := set_byte(b, 8, (get_byte(b, 8) & 63) | 128); RETURN encode(b, 'hex')::uuid; END; $$ LANGUAGE plpgsql VOLATILE`;
+async function assertCentreRoleIsClean(admin: Client, role: string): Promise<void> {
+  const attrs = await admin.query<{
+    rolsuper: boolean;
+    rolbypassrls: boolean;
+    rolcreatedb: boolean;
+    rolcreaterole: boolean;
+    rolreplication: boolean;
+  }>('SELECT rolsuper, rolbypassrls, rolcreatedb, rolcreaterole, rolreplication FROM pg_roles WHERE rolname = $1', [role]);
+  const row = attrs.rows[0];
+  if (!row) return;
+  const offending = (['rolsuper', 'rolbypassrls', 'rolcreatedb', 'rolcreaterole', 'rolreplication'] as const)
+    .filter((key) => row[key])
+    .map((key) => key.replace(/^rol/, '').toUpperCase());
+  if (offending.length > 0) {
+    throw new Error(`Role ${role} already exists with privileged attributes (${offending.join(', ')}) — refusing to adopt it as a centre connection role`);
+  }
+  const members = await admin.query<{ rolname: string }>(
+    `SELECT r.rolname FROM pg_roles r JOIN pg_auth_members m ON m.roleid = r.oid
+     WHERE m.member = (SELECT oid FROM pg_roles WHERE rolname = $1)
+     AND (r.rolsuper OR r.rolbypassrls OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication)`,
+    [role],
+  );
+  if ((members.rowCount ?? 0) > 0) {
+    const names = members.rows.map((member) => member.rolname).join(', ');
+    throw new Error(`Role ${role} is a member of privileged role(s) (${names}) — refusing to adopt it as a centre connection role`);
+  }
+}
 
 /**
  * Chạy pipeline cấp phát trung tâm mới.
@@ -229,6 +274,14 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
           passwordWasGenerated: false, generatedPassword: null, status: 'already-active', steps,
         };
       }
+      // Chạy lại chỉ được tiếp tục khi dòng đang ở trạng thái
+      // `provisioning` (lượt cấp phát trước dở dang): trung tâm đã
+      // đình chỉ/đóng mà chạy lại lệnh cấp phát sẽ bị bước kích
+      // hoạt cuối đặt lại `active` một cách lặng lẽ — mở lại phải
+      // qua thao tác đổi trạng thái tường minh, không qua đây.
+      if (existing.status !== 'provisioning') {
+        throw new Error(`Space ${slug} is in status ${existing.status} — refusing to re-run provisioning; resume it only through an explicit lifecycle status change`);
+      }
       spaceId = existing.id;
       step('registration', 'reused');
     } else {
@@ -260,6 +313,12 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
     try {
       const roleRow = await admin.query('SELECT 1 FROM pg_roles WHERE rolname = $1', [connectionRole]);
       const roleExists = (roleRow.rowCount ?? 0) > 0;
+      // Role đã có thì kiểm tra sạch TRƯỚC khi nhận nuôi (kể cả khi
+      // không cấp mật khẩu mới — role vẫn được dùng làm role kết
+      // nối ở các bước sau qua URL trong biến môi trường): câu lệnh
+      // đảm bảo role chỉ đồng bộ mật khẩu, không hạ quyền, nên role
+      // đặc quyền mà lọt qua đây sẽ giữ nguyên quyền vượt ranh giới.
+      if (roleExists) await assertCentreRoleIsClean(admin, connectionRole);
       const providedPassword = options.databasePassword ?? env.SPACE_PROVISION_DB_PASSWORD;
       let rolePassword: string | null;
       if (providedPassword) {
@@ -302,9 +361,14 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
     // lấy từ biến vận hành, hoặc mật khẩu vừa sinh, hoặc — khi role
     // đã có và không cấp mật khẩu — mật khẩu cũ nằm trong biến môi
     // trường của tầng ứng dụng (`secretEnvVar`) nếu tiến trình này có
-    // nó (đọc qua URL parser để mật khẩu chứa ký tự đặc biệt vẫn
-    // đúng); không có thì các bước sau không mở được kết nối và lỗi
-    // rõ thay vì thử mật khẩu rỗng.
+    // nó. Mật khẩu ở đây phải là dạng THÔ: `buildCentreDatabaseUrl`
+    // tự mã hoá phần trăm khi dựng URL, và nhánh đọc từ URL chỉ
+    // giải mã ĐÚNG MỘT LẦN (trường `password` của URL parser trả về
+    // dạng đã mã hoá). Giải mã thêm một lần nữa ở đây sẽ đổi nghĩa
+    // mật khẩu chứa ký tự `%` (`%40` thành `@`, `%` lẻ thành lỗi
+    // `URIError`) khiến các bước sau không mở được kết nối dù mật
+    // khẩu gốc là đúng. Không có mật khẩu thì các bước sau lỗi rõ
+    // thay vì thử mật khẩu rỗng.
     let centrePassword = options.databasePassword ?? env.SPACE_PROVISION_DB_PASSWORD ?? generatedPassword ?? null;
     if (!centrePassword && env[secretEnvVar]) {
       try {
@@ -316,7 +380,7 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
     if (!centrePassword) {
       throw new Error(`Cannot connect to the centre database: role ${connectionRole} already exists but no password was provided (set SPACE_PROVISION_DB_PASSWORD or ${secretEnvVar})`);
     }
-    const centreUrl = buildCentreDatabaseUrl({ host: clusterHost, port: clusterPort, role: connectionRole, password: decodeURIComponent(centrePassword), databaseName });
+    const centreUrl = buildCentreDatabaseUrl({ host: clusterHost, port: clusterPort, role: connectionRole, password: centrePassword, databaseName });
 
     // ---- Bước 3: migration nghiệp vụ vào kho mới ----
     const migrationPool = new Pool({ connectionString: centreUrl });

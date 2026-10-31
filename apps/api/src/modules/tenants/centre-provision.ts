@@ -33,6 +33,19 @@ export const CENTRE_INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const CENTRE_PROGRAM_PACKAGE_KEY = 'gdpt-2018';
 
 /**
+ * Shim `uuidv7()` cho cụm PostgreSQL dưới 18 (cùng công thức với
+ * shim của spec fleet — môi trường kiểm thử và cụm cũ chưa có hàm
+ * gốc): CHỈ áp khi phiên bản máy chủ < 18; trên 18 tuyệt đối không
+ * áp vì sẽ che mất hàm gốc. Cần `pgcrypto` (extension trusted từ
+ * PG13 nên chủ sở hữu database tự tạo được). Baseline nghiệp vụ
+ * dùng `uuidv7()` làm giá trị mặc định nên mọi bước tạo đối tượng
+ * trên cụm dưới 18 đều cần shim này trước — pipeline cấp phát và
+ * bước ensure delta schema dùng chung một hằng số để không lệch
+ * công thức.
+ */
+export const UUIDV7_SHIM = `CREATE OR REPLACE FUNCTION uuidv7() RETURNS uuid AS $$ DECLARE ts_ms bigint := (extract(epoch from clock_timestamp()) * 1000)::bigint; b bytea; BEGIN b := decode(lpad(to_hex(ts_ms), 12, '0'), 'hex') || gen_random_bytes(10); b := set_byte(b, 6, (get_byte(b, 6) & 15) | 112); b := set_byte(b, 8, (get_byte(b, 8) & 63) | 128); RETURN encode(b, 'hex')::uuid; END; $$ LANGUAGE plpgsql VOLATILE`;
+
+/**
  * Chuẩn hoá slug đầu vào của lệnh cấp phát: xén khoảng trắng hai
  * đầu, hạ về chữ thường (tên miền không phân biệt hoa thường) rồi
  * kiểm tra đúng hình dạng nhãn DNS của tầng định tuyến. Slug không

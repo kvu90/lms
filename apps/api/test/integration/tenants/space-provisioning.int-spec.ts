@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runSpaceProvision, manageCentreInvite } from '../../../src/modules/tenants/space-provision-runner';
-import { FleetRegistryWriter } from '../../../src/fleet-registry-writer';
+import { deriveCentreRoleName } from '../../../src/modules/tenants/centre-provision';
+import { FleetRegistryWriter } from '../../../src/modules/fleet/fleet-registry-writer';
 
 /**
  * Ca tích hợp của PIPELINE CẤP PHÁT TRUNG TÂM (issue #583): chạy
@@ -370,4 +371,129 @@ describe('Cấp phát trung tâm mới (tích hợp)', () => {
     expect(revoked.revokedCount).toBe(1);
     expect(revoked.inviteToken).toBeNull();
   });
+
+  it('role đã tồn tại mang quyền đặc quyền thì bị từ chối nhận nuôi, cả thuộc tính lẫn tư cách thành viên', async () => {
+    // Mỗi lượt cấp phát vấp ở bước 2 đều để lại một dòng đăng ký
+    // ở trạng thái provisioning trong database control plane riêng
+    // của lượt chạy này (database đó bị dọn ở afterAll) nên không
+    // ảnh hưởng các ca khác; chỉ role tạo sẵn mới cần dọn tay.
+    const adminConn = clusterUrl('postgres');
+    const superSlug = `trung-tam-sieu-${RUN_SUFFIX}`;
+    const superRole = deriveCentreRoleName(superSlug);
+    await withClient(adminConn, async (admin) => {
+      await admin.query(`CREATE ROLE ${quoted(superRole)} LOGIN SUPERUSER PASSWORD 'tam-611-super'`);
+    });
+    try {
+      await expect(
+        runSpaceProvision({
+          slug: superSlug,
+          name: 'Trung tâm siêu quyền',
+          adminEmail: `sieu-611-${RUN_SUFFIX}@example.com`,
+          databasePassword: DB_PASSWORD,
+          actorId: ACTOR_ID,
+          migrationsDir: MIGRATIONS_DIR,
+          env: provisionEnv(),
+          log: () => undefined,
+        }),
+      ).rejects.toThrow(/privileged/);
+      // Từ chối trước mọi ALTER nên role đặc quyền còn nguyên vẹn,
+      // không bị chuẩn hoá lén thành role thường.
+      await withClient(adminConn, async (admin) => {
+        const kept = await admin.query('SELECT rolsuper FROM pg_roles WHERE rolname = $1', [superRole]);
+        expect(kept.rows[0]?.rolsuper).toBe(true);
+      });
+    } finally {
+      await withClient(adminConn, async (admin) => {
+        await admin.query(`DROP ROLE IF EXISTS ${quoted(superRole)}`);
+      });
+    }
+    // Tư cách thành viên: role trung tâm tự nó sạch nhưng là thành
+    // viên của một role đặc quyền thì vẫn bị từ chối.
+    const memberSlug = `trung-tam-thanh-vien-${RUN_SUFFIX}`;
+    const memberRole = deriveCentreRoleName(memberSlug);
+    const privilegedRole = `lms_quyen_611_${RUN_SUFFIX}`;
+    await withClient(adminConn, async (admin) => {
+      await admin.query(`CREATE ROLE ${quoted(privilegedRole)} LOGIN SUPERUSER PASSWORD 'tam-611-quyen'`);
+      await admin.query(`CREATE ROLE ${quoted(memberRole)} LOGIN PASSWORD 'tam-611-thanh-vien'`);
+      await admin.query(`GRANT ${quoted(privilegedRole)} TO ${quoted(memberRole)}`);
+    });
+    try {
+      await expect(
+        runSpaceProvision({
+          slug: memberSlug,
+          name: 'Trung tâm thành viên đặc quyền',
+          adminEmail: `thanh-vien-611-${RUN_SUFFIX}@example.com`,
+          databasePassword: DB_PASSWORD,
+          actorId: ACTOR_ID,
+          migrationsDir: MIGRATIONS_DIR,
+          env: provisionEnv(),
+          log: () => undefined,
+        }),
+      ).rejects.toThrow(/privileged/);
+    } finally {
+      await withClient(adminConn, async (admin) => {
+        await admin.query(`DROP ROLE IF EXISTS ${quoted(memberRole)}`);
+        await admin.query(`DROP ROLE IF EXISTS ${quoted(privilegedRole)}`);
+      });
+    }
+  });
+
+  it('chạy lại cấp phát trên trung tâm đã đình chỉ hoặc đã đóng thì bị từ chối, không tự mở lại', async () => {
+    const slug = `trung-tam-dinh-chi-${RUN_SUFFIX}`;
+    const lifecycleArgs = {
+      slug,
+      name: 'Trung tâm đình chỉ',
+      adminEmail: `dinh-chi-611-${RUN_SUFFIX}@example.com`,
+      databasePassword: DB_PASSWORD,
+      actorId: ACTOR_ID,
+      migrationsDir: MIGRATIONS_DIR,
+      env: provisionEnv(),
+      log: () => undefined,
+    };
+    const created = await runSpaceProvision(lifecycleArgs);
+    expect(created.status).toBe('active');
+    const space = await writer.findSpaceBySlug(slug);
+    expect(space).toBeTruthy();
+    await writer.changeSpaceStatus(space!.id, 'suspended', ACTOR_ID);
+    await expect(runSpaceProvision(lifecycleArgs)).rejects.toThrow(/suspended/);
+    await writer.changeSpaceStatus(space!.id, 'closed', ACTOR_ID);
+    await expect(runSpaceProvision(lifecycleArgs)).rejects.toThrow(/closed/);
+    // Mở lại chỉ được qua thao tác vòng đời tường minh: đổi lại
+    // active bằng writer rồi chạy lại thì vẫn về already-active.
+    await writer.changeSpaceStatus(space!.id, 'active', ACTOR_ID);
+    const again = await runSpaceProvision(lifecycleArgs);
+    expect(again.status).toBe('already-active');
+    await withClient(clusterUrl('postgres'), async (admin) => {
+      await admin.query(`DROP DATABASE IF EXISTS ${quoted(created.databaseName)} WITH (FORCE)`);
+      await admin.query(`DROP ROLE IF EXISTS ${quoted(created.connectionRole)}`);
+    });
+  }, 120000);
+
+  it('cấp phát với mật khẩu chứa ký tự phần trăm thì thành công và kết nối được bằng đúng mật khẩu đó', async () => {
+    // Mật khẩu thô mang %40 (vốn sẽ thành @ nếu giải mã hai lần)
+    // và %25 cùng một ký tự % trần (vốn sẽ vấp URIError nếu giải
+    // mã hai lần): toàn bộ pipeline bước 3–6 đều kết nối bằng URL
+    // dựng từ mật khẩu này nên cấp phát thành công đã chứng minh
+    // mật khẩu không bị biến dạng.
+    const percentPassword = 'p%40ss%25%word';
+    const slug = `trung-tam-phan-tram-${RUN_SUFFIX}`;
+    const created = await runSpaceProvision({
+      slug,
+      name: 'Trung tâm phần trăm',
+      adminEmail: `phan-tram-611-${RUN_SUFFIX}@example.com`,
+      databasePassword: percentPassword,
+      actorId: ACTOR_ID,
+      migrationsDir: MIGRATIONS_DIR,
+      env: provisionEnv(),
+      log: () => undefined,
+    });
+    expect(created.status).toBe('active');
+    await withClient(clusterUrl(created.databaseName, created.connectionRole, percentPassword), async (client) => {
+      await client.query('SELECT 1');
+    });
+    await withClient(clusterUrl('postgres'), async (admin) => {
+      await admin.query(`DROP DATABASE IF EXISTS ${quoted(created.databaseName)} WITH (FORCE)`);
+      await admin.query(`DROP ROLE IF EXISTS ${quoted(created.connectionRole)}`);
+    });
+  }, 120000);
 });

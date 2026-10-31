@@ -263,6 +263,35 @@ describe('Control plane: sổ đăng ký không gian và registry phiên bản s
     expect(latest.before?.name).toBe('Trung tâm test 580');
   });
 
+  it('cập nhật tên database sang tên đã có ở dòng khác bị từ chối 409, kể cả khi dòng kia ở kho chung', async () => {
+    // Dòng kho chung đã gieo sẵn (trang-chinh) trỏ vào database
+    // nghiệp vụ test; chỉ mục unique từng phần không phủ hàng
+    // shared nên chỉ lớp kiểm tra ở tầng ứng dụng mới bắt được ca
+    // này — đúng lỗ hổng của đường cập nhật trước vòng sửa #611.
+    const businessDatabase = new URL(process.env.DATABASE_URL!).pathname.replace(/^\//, '');
+    const sharedClash = await registry
+      .updateRegistration(adminId, createdSpaceId, { databaseName: businessDatabase })
+      .catch((error: unknown) => error);
+    expect(sharedClash).toBeInstanceOf(ConflictException);
+    expect((sharedClash as ConflictException).getResponse()).toMatchObject({ code: 'control_plane.database_name_taken' });
+    // Trùng với một dòng dedicated khác cũng bị từ chối, còn đổi
+    // về chính tên hiện tại thì không tính là trùng.
+    const other = await registry.createRegistration(adminId, {
+      slug: 'trung-tam-test-611-khac',
+      name: 'Trung tâm test 611 khác',
+      kind: 'center',
+      databaseName: 'lms_centre_test_611_other',
+      storageMode: 'dedicated',
+      connectionRoleRef: 'lms_centre_test_611_other_app',
+    });
+    await expect(
+      registry.updateRegistration(adminId, createdSpaceId, { databaseName: 'lms_centre_test_611_other' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    const unchanged = await registry.updateRegistration(adminId, createdSpaceId, { databaseName: 'lms_centre_test_580' });
+    expect(unchanged.databaseName).toBe('lms_centre_test_580');
+    expect(other.databaseName).toBe('lms_centre_test_611_other');
+  });
+
   it('đổi trạng thái vòng đời ghi lịch sử status_change; đổi về chính trạng thái hiện tại không ghi thêm', async () => {
     const changed = await registry.changeStatus(adminId, createdSpaceId, { status: 'active' });
     expect(changed.status).toBe('active');

@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "space:provision": "node dist/modules/tenants/space-provision.js",
+    "db:ensure:centre-delta": "node dist/modules/tenants/centre-schema-delta-ensure.js",
     "build": "tsc -p tsconfig.build.json && cp -r src/i18n/. dist/i18n/ && cp -r src/modules/curriculum/program-data/. dist/modules/curriculum/program-data/ && cp -r src/modules/curriculum/program-data-dump/. dist/modules/curriculum/program-data-dump/ && cp -r src/modules/books/book-data/. dist/modules/books/book-data/ && mkdir -p dist/modules/paper-grading/assets && cp src/modules/paper-grading/assets/*.ttf dist/modules/paper-grading/assets/",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
