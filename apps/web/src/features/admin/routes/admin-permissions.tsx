@@ -11,7 +11,7 @@ import '#config/i18n';
 import { useAccessCapabilities, useAccessContexts } from '#lib/access';
 import { contextOptionLabel } from '../api/context-labels';
 import { PermissionsMatrix } from '../components/permissions-matrix';
-import { NATIVE_SELECT_CLASS } from '../components/permission-select';
+import { NATIVE_SELECT_CLASS } from '../components/native-select-class';
 import { useCapabilityMatrix, useSetCapabilityOverride } from '../queries/admin-roles';
 import { groupCapabilitiesByResource } from '../types/admin-roles';
 
@@ -40,17 +40,21 @@ import { groupCapabilitiesByResource } from '../types/admin-roles';
  *    ngay 1, không cần tải lại.
  * 3. Sửa từng ô áp dụng ngay qua `POST /access/overrides` (đúng một
  *    lần gọi cho một lần đổi, thân gồm vai trò + năng lực + ngữ cảnh
- *    + giá trị): trong lúc chờ, chỉ ô đó bị khoá (khoá mang cả ngữ
+ *    + giá trị): ô là nút toggle hai trạng thái theo phán quyết vòng
+ *    sửa 3 của PR #601 — bật ghi Cho phép, tắt ghi Kế thừa; ô đang
+ *    mang Ngăn chặn/Cấm hẳn đã lưu thì bị khoá, không thao tác nào ở
+ *    trang đổi được (biên tập bốn trạng thái thuộc đợt nối backend
+ *    #598). Trong lúc chờ ghi, chỉ ô đó bị khoá (khoá mang cả ngữ
  *    cảnh nên đổi ngữ cảnh không khoá nhầm ô cùng vị trí ở ngữ cảnh
  *    mới); ghi thành công thì nháp của lần ghi đó bị xoá để giá trị
  *    mới từ server hiện lên thay vì bị nháp cũ che; ghi lỗi thì ô
  *    hoàn lại giá trị trước đó kèm thông báo lỗi cho người dùng.
  *    Nháp mang cả ngữ cảnh của lần ghi nên lỗi muộn của ngữ cảnh cũ
  *    không xoá nhầm nháp mới ở ngữ cảnh hiện tại. Không có nút Lưu
- *    toàn trang, không tìm kiếm/lọc/
- *    phân trang cho bảng (bảng mẫu cũng không có), không cột
- *    Read/Write/Create/Delete tách riêng — hệ chỉ có năng lực loại
- *    đọc và ghi, không có trục Create/Delete trong dữ kiện.
+ *    toàn trang, không tìm kiếm/lọc/phân trang cho bảng (bảng mẫu
+ *    cũng không có), không bốn nút Read/Write/Create/Delete trong
+ *    một ô — mỗi ô là một năng lực thật và hệ không có trục
+ *    Create/Delete trong dữ kiện.
  * 4. Cổng an toàn như hộp thoại ma trận: khi ma trận chưa tải xong
  *    hoặc tải lỗi, trang hiện khung chờ hoặc thông báo lỗi kèm nút
  *    thử lại thay vì hiện bảng trống để sửa — ghi từ ma trận chưa
@@ -291,6 +295,7 @@ export function AdminPermissionsPage() {
             </Card>
           </div>
           {saveError ? <ErrorAlert variant="destructive">{saveError}</ErrorAlert> : null}
+          <p className="text-xs text-muted-foreground">{t('permissionLockedNote')}</p>
           <Card className="gap-0 p-0 shadow-none">
             <CardContent className="p-0">
               <PermissionsMatrix

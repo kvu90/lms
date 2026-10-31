@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import type { CapabilityMatrixResponse } from '@lms/contracts';
+import { CAP, type CapabilityMatrixResponse } from '@lms/contracts';
 import {
   Table,
   TableBody,
@@ -11,7 +11,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import '#config/i18n';
 import { verbOfCapability, type CapabilityGroup } from '../types/admin-roles';
-import { PermissionSelect } from './permission-select';
+import { PermissionToggleCell } from './permission-cells';
 
 /**
  * Bảng ma trận quyền toàn trang của trang Quyền độc lập.
@@ -19,12 +19,15 @@ import { PermissionSelect } from './permission-select';
  * Hình dáng theo bảng mẫu (ô tiêu đề đệm 16px, tên resource đệm 16px
  * đậm vừa, tiêu đề cột vai là tên đậm kèm dòng số người giữ 12px ở
  * dưới) nhưng giữ mô hình thật của hệ: hàng = năng lực thật gom theo
- * resource kèm hàng tiêu đề nhóm, cột = vai trò. Mỗi ô là MỘT điều
- * khiển bốn trạng thái dùng chung component với hộp thoại ma trận
- * vai trò (Cho phép / Kế thừa / Ngăn chặn / Cấm hẳn) — tuyệt đối
- * không dùng công tắc hai trạng thái và không dựng cột
- * Read/Write/Create/Delete tách riêng: hệ chỉ có năng lực loại đọc
- * và ghi, không có trục Create/Delete trong dữ kiện.
+ * resource kèm hàng tiêu đề nhóm, cột = vai trò. Mỗi ô là MỘT nút
+ * toggle icon cho đúng năng lực đó theo phán quyết vòng sửa 3 của
+ * PR #601 ("hình dạng demo, dữ kiện thật"): bật ⇔ Cho phép, tắt ⇔
+ * Kế thừa — dùng chung component ô với hộp thoại ma trận vai trò
+ * (xem `permission-cells.tsx`). Không dựng bốn nút
+ * Read/Write/Create/Delete trong một ô và không chế trục
+ * Create/Delete: hệ chỉ có năng lực loại đọc và ghi. Ô đang mang
+ * Ngăn chặn/Cấm hẳn đã lưu thì toggle bị khoá kèm huy hiệu trạng
+ * thái, không thao tác nào ở trang đổi được giá trị đó ở vòng này.
  *
  * Bảng chỉ trình bày ghi đè ĐÃ LƯU tại ngữ cảnh đang chọn, không
  * trình bày quyền hiệu lực sau kế thừa: năng lực vắng mặt trong đáp
@@ -99,14 +102,17 @@ export function PermissionsMatrix({
                   const key = `${contextId}:${role.id}:${capability.name}`;
                   return (
                     <TableCell key={role.id} className="px-4 py-2">
-                      <PermissionSelect
+                      <PermissionToggleCell
                         ariaLabel={t('permissionsCellLabel', {
                           capability: capability.name,
                           role: role.name,
                         })}
+                        capType={capability.capType}
                         value={valueOf(role.id, capability.name)}
                         disabled={savingCells.has(key)}
-                        onChange={(permission) => onCellChange(role.id, capability.name, permission)}
+                        onToggle={(allowed) =>
+                          onCellChange(role.id, capability.name, allowed ? CAP.ALLOW : CAP.INHERIT)
+                        }
                       />
                     </TableCell>
                   );

@@ -21,7 +21,7 @@ import type { ContextRow } from '#lib/access';
 import { contextOptionLabel } from '../api/context-labels';
 import { adminUsersQueryOptions } from '../queries/admin-users';
 import { useCreateRoleAssignment } from '../queries/admin-roles';
-import { NATIVE_SELECT_CLASS } from './permission-select';
+import { NATIVE_SELECT_CLASS } from './native-select-class';
 
 /**
  * Hộp thoại gán vai trò của feature admin, dựng trên component

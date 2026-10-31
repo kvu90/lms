@@ -25,7 +25,7 @@ import type { ContextRow } from '#lib/access';
 import { formatWithOptions } from '#utils/date-format';
 import { assignmentContextLabel } from '../api/context-labels';
 import { usersWithAssignmentsQueryOptions } from '../queries/admin-roles';
-import { NATIVE_SELECT_CLASS } from './permission-select';
+import { NATIVE_SELECT_CLASS } from './native-select-class';
 import { RoleAssignmentDialog } from './role-assignment-dialog';
 import { RoleUserDialog, userDisplayName } from './role-user-dialog';
 import { TablePagination } from './table-pagination';

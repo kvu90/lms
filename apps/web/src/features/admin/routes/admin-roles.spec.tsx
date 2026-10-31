@@ -55,6 +55,14 @@ import { AdminRolesPage } from './admin-roles';
  * cùng cấp phân biệt bằng nhãn số thứ tự trong cấp ở cột bảng, hộp
  * thoại quản lý và xác nhận gỡ; tải thêm người dùng dừng ở trần 100
  * của API kèm gợi ý thu hẹp từ khoá thay vì gửi pageSize vượt trần.
+ *
+ * Vòng sửa 3 theo phán quyết 6539398880 (hình dạng demo, dữ kiện
+ * thật): ma trận trong hộp thoại thành bảng checkbox — mỗi ô là một
+ * năng lực thật, tích = Cho phép, trống = Kế thừa; chọn nhanh bốn
+ * trạng thái thay bằng chọn theo cấp (toàn cục + theo nhóm resource)
+ * chỉ thao tác trên các ô sửa được; ô đang mang Ngăn chặn đã lưu
+ * (course:view ở ngữ cảnh hệ thống trong fixture) bị khoá kèm huy
+ * hiệu và giữ nguyên giá trị trong tập thay toàn bộ khi lưu.
  */
 const ROLE_ID = '01900000-0000-7000-8000-0000000000b1';
 const NEW_ROLE_ID = '01900000-0000-7000-8000-0000000000b2';
@@ -455,8 +463,8 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     await userEvent.type(within(dialog).getByLabelText('Tên vai trò'), 'Vai trò mới');
     await userEvent.type(within(dialog).getByLabelText('Tên ngắn (shortName)'), 'newrole');
     await userEvent.selectOptions(within(dialog).getByLabelText('Ngữ cảnh'), SYSTEM_CONTEXT_ID);
-    // Chỉ một ô khác kế thừa: course:view thành Cho phép; các ô còn lại giữ Kế thừa nên không vào tập gửi lên.
-    await userEvent.selectOptions(within(dialog).getByLabelText('course:view'), '1');
+    // Chỉ một ô khác kế thừa: tích checkbox course:view thành Cho phép; các ô còn lại giữ Kế thừa nên không vào tập gửi lên.
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'course:view' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Lưu vai trò' }));
 
     await waitFor(() => expect(calls.some((c) => c.url === '/api/v1/access/roles' && c.method === 'POST')).toBe(true));
@@ -474,6 +482,64 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
+  it('sửa vai trò: ô đang mang Ngăn chặn bị khoá kèm huy hiệu, chọn toàn cục không ghi đè được và giá trị giữ nguyên khi lưu', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderPage();
+
+    await screen.findByRole('button', { name: 'Thêm vai trò mới' });
+    await openEditDialog();
+    const dialog = screen.getByRole('dialog', { name: 'Sửa vai trò' });
+    // Ngữ cảnh hệ thống mặc định: course:view đã lưu Ngăn chặn (−1) —
+    // checkbox hiện trống, bị khoá và mang huy hiệu "Ngăn chặn".
+    const lockedBox = await within(dialog).findByRole('checkbox', { name: 'course:view' });
+    expect(lockedBox).toHaveAttribute('aria-disabled', 'true');
+    expect(lockedBox).toHaveAttribute('aria-checked', 'false');
+    expect(within(dialog).getByText('Ngăn chặn')).toBeInTheDocument();
+    // Bấm vào ô khoá không đổi được trạng thái của nó.
+    await userEvent.click(lockedBox);
+    expect(within(dialog).getByRole('checkbox', { name: 'course:view' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    // Checkbox chọn toàn cục chỉ tính các ô sửa được: hai ô sửa được
+    // đang tắt nên nó hiện trống (ô khoá không làm nó thành lưng chừng).
+    const selectAll = within(dialog).getByRole('checkbox', { name: 'Chọn tất cả các quyền' });
+    expect(selectAll).toHaveAttribute('aria-checked', 'false');
+    // Chọn toàn cục bật hai ô sửa được, ô khoá vẫn nguyên trạng.
+    await userEvent.click(selectAll);
+    expect(within(dialog).getByRole('checkbox', { name: 'course:edit' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(within(dialog).getByRole('checkbox', { name: 'user:view' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(within(dialog).getByRole('checkbox', { name: 'course:view' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    // Lưu: tập thay toàn bộ vẫn mang nguyên Ngăn chặn của course:view
+    // kèm hai ô vừa bật — không thao tác nào ở hộp thoại ghi đè lặng
+    // giá trị chặn đã lưu.
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Lưu vai trò' }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === `/api/v1/access/roles/${ROLE_ID}/capabilities` && c.method === 'PUT')).toBe(
+        true,
+      ),
+    );
+    const put = calls.find((c) => c.url === `/api/v1/access/roles/${ROLE_ID}/capabilities` && c.method === 'PUT');
+    expect(put?.body).toEqual({
+      contextId: SYSTEM_CONTEXT_ID,
+      overrides: [
+        { capability: 'course:view', permission: -1 },
+        { capability: 'course:edit', permission: 1 },
+        { capability: 'user:view', permission: 1 },
+      ],
+    });
+  });
+
   it('sửa vai trò nạp đúng ghi đè của ngữ cảnh đang chọn và không lẫn sang ngữ cảnh khác', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
@@ -482,14 +548,30 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     await screen.findByRole('button', { name: 'Thêm vai trò mới' });
     await openEditDialog();
     const dialog = screen.getByRole('dialog', { name: 'Sửa vai trò' });
-    // Ngữ cảnh hệ thống mặc định: course:view đã lưu Ngăn chặn (−1).
-    await waitFor(() => expect((within(dialog).getByLabelText('course:view') as HTMLSelectElement).value).toBe('-1'));
-    // Chuyển sang ngữ cảnh trung tâm: course:view không có ghi đè ở đó nên về Kế thừa, course:edit giữ Cho phép.
+    // Chờ ma trận ngữ cảnh hệ thống nạp xong: course:view khoá vì đang mang Ngăn chặn.
+    await waitFor(() =>
+      expect(within(dialog).getByRole('checkbox', { name: 'course:view' })).toHaveAttribute(
+        'aria-disabled',
+        'true',
+      ),
+    );
+    // Chuyển sang ngữ cảnh trung tâm: course:view không có ghi đè ở đó nên về Kế thừa (trống, sửa được), course:edit giữ Cho phép (tích).
     await userEvent.selectOptions(within(dialog).getByLabelText('Ngữ cảnh'), TENANT_CONTEXT_ID);
-    await waitFor(() => expect((within(dialog).getByLabelText('course:view') as HTMLSelectElement).value).toBe('0'));
-    expect((within(dialog).getByLabelText('course:edit') as HTMLSelectElement).value).toBe('1');
-    // Lưu ở ngữ cảnh trung tâm: một PATCH tên/mô tả rồi đúng một PUT cho ngữ cảnh đó.
-    await userEvent.selectOptions(within(dialog).getByLabelText('course:view'), '-1000');
+    await waitFor(() =>
+      expect(within(dialog).getByRole('checkbox', { name: 'course:view' })).toHaveAttribute(
+        'aria-checked',
+        'false',
+      ),
+    );
+    expect(
+      within(dialog).getByRole('checkbox', { name: 'course:view' }).getAttribute('aria-disabled'),
+    ).not.toBe('true');
+    expect(within(dialog).getByRole('checkbox', { name: 'course:edit' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    // Tích course:view rồi lưu ở ngữ cảnh trung tâm: một PATCH tên/mô tả rồi đúng một PUT cho ngữ cảnh đó.
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'course:view' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Lưu vai trò' }));
     await waitFor(() =>
       expect(calls.some((c) => c.url === `/api/v1/access/roles/${ROLE_ID}/capabilities` && c.method === 'PUT')).toBe(
@@ -501,13 +583,13 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     expect(put?.body).toEqual({
       contextId: TENANT_CONTEXT_ID,
       overrides: [
-        { capability: 'course:view', permission: -1000 },
+        { capability: 'course:view', permission: 1 },
         { capability: 'course:edit', permission: 1 },
       ],
     });
   });
 
-  it('chọn nhanh toàn cục áp đúng trạng thái cho mọi ô rồi lưu qua một lần gọi thay toàn bộ', async () => {
+  it('chọn tất cả toàn cục bật mọi ô sửa được rồi lưu qua một lần gọi thay toàn bộ', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderPage();
@@ -518,10 +600,17 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     await userEvent.type(within(dialog).getByLabelText('Tên vai trò'), 'Vai trò mới');
     await userEvent.type(within(dialog).getByLabelText('Tên ngắn (shortName)'), 'newrole');
     await userEvent.selectOptions(within(dialog).getByLabelText('Ngữ cảnh'), SYSTEM_CONTEXT_ID);
-    await userEvent.selectOptions(within(dialog).getByLabelText('Chọn nhanh'), '-1');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Áp cho toàn bộ' }));
-    expect((within(dialog).getByLabelText('course:view') as HTMLSelectElement).value).toBe('-1');
-    expect((within(dialog).getByLabelText('user:view') as HTMLSelectElement).value).toBe('-1');
+    const selectAll = within(dialog).getByRole('checkbox', { name: 'Chọn tất cả các quyền' });
+    expect(selectAll).toHaveAttribute('aria-checked', 'false');
+    // Tích một ô lẻ thì checkbox toàn cục chuyển sang trạng thái lưng chừng.
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'course:view' }));
+    expect(selectAll).toHaveAttribute('aria-checked', 'mixed');
+    // Bấm checkbox toàn cục thì mọi ô sửa được đều bật.
+    await userEvent.click(selectAll);
+    for (const name of ['course:view', 'course:edit', 'user:view']) {
+      expect(within(dialog).getByRole('checkbox', { name })).toHaveAttribute('aria-checked', 'true');
+    }
+    expect(selectAll).toHaveAttribute('aria-checked', 'true');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Lưu vai trò' }));
     await waitFor(() =>
       expect(
@@ -532,14 +621,14 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     expect(put?.body).toEqual({
       contextId: SYSTEM_CONTEXT_ID,
       overrides: [
-        { capability: 'course:view', permission: -1 },
-        { capability: 'course:edit', permission: -1 },
-        { capability: 'user:view', permission: -1 },
+        { capability: 'course:view', permission: 1 },
+        { capability: 'course:edit', permission: 1 },
+        { capability: 'user:view', permission: 1 },
       ],
     });
   });
 
-  it('chọn nhanh theo hàng chỉ áp cho các năng lực trong cùng nhóm resource', async () => {
+  it('chọn tất cả theo nhóm resource chỉ bật các năng lực trong cùng nhóm', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderPage();
@@ -550,14 +639,21 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     await userEvent.type(within(dialog).getByLabelText('Tên vai trò'), 'Vai trò mới');
     await userEvent.type(within(dialog).getByLabelText('Tên ngắn (shortName)'), 'newrole');
     await userEvent.selectOptions(within(dialog).getByLabelText('Ngữ cảnh'), SYSTEM_CONTEXT_ID);
-    await userEvent.selectOptions(within(dialog).getByLabelText('Chọn nhanh cho nhóm course'), '1');
-    // Mỗi nhóm resource có một nút "Áp cho hàng" riêng nên phải khoanh vùng theo nhóm course.
     await userEvent.click(
-      within(screen.getByRole('region', { name: 'course' })).getByRole('button', { name: 'Áp cho hàng' }),
+      within(dialog).getByRole('checkbox', { name: 'Chọn tất cả quyền của nhóm course' }),
     );
-    expect((within(dialog).getByLabelText('course:view') as HTMLSelectElement).value).toBe('1');
-    expect((within(dialog).getByLabelText('course:edit') as HTMLSelectElement).value).toBe('1');
-    expect((within(dialog).getByLabelText('user:view') as HTMLSelectElement).value).toBe('0');
+    expect(within(dialog).getByRole('checkbox', { name: 'course:view' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(within(dialog).getByRole('checkbox', { name: 'course:edit' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(within(dialog).getByRole('checkbox', { name: 'user:view' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
     await userEvent.click(within(dialog).getByRole('button', { name: 'Lưu vai trò' }));
     await waitFor(() =>
       expect(
@@ -603,8 +699,14 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     expect(within(dialog).getByRole('button', { name: 'Lưu vai trò' })).toBeDisabled();
     expect(calls.some((c) => c.method === 'PUT' || c.method === 'PATCH')).toBe(false);
     await userEvent.click(within(dialog).getByRole('button', { name: 'Thử lại' }));
-    // Sau thử lại, ma trận tải thành công: course:view đã lưu Ngăn chặn (−1) ở ngữ cảnh hệ thống.
-    await waitFor(() => expect((within(dialog).getByLabelText('course:view') as HTMLSelectElement).value).toBe('-1'));
+    // Sau thử lại, ma trận tải thành công: course:view đã lưu Ngăn chặn (−1) ở ngữ cảnh hệ thống nên checkbox bị khoá kèm huy hiệu.
+    await waitFor(() =>
+      expect(within(dialog).getByRole('checkbox', { name: 'course:view' })).toHaveAttribute(
+        'aria-disabled',
+        'true',
+      ),
+    );
+    expect(within(dialog).getByText('Ngăn chặn')).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Lưu vai trò' })).toBeEnabled();
   });
 
@@ -1105,12 +1207,15 @@ describe('Trang vai trò — bảng người dùng kèm vai trò', () => {
     const usersCalls = () =>
       calls.filter((c) => c.url.startsWith('/api/v1/access/users-with-assignments') && c.method === 'GET');
     const usersBefore = usersCalls().length;
-    // Mở hộp thoại sửa của thẻ vai, chờ ma trận nạp xong rồi đổi tên và lưu.
+    // Mở hộp thoại sửa của thẻ vai, chờ ma trận nạp xong (ô course:view khoá vì đang mang Ngăn chặn đã lưu) rồi đổi tên và lưu.
     await userEvent.click(screen.getByRole('button', { name: 'Thao tác với vai trò' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Sửa vai trò' }));
     const dialog = await screen.findByRole('dialog', { name: 'Sửa vai trò' });
     await waitFor(() =>
-      expect((within(dialog).getByLabelText('course:view') as HTMLSelectElement).value).toBe('-1'),
+      expect(within(dialog).getByRole('checkbox', { name: 'course:view' })).toHaveAttribute(
+        'aria-disabled',
+        'true',
+      ),
     );
     await userEvent.clear(within(dialog).getByLabelText('Tên vai trò'));
     await userEvent.type(within(dialog).getByLabelText('Tên vai trò'), 'Giáo viên mới');
@@ -1160,7 +1265,7 @@ describe('Trang vai trò — bảng người dùng kèm vai trò', () => {
     await userEvent.type(within(dialog).getByLabelText('Tên vai trò'), 'Vai trò mới');
     await userEvent.type(within(dialog).getByLabelText('Tên ngắn (shortName)'), 'newrole');
     await userEvent.selectOptions(within(dialog).getByLabelText('Ngữ cảnh'), SYSTEM_CONTEXT_ID);
-    await userEvent.selectOptions(within(dialog).getByLabelText('course:view'), '1');
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'course:view' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Lưu vai trò' }));
     await waitFor(() =>
       expect(calls.some((c) => c.url === '/api/v1/access/roles' && c.method === 'POST')).toBe(true),

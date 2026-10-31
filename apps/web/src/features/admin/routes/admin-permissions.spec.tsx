@@ -21,6 +21,14 @@ import { AdminPermissionsPage } from './admin-permissions';
  * nháp của lần ghi đó bị xoá để giá trị mới từ server hiện lên thay
  * vì bị nháp cũ che; nháp mang cả ngữ cảnh của lần ghi nên lỗi muộn
  * của ngữ cảnh cũ không xoá nháp mới ở ngữ cảnh mới dù trùng giá trị.
+ *
+ * Vòng sửa 3 theo phán quyết 6539398880 (hình dạng demo, dữ kiện
+ * thật): ô select bốn trạng thái thay bằng nút toggle icon hai trạng
+ * thái (bật = Cho phép, tắt = Kế thừa); ô đang mang Ngăn chặn/Cấm
+ * hẳn đã lưu thì toggle bị khoá kèm huy hiệu trạng thái và không
+ * thao tác nào ghi đè được — fixture mang sẵn một ô Cấm hẳn ở ngữ
+ * cảnh hệ thống và một ô Ngăn chặn ở ngữ cảnh trung tâm để ghim
+ * hành vi này.
  */
 const ROLE_A_ID = '01900000-0000-7000-8000-0000000000b1';
 const ROLE_B_ID = '01900000-0000-7000-8000-0000000000b2';
@@ -52,9 +60,10 @@ function initialStore(): Record<string, Record<string, Record<string, number>>> 
   return {
     [SYSTEM_CONTEXT_ID]: {
       [ROLE_A_ID]: { 'course:view': 1 },
+      [ROLE_B_ID]: { 'user:view': -1000 },
     },
     [TENANT_CONTEXT_ID]: {
-      [ROLE_A_ID]: { 'course:edit': 1 },
+      [ROLE_A_ID]: { 'course:edit': 1, 'user:view': -1 },
       [ROLE_B_ID]: { 'course:view': 1 },
     },
   };
@@ -141,9 +150,9 @@ function renderPage() {
   );
 }
 
-/** Ô select bốn trạng thái của một cặp vai trò × năng lực. */
-function cellSelect(roleName: string, capability: string) {
-  return screen.getByRole('combobox', { name: `Quyền ${capability} của vai trò ${roleName}` });
+/** Nút toggle của một cặp vai trò × năng lực; trạng thái bật/tắt đọc ở thuộc tính aria-pressed. */
+function cellToggle(roleName: string, capability: string) {
+  return screen.getByRole('button', { name: `Quyền ${capability} của vai trò ${roleName}` });
 }
 
 describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô', () => {
@@ -158,7 +167,7 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
     stubFetch(calls);
     renderPage();
 
-    await screen.findByRole('combobox', { name: 'Quyền course:view của vai trò Giáo viên' });
+    await screen.findByRole('button', { name: 'Quyền course:view của vai trò Giáo viên' });
     // Ma trận toàn trang chỉ gọi đúng một lần cho ngữ cảnh hệ thống,
     // không gọi ma trận riêng cho từng vai.
     const matrixCalls = calls.filter((call) => call.url.startsWith('/api/v1/access/capability-matrix'));
@@ -181,18 +190,19 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
     expect(screen.getByText('Quyền đang cho phép')).toBeInTheDocument();
     const cards = document.querySelectorAll('[data-slot="card"]');
     expect(cards.length).toBeGreaterThanOrEqual(3);
-    // Ô đã lưu Cho phép hiện đúng giá trị, ô chưa có ghi đè hiện Kế thừa.
-    expect(cellSelect('Giáo viên', 'course:view')).toHaveValue('1');
-    expect(cellSelect('Quản trị viên', 'course:view')).toHaveValue('0');
+    // Ô đã lưu Cho phép hiện toggle đang bật, ô chưa có ghi đè hiện toggle đang tắt.
+    expect(cellToggle('Giáo viên', 'course:view')).toHaveAttribute('aria-pressed', 'true');
+    expect(cellToggle('Quản trị viên', 'course:view')).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('đổi một ô gọi đúng một lần POST ghi từng ô với thân đúng và thẻ Cho phép tăng ngay 1, đổi khỏi Cho phép giảm ngay 1', async () => {
+  it('bật một ô gọi đúng một lần POST ghi từng ô với thân Cho phép và thẻ Cho phép tăng ngay 1, tắt ô Cho phép thì ghi Kế thừa và thẻ giảm ngay 1', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderPage();
 
-    const cell = await screen.findByRole('combobox', { name: 'Quyền course:edit của vai trò Giáo viên' });
-    await userEvent.selectOptions(cell, '1');
+    const cell = await screen.findByRole('button', { name: 'Quyền course:edit của vai trò Giáo viên' });
+    expect(cell).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(cell);
     await waitFor(() => {
       expect(calls.filter((call) => call.url === '/api/v1/access/overrides' && call.method === 'POST')).toHaveLength(1);
     });
@@ -202,14 +212,20 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
       contextId: SYSTEM_CONTEXT_ID,
       permission: 1,
     });
-    // Thẻ Cho phép tăng từ 1 lên 2 ngay khi đổi ô, không cần tải lại.
+    // Thẻ Cho phép tăng từ 1 lên 2 ngay khi bật ô, không cần tải lại.
     const allowCard = screen.getByText('Quyền đang cho phép').closest('[data-slot="card"]');
     expect(within(allowCard as HTMLElement).getByText('2')).toBeInTheDocument();
-    // Đổi ô Cho phép sẵn có sang Ngăn chặn thì thẻ giảm ngay về 1.
-    const allowCell = cellSelect('Giáo viên', 'course:view');
-    await userEvent.selectOptions(allowCell, '-1');
+    // Tắt ô Cho phép sẵn có thì ghi Kế thừa (0) và thẻ giảm ngay về 1.
+    const allowCell = cellToggle('Giáo viên', 'course:view');
+    await userEvent.click(allowCell);
     await waitFor(() => {
       expect(calls.filter((call) => call.url === '/api/v1/access/overrides' && call.method === 'POST')).toHaveLength(2);
+    });
+    expect(calls.filter((call) => call.url === '/api/v1/access/overrides')[1]?.body).toEqual({
+      roleId: ROLE_A_ID,
+      capability: 'course:view',
+      contextId: SYSTEM_CONTEXT_ID,
+      permission: 0,
     });
     expect(within(allowCard as HTMLElement).getByText('1')).toBeInTheDocument();
   });
@@ -218,11 +234,11 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
     stubFetch([], { postError: true });
     renderPage();
 
-    const cell = await screen.findByRole('combobox', { name: 'Quyền course:edit của vai trò Giáo viên' });
-    expect(cell).toHaveValue('0');
-    await userEvent.selectOptions(cell, '1');
+    const cell = await screen.findByRole('button', { name: 'Quyền course:edit của vai trò Giáo viên' });
+    expect(cell).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(cell);
     await screen.findByText('Không lưu được ô này — giá trị đã hoàn lại.');
-    expect(cellSelect('Giáo viên', 'course:edit')).toHaveValue('0');
+    expect(cellToggle('Giáo viên', 'course:edit')).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('đổi ngữ cảnh thì tải lại ma trận của ngữ cảnh mới và thẻ cập nhật theo', async () => {
@@ -230,8 +246,8 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
     stubFetch(calls);
     renderPage();
 
-    await screen.findByRole('combobox', { name: 'Quyền course:view của vai trò Giáo viên' });
-    expect(cellSelect('Giáo viên', 'course:view')).toHaveValue('1');
+    await screen.findByRole('button', { name: 'Quyền course:view của vai trò Giáo viên' });
+    expect(cellToggle('Giáo viên', 'course:view')).toHaveAttribute('aria-pressed', 'true');
     const picker = screen.getByLabelText('Ngữ cảnh');
     await userEvent.selectOptions(picker, TENANT_CONTEXT_ID);
     await waitFor(() => {
@@ -242,12 +258,12 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
     expect(
       calls.filter((call) => call.url.startsWith('/api/v1/access/capability-matrix'))[1]?.url,
     ).toContain(`contextId=${TENANT_CONTEXT_ID}`);
-    // Ma trận ngữ cảnh mới: course:view của Giáo viên về Kế thừa,
-    // course:edit của Giáo viên và course:view của Quản trị viên là
-    // Cho phép — thẻ Cho phép thành 2.
-    expect(cellSelect('Giáo viên', 'course:view')).toHaveValue('0');
-    expect(cellSelect('Giáo viên', 'course:edit')).toHaveValue('1');
-    expect(cellSelect('Quản trị viên', 'course:view')).toHaveValue('1');
+    // Ma trận ngữ cảnh mới: course:view của Giáo viên về Kế thừa (toggle tắt),
+    // course:edit của Giáo viên và course:view của Quản trị viên đang Cho phép
+    // (toggle bật) — thẻ Cho phép thành 2.
+    expect(cellToggle('Giáo viên', 'course:view')).toHaveAttribute('aria-pressed', 'false');
+    expect(cellToggle('Giáo viên', 'course:edit')).toHaveAttribute('aria-pressed', 'true');
+    expect(cellToggle('Quản trị viên', 'course:view')).toHaveAttribute('aria-pressed', 'true');
     const allowCard = screen.getByText('Quyền đang cho phép').closest('[data-slot="card"]');
     expect(within(allowCard as HTMLElement).getByText('2')).toBeInTheDocument();
   });
@@ -264,13 +280,13 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
     });
     renderPage();
 
-    const cell = await screen.findByRole('combobox', { name: 'Quyền course:edit của vai trò Giáo viên' });
-    expect(cell).toHaveValue('0');
-    await userEvent.selectOptions(cell, '1');
+    const cell = await screen.findByRole('button', { name: 'Quyền course:edit của vai trò Giáo viên' });
+    expect(cell).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(cell);
     // Ô đang chờ ghi thì bị khoá tại ngữ cảnh hệ thống, và lần ghi
     // đã thực sự bay đi (treo chờ điều khiển tay).
     await waitFor(() => {
-      expect(cellSelect('Giáo viên', 'course:edit')).toBeDisabled();
+      expect(cellToggle('Giáo viên', 'course:edit')).toBeDisabled();
       expect(postControls).toBeDefined();
     });
     // Đổi sang ngữ cảnh tenant trong lúc lần ghi còn chờ: ô cùng vị
@@ -282,9 +298,9 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
         calls.filter((call) => call.url.startsWith('/api/v1/access/capability-matrix')),
       ).toHaveLength(2);
     });
-    const tenantCell = cellSelect('Giáo viên', 'course:edit');
+    const tenantCell = cellToggle('Giáo viên', 'course:edit');
     expect(tenantCell).not.toBeDisabled();
-    expect(tenantCell).toHaveValue('1');
+    expect(tenantCell).toHaveAttribute('aria-pressed', 'true');
     // Lỗi muộn của lần ghi ở ngữ cảnh hệ thống về sau khi đã đổi ngữ
     // cảnh: cho chuỗi xử lý lỗi chạy xong rồi mới khẳng định banner
     // không hiện sai chỗ.
@@ -302,9 +318,9 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
     const pickerBack = screen.getByLabelText('Ngữ cảnh');
     await userEvent.selectOptions(pickerBack, SYSTEM_CONTEXT_ID);
     await waitFor(() => {
-      expect(cellSelect('Giáo viên', 'course:edit')).toHaveValue('0');
+      expect(cellToggle('Giáo viên', 'course:edit')).toHaveAttribute('aria-pressed', 'false');
     });
-    const systemCell = cellSelect('Giáo viên', 'course:edit');
+    const systemCell = cellToggle('Giáo viên', 'course:edit');
     expect(systemCell).not.toBeDisabled();
   });
 
@@ -320,20 +336,27 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
     });
     renderPage();
 
-    const cell = await screen.findByRole('combobox', { name: 'Quyền course:view của vai trò Giáo viên' });
-    expect(cell).toHaveValue('1');
-    await userEvent.selectOptions(cell, '-1');
+    const cell = await screen.findByRole('button', { name: 'Quyền course:view của vai trò Giáo viên' });
+    expect(cell).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(cell);
     await waitFor(() => {
       expect(calls.filter((call) => call.url === '/api/v1/access/overrides' && call.method === 'POST')).toHaveLength(1);
     });
-    // Ma trận làm mới sau ghi thành công trả về giá trị mới (1): ô
-    // phải hiện 1, không giữ nháp cũ (-1) che mất giá trị mới.
+    expect(calls.filter((call) => call.url === '/api/v1/access/overrides')[0]?.body).toEqual({
+      roleId: ROLE_A_ID,
+      capability: 'course:view',
+      contextId: SYSTEM_CONTEXT_ID,
+      permission: 0,
+    });
+    // Ma trận làm mới sau ghi thành công trả về giá trị mới (Cho
+    // phép): ô phải hiện đang bật, không giữ nháp cũ (đang tắt) che
+    // mất giá trị mới.
     await waitFor(() => {
-      expect(cellSelect('Giáo viên', 'course:view')).toHaveValue('1');
+      expect(cellToggle('Giáo viên', 'course:view')).toHaveAttribute('aria-pressed', 'true');
     });
   });
 
-  it('lỗi muộn của ngữ cảnh cũ không xoá nháp mới ở ngữ cảnh mới dù hai lần ghi trùng giá trị', async () => {
+  it('lỗi muộn của ngữ cảnh cũ không xoá nháp mới ở ngữ cảnh mới', async () => {
     const calls: RecordedCall[] = [];
     const posts: Array<{
       resolvePost: () => void;
@@ -346,13 +369,13 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
     });
     renderPage();
 
-    const systemCell = await screen.findByRole('combobox', { name: 'Quyền course:view của vai trò Giáo viên' });
-    expect(systemCell).toHaveValue('1');
-    // Ghi ở ngữ cảnh hệ thống sang -1, treo chờ.
-    await userEvent.selectOptions(systemCell, '-1');
+    const systemCell = await screen.findByRole('button', { name: 'Quyền course:view của vai trò Giáo viên' });
+    expect(systemCell).toHaveAttribute('aria-pressed', 'true');
+    // Tắt ô ở ngữ cảnh hệ thống (ghi Kế thừa), treo chờ.
+    await userEvent.click(systemCell);
     await waitFor(() => expect(posts).toHaveLength(1));
     // Đổi sang ngữ cảnh tenant: nháp cũ bị xoá theo hành vi gốc, ô
-    // cùng vị trí hiện giá trị đã lưu tại ngữ cảnh mới (Kế thừa).
+    // cùng vị trí hiện giá trị đã lưu tại ngữ cảnh mới (Kế thừa — đang tắt).
     const picker = screen.getByLabelText('Ngữ cảnh');
     await userEvent.selectOptions(picker, TENANT_CONTEXT_ID);
     await waitFor(() => {
@@ -360,19 +383,19 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
         calls.filter((call) => call.url.startsWith('/api/v1/access/capability-matrix')),
       ).toHaveLength(2);
     });
-    const tenantCell = cellSelect('Giáo viên', 'course:view');
-    expect(tenantCell).toHaveValue('0');
-    // Sửa cùng ô ở ngữ cảnh mới sang CÙNG GIÁ TRỊ (-1), treo chờ.
-    await userEvent.selectOptions(tenantCell, '-1');
+    const tenantCell = cellToggle('Giáo viên', 'course:view');
+    expect(tenantCell).toHaveAttribute('aria-pressed', 'false');
+    // Bật cùng ô ở ngữ cảnh mới (ghi Cho phép), treo chờ.
+    await userEvent.click(tenantCell);
     await waitFor(() => expect(posts).toHaveLength(2));
     // Lỗi muộn của lần ghi ở ngữ cảnh hệ thống về: nháp mới ở tenant
-    // phải còn nguyên, ô vẫn hiện -1, không hiện banner sai chỗ.
+    // phải còn nguyên, ô vẫn hiện đang bật, không hiện banner sai chỗ.
     await act(async () => {
       posts[0]?.rejectPost(new Error('Lỗi ghi muộn'));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     await waitFor(() => {
-      expect(cellSelect('Giáo viên', 'course:view')).toHaveValue('-1');
+      expect(cellToggle('Giáo viên', 'course:view')).toHaveAttribute('aria-pressed', 'true');
     });
     expect(screen.queryByText('Không lưu được ô này — giá trị đã hoàn lại.')).not.toBeInTheDocument();
     // Dọn lần ghi tenant còn treo để không rò rỉ promise qua cuối test.
@@ -388,29 +411,63 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
     renderPage();
 
     // Danh mục và cây context đã về nhưng ma trận vẫn treo: trang vẫn
-    // ở trạng thái chờ, không hiện ô select hay bộ chọn ngữ cảnh nào.
+    // ở trạng thái chờ, không hiện nút toggle hay bộ chọn ngữ cảnh nào.
     await waitFor(() => {
       expect(calls.filter((call) => call.url.startsWith('/api/v1/access/capability-matrix'))).toHaveLength(1);
     });
     expect(screen.getByRole('heading', { name: 'Quyền' })).toBeInTheDocument();
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Quyền course:view của vai trò Giáo viên' }),
+    ).not.toBeInTheDocument();
   });
 
-  it('đặt ô về Kế thừa rồi tải lại trang thì ô không còn ghi đè', async () => {
+  it('ô đang mang Cấm hẳn hoặc Ngăn chặn thì bị khoá kèm huy hiệu trạng thái và không thao tác nào ghi đè được', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderPage();
+
+    // Ngữ cảnh hệ thống: user:view của Quản trị viên đang Cấm hẳn (−1000).
+    const prohibitCell = await screen.findByRole('button', {
+      name: 'Quyền user:view của vai trò Quản trị viên',
+    });
+    expect(prohibitCell).toBeDisabled();
+    expect(prohibitCell).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText('Cấm hẳn')).toBeInTheDocument();
+    // Bấm vào ô khoá không phát sinh lần ghi nào.
+    await userEvent.click(prohibitCell);
+    expect(calls.filter((call) => call.url === '/api/v1/access/overrides')).toHaveLength(0);
+    // Đổi sang ngữ cảnh trung tâm: user:view của Giáo viên đang Ngăn chặn (−1) — cũng khoá.
+    const picker = screen.getByLabelText('Ngữ cảnh');
+    await userEvent.selectOptions(picker, TENANT_CONTEXT_ID);
+    const preventCell = await screen.findByRole('button', {
+      name: 'Quyền user:view của vai trò Giáo viên',
+    });
+    expect(preventCell).toBeDisabled();
+    expect(screen.getByText('Ngăn chặn')).toBeInTheDocument();
+    await userEvent.click(preventCell);
+    expect(calls.filter((call) => call.url === '/api/v1/access/overrides')).toHaveLength(0);
+    // Ô thường ở cùng ngữ cảnh vẫn sửa được — khoá chỉ áp cho ô mang giá trị chặn.
+    expect(cellToggle('Giáo viên', 'course:view')).not.toBeDisabled();
+  });
+
+  it('tắt ô về Kế thừa rồi tải lại trang thì ô không còn ghi đè', async () => {
     stubFetch([]);
     renderPage();
 
-    const cell = await screen.findByRole('combobox', { name: 'Quyền course:view của vai trò Giáo viên' });
-    expect(cell).toHaveValue('1');
-    await userEvent.selectOptions(cell, '0');
+    const cell = await screen.findByRole('button', { name: 'Quyền course:view của vai trò Giáo viên' });
+    expect(cell).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(cell);
     await waitFor(() => {
-      expect(cellSelect('Giáo viên', 'course:view')).toHaveValue('0');
+      expect(cellToggle('Giáo viên', 'course:view')).toHaveAttribute('aria-pressed', 'false');
     });
     // Tải lại trang từ đầu (QueryClient mới, không còn sửa đổi lạc
-    // quan): ô vẫn là Kế thừa vì dòng ghi đè đã bị xoá phía server.
+    // quan): ô vẫn đang tắt vì dòng ghi đè đã bị xoá phía server.
     cleanup();
     renderPage();
-    const reloaded = await screen.findByRole('combobox', { name: 'Quyền course:view của vai trò Giáo viên' });
-    expect(reloaded).toHaveValue('0');
+    const reloaded = await screen.findByRole('button', {
+      name: 'Quyền course:view của vai trò Giáo viên',
+    });
+    expect(reloaded).toHaveAttribute('aria-pressed', 'false');
   });
 });
