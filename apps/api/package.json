@@ -19,11 +19,11 @@
     "db:migrate:control-plane": "drizzle-kit migrate --config drizzle-control-plane.config.ts",
     "db:setup:control-plane": "node dist/modules/control-plane/control-plane-setup.js",
     "db:setup:runtime-roles": "node dist/modules/fleet/runtime-roles-setup.js",
-    "space:provision": "node dist/modules/tenants/space-provision.js",
     "fleet:migrate": "node dist/modules/fleet/fleet-migration-runner.js",
     "fleet:backup": "node dist/modules/fleet/fleet-backup.js",
     "fleet:restore-test": "node dist/modules/fleet/fleet-restore-test.js",
-    "seed:review": "node dist/modules/seed/review-seed.js"
+    "seed:review": "node dist/modules/seed/review-seed.js",
+    "space:provision": "node dist/modules/tenants/space-provision.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1156.0",
