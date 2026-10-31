@@ -35,9 +35,10 @@ import { queryKeys } from './keys';
  * lại trang. Riêng ba đột biến vai trò (tạo/đổi tên/xoá) làm mới thêm
  * gốc bảng người dùng kèm vai trò, vì bảng này bày tên vai ngay trên
  * cùng trang vai trò — không làm mới thì bảng giữ tên cũ (đổi tên)
- * hoặc dòng gán của vai đã xoá tới khi tải lại trang. Đổi tên vai
- * làm mới thêm gốc ma trận toàn trang, vì trang Quyền độc lập cũng
- * bày tên vai. Lời gọi API thuần nằm ở tầng `api/` của feature.
+ * hoặc dòng gán của vai đã xoá tới khi tải lại trang. Cả ba đột biến
+ * vai trò làm mới thêm gốc ma trận toàn trang, vì trang Quyền độc lập
+ * cũng bày danh sách vai — không làm mới thì trang Quyền giữ cột vai
+ * cũ (tạo/xoá) tới khi truy vấn ma trận hết tươi. Lời gọi API thuần nằm ở tầng `api/` của feature.
  */
 
 /** Đột biến tạo vai trò (POST /access/roles). */
@@ -48,6 +49,7 @@ export function useCreateRole() {
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: sharedQueryKeys.access });
       void client.invalidateQueries({ queryKey: queryKeys.usersWithAssignmentsRoot });
+      void client.invalidateQueries({ queryKey: queryKeys.capabilityMatrixRoot });
     },
   });
 }
@@ -82,6 +84,7 @@ export function useDeleteRole() {
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: sharedQueryKeys.access });
       void client.invalidateQueries({ queryKey: queryKeys.usersWithAssignmentsRoot });
+      void client.invalidateQueries({ queryKey: queryKeys.capabilityMatrixRoot });
     },
   });
 }

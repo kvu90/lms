@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Field, FieldLabel } from '@lms/ui/components/field';
-import { Input } from '@lms/ui/components/input';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@lms/ui/components/input-group';
 import {
   Table,
   TableBody,
@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@lms/ui/components/table';
+import { Search } from 'lucide-react';
 import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
@@ -197,16 +198,21 @@ export function RoleAssignmentsSection({ roles, contexts }: RoleAssignmentsSecti
         </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <Field className="w-full max-w-2xs">
-            <Input
-              id="assignment-search"
-              aria-label={t('assignmentSearch')}
-              placeholder={t('assignmentSearchPlaceholder')}
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
+            <InputGroup>
+              <InputGroupAddon>
+                <Search />
+              </InputGroupAddon>
+              <InputGroupInput
+                id="assignment-search"
+                aria-label={t('assignmentSearch')}
+                placeholder={t('assignmentSearchPlaceholder')}
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+              />
+            </InputGroup>
           </Field>
           <div className="flex flex-wrap items-center gap-2">
             <Field className="flex-row items-center gap-2">

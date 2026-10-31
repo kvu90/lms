@@ -10,7 +10,8 @@ import {
   DialogTitle,
 } from '@lms/ui/components/dialog';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
-import { Input } from '@lms/ui/components/input';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@lms/ui/components/input-group';
+import { Search } from 'lucide-react';
 import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
@@ -169,16 +170,21 @@ export function RoleAssignmentDialog({
             <>
               <Field>
                 <FieldLabel htmlFor="assign-dialog-user-search">{t('assignUserSearch')}</FieldLabel>
-                <Input
-                  id="assign-dialog-user-search"
-                  placeholder={t('assignUserSearchPlaceholder')}
-                  value={userSearch}
-                  onChange={(e) => {
-                    setUserSearch(e.target.value);
-                    setSelectedUser(null);
-                    setUserPageSize(20);
-                  }}
-                />
+                <InputGroup>
+                  <InputGroupAddon>
+                    <Search />
+                  </InputGroupAddon>
+                  <InputGroupInput
+                    id="assign-dialog-user-search"
+                    placeholder={t('assignUserSearchPlaceholder')}
+                    value={userSearch}
+                    onChange={(e) => {
+                      setUserSearch(e.target.value);
+                      setSelectedUser(null);
+                      setUserPageSize(20);
+                    }}
+                  />
+                </InputGroup>
               </Field>
               {/* Danh sách chọn người dùng: mỗi dòng là một nút chọn, dòng đã chọn tô đậm. */}
               {usersQuery.isPending ? (

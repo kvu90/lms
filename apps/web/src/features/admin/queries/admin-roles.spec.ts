@@ -12,9 +12,9 @@ import {
 
 /**
  * Spec tầng đột biến vai trò (issue #597, vòng sửa theo phán quyết
- * điều phối): ba đột biến vai trò đều làm mới gốc bảng người dùng
- * kèm vai trò, và riêng đổi tên làm mới thêm gốc ma trận toàn trang
- * (trang Quyền độc lập bày tên vai). Kiểm chứng ở tầng hook vì tiền
+ * điều phối, bổ sung vòng sửa 2): ba đột biến vai trò đều làm mới
+ * gốc bảng người dùng kèm vai trò và gốc ma trận toàn trang (trang
+ * Quyền độc lập bày danh sách vai). Kiểm chứng ở tầng hook vì tiền
  * tố ma trận không quan sát được từ trang vai trò: gieo sẵn hai truy
  * vấn rồi đếm lần gọi GET sau mỗi đột biến.
  */
@@ -102,7 +102,7 @@ describe('Đột biến vai trò — làm mới bảng người dùng kèm vai t
     );
   });
 
-  it('tạo vai trò làm mới bảng người dùng kèm vai trò nhưng không làm mới ma trận toàn trang', async () => {
+  it('tạo vai trò làm mới cả bảng người dùng kèm vai trò lẫn ma trận toàn trang', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     const client = createClient();
@@ -113,14 +113,16 @@ describe('Đột biến vai trò — làm mới bảng người dùng kèm vai t
     const { result } = renderHook(() => useCreateRole(), { wrapper: wrapper(client) });
     await result.current.mutateAsync({ name: 'Vai trò mới', shortName: 'newrole' });
 
+    // Lần tải lại sau invalidate chạy bất đồng bộ nên chờ cho tới khi cả hai đều tăng.
     await waitFor(() =>
       expect(countCalls(calls, '/api/v1/access/users-with-assignments')).toBeGreaterThan(usersBefore),
     );
-    // Chu kỳ làm mới đã chạy xong (bảng đã tải lại) mà ma trận không tăng thêm.
-    expect(countCalls(calls, '/api/v1/access/capability-matrix')).toBe(matrixBefore);
+    await waitFor(() =>
+      expect(countCalls(calls, '/api/v1/access/capability-matrix')).toBeGreaterThan(matrixBefore),
+    );
   });
 
-  it('xoá vai trò làm mới bảng người dùng kèm vai trò nhưng không làm mới ma trận toàn trang', async () => {
+  it('xoá vai trò làm mới cả bảng người dùng kèm vai trò lẫn ma trận toàn trang', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     const client = createClient();
@@ -131,10 +133,12 @@ describe('Đột biến vai trò — làm mới bảng người dùng kèm vai t
     const { result } = renderHook(() => useDeleteRole(), { wrapper: wrapper(client) });
     await result.current.mutateAsync(ROLE_ID);
 
+    // Lần tải lại sau invalidate chạy bất đồng bộ nên chờ cho tới khi cả hai đều tăng.
     await waitFor(() =>
       expect(countCalls(calls, '/api/v1/access/users-with-assignments')).toBeGreaterThan(usersBefore),
     );
-    // Chu kỳ làm mới đã chạy xong (bảng đã tải lại) mà ma trận không tăng thêm.
-    expect(countCalls(calls, '/api/v1/access/capability-matrix')).toBe(matrixBefore);
+    await waitFor(() =>
+      expect(countCalls(calls, '/api/v1/access/capability-matrix')).toBeGreaterThan(matrixBefore),
+    );
   });
 });
