@@ -79,7 +79,9 @@ export const centreIdentity = pgTable(
  * nhanh và để hai token không bao giờ trùng băm một cách vô tình).
  * Lời mời hợp lệ khi đồng thời: chưa dùng (`usedAt` null), chưa bị
  * huỷ (`revokedAt` null) và chưa hết hạn (`expiresAt` còn trong
- * tương lai). Kích hoạt là thao tác đốt token trước rồi mới đặt mật
+ * tương lai). Index trên `userId` phục vụ hai việc: tra cứu/huỷ mọi
+ * lời mời đang chờ của một tài khoản, và giữ bất biến "mọi khoá ngoại
+ * một cột đều được cột index đầu bao phủ" của schema. Kích hoạt là thao tác đốt token trước rồi mới đặt mật
  * khẩu (fail-closed): nếu bước đặt mật khẩu hỏng sau khi đốt, lời
  * mời đã mất và phải cấp lại — không tồn tại đường dùng lại token
  * sau khi mật khẩu đã được đặt.
@@ -101,7 +103,10 @@ export const centreInvites = pgTable(
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('centre_invites_tenant_id_idx').on(table.tenantId)],
+  (table) => [
+    index('centre_invites_tenant_id_idx').on(table.tenantId),
+    index('centre_invites_user_id_idx').on(table.userId),
+  ],
 );
 
 /**

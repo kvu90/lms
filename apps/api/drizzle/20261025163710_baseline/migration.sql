@@ -3420,6 +3420,7 @@ CREATE TABLE "program_package_installs" (
 );
 --> statement-breakpoint
 CREATE INDEX "centre_invites_tenant_id_idx" ON "centre_invites" ("tenant_id");--> statement-breakpoint
+CREATE INDEX "centre_invites_user_id_idx" ON "centre_invites" ("user_id");--> statement-breakpoint
 ALTER TABLE "centre_identity" ADD CONSTRAINT "centre_identity_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "centre_invites" ADD CONSTRAINT "centre_invites_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "centre_invites" ADD CONSTRAINT "centre_invites_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint

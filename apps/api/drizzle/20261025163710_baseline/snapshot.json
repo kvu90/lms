@@ -19209,6 +19209,26 @@
       ]
     },
     {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "centre_invites",
+        "centre_invites_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.centre_invites_user_id_idx",
+        "n|idx|public.centre_invites_user_id_idx",
+        "e|idx|public.centre_invites_user_id_idx",
+        "n|rel|public.centre_invites_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.centre_invites",
+        "n|sch|public",
+        "n|col|public.centre_invites.user_id"
+      ]
+    },
+    {
       "statementType": "create_fk",
       "statementTarget": [
         "table",
@@ -62047,6 +62067,27 @@
       "columns": [
         {
           "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "centre_invites",
+      "name": "centre_invites_user_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
