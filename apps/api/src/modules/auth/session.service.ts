@@ -12,6 +12,13 @@ export interface WebSession extends WebSessionClientInfo {
   /** Lần cuối phiên còn được xác thực thành công — cập nhật tiết kiệm qua `touch` (tối đa một lần ghi mỗi phút). */
   lastActivityAt: string;
   loginAs?: { byUserId: string };
+  /**
+   * Slug kho riêng của địa chỉ đã tạo phiên (issue #584); vắng mặt
+   * với phiên tạo ở địa chỉ gốc hoặc phiên tạo trước khi có trường
+   * này. `AuthService.sessionUser` đối chiếu với địa chỉ của
+   * request hiện tại để từ chối phiên bị mang sang không gian khác.
+   */
+  spaceSlug?: string;
 }
 
 /** Một phiên web đang sống kèm định danh của nó, dùng cho trang quản lý phiên của chính user. */

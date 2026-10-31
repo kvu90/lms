@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Put } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
+import { PlatformRoute } from '../../common/platform-route.decorator';
 import { ControlPlaneRegistryService } from './control-plane.service';
 import {
   changeSpaceStatusSchema,
@@ -31,7 +32,14 @@ import {
  * Mọi route đều qua service gác capability quản trị platform
  * (`tenant:manage` tại context hệ thống); controller chỉ là lớp vận
  * chuyển mỏng theo khuôn các controller hiện hữu.
+ *
+ * Tách bề mặt (issue #584): toàn bộ controller mang
+ * `@PlatformRoute()` — chỉ token mang audience `platform` (cấp từ
+ * bề mặt đăng nhập quản trị platform riêng) mới được gọi; token
+ * nghiệp vụ thường bị `AudienceGuard` từ chối trước cả cổng
+ * capability của service.
  */
+@PlatformRoute()
 @Controller({ path: 'control-plane/spaces', version: '1' })
 export class ControlPlaneController {
   constructor(private readonly registry: ControlPlaneRegistryService) {}
