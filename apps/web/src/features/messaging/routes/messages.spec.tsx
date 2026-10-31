@@ -1934,18 +1934,19 @@ describe('Messages page — phân tab, danh sách nhóm, sheet Tin nhắn mới'
     expect(screen.getByRole('button', { name: /Nhóm Riêng/ })).toBeInTheDocument();
   });
 
-  it('tab Chưa đọc chứa hội thoại nhóm có tin chưa đọc kèm huy hiệu; số đếm của tab khớp danh sách và tổng chưa đọc ở tiêu đề trang', async () => {
+  it('tab Chưa đọc chứa hội thoại nhóm có tin chưa đọc kèm huy hiệu; số đếm của tab khớp danh sách đã liệt kê', async () => {
     const calls: RecordedCall[] = [];
     stubMsgT3Fetch(calls, { groupUnread: 2 });
     renderMessages();
 
-    // Tiêu đề trang báo tổng chưa đọc tính trên mọi loại hội
-    // thoại: "Bạn Một" (1–1) + "Nhóm Riêng" (nhóm) = 2 hội
-    // thoại có tin chưa đọc.
-    expect(await screen.findByRole('heading', { name: /Tin nhắn.*2 chưa đọc/ })).toBeInTheDocument();
-    // Số đếm của tab Chưa đọc phải khớp chính tổng đó và khớp
-    // danh sách tab liệt kê — không còn cảnh tab báo (0) trong
-    // khi tiêu đề báo còn tin chưa đọc.
+    // Tổng chưa đọc tính trên mọi loại hội thoại: "Bạn Một"
+    // (1–1) + "Nhóm Riêng" (nhóm) = 2 hội thoại có tin chưa
+    // đọc. Tiêu đề cột chỉ là chữ như bản demo (issue #608,
+    // điểm B10 — không hậu tố số chưa đọc) nên tổng đó đọc ở
+    // số đếm của tab Chưa đọc, và số đếm phải khớp danh sách
+    // tab liệt kê — không còn cảnh tab báo (0) trong khi vẫn
+    // còn tin chưa đọc.
+    expect(await screen.findByRole('heading', { name: 'Tin nhắn' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Chưa đọc' })).toHaveTextContent('(2)');
     await userEvent.click(screen.getByRole('tab', { name: 'Chưa đọc' }));
     expect(screen.getByRole('button', { name: /Bạn Một.*1 chưa đọc/ })).toBeInTheDocument();
@@ -3850,8 +3851,11 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     // thái vô hiệu (hình dạng thuần theo luật điểm chưa quyết).
     expect(within(panel).getByRole('button', { name: 'Thêm vào yêu thích' })).toBeDisabled();
     expect(within(panel).getByRole('button', { name: 'Xoá lịch sử trò chuyện' })).toBeDisabled();
-    // Khối tệp đã chia sẻ giữ nguyên bề mặt của nó.
-    expect(within(panel).getByText('Tệp đã chia sẻ')).toBeInTheDocument();
+    // Khối tệp đã chia sẻ theo đúng hành vi của demo
+    // (issue #608, điểm G9): khối chỉ hiện khi hội thoại có
+    // tệp đã chia sẻ; nguồn dữ kiện hiện tại rỗng nên khối
+    // không dựng trong panel.
+    expect(within(panel).queryByText('Tệp đã chia sẻ')).not.toBeInTheDocument();
     // Các trường hồ sơ backend chưa có dữ kiện thì KHÔNG dựng
     // hàng nào và không còn dấu gạch ngang chờ như trước
     // (issue #608 — đúng luật hiển thị của demo).
@@ -3870,7 +3874,11 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     stub591Fetch(calls);
     renderMessages();
 
-    await userEvent.click(await screen.findByRole('button', { name: /Bạn Học/ }));
+    // Mở hàng 1–1 qua mốc giờ của chính hội thoại đó: ở
+    // danh sách hợp nhất, hàng nhóm cũng mang tên người gửi
+    // "Bạn Học" trong dòng xem trước nên truy vấn nút theo
+    // tên trơn sẽ trùng hai hàng.
+    await userEvent.click(await screen.findByTestId(`conversation-last-time-${CONV_ID}`));
     expect(await screen.findByLabelText('Tin nhắn')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('tab', { name: 'Nhóm' }));
@@ -3888,7 +3896,11 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     stub591Fetch(calls);
     renderMessages();
 
-    await userEvent.click(await screen.findByRole('button', { name: /Bạn Học/ }));
+    // Mở hàng 1–1 qua mốc giờ của chính hội thoại đó: ở
+    // danh sách hợp nhất, hàng nhóm cũng mang tên người gửi
+    // "Bạn Học" trong dòng xem trước nên truy vấn nút theo
+    // tên trơn sẽ trùng hai hàng.
+    await userEvent.click(await screen.findByTestId(`conversation-last-time-${CONV_ID}`));
     const thread = await screen.findByLabelText('Tin nhắn');
     // jsdom không tính layout nên khoảng cách hiệu dụng
     // quan sát được qua class đã gộp của vùng chứa — ca
@@ -3976,7 +3988,11 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     stub591Fetch(calls);
     renderMessages();
 
-    await userEvent.click(await screen.findByRole('button', { name: /Bạn Học/ }));
+    // Mở hàng 1–1 qua mốc giờ của chính hội thoại đó: ở
+    // danh sách hợp nhất, hàng nhóm cũng mang tên người gửi
+    // "Bạn Học" trong dòng xem trước nên truy vấn nút theo
+    // tên trơn sẽ trùng hai hàng.
+    await userEvent.click(await screen.findByTestId(`conversation-last-time-${CONV_ID}`));
     await screen.findByLabelText('Tin nhắn');
 
     // Hai nút gọi là hình dạng thuần ở trạng thái vô
