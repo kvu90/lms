@@ -1,3 +1,9 @@
+import type { SpaceDatabaseService } from '../../db/routing/space-database.service';
+import {
+  SpaceRoutingError,
+  type ResolvedSpaceConnection,
+} from '../../db/routing/space-connection-resolver';
+
 /**
  * Phân giải địa chỉ request thành slug của trung tâm (issue #582).
  *
@@ -47,4 +53,52 @@ export function extractSpaceSlugFromHost(host: string | undefined | null): strin
   // tâm nào: nhãn đầu toàn số thì không coi là slug ứng viên.
   if (/^\d+$/.test(candidate) && labels.every((label) => /^\d+$/.test(label))) return null;
   return candidate;
+}
+
+/**
+ * Kết quả phân giải một địa chỉ thuộc trung tâm ở kho riêng: slug
+ * của trung tâm và định danh đăng ký của nó trong sổ control plane
+ * (giá trị claim `centre_id` của phiên thuộc trung tâm đó).
+ */
+export interface DedicatedSpace {
+  slug: string;
+  spaceId: string;
+}
+
+/**
+ * Phân giải địa chỉ request thành không gian ở KHO RIÊNG, hoặc
+ * `null` khi request không thuộc trung tâm kho riêng nào.
+ *
+ * Các trường hợp trả `null` (đường kho chung giữ nguyên hành vi):
+ * địa chỉ không mang trung tâm, slug chưa đăng ký trong sổ, tầng
+ * định tuyến chưa cấu hình, hoặc trung tâm ở chế độ kho chung.
+ * Mọi lỗi phân giải còn lại (bí mật/role của kho riêng lệch sổ)
+ * là lỗi cấu hình vận hành nên ném ra nguyên trạng, fail-closed,
+ * thay vì im lặng coi request là đường kho chung.
+ *
+ * @param spaceDb - Khung định tuyến (chỉ cần `resolveTarget`; hàm
+ *   này không mở pool, chỉ đọc sổ đăng ký qua đệm của khung).
+ * @param host - Giá trị header `Host` của request (có thể kèm cổng).
+ */
+export async function resolveDedicatedSpace(
+  spaceDb: Pick<SpaceDatabaseService, 'resolveTarget'>,
+  host: string | string[] | undefined,
+): Promise<DedicatedSpace | null> {
+  const header = Array.isArray(host) ? host[0] : host;
+  const slug = extractSpaceSlugFromHost(header);
+  if (!slug) return null;
+  let target: ResolvedSpaceConnection;
+  try {
+    target = await spaceDb.resolveTarget(slug);
+  } catch (err) {
+    if (
+      err instanceof SpaceRoutingError &&
+      (err.code === 'space_routing.space_not_found' || err.code === 'space_routing.not_configured')
+    ) {
+      return null;
+    }
+    throw err;
+  }
+  if (target.mode !== 'dedicated') return null;
+  return { slug, spaceId: target.spaceId };
 }

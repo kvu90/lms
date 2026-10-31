@@ -31,7 +31,7 @@
  * quản trị nội bộ; script không in URL hay mật khẩu ra log.
  */
 import { Client } from 'pg';
-import { quoteIdentifier } from './control-plane-provision';
+import { quoteIdentifier } from '../control-plane/control-plane-provision';
 import {
   buildEnsureRoleStatements,
   buildOwnershipTransferQuery,

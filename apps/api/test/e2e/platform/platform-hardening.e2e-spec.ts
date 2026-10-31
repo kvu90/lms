@@ -54,4 +54,20 @@ describe('Cứng hoá platform: header bảo mật và giới hạn tốc độ'
     const health = await http(app).get('/api/v1/health');
     expect(health.status).toBe(200);
   });
+
+  it('route đăng nhập platform cũng chịu hạn mức xác thực chặt: lần đăng nhập thứ 4 trong một phút trả 429', async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 4; i += 1) {
+      // Mỗi lần một username không tồn tại khác nhau, như ca trên:
+      // cô lập hạn mức IP khỏi cơ chế khoá theo tài khoản. Đường
+      // đăng nhập platform kiểm chứng mật khẩu quản trị nên phải
+      // chịu cùng hạn mức chặt với các route xác thực còn lại.
+      const res = await http(app)
+        .post('/api/v1/auth/platform/login')
+        .send({ username: uniqueName('ghost-platform'), password: 'WrongPass1!' });
+      statuses.push(res.status);
+    }
+    expect(statuses.slice(0, 3)).toEqual([401, 401, 401]);
+    expect(statuses[3]).toBe(429);
+  });
 });

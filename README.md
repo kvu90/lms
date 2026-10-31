@@ -180,7 +180,7 @@ dataset). Chạy lại seed sẽ bỏ qua phần chương trình khi dữ liệu
 có mặt (restore theo cơ chế restore-if-empty), nên định danh chương
 trình không bao giờ thay đổi khi seed lại. Đính chính một dataset
 nghĩa là sửa ở cơ sở dữ liệu chuẩn rồi xuất lại dump
-(`apps/api/src/export-program-dump.ts`), tuyệt đối không sửa tay
+(`apps/api/src/modules/curriculum/export-program-dump.ts`), tuyệt đối không sửa tay
 file dump.
 
 ### Các luồng chính cần review

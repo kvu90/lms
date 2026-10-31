@@ -31,7 +31,7 @@
  * nhận tham số nào khác, nối tiếp đúng cách `control-plane-setup`
  * đọc `CONTROL_PLANE_DATABASE_URL`.
  */
-import { quoteIdentifier, quoteLiteral } from './control-plane-provision';
+import { quoteIdentifier, quoteLiteral } from '../control-plane/control-plane-provision';
 
 /** Đích cấp phát của một role, suy ra từ URL kết nối của role đó. */
 export type RoleEndpoint = {
