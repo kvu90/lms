@@ -483,6 +483,27 @@ export class UsersService {
     });
   }
 
+  /**
+   * Người xem có được xem định danh (email) của đối tác hay không,
+   * theo đúng luật lộ email của {@link getProfileViews}: chính chủ,
+   * hoặc có `site:viewuseridentity` tại context hệ thống hoặc tại
+   * context người dùng của đối tác. Cổng hồ sơ chat 1–1 dùng chung
+   * luật này (xem MessagingContactsService) thay vì tự định nghĩa
+   * lại, để một luật lộ email duy nhất cho cả hệ.
+   *
+   * @param viewerId - Người xem cần kiểm.
+   * @param targetId - Người cần xem định danh.
+   * @returns `true` khi người xem được xem định danh của đối tác.
+   */
+  async canViewUserIdentity(viewerId: string, targetId: string): Promise<boolean> {
+    if (viewerId === targetId) return true;
+    const systemCtx = await this.contexts.ensureSystemContext();
+    if (await this.evaluator.hasCapability(viewerId, 'site:viewuseridentity', systemCtx.id)) return true;
+    const [userCtx] = await this.contexts.getByLevelInstances(CONTEXT_LEVELS.USER, [targetId]);
+    if (!userCtx) return false;
+    return this.evaluator.hasCapability(viewerId, 'site:viewuseridentity', userCtx.id);
+  }
+
   /** Hàm hỗ trợ guard cho việc sửa hồ sơ: tự phục vụ hoặc người nắm giữ user:update. */
   /**
    * Chặn cập nhật hồ sơ người khác khi thiếu capability user:update.

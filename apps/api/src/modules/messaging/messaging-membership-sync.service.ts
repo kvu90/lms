@@ -1,5 +1,6 @@
 import { MessagingRepository, type ConversationRow } from './messaging.repository';
 import { MessagingRealtimeService } from './messaging-realtime.service';
+import type { PermissionEvaluator } from '../access/permission-evaluator.service';
 
 /**
  * ĐỒNG BỘ THÀNH VIÊN của các conversation gắn cấu trúc (cụm hỗ trợ của
@@ -11,7 +12,9 @@ import { MessagingRealtimeService } from './messaging-realtime.service';
  * định — thành viên suy ra từ cấu trúc nguồn (thành viên group / ghi
  * danh hiệu lực ∪ staff khoá / roster lớp) và được ĐỒNG BỘ LƯỜI mỗi
  * lần chủ thể được liệt kê, mở, gửi tin hoặc đọc: ai rời cấu trúc thì
- * bị gỡ khỏi conversation, ai mới vào thì được thêm. Các vị từ liên
+ * bị gỡ khỏi conversation, ai mới vào thì được thêm. Ngoại lệ duy
+ * nhất (issue #592): quản trị hệ thống không bị gỡ khỏi conversation
+ * gắn lớp/khoá — xem {@link syncLinkedConversationMembers}. Các vị từ liên
  * kết (isGroupLinked/isCourseLinked/isClassLinked) quyết định một
  * conversation có thuộc diện đồng bộ này hay không (conversation tự
  * do/1-1 không bao giờ bị đụng vào).
@@ -39,6 +42,13 @@ export class MessagingMembershipSyncService {
   constructor(
     private readonly repo: MessagingRepository,
     private readonly realtime: MessagingRealtimeService,
+    /**
+     * Bộ đánh giá quyền — chỉ dùng để GIỮ LẠI thành viên là quản
+     * trị hệ thống khỏi đợt gỡ đồng bộ của conversation gắn lớp/
+     * khoá (issue #592, xem {@link syncLinkedConversationMembers}).
+     * Facade truyền vào; các đường gọi khác không cần tự dựng.
+     */
+    private readonly evaluator?: PermissionEvaluator,
   ) {}
 
   // --- conversation nhóm (gắn course group) ---------------------------------
@@ -74,6 +84,18 @@ export class MessagingMembershipSyncService {
    * Trả về danh sách thành viên sau đồng bộ. Chỉ chạy phía messaging khi
    * conversation được liệt kê/mở/gửi — không cần hook trong module chủ
    * của cấu trúc.
+   *
+   * Ngoại lệ giữ lại (issue #592): thành viên là QUẢN TRỊ HỆ THỐNG
+   * không bao giờ bị gỡ khỏi conversation gắn LỚP/KHOÁ trong đợt
+   * đồng bộ này, dù họ không nằm trong tập đích roster/staff của
+   * cấu trúc — quản trị có phạm vi quản trị trên lớp/khoá đó nên
+   * hàng hội thoại của họ phải ở lại danh sách và mở được (kèm số
+   * chưa đọc khớp vũ trụ chuẩn), thay vì bị đồng bộ của người khác
+   * gỡ mất rồi chỉ còn huy hiệu thanh bên đếm mà không mở được.
+   * Group gắn course group không thuộc ngoại lệ này (phạm vi issue
+   * #592 chỉ nói lớp/khoá); thành viên group vẫn đồng bộ thuần theo
+   * tập đích. Không có bộ đánh giá quyền (đường gọi cũ) thì ngoại lệ
+   * không áp dụng — fail-closed về hành vi đồng bộ cũ.
    */
   async syncLinkedConversationMembers(conversation: ConversationRow, targetIds: string[]): Promise<string[]> {
     const memberIds = [...new Set(targetIds)];
@@ -81,17 +103,29 @@ export class MessagingMembershipSyncService {
     for (const id of memberIds) {
       if (!current.includes(id)) await this.repo.addMember(conversation.id, id);
     }
+    // Thành viên được giữ lại theo ngoại lệ quản trị (xem TSDoc
+    // trên): vẫn là thành viên sau đồng bộ nên phải có mặt trong
+    // danh sách trả về — nơi gọi (đường ensure) trả danh sách này
+    // làm danh sách thành viên của conversation.
+    const preserved: string[] = [];
     for (const id of current) {
-      if (!memberIds.includes(id)) {
-        await this.repo.removeMember(conversation.id, id);
-        // Đẩy socket của người vừa bị gỡ ra khỏi room của conversation
-        // NGAY: membership ở DB đã mất mà socket còn nằm trong room thì
-        // vẫn nhận mọi sự kiện của conversation (F1). Tầng phân phối
-        // còn rà soát lại membership một lần nữa trước mỗi lần phát.
-        await this.realtime.evictUserFromConversation(id, conversation.id);
+      if (memberIds.includes(id)) continue;
+      if (
+        this.evaluator
+        && (this.isClassLinked(conversation) || this.isCourseLinked(conversation))
+        && (await this.evaluator.isSiteAdmin(id))
+      ) {
+        preserved.push(id);
+        continue;
       }
+      await this.repo.removeMember(conversation.id, id);
+      // Đẩy socket của người vừa bị gỡ ra khỏi room của conversation
+      // NGAY: membership ở DB đã mất mà socket còn nằm trong room thì
+      // vẫn nhận mọi sự kiện của conversation (F1). Tầng phân phối
+      // còn rà soát lại membership một lần nữa trước mỗi lần phát.
+      await this.realtime.evictUserFromConversation(id, conversation.id);
     }
-    return memberIds;
+    return [...new Set([...memberIds, ...preserved])];
   }
 
   /** Đồng bộ thành viên theo thành viên course group hiện tại. */

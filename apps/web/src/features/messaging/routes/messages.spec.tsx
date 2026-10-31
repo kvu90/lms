@@ -3667,6 +3667,36 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     expect(await screen.findByTestId('header-muted-icon')).toBeInTheDocument();
   });
 
+  it('panel thông tin 1–1 hiện email thật từ endpoint hồ sơ khi endpoint trả dữ kiện (issue #592)', async () => {
+    const calls: RecordedCall[] = [];
+    stub591Fetch(calls);
+    // Chặn riêng endpoint hồ sơ của đợt backend #592, các
+    // endpoint còn lại vẫn đi qua stub chung của đợt UI #591.
+    const baseFetch = globalThis.fetch as typeof fetch;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url === `/api/v1/messages/users/${OTHER_ID}/profile`) {
+          return new Response(
+            JSON.stringify({ userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser', email: 'banhoc@example.com' }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return baseFetch(url, init);
+      }),
+    );
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Học/ }));
+    await userEvent.click(await screen.findByLabelText('Thông tin cuộc trò chuyện'));
+    const panel = await screen.findByTestId('partner-panel');
+    // Email lấy từ endpoint hồ sơ thay cho dấu gạch ngang chờ
+    // backend của đợt UI; các trường chưa có nguồn vẫn giữ gạch
+    // ngang (không bịa giá trị cho chúng).
+    expect(await within(panel).findByText('banhoc@example.com')).toBeInTheDocument();
+    expect(within(panel).getByText('Số điện thoại')).toBeInTheDocument();
+  });
+
   it('hộp thoại mời là hộp thoại ở giữa màn hình và khối liên kết mời chỉ là hình dạng vô hiệu', async () => {
     const calls: RecordedCall[] = [];
     stub591Fetch(calls);

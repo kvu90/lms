@@ -273,6 +273,101 @@ export class MessagingRealtimeService implements OnModuleDestroy {
     }
   }
 
+  /**
+   * Ảnh chụp hiện diện ban đầu cho một client vừa kết nối (issue
+   * #592): tập user ĐANG TRỰC TUYẾN trong phạm vi các hội thoại
+   * của chính client đó — đối tác 1–1 và mọi thành viên nhóm — để
+   * client hiển thị đúng trạng thái ngay từ đầu theo luật ba trạng
+   * thái, thay vì chờ sự kiện thay đổi tiếp theo.
+   *
+   * Phạm vi và luật ẩn giữ đúng như {@link broadcastPresence}:
+   * đối tác của hội thoại 1–1 đang chặn (bất kỳ chiều nào) bị loại
+   * khỏi tập — trạng thái của họ không lộ qua bề mặt 1–1; thành
+   * viên nhóm vẫn tính kể cả khi có quan hệ chặn song song (chặn
+   * chỉ ẩn bề mặt 1–1, không ẩn presence trong nhóm). Chính người
+   * xem không nằm trong tập (trạng thái của mình không hiển thị
+   * trên các bề mặt đối tác).
+   *
+   * Chỉ user ĐANG trực tuyến mới nằm trong tập trả về — đối tác
+   * ngoại tuyến vắng mặt, client giữ trạng thái "chưa rõ" (không
+   * hiện dòng trạng thái nào) thay vì suy đoán là ngoại tuyến.
+   * Đoạn tenant của khoá presence: đối tác ghi khoá bằng tenant
+   * phiên của chính họ lúc nối, mà gateway không biết trước được,
+   * nên kiểm tra mọi đoạn có thể là đoạn của đối tác — tenant của
+   * các hội thoại chung, tenant phiên của người xem, và đoạn
+   * 'platform' cho quản trị hệ thống (phiên không gắn tenant).
+   * Đối tác ở đoạn nào cũng bắt được; đoạn nào cũng trượt thì coi
+   * như chưa rõ, không đoán sai thành ngoại tuyến.
+   *
+   * Đường phụ như mọi đường presence khác: lỗi Redis/DB bị nuốt
+   * kèm log, trả tập rỗng — client chỉ mất ảnh chụp lần này và
+   * vẫn nhận các sự kiện thay đổi tiếp theo bình thường.
+   *
+   * @param tenantId - Tenant phiên của người xem (đoạn ứng cử viên).
+   * @param userId - Người xem vừa kết nối.
+   * @returns Id các đối tác đang trực tuyến trong phạm vi hội thoại.
+   */
+  async listOnlineConversationCounterparts(tenantId: string | null, userId: string): Promise<string[]> {
+    try {
+      const conversations = await this.repo.listConversationsForUser(userId);
+      if (!conversations.length) return [];
+      const blockedCounterparts = new Set(await this.repo.listBlockedCounterpartIds(userId));
+      // Đối tác → các đoạn tenant có thể là đoạn presence của họ.
+      const segmentsByCounterpart = new Map<string, Set<string>>();
+      const viewerSegment = tenantRealtimeSegment(tenantId);
+      const noteCounterpart = (counterpartId: string, conversationTenantId: string | null) => {
+        if (counterpartId === userId) return;
+        let segments = segmentsByCounterpart.get(counterpartId);
+        if (!segments) {
+          segments = new Set([viewerSegment, 'platform']);
+          segmentsByCounterpart.set(counterpartId, segments);
+        }
+        segments.add(tenantRealtimeSegment(conversationTenantId));
+      };
+      for (const c of conversations) {
+        const members = await this.repo.listMembers(c.id);
+        if (c.type === 1) {
+          const other = members.find((id) => id !== userId);
+          // Hội thoại 1–1 đang chặn: đối tác không lộ trạng thái.
+          if (!other || blockedCounterparts.has(other)) continue;
+          noteCounterpart(other, c.tenantId);
+        } else {
+          for (const memberId of members) noteCounterpart(memberId, c.tenantId);
+        }
+      }
+      if (!segmentsByCounterpart.size) return [];
+      const redis = this.state();
+      const pipeline = redis.pipeline();
+      const checks: { counterpartId: string; segments: string[] }[] = [];
+      for (const [counterpartId, segments] of segmentsByCounterpart) {
+        const segmentList = [...segments];
+        checks.push({ counterpartId, segments: segmentList });
+        for (const segment of segmentList) {
+          pipeline.scard(`${PRESENCE_KEY_PREFIX}${segment}:${counterpartId}`);
+        }
+      }
+      const results = await pipeline.exec();
+      if (!results) return [];
+      const online: string[] = [];
+      let cursor = 0;
+      for (const check of checks) {
+        let isOnline = false;
+        for (let i = 0; i < check.segments.length; i++) {
+          const result = results?.[cursor++];
+          const count = result?.[1];
+          if (typeof count === 'number' && count > 0) {
+            isOnline = true;
+          }
+        }
+        if (isOnline) online.push(check.counterpartId);
+      }
+      return online;
+    } catch (error) {
+      this.logger.warn(`Không lấy được ảnh chụp presence: ${(error as Error).message}`);
+      return [];
+    }
+  }
+
   // --- typing (A2): tín hiệu thoáng qua trong Redis, không xuống DB ------
 
   /**
