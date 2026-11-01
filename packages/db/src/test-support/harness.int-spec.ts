@@ -111,7 +111,9 @@ beforeAll(async () => {
 }, 180_000);
 
 afterAll(async () => {
-  await tenantPool.end();
+  // beforeAll lỗi giữa chừng (vd thiếu kết nối) thì pool có thể chưa
+  // được tạo — dọn dẹp phải bỏ qua thay vì ném lỗi thứ cấp che lỗi gốc.
+  if (tenantPool) await tenantPool.end();
   if (adminUrl) {
     // Xoá database trước: role test còn giữ quyền trên các đối tượng
     // trong database đó nên chỉ xoá được role sau khi database đã đi.

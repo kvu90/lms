@@ -2,6 +2,16 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
+    // Tọa độ cụm PostgreSQL chuẩn của môi trường test (khớp service
+    // postgres:18.6 của CI): spec khói chỉ cần MỘT kết nối quản trị
+    // để dựng database riêng của nó, và DATABASE_URL cấp job không
+    // tới được tiến trình test qua turbo nên phải ghim tại đây —
+    // cùng cách vitest.config của apps/api ghim DATABASE_URL của
+    // nó. Biến LMS_DB_TEST_ADMIN_URL (đọc trong spec) ghi đè khi
+    // cần trỏ tới cụm khác, ví dụ cụm local ở cổng riêng.
+    env: {
+      DATABASE_URL: 'postgres://postgres:postgres@localhost:5432/postgres',
+    },
     // Suite của package chạm database thật (spec khói dựng DB từ
     // rỗng): chạy tuần tự theo file để các suite không giẫm lên
     // database/role test dùng chung.
