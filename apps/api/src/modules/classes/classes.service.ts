@@ -36,7 +36,7 @@ import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { CAP_ALLOW } from '../access/domain/permission';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { RolesService } from '../access/roles.service';
-import type { CourseRow } from '../courses/courses.repository';
+import type { CourseRow } from '@lms/db/repositories/courses';
 import { CoursesService } from '../courses/courses.service';
 import { EnrolService } from '../enrol/enrol.service';
 import { GroupsService } from '../groups/groups.service';
@@ -44,7 +44,8 @@ import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { UsersService } from '../users/users.service';
 import type { UserRow } from '../users/users.repository';
-import { CLASS_WHOLE_GROUP_NAME, ClassesRepository, type ClassJoinRequestRow, type ClassRow } from './classes.repository';
+import { CLASS_WHOLE_GROUP_NAME, ClassesRepository, type ClassJoinRequestRow, type ClassRow } from '@lms/db/repositories/classes';
+import { ClassesTransitionalRepository } from './classes-transitional.repository';
 
 export type { ClassRow };
 
@@ -170,6 +171,7 @@ export class ClassesService implements OnModuleInit {
     private readonly outbox: OutboxService,
     private readonly spaceDb: SpaceDatabaseService,
     private readonly directory: ControlPlaneRepository,
+    private readonly txRepo: ClassesTransitionalRepository,
   ) {}
 
   /** Đăng ký neo lớp vào đường tạo khoá của CoursesService (dependency inversion — Courses không import Classes). */
@@ -307,8 +309,14 @@ export class ClassesService implements OnModuleInit {
     // lúc thực hiện các thao tác này bằng kết nối thường.
     await this.ensureClassRoles();
 
-    const row = await this.repo.dbHandle.transaction(async (tx) => {
-      const cohortRow = await this.repo.insertBackingCohort({
+    // Điểm dừng của điểm nối C-8/B: giao dịch này còn mở phía
+    // Drizzle qua repository chuyển tiếp vì `roles.assignRole`
+    // (gọi kèm tx ở dưới) làm nhiều hơn ghi giới hạn nên biến thể
+    // Kysely của nó đã dừng theo điều kiện của phán quyết — xem
+    // `classes-transitional.repository.ts`. Chủ đóng: đợt access
+    // #651.
+    const row = await this.txRepo.transaction(async (tx) => {
+      const cohortRow = await this.txRepo.insertBackingCohort({
         tenantId,
         name: input.name,
         idNumber: '',
@@ -317,7 +325,7 @@ export class ClassesService implements OnModuleInit {
         component: 'class',
         visible: false,
       }, tx);
-      const classRow = await this.repo.insertClass({
+      const classRow = await this.txRepo.insertClass({
         tenantId,
         name: input.name,
         code: input.code ?? null,
@@ -331,7 +339,7 @@ export class ClassesService implements OnModuleInit {
         description: input.description ?? '',
       }, tx);
       const classCtx = await this.contexts.createContext(CONTEXT_LEVELS.CLASS, classRow.id, tenantCtx.id, tx);
-      await this.repo.updateCohortContext(cohortRow.id, classCtx.id, tx);
+      await this.txRepo.updateCohortContext(cohortRow.id, classCtx.id, tx);
       await this.applyClassRoleGrants(classCtx.id, actorId, tx);
       const ownerRole = await this.roles.getRoleByShortname(CLASS_OWNER_ROLE);
       if (!ownerRole) throw new Error('editingteacher role not seeded');

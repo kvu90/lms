@@ -4,7 +4,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CompletionService } from '../completion/completion.service';
 import { CoursesService } from '../courses/courses.service';
-import type { CmRow } from '../courses/courses.repository';
+import type { CmRow } from '@lms/db/repositories/courses';
 import { FilesService } from '../files/files.service';
 import { courseGroups, courseModulesCompletion, enrol, groupsMembers, userEnrolments, users } from '../../db/schema';
 import { ContentRepository, type PageRow, type ResourceRow } from './content.repository';

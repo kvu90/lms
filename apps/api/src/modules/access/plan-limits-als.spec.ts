@@ -77,8 +77,10 @@ describe('Lõi kiểm hạn mức gói — ngữ cảnh đọc membership khi k�
   it('closure thật của EnrolService giữ spaceSlug khi vào ngữ cảnh platform', async () => {
     const seen: Array<TenantAlsStore | undefined> = [];
     const fakeDb = makeFakeDb(seen);
+    // Kể từ khi repository enrol chuyển sang Kysely (issue #645),
+    // bề mặt vật chất hoá nhận handle Drizzle đã định tuyến qua
+    // tham số inject cuối của EnrolService thay vì qua repository.
     const service = new EnrolService(
-      { dbHandle: fakeDb } as never,
       {} as never,
       {} as never,
       {} as never,
@@ -88,6 +90,9 @@ describe('Lõi kiểm hạn mức gói — ngữ cảnh đọc membership khi k�
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
+      {} as never,
+      fakeDb as never,
     );
     // Bề mặt vật chất hoá của EnrolService dựng lõi giới hạn slot
     // bằng đúng closure của service này — gọi lõi đó là đi qua
