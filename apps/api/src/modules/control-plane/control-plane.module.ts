@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { AccessModule } from '../access/access.module';
 import { ControlPlaneConnection } from './control-plane.connection';
 import { ControlPlaneController } from './control-plane.controller';
@@ -21,7 +21,13 @@ import { ControlPlaneRegistryService } from './control-plane.service';
  * của database này.
  */
 @Module({
-  imports: [AccessModule],
+  // forwardRef ở cạnh AccessModule: module này thuộc vòng module
+  // tường minh AccessModule → SpaceRoutingModule →
+  // ControlPlaneModule → AccessModule kể từ khi AccessModule
+  // import SpaceRoutingModule cho PermissionEvaluator (issue
+  // #587, tiền điều kiện TĐ6) — forwardRef ở mọi cạnh của vòng
+  // như khuôn AuthModule ↔ UsersModule (xem access.module.ts).
+  imports: [forwardRef(() => AccessModule)],
   controllers: [ControlPlaneController],
   providers: [ControlPlaneConnection, ControlPlaneRepository, ControlPlaneRegistryService],
   exports: [ControlPlaneRegistryService, ControlPlaneConnection, ControlPlaneRepository],
