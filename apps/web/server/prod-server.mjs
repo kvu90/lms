@@ -9,7 +9,9 @@
  *      về API ở địa chỉ nội bộ
  *      (LMS_API_INTERNAL_URL, mặc định http://127.0.0.1:3000): chuyển
  *      nguyên header (Cookie đi lên, Set-Cookie — kể cả nhiều header —
- *      đi xuống), nối tiếp chuỗi X-Forwarded-For của chặng trước, và
+ *      đi xuống; Host GIỮ NGUYÊN của request gốc vì tầng ứng dụng
+ *      phân giải trung tâm theo Host, xem proxy-headers.mjs), nối
+ *      tiếp chuỗi X-Forwarded-For của chặng trước, và
  *      STREAM không đệm để SSE sống qua proxy; trình duyệt đóng kết
  *      nối thì hủy luôn request phía API. WebSocket (socket.io) đi qua
  *      đường hầm TCP ở sự kiện `upgrade`.
@@ -35,6 +37,7 @@ import { fileURLToPath } from 'node:url';
 import { createRequestListener } from '@react-router/node';
 import * as serverBuild from '../build/server/index.js';
 import { isProxyPath } from './proxy-paths.mjs';
+import { buildProxyHeaders } from './proxy-headers.mjs';
 import { compressBuffer, isCompressibleType, MIN_COMPRESS_BYTES, pickEncoding } from './compression.mjs';
 import { applyDocumentSecurityHeaders } from './security-headers.mjs';
 
@@ -66,17 +69,14 @@ const MIME = {
   '.map': 'application/json; charset=utf-8',
 };
 
-/** Chuỗi X-Forwarded-For: giữ nguyên các chặng trước rồi nối IP của chặng proxy này. */
-function forwardedFor(req) {
-  const prior = req.headers['x-forwarded-for'];
-  const clientIp = req.socket.remoteAddress ?? '';
-  return prior ? `${prior}, ${clientIp}` : clientIp;
-}
-
 /** Proxy HTTP stream hai chiều, không đệm (SSE sống), hủy theo kết nối của trình duyệt. */
 function proxyHttp(req, res) {
-  const headers = { ...req.headers, host: apiOrigin.host, 'x-forwarded-for': forwardedFor(req) };
-  if (!headers['x-forwarded-proto']) headers['x-forwarded-proto'] = 'http';
+  // Header dựng ở proxy-headers.mjs: Host GIỮ NGUYÊN của request
+  // gốc — tầng ứng dụng phân giải trung tâm theo Host (issue #582),
+  // ghi đè bằng origin nội bộ là địa chỉ trung tâm biến mất trước
+  // khi tới API (tiền điều kiện TĐ5 của issue #587). Đích kết nối
+  // vẫn là origin nội bộ qua hostname/port dưới đây.
+  const headers = buildProxyHeaders(req.headers, req.socket.remoteAddress, apiOrigin.host);
   const upstream = httpRequest(
     {
       hostname: apiOrigin.hostname,
