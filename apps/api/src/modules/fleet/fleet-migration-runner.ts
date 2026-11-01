@@ -61,6 +61,7 @@ import {
   parsePositiveInt,
   readDatabaseAppliedMigrations,
   readDatabaseSchemaVersion,
+  resolveCentreMigrationsDir,
   resolveDumpConnectionUrl,
   resolveSpaceConnectionUrl,
   type FleetSpace,
@@ -248,7 +249,12 @@ export async function runFleetMigration(options: FleetMigrationOptions = {}): Pr
   const log = options.log ?? ((message: string) => console.log(message));
   const backupDir = options.backupDir ?? env.FLEET_BACKUP_DIR;
   if (!backupDir) throw new Error('FLEET_BACKUP_DIR is required (pre-migration backups need a destination)');
-  const migrationsDir = options.migrationsDir ?? env.FLEET_MIGRATIONS_DIR ?? join(process.cwd(), 'drizzle');
+  // Carrier đã dời về `packages/db/migrations/centre` (issue #639):
+  // mặc định mới phân giải qua vị trí package `@lms/db` (đúng cả
+  // khi chạy từ repo lẫn từ image production đóng gói); biến môi
+  // trường và option tường minh vẫn thắng mặc định như trước.
+  const migrationsDir =
+    options.migrationsDir ?? env.FLEET_MIGRATIONS_DIR ?? resolveCentreMigrationsDir();
   const folders = listMigrationFolders(migrationsDir);
   const targetVersion = folders[folders.length - 1];
   if (!targetVersion) throw new Error(`no migration folders found under ${migrationsDir}`);

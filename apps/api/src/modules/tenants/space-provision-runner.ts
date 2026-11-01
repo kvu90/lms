@@ -95,6 +95,7 @@ import {
   listMigrationFolders,
   readDatabaseAppliedMigrations,
   readDatabaseSchemaVersion,
+  resolveCentreMigrationsDir,
   retargetUrl,
 } from '../fleet/fleet-common';
 import { FleetRegistryWriter } from '../fleet/fleet-registry-writer';
@@ -344,7 +345,11 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
   const databaseName = options.databaseName ?? deriveCentreDatabaseName(slug);
   const connectionRole = deriveCentreRoleName(slug);
   const secretEnvVar = deriveCentreSecretEnvVar(slug);
-  const migrationsDir = options.migrationsDir ?? join(process.cwd(), 'drizzle');
+  // Carrier đã dời về `packages/db/migrations/centre` (issue #639):
+  // mặc định mới phân giải qua vị trí package `@lms/db` (đúng cả
+  // khi chạy từ repo lẫn từ image production đóng gói); option
+  // tường minh vẫn thắng mặc định như trước.
+  const migrationsDir = options.migrationsDir ?? resolveCentreMigrationsDir();
   const steps: SpaceProvisionResult['steps'] = [];
   const step = (stepName: string, outcome: 'created' | 'reused') => {
     steps.push({ name: stepName, outcome });

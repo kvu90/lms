@@ -333,7 +333,7 @@ describe('Kích hoạt ghi danh trả phí theo không gian của payment (integ
         await admin.query(`CREATE DATABASE ${quoted(database)}`);
       }
     });
-    const cpDir = join(__dirname, '..', '..', '..', '..', 'api', 'drizzle-control-plane');
+    const cpDir = join(__dirname, '..', '..', '..', '..', '..', 'packages', 'db', 'migrations', 'control-plane');
     const folders = readdirSync(cpDir, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
@@ -343,7 +343,7 @@ describe('Kích hoạt ghi danh trả phí theo không gian của payment (integ
     }
     await applySqlFile(
       clusterUrl(CENTRE_DATABASE),
-      join(__dirname, '..', '..', '..', '..', 'api', 'drizzle', '20261025163710_baseline', 'migration.sql'),
+      join(__dirname, '..', '..', '..', '..', '..', 'packages', 'db', 'migrations', 'centre', '20261025163710_baseline', 'migration.sql'),
     );
 
     // Gieo sổ đăng ký: trung tâm kho riêng trỏ database riêng

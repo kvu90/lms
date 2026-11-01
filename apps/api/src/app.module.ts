@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { DrizzleModule } from '@nestjs/drizzle';
 import { drizzle } from 'drizzle-orm/node-postgres';
+import { createCentreKysely } from '@lms/db';
 import { databaseConnectionFromEnv, redisConnectionFromUrl, validateEnv } from './config/env';
 import { relations } from './db/relations';
 import { SpaceDatabaseService } from './db/routing/space-database.service';
@@ -102,6 +103,12 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
         // kho của trung tâm khi ngữ cảnh đã được chuẩn bị theo
         // trung tâm đó. Các điểm inject vì vậy không đổi cách gọi.
         spaceDatabase.bindSharedDatabase(sharedDb);
+        // Đường Kysely (issue #639): gắn handle Kysely kho chung
+        // dựng trên CÙNG pool kho chung (không mở thêm pool, không
+        // đổi ngân sách kết nối) để `routedKysely` có đích kho
+        // chung mà uỷ thác. Instance này không được `destroy()`
+        // riêng — vòng đời của nó đi theo vòng đời pool chung.
+        spaceDatabase.bindSharedKysely(createCentreKysely(pool));
         return {
           // TENANT-1 (#196): pool tự dựng có gắn GUC tenant theo ngữ
           // cảnh ALS ở mọi checkout. Kiểu options của @nestjs/drizzle

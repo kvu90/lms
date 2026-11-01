@@ -2,40 +2,38 @@
  * Harness dựng database test từ rỗng cho `@lms/db` (điểm vào
  * test-support, chỉ dùng trong test — không phải mã chạy production).
  *
- * Vì sao dựng từ SQL mang dữ liệu (carrier) thay vì qua Migrator của
- * Kysely: bộ máy migration native của Kysely (Migrator +
- * FileMigrationProvider + cầu nối lịch sử) thuộc hạng mục nền tiếp
- * theo của chiến dịch chuyển ORM; tới khi bộ máy đó có mặt, harness
- * này áp đúng bộ SQL đang mang dữ liệu hiện hành của từng kho —
- * cùng cách các spec phía `apps/api` vẫn replay `migration.sql` —
- * để DB test luôn khớp hình dạng production:
+ * Từ hạng mục nền thứ hai (issue #639), harness dựng database bằng
+ * CHÍNH bộ máy migration của package (Migrator + provider đọc
+ * carrier đóng băng), thay vì replay SQL thủ công như trước: cùng
+ * một bộ máy, cùng bước tiền-migration shim `uuidv7()` cho cụm
+ * dưới PG18, cùng thứ tự áp — nên database test luôn khớp hình
+ * dạng mà runner production tạo ra, kể cả bảng nhật ký
+ * `kysely_migration` mà Migrator ghi.
  *
  *   1. Xoá (nếu có) và tạo mới database theo tên được chỉ định qua
  *      kết nối quản trị.
  *   2. Cụm PostgreSQL dưới 18: cài shim `uuidv7()` viết tay TRƯỚC
  *      carrier (PG18 có hàm tích hợp). Shim nằm ngoài carrier —
  *      nội dung carrier giữ nguyên từng byte.
- *   3. Áp mọi thư mục migration của kho theo thứ tự tên, tách câu
- *      lệnh theo dấu `--> statement-breakpoint`.
+ *   3. Áp bộ carrier của kho bằng Migrator của package (kèm bước
+ *      cấy nhật ký — trên database trống thì bước này là no-op vì
+ *      chưa có nhật ký Drizzle để cấy).
  *
- * Đường dẫn carrier trỏ vào `apps/api/drizzle*` — vị trí hiện hành
- * của bộ SQL khi harness này ra đời; khi carrier dời vào
- * `packages/db/migrations` (hạng mục nền tiếp theo), hằng số đường
- * dẫn ở đây là điểm duy nhất phải sửa.
+ * Đường dẫn carrier trỏ vào `packages/db/migrations/<kho>` — vị trí
+ * của bộ SQL sau khi dời khỏi `apps/api/drizzle*` ở hạng mục nền
+ * thứ hai.
  */
-import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Client } from 'pg';
+import { Client, Pool } from 'pg';
+import { Migrator } from 'kysely/migration';
+import { createCentreKysely, createControlPlaneKysely, createSystemBankKysely } from '../client';
+import { adoptJournal } from '../migrate/adopt-journal';
+import { FrozenSqlProvider, listCarrierNames } from '../migrate/frozen-sql-provider';
+import { installUuidv7Shim } from '../migrate/stores';
+import type { Kysely } from 'kysely';
 
 /** Ba kho có thể dựng bằng harness này, khớp ba factory trong `client.ts`. */
 export type TestStoreKind = 'centre' | 'control-plane' | 'system-bank';
-
-/**
- * Hàm `uuidv7()` cho cụm PostgreSQL dưới 18 — trích nguyên văn hằng số
- * `UUIDV7_SHIM` trong `apps/api/src/modules/tenants/centre-provision.ts`
- * (mọi bản sao trong repo phải khớp từng byte với nguồn đó).
- */
-const UUIDV7_SHIM = `CREATE OR REPLACE FUNCTION uuidv7() RETURNS uuid AS $$ DECLARE ts_ms bigint := (extract(epoch from clock_timestamp()) * 1000)::bigint; b bytea; BEGIN b := decode(lpad(to_hex(ts_ms), 12, '0'), 'hex') || gen_random_bytes(10); b := set_byte(b, 6, (get_byte(b, 6) & 15) | 112); b := set_byte(b, 8, (get_byte(b, 8) & 63) | 128); RETURN encode(b, 'hex')::uuid; END; $$ LANGUAGE plpgsql VOLATILE`;
 
 /**
  * Gốc của package `packages/db`, suy từ vị trí file này: đúng cho cả
@@ -47,16 +45,20 @@ function packageRoot(): string {
   return join(__dirname, '..', '..');
 }
 
-/** Thư mục carrier hiện hành của từng kho, tính từ gốc repo. */
+/** Thư mục carrier của từng kho, tính từ gốc package. */
 function migrationsDirFor(store: TestStoreKind): string {
-  const apiDir = join(packageRoot(), '..', '..', 'apps', 'api');
+  return join(packageRoot(), 'migrations', store);
+}
+
+/** Factory Kysely của kho tương ứng trên một pool. */
+function createStoreKysely(store: TestStoreKind, pool: Pool): Kysely<any> {
   switch (store) {
     case 'centre':
-      return join(apiDir, 'drizzle');
+      return createCentreKysely(pool);
     case 'control-plane':
-      return join(apiDir, 'drizzle-control-plane');
+      return createControlPlaneKysely(pool);
     case 'system-bank':
-      return join(apiDir, 'drizzle-system-bank');
+      return createSystemBankKysely(pool);
   }
 }
 
@@ -68,28 +70,28 @@ export function withDatabase(connectionString: string, database: string): string
 }
 
 /**
- * Áp carrier của một kho vào database đã tạo: cài shim `uuidv7()`
- * trước nếu cụm dưới PG18, rồi chạy từng câu lệnh của mọi
- * `migration.sql` theo thứ tự tên thư mục.
+ * Áp carrier của một kho vào database đã tạo bằng bộ máy migration
+ * của package: cài shim `uuidv7()` trước nếu cụm dưới PG18, cấy
+ * nhật ký (no-op trên database trống), rồi `migrateToLatest()`.
+ * Lỗi migrate (Kysely không ném mà trả `{ error, results }`) được
+ * chuyển thành ngoại lệ rõ ràng — harness im lặng bỏ qua lỗi áp
+ * là database test thiếu bảng mà spec không biết.
  */
-async function applyCarrier(client: Client, store: TestStoreKind): Promise<void> {
-  const { rows } = await client.query<{ server_version_num: string }>('SHOW server_version_num');
-  const major = Math.floor(Number(rows[0]?.server_version_num ?? '0') / 10000);
-  if (major < 18) {
-    await client.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
-    await client.query(UUIDV7_SHIM);
-  }
-  const migrationsDir = migrationsDirFor(store);
-  const folders = readdirSync(migrationsDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort();
-  for (const folder of folders) {
-    const sql = readFileSync(join(migrationsDir, folder, 'migration.sql'), 'utf8');
-    for (const statement of sql.split('--> statement-breakpoint')) {
-      const trimmed = statement.trim();
-      if (trimmed) await client.query(trimmed);
+async function applyCarrier(storeUrl: string, store: TestStoreKind): Promise<void> {
+  const pool = new Pool({ connectionString: storeUrl });
+  const db = createStoreKysely(store, pool);
+  try {
+    await installUuidv7Shim(db);
+    await adoptJournal(db, listCarrierNames(migrationsDirFor(store)));
+    const migrator = new Migrator({ db, provider: new FrozenSqlProvider(migrationsDirFor(store)) });
+    const { error, results } = await migrator.migrateToLatest();
+    if (error || (results ?? []).some((result) => result.status === 'Error')) {
+      throw new Error(
+        `Harness không áp được carrier của kho ${store}: ${error ? (error as Error).message ?? String(error) : 'có migration báo Error'}`,
+      );
     }
+  } finally {
+    await db.destroy().catch(() => undefined);
   }
 }
 
@@ -118,13 +120,7 @@ export async function buildTestDatabase(options: BuildTestDatabaseOptions): Prom
     await admin.end();
   }
   const storeUrl = withDatabase(options.adminUrl, options.database);
-  const client = new Client({ connectionString: storeUrl });
-  await client.connect();
-  try {
-    await applyCarrier(client, options.store);
-  } finally {
-    await client.end();
-  }
+  await applyCarrier(storeUrl, options.store);
   return storeUrl;
 }
 

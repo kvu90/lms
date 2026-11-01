@@ -46,3 +46,24 @@ export * from './payments.schema';
 export * from './privacy.schema';
 export * from './system-bank-centre.schema';
 export { createCentreKysely, type CentreDB, type CentreDb, type CentreTx } from './client';
+/**
+ * Hàm đọc nhật ký migration tương thích cho fleet/provision (issue
+ * #639): đọc tập tên/phiên bản đã áp của một database qua
+ * `pg.Client`, ưu tiên nhật ký Kysely sau adoption, dự phòng nhật
+ * ký Drizzle trong cửa sổ cùng tồn tại. Phần ghi của bộ máy
+ * migration (provider carrier, bước cấy, runner) được tiêu thụ qua
+ * điểm vào file `dist/migrate/run.js`, không qua barrel này.
+ */
+export {
+  getAppliedMigrations,
+  getLatestAppliedMigration,
+  type MigrationJournalClient,
+} from './migrate/journal';
+/**
+ * Re-export `sql` của Kysely qua barrel của package: các app tiêu
+ * thụ (api, worker) phụ thuộc `@lms/db`, không phụ thuộc trực tiếp
+ * package `kysely` — mọi bề mặt Kysely mà app cần (kể cả mẫu SQL
+ * thô để gắn GUC trong transaction) đều đi qua điểm vào này, giữ
+ * nguyên kỷ luật phụ thuộc đã chốt ở PR-N1.
+ */
+export { sql } from 'kysely';

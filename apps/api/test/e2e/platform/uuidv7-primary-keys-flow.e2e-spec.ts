@@ -53,7 +53,7 @@ describe('Khoá chính UUIDv7 (kiểm chứng platform PostgreSQL 18)', () => {
     );
     expect(outbox.rows[0].v).toBe(7);
 
-    const drizzleDir = join(process.cwd(), 'drizzle');
+    const drizzleDir = join(process.cwd(), '..', '..', 'packages', 'db', 'migrations', 'centre');
     const migrations = readdirSync(drizzleDir, { withFileTypes: true })
       .filter((d) => d.isDirectory())
       .map((d) => join(drizzleDir, d.name, 'migration.sql'));
@@ -220,8 +220,15 @@ describe('Khoá chính UUIDv7 (kiểm chứng platform PostgreSQL 18)', () => {
          JOIN pg_namespace n ON n.oid = c.relnamespace
          JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'id'
          LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
-        WHERE n.nspname = 'public' AND c.relkind = 'r'`,
+        WHERE n.nspname = 'public' AND c.relkind = 'r'
+          AND c.relname NOT IN ('kysely_migration', 'kysely_migration_lock')`,
     );
+    // Hai bảng nhật ký của bộ máy Kysely bị loại khỏi phép đếm này:
+    // chúng nằm ngay trong schema `public` (nhật ký Drizzle trước đây
+    // nằm ở schema `drizzle` riêng nên không bao giờ lọt vào), là bảng
+    // của bộ máy migration chứ không phải bảng thực thể — riêng
+    // `kysely_migration_lock` còn có cột `id` không mặc định, để lọt
+    // vào sẽ làm lệch cả số đếm lẫn vòng kiểm mặc định dưới đây.
     // 189 bảng có cột `id`: 187 bảng PK uuidv7 như khuôn chung (gồm 2
     // bảng giấy của CAM-0, issue #112, 3 bảng tenant của TENANT-0,
     // issue #168, bảng payment_provider_events của VietQR lát 1,

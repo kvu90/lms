@@ -78,7 +78,7 @@ async function withClient<T>(connectionString: string, fn: (client: Client) => P
 
 /** Áp bộ migration riêng của control plane từ rỗng (đọc chính file SQL đã sinh trong repo). */
 async function applyControlPlaneMigrations(connectionString: string): Promise<void> {
-  const outDir = join(__dirname, '..', '..', '..', 'drizzle-control-plane');
+  const outDir = join(__dirname, '..', '..', '..', '..', '..', 'packages', 'db', 'migrations', 'control-plane');
   const folders = readdirSync(outDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)

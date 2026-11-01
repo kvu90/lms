@@ -66,6 +66,11 @@ jobs:
           echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
       - name: Create the worker test database
         run: PGPASSWORD=postgres psql -h localhost -U postgres -c 'CREATE DATABASE lms_test_worker'
+      # Runner migration Kysely (issue #639) chạy từ dist đã build
+      # của @lms/db, nên phải build package này TRƯỚC bước migrate
+      # (bước Build toàn bộ chạy sau migrate).
+      - name: Build @lms/db for the migration runner
+        run: pnpm exec turbo run build --filter=@lms/db
       - name: Migrate the test databases from empty
         run: |
           DATABASE_URL=postgres://postgres:postgres@localhost:5432/lms_test_api pnpm --filter @lms/api db:migrate
@@ -241,6 +246,11 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Create the test database of this shard
         run: PGPASSWORD=postgres psql -h localhost -U postgres -c 'CREATE DATABASE lms_test_api_${{ matrix.shardIndex }}'
+      # Runner migration Kysely (issue #639) chạy từ dist đã build
+      # của @lms/db, nên phải build package này TRƯỚC bước migrate
+      # (bước Build API chạy sau migrate).
+      - name: Build @lms/db for the migration runner
+        run: pnpm exec turbo run build --filter=@lms/db
       - name: Migrate the test database of this shard from empty
         run: DATABASE_URL=postgres://postgres:postgres@localhost:5432/lms_test_api_${{ matrix.shardIndex }} pnpm --filter @lms/api db:migrate
       - name: Build the API and its dependencies

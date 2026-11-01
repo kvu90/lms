@@ -96,7 +96,7 @@ async function applySqlFile(connectionString: string, filePath: string): Promise
 
 /** Áp bộ migration riêng của control plane từ rỗng (đọc chính các file SQL đã sinh trong repo). */
 async function applyControlPlaneMigrations(connectionString: string): Promise<void> {
-  const outDir = join(__dirname, '..', '..', '..', 'drizzle-control-plane');
+  const outDir = join(__dirname, '..', '..', '..', '..', '..', 'packages', 'db', 'migrations', 'control-plane');
   const folders = readdirSync(outDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
@@ -117,7 +117,7 @@ function provisionEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
   };
 }
 
-const MIGRATIONS_DIR = join(__dirname, '..', '..', '..', 'drizzle');
+const MIGRATIONS_DIR = join(__dirname, '..', '..', '..', '..', '..', 'packages', 'db', 'migrations', 'centre');
 
 /** Hình chụp đường cơ sở vai của một kho: tập vai, tập định nghĩa năng lực, và ma trận tại context hệ thống dạng dòng chuẩn hoá. */
 type RoleBaselineSnapshot = {

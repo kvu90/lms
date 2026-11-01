@@ -23,6 +23,6 @@ export default defineConfig({
   // vào source TS của package: bước Migrate trong CI chạy trước bước Build
   // nên không thể phụ thuộc dist đã biên dịch của package.
   schema: '../../packages/db/src/index.ts',
-  out: './drizzle',
+  out: '../../packages/db/migrations/centre',
   dbCredentials: { url: migrateUrl },
 });

@@ -140,12 +140,12 @@ describe('Ngân hàng hệ thống thành kho riêng + API (issue #585)', () => 
       await client.query(`GRANT CONNECT ON DATABASE ${quoted(BANK_DATABASE)} TO ${quoted(BANK_ROLE)}`);
     });
     const bankMigrationDir = (await import('node:fs')).readdirSync(
-      join(__dirname, '../../../drizzle-system-bank'),
+      join(__dirname, '../../../../../packages/db/migrations/system-bank'),
     ).filter((name) => name !== 'meta');
     if (bankMigrationDir.length !== 1) throw new Error(`expected exactly one system-bank migration dir, found ${bankMigrationDir.length}`);
     await applySqlFile(
       clusterUrl(BANK_DATABASE, BANK_ROLE, BANK_PASSWORD),
-      join(__dirname, '../../../drizzle-system-bank', bankMigrationDir[0]!, 'migration.sql'),
+      join(__dirname, '../../../../../packages/db/migrations/system-bank', bankMigrationDir[0]!, 'migration.sql'),
     );
     process.env.SYSTEM_BANK_DATABASE_URL = clusterUrl(BANK_DATABASE, BANK_ROLE, BANK_PASSWORD);
     app = await createTestApp();

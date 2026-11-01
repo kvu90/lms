@@ -2,6 +2,7 @@ import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
+import { createCentreKysely, type CentreDb } from '@lms/db';
 import { spaceRegistry } from '@lms/db/control-plane';
 import { databaseConnectionFromEnv } from '../../config/env';
 import { ControlPlaneConnection } from '../../modules/control-plane/control-plane.connection';
@@ -66,6 +67,15 @@ import { SpacePoolManager } from './space-pool-manager';
  * chính sách RLS trong kho của trung tâm tiếp tục fail-closed theo
  * tenant của ngữ cảnh, không có kết nối "siêu quyền" nào được tạo
  * cho đường nghiệp vụ.
+ *
+ * Đường Kysely (issue #639) là bản song song của ba đường trên,
+ * cùng hợp đồng từng điểm: `getKyselyForSpace(slug)` (bước chuẩn
+ * bị phía Kysely), `routedKysely` (facade định tuyến qua Proxy),
+ * `withSpaceKysely(slug, fn)` (phiên theo trung tâm phía Kysely).
+ * Hai facade giữ bảng đã-chuẩn-bị và trình quản lý pool riêng,
+ * nhưng chia sẻ bảng `dedicatedSlugs` (một slug chỉ có một chế độ
+ * kho thật) — pool Kysely đóng thì chỉ thu hồi trạng thái
+ * đã-chuẩn-bị phía Kysely, không động tới handle Drizzle.
  */
 @Injectable()
 export class SpaceDatabaseService implements OnModuleDestroy {
@@ -111,6 +121,48 @@ export class SpaceDatabaseService implements OnModuleDestroy {
 
   /** Handle định tuyến theo ngữ cảnh — xem mô tả lớp. Tạo một lần, uỷ thác theo ngữ cảnh tại mỗi lần dùng. */
   readonly routedDatabase: Database;
+
+  /**
+   * Handle Kysely của kho chung cho đường định tuyến Kysely; null
+   * cho tới khi được gắn — cùng vai trò với `sharedDatabase` phía
+   * Drizzle. Nhà cung cấp kết nối gắn nó bằng cùng pool kho chung
+   * (pool `TenantAwarePool` đã dùng cho handle Drizzle) nên hai
+   * handle chia sẻ ngân sách kết nối của kho chung; instance
+   * Kysely này KHÔNG được `destroy()` riêng (huỷ nó sẽ đóng luôn
+   * pool chung) — vòng đời của nó đi theo vòng đời pool.
+   */
+  private sharedKysely: CentreDb | null = null;
+  /**
+   * Các trung tâm đã chuẩn bị xong phía Kysely: slug → handle +
+   * kho của handle — bản song song của bảng `prepared` phía
+   * Drizzle, tra bởi `routedKysely`. Hai bảng chuẩn bị độc lập vì
+   * mỗi facade có pool manager riêng (xem `kyselyPools`): pool
+   * Kysely của một kho đóng không thu hồi trạng thái đã-chuẩn-bị
+   * của handle Drizzle và ngược lại — mỗi facade fail-closed theo
+   * vòng đời pool của chính nó.
+   */
+  private readonly preparedKysely = new Map<string, { db: CentreDb; databaseName: string }>();
+  /**
+   * Trình quản lý pool cho các handle Kysely của kho riêng — cùng
+   * kỷ luật với trình quản lý phía Drizzle (tạo lười, trần theo
+   * kho, đóng khi nhàn rỗi, thay pool khi danh tính kết nối đổi):
+   * một kho riêng giữ một pool Kysely riêng trong thời gian cùng
+   * tồn tại hai ORM, để mỗi facade tự quản vòng đời pool của nó.
+   */
+  private readonly kyselyPools: SpacePoolManager<CentreDb>;
+
+  /**
+   * Handle định tuyến Kysely theo ngữ cảnh — bản song song của
+   * `routedDatabase` cho đường Kysely (issue #639): cùng hợp
+   * đồng chuẩn bị-trước và fail-closed (ngữ cảnh mang slug chưa
+   * từng chuẩn bị thì về kho chung; slug đã chuẩn bị ở kho riêng
+   * mà mục đã-chuẩn-bị đã bị thu hồi thì ném
+   * `SpaceRoutingError`, không rơi im lặng về kho chung). Ngữ
+   * nghĩa uỷ thác qua Proxy của facade này được chứng minh bằng
+   * spec `routed-kysely` (transaction, getter `schema`, builder
+   * lười) trên cả api và worker trước khi pilot xây trên nó.
+   */
+  readonly routedKysely: CentreDb;
 
   constructor(config: ConfigService, controlPlane: ControlPlaneConnection) {
     this.poolMax = config.get<number>('SPACE_DB_POOL_MAX') ?? 5;
@@ -162,7 +214,23 @@ export class SpaceDatabaseService implements OnModuleDestroy {
     // (kẹp trong [1 giây, 30 giây]) để độ trễ đóng pool không vượt
     // quá một ngưỡng rưỡi.
     this.pools.startIdleSweeper(Math.min(30_000, Math.max(1_000, Math.floor(idleTimeoutMs / 2))));
-    this.routedDatabase = this.createRoutedDatabase();
+    this.kyselyPools = new SpacePoolManager<CentreDb>({
+      idleTimeoutMs,
+      // Cùng luật thu hồi với phía Drizzle, nhưng chỉ cho bảng
+      // chuẩn bị phía Kysely: pool Kysely đóng thì mục
+      // đã-chuẩn-bị Kysely của kho đó hết hiệu lực (lần dùng
+      // `routedKysely` sau đó fail-closed theo `dedicatedSlugs`
+      // dùng chung), còn bảng `prepared` phía Drizzle không bị
+      // động tới.
+      onPoolClosed: (databaseName) => {
+        for (const [slug, entry] of [...this.preparedKysely]) {
+          if (entry.databaseName === databaseName) this.preparedKysely.delete(slug);
+        }
+      },
+    });
+    this.kyselyPools.startIdleSweeper(Math.min(30_000, Math.max(1_000, Math.floor(idleTimeoutMs / 2))));
+    this.routedDatabase = this.createRoutedHandle(() => this.currentDatabase());
+    this.routedKysely = this.createRoutedHandle(() => this.currentKysely());
   }
 
   /**
@@ -173,6 +241,17 @@ export class SpaceDatabaseService implements OnModuleDestroy {
    */
   bindSharedDatabase(db: Database): void {
     this.sharedDatabase = db;
+  }
+
+  /**
+   * Gắn handle Kysely kho chung — nhà cung cấp kết nối của API gọi
+   * đúng một lần lúc khởi động, cùng nhịp với
+   * `bindSharedDatabase`, bằng handle dựng trên cùng pool kho
+   * chung. Mọi đích `shared` và mọi ngữ cảnh chưa chuẩn bị trung
+   * tâm riêng đều uỷ thác về handle này qua `routedKysely`.
+   */
+  bindSharedKysely(db: CentreDb): void {
+    this.sharedKysely = db;
   }
 
   /** Phân giải đích kết nối của một trung tâm (không mở pool) — tầng gắn ngữ cảnh dùng để xét trạng thái/chế độ kho. */
@@ -318,6 +397,75 @@ export class SpaceDatabaseService implements OnModuleDestroy {
     return tenantAls.run(store, async () => fn(db));
   }
 
+  /**
+   * Lấy handle Kysely của một trung tâm theo slug — bước chuẩn bị
+   * phía Kysely, song song với `getDatabaseForSpace`:
+   * - Trung tâm ở kho chung: trả chính handle Kysely kho chung đã
+   *   gắn (qua `bindSharedKysely`).
+   * - Trung tâm ở kho riêng: lấy (hoặc tạo lười) pool Kysely của
+   *   kho đó từ trình quản lý pool riêng phía Kysely — pool nối
+   *   bằng đúng role của kho, trần kết nối theo cấu hình
+   *   `SPACE_DB_POOL_MAX`, lấy THEO DANH TÍNH kết nối vừa phân
+   *   giải như phía Drizzle (sổ đổi role/bí mật thì pool cũ bị
+   *   thay bằng pool mới đúng danh tính hiện hành).
+   * Kết quả ghi vào bảng đã-chuẩn-bị phía Kysely để
+   * `routedKysely` tra đồng bộ; chế độ kho ghi chung vào
+   * `dedicatedSlugs`/`dedicatedDatabaseNames` với phía Drizzle
+   * (một slug chỉ có một chế độ kho thật, dù đi bằng facade nào).
+   *
+   * @throws SpaceRoutingError khi slug chưa đăng ký, control plane
+   *   chưa cấu hình, hoặc bí mật/role của kho riêng lệch sổ đăng ký.
+   */
+  async getKyselyForSpace(slug: string): Promise<CentreDb> {
+    const target = await this.resolver.resolve(slug);
+    if (target.mode === 'shared') {
+      const db = this.requireSharedKysely();
+      this.preparedKysely.set(slug, { db, databaseName: target.databaseName });
+      this.dedicatedSlugs.delete(slug);
+      this.dedicatedDatabaseNames.delete(slug);
+      return db;
+    }
+    const connectionString = target.connectionString;
+    if (!connectionString) {
+      throw new SpaceRoutingError(
+        'space_routing.secret_missing',
+        `Resolved dedicated target for space ${slug} has no connection string`,
+      );
+    }
+    const handle = this.kyselyPools.getHandleForIdentity(target.databaseName, connectionString, (databaseName) => {
+      const connection = databaseConnectionFromEnv(connectionString, this.ssl);
+      const pool = new TenantAwarePool(
+        typeof connection === 'string'
+          ? { connectionString: connection, max: this.poolMax }
+          : { ...connection, max: this.poolMax },
+      );
+      return { databaseName, pool, db: createCentreKysely(pool) };
+    });
+    this.preparedKysely.set(slug, { db: handle.db, databaseName: target.databaseName });
+    this.dedicatedSlugs.add(slug);
+    this.dedicatedDatabaseNames.set(slug, target.databaseName);
+    return handle.db;
+  }
+
+  /**
+   * Mở phiên làm việc theo trung tâm cho tác vụ nền phía Kysely —
+   * bản song song của `withSpaceDatabase`: chuẩn bị handle Kysely
+   * của trung tâm rồi chạy `fn` trong ngữ cảnh ALS mang slug của
+   * trung tâm (cùng luật hợp ngữ cảnh tenant/user và cùng lớp bọc
+   * async giữ ngữ cảnh cho callback trả thẳng thenable).
+   */
+  async withSpaceKysely<T>(
+    slug: string,
+    fn: (db: CentreDb) => Promise<T>,
+    context?: { tenantId?: string; userId?: string },
+  ): Promise<T> {
+    const db = await this.getKyselyForSpace(slug);
+    const parent = tenantAls.getStore();
+    const store: TenantAlsStore = { ...parent, ...context, spaceSlug: slug };
+    if (context?.tenantId) store.platform = false;
+    return tenantAls.run(store, async () => fn(db));
+  }
+
   /** Handle kho chung đã gắn; chưa gắn là lỗi lập trình ở đường khởi động, ném rõ thay vì trả handle rỗng. */
   private requireSharedDatabase(): Database {
     if (!this.sharedDatabase) {
@@ -363,18 +511,59 @@ export class SpaceDatabaseService implements OnModuleDestroy {
     return this.requireSharedDatabase();
   }
 
+  /** Handle Kysely kho chung đã gắn; chưa gắn là lỗi lập trình ở đường khởi động, ném rõ thay vì trả handle rỗng. */
+  private requireSharedKysely(): CentreDb {
+    if (!this.sharedKysely) {
+      throw new SpaceRoutingError(
+        'space_routing.shared_not_bound',
+        'Shared Kysely database handle is not bound yet',
+      );
+    }
+    return this.sharedKysely;
+  }
+
+  /**
+   * Handle Kysely hiệu lực cho ngữ cảnh hiện tại — cùng hợp đồng
+   * với `currentDatabase`, chỉ khác bảng đã-chuẩn-bị tra tới:
+   * slug chưa từng chuẩn bị ở kho riêng thì về kho chung; slug đã
+   * chuẩn bị ở kho riêng mà mục đã-chuẩn-bị Kysely đã bị thu hồi
+   * thì ném `space_routing.prepared_revoked` (fail-closed).
+   */
+  private currentKysely(): CentreDb {
+    const slug = tenantAls.getStore()?.spaceSlug;
+    if (slug) {
+      const preparedEntry = this.preparedKysely.get(slug);
+      if (preparedEntry) return preparedEntry.db;
+      if (this.dedicatedSlugs.has(slug)) {
+        throw new SpaceRoutingError(
+          'space_routing.prepared_revoked',
+          `Space ${slug} was prepared with a dedicated store but that preparation is no longer active; prepare the space again before routing queries to it`,
+        );
+      }
+    }
+    return this.requireSharedKysely();
+  }
+
   /**
    * Dựng handle định tuyến: một Proxy không giữ handle thật nào —
    * mỗi lần đọc thuộc tính (kể cả các hàm như `select`/`transaction`
-   * và các trường như `query`) đều lấy từ handle hiệu lực của ngữ
-   * cảnh TẠI THỜI ĐIỂM ĐÓ và gắn hàm về đúng handle đó. Điểm inject
-   * giữ một tham chiếu duy nhất suốt vòng đời tiến trình mà vẫn đổi
-   * đích theo ngữ cảnh — đó là cơ chế để không phải sửa từng điểm
-   * gọi.
+   * và các trường như `query`/`schema`) đều lấy từ handle hiệu lực
+   * của ngữ cảnh TẠI THỜI ĐIỂM ĐÓ và gắn hàm về đúng handle đó.
+   * Điểm inject giữ một tham chiếu duy nhất suốt vòng đời tiến
+   * trình mà vẫn đổi đích theo ngữ cảnh — đó là cơ chế để không
+   * phải sửa từng điểm gọi. Cả hai facade (Drizzle và Kysely) dùng
+   * chung khuôn Proxy này, chỉ khác hàm chọn handle hiệu lực.
+   *
+   * Vì sao `get` phải gắn hàm về đúng handle (`value.bind(db)`):
+   * các phương thức của handle Kysely/Drizzle đọc trạng thái nội bộ
+   * qua `this` (executor, dialect) — trả hàm trần mà không gắn sẽ
+   * làm `this` trỏ về Proxy rỗng và mọi truy vấn gãy. Getter
+   * (`schema` của Kysely) đi qua cùng đường `get` nên cũng được
+   * lấy từ handle hiệu lực tại mỗi lần đọc, không bị đóng băng từ
+   * lần đọc đầu.
    */
-  private createRoutedDatabase(): Database {
-    const current = () => this.currentDatabase();
-    return new Proxy({} as Database, {
+  private createRoutedHandle<TDatabase extends object>(current: () => TDatabase): TDatabase {
+    return new Proxy({} as TDatabase, {
       get: (_target, property) => {
         const db = current();
         const value = Reflect.get(db as object, property, db);
@@ -389,9 +578,10 @@ export class SpaceDatabaseService implements OnModuleDestroy {
     });
   }
 
-  /** Kết thúc vòng đời: ngừng nghe sự kiện đổi sổ và đóng mọi pool kho riêng đang sống. */
+  /** Kết thúc vòng đời: ngừng nghe sự kiện đổi sổ và đóng mọi pool kho riêng đang sống (cả hai facade). */
   async onModuleDestroy(): Promise<void> {
     this.resolver.dispose();
     await this.pools.closeAll();
+    await this.kyselyPools.closeAll();
   }
 }

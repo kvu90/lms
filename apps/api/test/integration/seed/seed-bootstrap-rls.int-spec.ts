@@ -119,7 +119,7 @@ describe('Seed bootstrap trên DB trống bằng role thường dưới RLS fail
     }
     const scratchAdmin = await pg(urlFor(SCRATCH_DB));
     try {
-      const drizzleDir = join(process.cwd(), 'drizzle');
+      const drizzleDir = join(process.cwd(), '..', '..', 'packages', 'db', 'migrations', 'centre');
       const baselines = readdirSync(drizzleDir, { withFileTypes: true })
         .filter((d) => d.isDirectory() && d.name.endsWith('_baseline'))
         .map((d) => join(drizzleDir, d.name, 'migration.sql'));
