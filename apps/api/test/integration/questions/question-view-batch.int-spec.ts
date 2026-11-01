@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   ADMIN, adminToken, assignRole, createContextViaApi, createTestApp, createUserViaApi, http, login, roleIdByShortname, systemContextId,
 } from '../../support/identity-access-helpers';
-import { QuestionsRepository } from '../../../src/modules/questions/questions.repository';
+import { QuestionsRepository } from '@lms/db/repositories/questions';
 import { QuestionsService } from '../../../src/modules/questions/questions.service';
 import { questionBankEntries } from '../../../src/db/schema';
 

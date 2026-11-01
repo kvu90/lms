@@ -17,8 +17,8 @@ import { TenantsService } from '../tenants/tenants.service';
 import { truefalseHashAnswers } from './domain/question-engine';
 import {
   QuestionsRepository, type EntryRow, type QCategoryRow, type QuestionOutcomeLinkRow, type QuestionRow,
-  type QuestionSubjectLinkRow, type VersionRow,
-} from './questions.repository';
+  type QuestionSubjectLinkRow, type QuestionsTx, type VersionRow,
+} from '@lms/db/repositories/questions';
 import { QuestionsService, type QuestionView, type SupportedQtype } from './questions.service';
 import { QuestionBanksRepository, BANK_KINDS, type BankKind, type ContributionRow, type QuestionBankRow } from './question-banks.repository';
 
@@ -177,8 +177,12 @@ export class QuestionBanksService {
         scopeRefId: input.scopeRefId, contextId: ctx.id, createdBy: actorId,
       }, tx);
       // Category mặc định chỉ thuộc về bank câu hỏi; bank đề/ma trận không có question_categories.
+      // Ghi qua điểm chuyển tiếp C-7 (insertCategoryTx phía QuestionBanksRepository):
+      // transaction này là Drizzle (DL-09) nên không truyền được cho
+      // insertCategory phía Kysely của QuestionsRepository — xem C-7
+      // trong CORRECTIONS.md của chiến dịch và comment ở điểm chuyển tiếp.
       if (kind === 'question') {
-        await this.questionsRepo.insertCategory({
+        await this.repo.insertCategoryTx({
           name: 'Mặc định', contextId: ctx.id, bankId: bank.id, info: '', parent: null,
           stamp: `qbank-${Date.now().toString(36)}-${bank.id.slice(0, 8)}`,
         }, tx);
@@ -972,7 +976,10 @@ export class QuestionBanksService {
     const sourceCategory = await this.questionsRepo.getCategory(sourceQ.category);
     const sourceBank = sourceCategory ? await this.findBankForCategory(sourceCategory) : null;
     let created!: { q: QuestionRow; entryId: string; versionId: string };
-    await this.repo.dbHandle.transaction(async (tx) => {
+    // Điểm mở giao dịch ở QuestionsRepository phía Kysely (issue
+    // #642): callback chỉ ghi qua questionsRepo + cloneVersionContentTx
+    // nên nguyên tử giữ nguyên — một database, một giao dịch Kysely.
+    await this.questionsRepo.transaction(async (tx) => {
       // Stimulus là thực thể dùng chung theo category: cùng category thì
       // dùng chung tiếp; khác category thì sao một bản vào category đích.
       let stimulusId: string | null = null;
@@ -1508,7 +1515,7 @@ export class QuestionBanksService {
   }
 
   /** Sao stimulus của version nguồn vào category đích trong giao dịch (dùng khi duyệt bản mới). */
-  private async copyStimulusForCategory(tx: DbTx, sourceStimulusId: string | null, targetCategoryId: string, actorId: string): Promise<string | null> {
+  private async copyStimulusForCategory(tx: QuestionsTx, sourceStimulusId: string | null, targetCategoryId: string, actorId: string): Promise<string | null> {
     if (!sourceStimulusId) return null;
     const stimulus = await this.questionsRepo.getStimulus(sourceStimulusId);
     if (!stimulus) return null;
@@ -1542,7 +1549,10 @@ export class QuestionBanksService {
       const targetView = await this.questions.getQuestion(contribution.targetQuestionId!);
       const targetCategory = await this.questions.getCategory(targetView.question.category);
       const nextVersion = targetView.entry.latestVersion + 1;
-      await this.repo.dbHandle.transaction(async (tx) => {
+      // Điểm mở giao dịch ở QuestionsRepository phía Kysely (issue
+      // #642) như deepCopyQuestion: callback chỉ ghi qua questionsRepo
+      // + cloneVersionContentTx, nguyên tử không đổi.
+      await this.questionsRepo.transaction(async (tx) => {
         const stimulusId = await this.copyStimulusForCategory(tx, source.latestVersion.stimulusId, targetCategory.id, actorId);
         const version = await this.questionsRepo.insertVersion({
           questionBankEntryId: targetView.entry.id, questionId: targetView.question.id, version: nextVersion,

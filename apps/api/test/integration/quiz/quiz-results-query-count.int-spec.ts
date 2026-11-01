@@ -3,7 +3,7 @@ import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { v7 as uuidv7 } from 'uuid';
 import { QuestionBanksService } from '../../../src/modules/questions/question-banks.service';
-import { QuestionsRepository } from '../../../src/modules/questions/questions.repository';
+import { QuestionsRepository } from '@lms/db/repositories/questions';
 import { QuestionsService } from '../../../src/modules/questions/questions.service';
 import { QuizRepository } from '../../../src/modules/quiz/quiz.repository';
 import { QuizService } from '../../../src/modules/quiz/quiz.service';
