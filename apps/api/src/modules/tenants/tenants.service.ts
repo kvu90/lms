@@ -9,7 +9,7 @@ import type { MyTenant, Tenant as TenantDto, TenantMembership as TenantMembershi
 import { ensureActiveTenantMembership } from '@lms/enrol';
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
-import { ControlPlaneRepository } from '../control-plane/control-plane.repository';
+import { ControlPlaneRepository } from '@lms/db/repositories/control-plane';
 import { PlanLimitsService } from '../access/plan-limits.service';
 import { UsersService } from '../users/users.service';
 import type { UserRow } from '../users/users.repository';

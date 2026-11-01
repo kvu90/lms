@@ -15,12 +15,15 @@ import type {
   UpdateSpaceRegistration,
   UpdateSpaceSchemaRegistry,
 } from '@lms/contracts';
-import type { SpaceRegistryRow } from '@lms/db/control-plane';
+import {
+  ControlPlaneRepository,
+  isDedicatedDatabaseNameConflict,
+  type SpaceRegistryRow,
+} from '@lms/db/repositories/control-plane';
 import { emitSpaceRegistryChanged } from '../../db/routing/space-routing-events';
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ControlPlaneConnection } from './control-plane.connection';
-import { ControlPlaneRepository, isDedicatedDatabaseNameConflict } from './control-plane.repository';
 
 /**
  * Phiên bản schema hiện tại của KHO CHUNG (database nghiệp vụ) — tên

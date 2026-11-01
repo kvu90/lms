@@ -28,7 +28,7 @@ import type {
 import { OutboxService } from '../../infra/events/outbox.service';
 import type { DbTx } from '../../db/database';
 import { SpaceDatabaseService } from '../../db/routing/space-database.service';
-import { ControlPlaneRepository } from '../control-plane/control-plane.repository';
+import { ControlPlaneRepository } from '@lms/db/repositories/control-plane';
 import { tenantAls } from '../tenants/tenant-als';
 import type { ContextRow } from '../access/access.repository';
 import { ContextsService } from '../access/contexts.service';

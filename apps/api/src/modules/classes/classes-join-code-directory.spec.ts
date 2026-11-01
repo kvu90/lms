@@ -5,7 +5,7 @@ import type { EnrolService } from '../enrol/enrol.service';
 import type { GroupsService } from '../groups/groups.service';
 import type { RolesService } from '../access/roles.service';
 import type { SpaceJoinCodeDirectoryRow } from '@lms/db/control-plane';
-import type { ControlPlaneRepository } from '../control-plane/control-plane.repository';
+import type { ControlPlaneRepository } from '@lms/db/repositories/control-plane';
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import type { TenantContextService } from '../tenants/tenant-context.service';

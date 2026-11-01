@@ -72,7 +72,7 @@ import { Client, Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import type { SpaceRegistryRow } from '@lms/db/control-plane';
+import type { SpaceRegistryRow } from '@lms/db/repositories/control-plane';
 import {
   buildCentreDatabaseUrl,
   CENTRE_INVITE_TTL_MS,
@@ -107,7 +107,7 @@ import { RoleSeparationService } from '../access/role-separation.service';
 import { OutboxService } from '../../infra/events/outbox.service';
 import type { Database } from '../../db/database';
 import { CONTEXT_LEVELS, DEFAULT_ROLES } from '../access/domain/capabilities';
-import { isDedicatedDatabaseNameConflict } from '../control-plane/control-plane.repository';
+import { isDedicatedDatabaseNameConflict } from '@lms/db/repositories/control-plane';
 import {
   loadProgramDumpSql,
   PROGRAM_DUMP_VERSION,
