@@ -27,6 +27,9 @@ import { TenantContextService } from './tenant-context.service';
  * kết thúc mà token còn hạn → 401 `tenant.membership_inactive` để
  * client đăng nhập lại/chuyển tenant (site admin được rơi về tenant-
  * zero thay vì bị khoá ngoài khỏi hệ thống vận hành của chính mình).
+ * `tid` đã khai mà không tra được dòng tenant nào → 401
+ * `tenant.unknown`, fail-closed thay vì rơi lặng về tenant-zero
+ * (Phần A, issue #587).
  *
  * Đường kho riêng (issue #584): request ở địa chỉ của một trung tâm ở
  * kho riêng KHÔNG đi qua cổng membership của kho chung nữa — tài
@@ -126,27 +129,36 @@ export class TenantGuard implements CanActivate {
     if (user) {
       if (user.tenantId) {
         const tenant = await this.repo.getTenant(user.tenantId);
-        if (tenant) {
-          if (tenant.status !== 'active') {
-            throw new ForbiddenException({
-              message: `Tenant ${tenant.slug} is ${tenant.status}`,
-              code: 'tenant.not_active',
-            });
-          }
-          if (tenant.kind === 'platform') {
+        // Bất biến fail-closed (Phần A, issue #587): `tid` đã khai
+        // trong phiên mà không tra được dòng tenant nào thì KHÔNG
+        // được rơi lặng về tenant platform — phiên đó không gắn
+        // được vào trung tâm nào nên bị từ chối rõ ràng ngay tại
+        // đây, thay vì chạy tiếp dưới danh tính tenant platform.
+        if (!tenant) {
+          throw new UnauthorizedException({
+            message: 'Tenant declared by the session could not be resolved',
+            code: 'tenant.unknown',
+          });
+        }
+        if (tenant.status !== 'active') {
+          throw new ForbiddenException({
+            message: `Tenant ${tenant.slug} is ${tenant.status}`,
+            code: 'tenant.not_active',
+          });
+        }
+        if (tenant.kind === 'platform') {
+          tenantId = tenant.id;
+        } else {
+          const membership = await this.repo.getMembership(tenant.id, user.id);
+          if (membership?.status === 'active') {
             tenantId = tenant.id;
+          } else if (await this.evaluator.isSiteAdmin(user.id)) {
+            tenantId = zero.id;
           } else {
-            const membership = await this.repo.getMembership(tenant.id, user.id);
-            if (membership?.status === 'active') {
-              tenantId = tenant.id;
-            } else if (await this.evaluator.isSiteAdmin(user.id)) {
-              tenantId = zero.id;
-            } else {
-              throw new UnauthorizedException({
-                message: 'Membership in the active tenant is no longer active',
-                code: 'tenant.membership_inactive',
-              });
-            }
+            throw new UnauthorizedException({
+              message: 'Membership in the active tenant is no longer active',
+              code: 'tenant.membership_inactive',
+            });
           }
         }
       } else {

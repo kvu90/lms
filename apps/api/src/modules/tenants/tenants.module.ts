@@ -7,6 +7,7 @@ import { CentreIdentityController } from './centre-identity.controller';
 import { CentreIdentityRepository } from './centre-identity.repository';
 import { CentreIdentityService } from './centre-identity.service';
 import { SpaceContextGuard } from './space-context.guard';
+import { SpaceProgramPackageService } from './space-program-package.service';
 import { TenantConfigService } from './tenant-config.service';
 import { TenantContextService } from './tenant-context.service';
 import { TenantDbService } from './tenant-db.service';
@@ -36,6 +37,7 @@ import { TenantsService } from './tenants.service';
     TenantDbService,
     TenantGuard,
     SpaceContextGuard,
+    SpaceProgramPackageService,
   ],
   exports: [
     TenantsRepository,
@@ -45,6 +47,7 @@ import { TenantsService } from './tenants.service';
     TenantDbService,
     TenantGuard,
     SpaceContextGuard,
+    SpaceProgramPackageService,
   ],
 })
 export class TenantsModule {}

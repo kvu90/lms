@@ -1,6 +1,8 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { describe, expect, it, vi } from 'vitest';
+import type { SpaceDatabaseService } from '../db/routing/space-database.service';
+import { SpaceRoutingError } from '../db/routing/space-connection-resolver';
 import type { BetterAuthService } from '../modules/auth/better-auth/better-auth.service';
 import type { UsersService } from '../modules/users/users.service';
 import { AUTHENTICATED_VIA_BETTER_AUTH, BetterAuthSessionGuard } from './better-auth-session.guard';
@@ -24,7 +26,12 @@ function buildGuard(input: {
   enabled: boolean;
   getSession?: () => Promise<unknown>;
   user?: Record<string, unknown> | undefined;
-}): { guard: BetterAuthSessionGuard; getSession: ReturnType<typeof vi.fn> } {
+  dedicatedSlug?: string;
+}): {
+  guard: BetterAuthSessionGuard;
+  getSession: ReturnType<typeof vi.fn>;
+  withSpaceDatabase: ReturnType<typeof vi.fn>;
+} {
   const getSession = vi.fn(input.getSession ?? (async () => null));
   const betterAuth = {
     enabled: input.enabled,
@@ -34,7 +41,17 @@ function buildGuard(input: {
     getByIdOrUndefined: vi.fn(async () => input.user),
   } as unknown as UsersService;
   const reflector = { getAllAndOverride: () => false } as unknown as Reflector;
-  return { guard: new BetterAuthSessionGuard(reflector, betterAuth, users), getSession };
+  const withSpaceDatabase = vi.fn(async (_slug: string, fn: () => Promise<unknown>) => fn());
+  const spaceDb = {
+    resolveTarget: vi.fn(async (slug: string) => {
+      if (input.dedicatedSlug && slug === input.dedicatedSlug) {
+        return { slug, spaceId: 'id-dang-ky-a', status: 'active', mode: 'dedicated', databaseName: 'lms_centre_a' };
+      }
+      throw new SpaceRoutingError('space_routing.space_not_found', 'not registered');
+    }),
+    withSpaceDatabase,
+  } as unknown as SpaceDatabaseService;
+  return { guard: new BetterAuthSessionGuard(reflector, betterAuth, users, spaceDb), getSession, withSpaceDatabase };
 }
 
 const COOKIE = 'better-auth.session_token=tok.abc; other=1';
@@ -102,5 +119,31 @@ describe('Khối BetterAuthSessionGuard', () => {
     const req: FakeRequest = { headers: { cookie: COOKIE } };
     await expect(guard.canActivate(contextOf(req))).resolves.toBe(true);
     expect(req.user).toBeUndefined();
+  });
+
+  it('địa chỉ trung tâm ở kho riêng thì đọc phiên và tài khoản trong kho của trung tâm đó', async () => {
+    const { guard, withSpaceDatabase } = buildGuard({
+      enabled: true,
+      getSession: async () => ({ session: { id: 'session-id', userId: 'user-id' }, user: { id: 'user-id' } }),
+      user: { id: 'user-id', username: 'teacher1', deleted: false, suspended: false },
+      dedicatedSlug: 'trung-tam-a',
+    });
+    const req: FakeRequest = { headers: { cookie: COOKIE, host: 'trung-tam-a.he-thong.example' } };
+    await expect(guard.canActivate(contextOf(req))).resolves.toBe(true);
+    expect(req.user).toEqual({ id: 'user-id', username: 'teacher1', sessionId: 'session-id' });
+    expect(req[AUTHENTICATED_VIA_BETTER_AUTH]).toBe(true);
+    expect(withSpaceDatabase).toHaveBeenCalledWith('trung-tam-a', expect.any(Function));
+  });
+
+  it('phiên không có trong kho riêng của địa chỉ thì không đặt danh tính, để đường JWT quyết định', async () => {
+    const { guard } = buildGuard({
+      enabled: true,
+      getSession: async () => null,
+      dedicatedSlug: 'trung-tam-a',
+    });
+    const req: FakeRequest = { headers: { cookie: COOKIE, host: 'trung-tam-a.he-thong.example' } };
+    await expect(guard.canActivate(contextOf(req))).resolves.toBe(true);
+    expect(req.user).toBeUndefined();
+    expect(req[AUTHENTICATED_VIA_BETTER_AUTH]).toBeUndefined();
   });
 });

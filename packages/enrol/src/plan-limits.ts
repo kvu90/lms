@@ -339,7 +339,15 @@ export class PlanLimitsCore {
    * đang đình chỉ" trong đặc tả đã duyệt).
    */
   async assertUserReactivationWithinSlotLimits(userId: string): Promise<void> {
-    const memberships = await this.runInPlatformScope(() =>
+    // Callback PHẢI là async và await truy vấn BÊN TRONG nó (Phần
+    // A, issue #587 — A4): truy vấn Drizzle là thenable lười —
+    // trả thẳng nó ra khỏi cổng platform thì điểm `.then` chạy
+    // ngoài `tenantAls.run`, ngữ cảnh đọc được lúc đó là ngữ cảnh
+    // của bên gọi chứ không phải ngữ cảnh platform, nên lượt đọc
+    // dòng thành viên chạy sai tầm nhìn RLS (che mất membership ở
+    // tenant khác và làm lọt chốt chặn). Hai điểm gọi còn lại
+    // trong file này đã dùng callback async theo đúng khuôn này.
+    const memberships = await this.runInPlatformScope(async () =>
       this.db
         .select({ tenantId: tenantMemberships.tenantId })
         .from(tenantMemberships)
