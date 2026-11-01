@@ -33,12 +33,17 @@ import type { ContactRelationship, ConversationView } from '../types/types';
  * ?conversation=<id> (contextUrl của thông báo message_new, #49) mở
  * đúng cuộc trò chuyện khi trang nạp — việc nối tiếp của #33.
  *
- * Cấu trúc khung trái: thanh tab bốn tab lọc ngang hàng như
- * bản demo (Tất cả / Chưa đọc / Nhóm / Yêu thích, issue #606) —
- * tab Tất cả gồm MỌI hội thoại chưa lưu trữ (1–1 lẫn nhóm) và
- * tab Chưa đọc gồm mọi hội thoại còn tin chưa đọc ở cả hai
- * loại; tab Nhóm là danh sách phẳng các mục nhóm dựng từ API
- * cây của MSG-T1, Danh bạ hạ thành sheet "Tin nhắn mới". Tab
+ * Cấu trúc khung trái: thanh tab bốn tab lọc ngang hàng
+ * (Tất cả / Chưa đọc / Nhóm / Lưu trữ — ba tab đầu theo hình
+ * dạng của issue #606; tab Lưu trữ thay tab Yêu thích theo
+ * phán quyết của issue #623: yêu thích không có dữ kiện ở
+ * bất kỳ tầng nào, còn lưu trữ là chức năng thật cần bề mặt
+ * riêng) — tab Tất cả gồm MỌI hội thoại chưa lưu trữ (1–1
+ * lẫn nhóm), tab Chưa đọc gồm mọi hội thoại chưa lưu trữ
+ * còn tin chưa đọc ở cả hai loại, tab Lưu trữ chứa riêng
+ * tập hội thoại đã lưu trữ; tab Nhóm là danh sách phẳng các
+ * mục nhóm dựng từ API cây của MSG-T1, Danh bạ hạ thành
+ * sheet "Tin nhắn mới". Tab
  * đang chọn + hội thoại đang mở được LƯU BỀN ở localStorage
  * (hai khoá trong `page-helpers.ts`) để quay lại màn Tin nhắn
  * là gặp đúng ngữ cảnh gần nhất; deep-link có mặt thì thắng
@@ -150,6 +155,7 @@ export function MessagesPage() {
     applyReadMarker: activeHook.applyReadMarker,
     invalidateConversationWindow: activeHook.invalidateConversationWindow,
     setConversations: list.setConversations,
+    setArchivedConversations: list.setArchivedConversations,
     setGroupTree: list.setGroupTree,
     setTypingUsers: activeHook.setTypingUsers,
     setOnlineUsers: activeHook.setOnlineUsers,
@@ -254,7 +260,7 @@ export function MessagesPage() {
   };
 
   return (
-    <PageShell fillHeight width="full" className="py-6 sm:px-6" contentClassName="mx-auto max-w-[1440px]">
+    <PageShell fillHeight width="full" className="py-6 sm:px-6" contentClassName="mx-auto max-w-[1392px]">
       {/*
         Master–detail nhắn tin (issue #256) nằm TRONG vùng nội dung
         của khung app chung — sidebar + header của app giữ nguyên
@@ -264,14 +270,20 @@ export function MessagesPage() {
         khung luôn mounted).
       */}
       {/*
-        Vùng chứa trang (issue #608): trần bề ngang 1440px và
-        đệm của bản demo đạt ở chính tầng route này qua props
-        của PageShell (đệm dọc 24px, đệm ngang 16px → 24px từ
-        màn sm) và trần bề ngang của khối nội dung — PageShell
-        dùng chung cho các trang khác không đổi. Thẻ khung chat
-        bo góc 10px và có chiều cao tối thiểu 520px ở màn lg
-        như demo; công thức chiều cao giữ theo vỏ app của hệ
-        (đầu trang của vỏ khác demo nên số trừ khác).
+        Vùng chứa trang (issue #608; trần bề ngang sửa ở
+        issue #623 theo rà soát toàn bề mặt): ở bản demo, trần
+        1440px đặt cho khối bao ngoài và đệm ngang của nó
+        (px-4 → sm:px-6) nằm BÊN TRONG trần, nên bề mặt thật
+        của thẻ khung chat rộng tối đa 1440 − 2×24 = 1392px
+        (thanh header của demo cũng mang trần max-w-348 =
+        1392px, hai mép khớp nhau). Ở bản dựng, đệm của
+        PageShell nằm NGOÀI khối nội dung, nên trần của khối
+        này đặt thẳng 1392px để bề ngang hiệu dụng của thẻ
+        khớp demo ở mọi bề rộng màn hình — PageShell dùng
+        chung cho các trang khác không đổi. Thẻ khung chat bo
+        góc 10px và có chiều cao tối thiểu 520px ở màn lg như
+        demo; công thức chiều cao giữ theo vỏ app của hệ (đầu
+        trang của vỏ khác demo nên số trừ khác).
       */}
       <div className="flex h-[calc(100dvh-5.5rem)] min-h-0 overflow-hidden rounded-lg border bg-background md:h-[calc(100dvh-7rem)] lg:min-h-[520px]">
         <div
@@ -284,7 +296,6 @@ export function MessagesPage() {
           <ConversationSidebar
             conversations={list.conversations}
             archivedConversations={list.archivedConversations}
-            onRequestArchived={() => void list.loadArchived()}
             groupTree={list.groupTree}
             active={activeHook.active}
             error={list.error}
@@ -302,7 +313,6 @@ export function MessagesPage() {
             canCreateFreeGroup={groupActions.canCreateFreeGroup}
             onCreateFreeGroup={groupActions.createFreeGroup}
             groupCreateError={groupActions.groupCreateError}
-            onUpdateConversationState={list.updateConversationState}
             stateError={list.stateError}
             nameOf={list.nameOf}
             tab={list.sidebarTab}

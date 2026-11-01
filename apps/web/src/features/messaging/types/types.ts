@@ -149,9 +149,10 @@ export interface ConversationView {
   /**
    * Trạng thái cá nhân của CHÍNH user trên conversation này (lát M5,
    * issue #240): `pinnedAt` khác null = đã ghim (danh sách xếp lên
-   * đầu), `archivedAt` khác null = đã lưu trữ (chỉ hiện ở mục đã
-   * lưu), `muted` = đã tắt tiếng (số chưa đọc hiện mờ, huy hiệu
-   * điều hướng không tính).
+   * đầu), `archivedAt` khác null = đã lưu trữ (hội thoại thuộc
+   * tập của tab Lưu trữ ở cột danh sách, không thuộc danh sách
+   * chính — issue #623), `muted` = đã tắt tiếng (số chưa đọc hiện
+   * mờ, huy hiệu điều hướng không tính).
    */
   pinnedAt?: string | null;
   archivedAt?: string | null;

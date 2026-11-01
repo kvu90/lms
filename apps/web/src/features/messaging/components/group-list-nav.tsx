@@ -70,10 +70,12 @@ import { initialsOf, relativeTime } from '../utils/utils';
  *    từ dòng thành viên của người xem trên cả hai tập hội
  *    thoại chưa lưu trữ và đã lưu trữ). Hàng nhóm phân mục
  *    theo trường này, KHÔNG tra danh sách hội thoại của trang
- *    để phân mục: danh sách đó chỉ chứa hội thoại chưa lưu trữ
- *    (tập đã lưu nạp lười theo yêu cầu) nên hội thoại vừa ghim
- *    vừa lưu trữ sẽ bị xếp sai mục. Xem trước tin cuối và biểu
- *    tượng tắt tiếng vẫn tra `conversationsById` như trước.
+ *    để phân mục: mốc ghim trên cây là dữ kiện server dựng
+ *    sẵn cho đúng cấu trúc lớp/khoá/nhóm của tab này (gồm cả
+ *    nút chưa có hội thoại), còn danh sách hội thoại của
+ *    trang là góc nhìn phẳng của tab Tất cả / Chưa đọc. Xem
+ *    trước tin cuối và biểu tượng tắt tiếng vẫn tra
+ *    `conversationsById` như trước.
  *    Khi có ít nhất một hàng đã ghim, danh sách tách hai mục
  *    thu gọn **Ghim** (các hàng đã ghim, giữ thứ tự cây) và
  *    **Nhóm** (mọi hàng còn lại, giữ đúng thứ tự và vị trí nút
@@ -154,7 +156,11 @@ export function countGroupListEntries(tree: ConversationGroupTreeView): number {
 /**
  * Huy hiệu số chưa đọc của một hàng nhóm: số do server tính cho
  * chính nút của hàng; kèm nhãn đọc màn hình như dòng hội thoại
- * thường.
+ * thường. Huy hiệu mang đúng các ghi đè mà hàng hội thoại áp
+ * lên Badge nền (chiều cao và bề ngang tối thiểu 20px, bo tròn
+ * đầy, đệm ngang 1, số canh giữa) để hai loại hàng của cùng
+ * trang chat nhất quán một khuôn (issue #623, rà soát toàn bề
+ * mặt).
  *
  * @param props - Số chưa đọc của nút.
  * @returns Huy hiệu, hoặc null khi không có tin chưa đọc.
@@ -164,7 +170,7 @@ function GroupUnreadBadge({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
     <>
-      <Badge className="shrink-0">{count}</Badge>
+      <Badge className="h-5 min-w-5 shrink-0 justify-center rounded-full px-1 tabular-nums">{count}</Badge>
       <span className="sr-only">{t('unreadSuffix', { count })}</span>
     </>
   );
@@ -227,7 +233,7 @@ export function GroupListNav({
         <div data-testid="group-list-loading" className="space-y-2 px-2" aria-label={t('conversationsLoading')}>
           {[0, 1, 2].map((i) => (
             <div key={i} className="flex items-center gap-2.5">
-              <Skeleton className="size-8 rounded-full" />
+              <Skeleton className="size-10 rounded-full" />
               <Skeleton className="h-4 flex-1" />
             </div>
           ))}
@@ -342,6 +348,13 @@ export function GroupListNav({
    * tiếng nằm NGOÀI nhánh có tin cuối (vòng sửa PR #593): hội
    * thoại đã tắt tiếng thì hiện biểu tượng ở dòng phụ kể cả khi
    * chưa có tin cuối nào.
+   *
+   * Khuôn hàng theo đúng hàng hội thoại của chính trang
+   * (issue #623, rà soát toàn bề mặt — nhất quán nội bộ, demo
+   * không có hàng avatar ở tab Nhóm): avatar cỡ lg (40px) như
+   * hàng hội thoại, huy hiệu chưa đọc mang cùng ghi đè trên
+   * Badge nền, biểu tượng tắt tiếng là icon size-3 đặt trong
+   * ô size-5 như hàng hội thoại.
    */
   const renderEntry = (entry: GroupListEntry) => {
     const conversation = entry.conversationId ? conversationsById?.get(entry.conversationId) : undefined;
@@ -359,7 +372,7 @@ export function GroupListNav({
         style={{ paddingLeft: `${0.625 + entry.depth * 1.25}rem` }}
         onClick={entry.onOpen}
       >
-        <Avatar className="size-8">
+        <Avatar size="lg">
           <AvatarFallback className={cn(isActive && 'bg-background/50')}>{initialsOf(entry.label)}</AvatarFallback>
         </Avatar>
         <span className="min-w-0 flex-1">
@@ -383,7 +396,9 @@ export function GroupListNav({
               <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{roleLabel(entry.role)}</span>
             )}
             {conversation?.muted ? (
-              <BellOff data-testid={`conversation-muted-${conversation.id}`} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              <span className="grid size-5 shrink-0 place-items-center">
+                <BellOff data-testid={`conversation-muted-${conversation.id}`} className="size-3 text-muted-foreground" aria-hidden />
+              </span>
             ) : null}
           </span>
         </span>
@@ -397,12 +412,12 @@ export function GroupListNav({
    * chính dữ kiện cây của nút — server đã gắn từ dòng thành
    * viên của người xem trên cả hai tập hội thoại chưa lưu trữ
    * và đã lưu trữ. Không tra `conversationsById` cho việc phân
-   * mục này: bản đồ đó dựng từ danh sách chưa lưu trữ duy nhất
-   * của trang, nên hội thoại vừa ghim vừa lưu trữ không có mặt
-   * ở đó và sẽ bị xếp vào mục Nhóm thay vì mục Ghim (bản đồ vẫn
-   * dùng cho xem trước tin cuối và biểu tượng tắt tiếng ở
-   * {@link renderEntry} như trước). Hàng chưa có hội thoại
-   * mang mốc ghim null, coi như chưa ghim.
+   * mục này: mốc ghim phân mục sống trên chính dữ kiện cây,
+   * gồm cả nút chưa có hội thoại vốn không có mặt trong bản
+   * đồ hội thoại, nên phân mục không phụ thuộc danh sách của
+   * trang (bản đồ vẫn dùng cho xem trước tin cuối và biểu
+   * tượng tắt tiếng ở {@link renderEntry} như trước). Hàng
+   * chưa có hội thoại mang mốc ghim null, coi như chưa ghim.
    */
   const isPinnedEntry = (entry: GroupListEntry): boolean => Boolean(entry.pinnedAt);
   const pinnedClassEntries = classEntries.filter(isPinnedEntry);

@@ -19,8 +19,8 @@ describe('Lưu bền tab khung trái Tin nhắn', () => {
     expect(readStoredMessagesTab()).toBe('all');
   });
 
-  it('giữ nguyên từng giá trị hợp lệ của thanh tab hiện hành: all, unread, groups, favourites', () => {
-    for (const tab of ['all', 'unread', 'groups', 'favourites']) {
+  it('giữ nguyên từng giá trị hợp lệ của thanh tab hiện hành: all, unread, groups, archived', () => {
+    for (const tab of ['all', 'unread', 'groups', 'archived']) {
       window.localStorage.setItem(TAB_KEY, tab);
       expect(readStoredMessagesTab()).toBe(tab);
     }
@@ -31,8 +31,8 @@ describe('Lưu bền tab khung trái Tin nhắn', () => {
     expect(readStoredMessagesTab()).toBe('all');
   });
 
-  it('giá trị lưu cũ "archived" của cấu trúc có tab Đã lưu trữ rơi về tab Tất cả', () => {
-    window.localStorage.setItem(TAB_KEY, 'archived');
+  it('giá trị lưu "favourites" của tab Yêu thích đã bỏ ở issue #623 rơi về tab Tất cả', () => {
+    window.localStorage.setItem(TAB_KEY, 'favourites');
     expect(readStoredMessagesTab()).toBe('all');
   });
 

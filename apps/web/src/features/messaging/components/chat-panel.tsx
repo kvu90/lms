@@ -1119,9 +1119,10 @@ export function ChatPanel({
           trích từ chunk JS của demo): bề rộng cố định 192px,
           các mục chỉ chữ theo đúng thứ tự demo: Xem hồ sơ
           (chỉ 1–1) → Tắt/Bật thông báo → Separator →
-          Ghim/Bỏ ghim → Thêm/Bỏ khỏi yêu thích (hình dạng
-          thuần, vô hiệu — yêu thích chưa có phán quyết) →
-          Separator → Xoá lịch sử trò chuyện (hình dạng
+          Ghim/Bỏ ghim → Lưu trữ/Bỏ lưu trữ (hành động thật
+          qua cùng đường đổi trạng thái — bề mặt chứa hội
+          thoại đã lưu là tab Lưu trữ ở cột danh sách, issue
+          #623) → Separator → Xoá lịch sử trò chuyện (hình dạng
           thuần, vô hiệu) → Chặn/Bỏ chặn (destructive, chỉ
           1–1, kèm tên đối tác như luật đã chốt) → Xoá
           (destructive, hình dạng thuần, vô hiệu). Sau
@@ -1167,8 +1168,11 @@ export function ChatPanel({
             >
               {active.pinnedAt ? t('unpinConversation') : t('pinConversation')}
             </DropdownMenuItem>
-            <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} disabled>
-              {t('addToFavourites')}
+            <DropdownMenuItem
+              className={CHAT_MENU_ITEM_CLASS}
+              onClick={() => onUpdateConversationState(active, { archived: !active.archivedAt })}
+            >
+              {active.archivedAt ? t('unarchiveConversation') : t('archiveConversation')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} disabled>
@@ -1688,11 +1692,13 @@ export function ChatPanel({
                   đủ, chữ căn trái, xếp dọc cách 8px, chỉ chữ.
                   Tắt tiếng / Ghim / Chặn là hành động THẬT
                   qua cùng đường đổi trạng thái và chặn liên
-                  lạc như mọi bề mặt khác; Thêm vào yêu thích
-                  và Xoá lịch sử trò chuyện là chức năng sản
-                  phẩm chưa có — chỉ dựng hình dạng ở trạng
-                  thái vô hiệu theo luật điểm chưa quyết, ghi
-                  rõ trong thân PR.
+                  lạc như mọi bề mặt khác; Xoá lịch sử trò
+                  chuyện là chức năng sản phẩm chưa có — chỉ
+                  dựng hình dạng ở trạng thái vô hiệu theo
+                  luật điểm chưa quyết, ghi rõ trong thân PR.
+                  (Mục Thêm vào yêu thích từng đứng ở đây đã
+                  gỡ hẳn theo phán quyết issue #623 — yêu
+                  thích không có dữ kiện ở bất kỳ tầng nào.)
                 */}
                 <div className="flex flex-col gap-2">
                   <Button
@@ -1710,14 +1716,6 @@ export function ChatPanel({
                     onClick={() => onUpdateConversationState(active, { pinned: !active.pinnedAt })}
                   >
                     {active.pinnedAt ? t('unpinConversation') : t('pinConversation')}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full justify-start"
-                    disabled
-                  >
-                    {t('addToFavourites')}
                   </Button>
                   <Button
                     type="button"

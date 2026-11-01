@@ -1,8 +1,8 @@
 /**
  * Hook điều phối danh sách hội thoại của trang Tin nhắn (đợt C của
  * issue #223, lát 1; chuyển sang cache TanStack ở CN-13, issue
- * #493): danh sách chính, mục đã lưu, cây nhóm và khoá của tôi đều
- * là dữ kiện máy chủ — chúng sống trong CACHE của TanStack Query
+ * #493): danh sách chính, tập đã lưu của server, cây nhóm và khoá
+ * của tôi đều là dữ kiện máy chủ — chúng sống trong CACHE của TanStack Query
  * qua các options của `lib/messaging-data` và hook này chỉ ĐĂNG KÝ
  * (useQuery) rồi suy ra giá trị hiển thị; state cục bộ chỉ còn tab
  * khung trái, bản đồ tên hiển thị (dữ kiện suy ra, không có
@@ -50,16 +50,17 @@ export function useConversationList({ myId, applyReadMarker, lastSeqRef }: UseCo
   const conversationsQuery = useQuery(messagingConversationsQueryOptions());
   const conversations = useMemo(() => conversationsQuery.data ?? [], [conversationsQuery.data]);
   /**
-   * Mục ĐÃ LƯU (lát M5, issue #240): danh sách riêng của server,
-   * nạp LƯỜI — query chỉ bật sau lần đầu người dùng mở mục (cờ
-   * `archivedRequested`); hai danh sách không trộn nhau, server là
-   * nguồn sự thật của từng mục.
+   * Tập ĐÃ LƯU của server (lát M5, issue #240): endpoint riêng
+   * `?archived=true`, nạp CÙNG NHỊP với danh sách chính — từ
+   * issue #623 tập này là dữ kiện của tab Lưu trữ ở cột danh
+   * sách (tab thay cho tab Yêu thích) nên không nạp lười theo
+   * thao tác mở tab: số đếm trên tab phải đúng ngay từ khi
+   * trang nạp. Hai tập KHÔNG trộn nhau — hội thoại đã lưu trữ
+   * chỉ hiện ở tab Lưu trữ, không thuộc danh sách chính và
+   * không tính vào số đếm của tab Tất cả / Chưa đọc; server là
+   * nguồn sự thật của từng tập.
    */
-  const [archivedRequested, setArchivedRequested] = useState(false);
-  const archivedQuery = useQuery({
-    ...messagingArchivedConversationsQueryOptions(),
-    enabled: archivedRequested,
-  });
+  const archivedQuery = useQuery(messagingArchivedConversationsQueryOptions());
   const archivedConversations = useMemo(() => archivedQuery.data ?? [], [archivedQuery.data]);
   /**
    * CÂY NHÓM của tôi (lát MSG-T1 dựng ở server, MSG-T3 trình bày ở
@@ -114,6 +115,9 @@ export function useConversationList({ myId, applyReadMarker, lastSeqRef }: UseCo
    * trang tự khớp vì cùng suy từ cache, còn huy hiệu Tin nhắn của
    * sidebar đọc truy vấn riêng nên phải làm mới bằng invalidate để
    * server vẫn là nguồn số đếm cuối cùng (lát M1, issue #204).
+   * Danh sách ở đây là danh sách chính (chưa lưu trữ) nên tổng
+   * này không gồm hội thoại đã lưu trữ — khớp luật số đếm của
+   * tab Tất cả / Chưa đọc (issue #623).
    */
   const unread = useMemo(() => conversations.filter((c) => (c.unread ?? 0) > 0).length, [conversations]);
   const recountUnread = useCallback(() => {
@@ -174,7 +178,14 @@ export function useConversationList({ myId, applyReadMarker, lastSeqRef }: UseCo
     [queryClient],
   );
 
-  /** Ghi mục đã lưu vào CACHE — cùng khuôn bộ chuyển đổi với `setConversations`. */
+  /**
+   * Ghi tập đã lưu vào CACHE — cùng khuôn bộ chuyển đổi với
+   * `setConversations`: kênh realtime áp sự kiện
+   * conversation.updated lên cả cache này (vá tại chỗ khi tin
+   * mới là của chính người xem; dời hội thoại sang danh sách
+   * chính khi server đã tự bỏ lưu trữ cho người xem — xem
+   * hook realtime).
+   */
   const setArchivedConversations = useCallback(
     (updater: ConversationView[] | ((prev: ConversationView[]) => ConversationView[])) => {
       queryClient.setQueryData<ConversationView[]>(messagingQueryKeys.messagingArchivedConversations, (old) =>
@@ -220,10 +231,10 @@ export function useConversationList({ myId, applyReadMarker, lastSeqRef }: UseCo
 
   /**
    * Nạp lại toàn bộ dữ kiện khung trái + danh bạ: invalidate đồng
-   * loạt các khoá danh sách/cây/khoá/danh bạ — các query đang đăng
-   * ký nạp lại ngay, query chưa bật (mục đã lưu trước lần mở đầu)
-   * chỉ bị đánh dấu cũ và nạp tươi ở lần bật sau. Lời gọi chờ các
-   * lần nạp lại đang hoạt động settle như nhịp nạp đầy đủ trước đây.
+   * loạt các khoá danh sách/cây/khoá/danh bạ — mọi query của
+   * khung trái đều đang đăng ký nên nạp lại ngay. Lời gọi chờ
+   * các lần nạp lại đang hoạt động settle như nhịp nạp đầy đủ
+   * trước đây.
    */
   const reload = useCallback(async () => {
     await Promise.all([
@@ -237,18 +248,15 @@ export function useConversationList({ myId, applyReadMarker, lastSeqRef }: UseCo
     ]);
   }, [queryClient]);
 
-  /** Nạp mục ĐÃ LƯU (lát M5): lần đầu thì bật query lười, các lần sau invalidate để nạp tươi. */
-  const loadArchived = useCallback(async () => {
-    setArchivedRequested(true);
-    await queryClient.invalidateQueries({ queryKey: messagingQueryKeys.messagingArchivedConversations });
-  }, [queryClient]);
-
   /**
    * Đặt một cờ trạng thái cá nhân trên một cuộc trò chuyện (lát M5):
    * server trả trạng thái đầy đủ sau khi đặt; đột biến đã khai
    * invalidate cả hai danh sách + chi tiết nên cache tự hội tụ về
-   * trạng thái server (lưu thì rời danh sách chính sang mục đã lưu,
-   * ghim thì thứ tự nạp lại khớp thứ tự server) — hook chỉ bắt lỗi.
+   * trạng thái server (ghim thì thứ tự nạp lại khớp thứ tự server;
+   * lưu trữ / bỏ lưu trữ thì hội thoại dời giữa danh sách chính và
+   * tập của tab Lưu trữ) — hook chỉ bắt lỗi. Thao tác lưu trữ đặt
+   * ở menu đầu khung của cuộc trò chuyện đã mở (issue #623),
+   * không còn ở cột danh sách.
    */
   const updateConversationState = useCallback(
     async (conversation: ConversationView, patch: ConversationStatePatch) => {
@@ -311,7 +319,6 @@ export function useConversationList({ myId, applyReadMarker, lastSeqRef }: UseCo
     nameOf,
     loadGroupTree,
     reload,
-    loadArchived,
     updateConversationState,
     markRead,
   };

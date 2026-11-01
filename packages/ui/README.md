@@ -113,6 +113,16 @@ build + test của `@lms/web`, đối chiếu diff của `components.json` và
   Khi đồng bộ upstream lần tới: đối chiếu ba giá trị này để giữ
   bảng màu demo thay vì quay về giá trị bản sinh ra mặc định mang
   theo.
+- `src/styles/globals.css` (issue #623): sửa tay giá trị
+  `--destructive` ở khối `.dark` từ `oklch(0.704 0.191 22.216)`
+  (quy đổi #ff6467) thành `oklch(0.704 0.188 22.146)` (quy đổi
+  #ff6568). Lý do: đợt rà soát toàn bộ trang chat so với bản
+  demo phát hiện token chế độ tối lệch đúng 1 đơn vị ở kênh G
+  so với giá trị demo #ff6568 (giá trị chế độ sáng đã khớp
+  tuyệt đối #e40014 theo mục ngoại lệ của issue #608 ở trên);
+  cùng lý do như mục đó — shadcn CLI không có thao tác đổi
+  từng giá trị token. Khi đồng bộ upstream lần tới: đối chiếu
+  giữ #ff6568 cho khối `.dark`.
 - `src/components/avatar.tsx` (issue #608): sửa tay cỡ chữ nền của
   `AvatarFallback` từ `text-sm` (14px) thành `text-xs` (12px). Lý
   do: phía demo mọi avatar chữ viết tắt đều là 12px trong khi bản

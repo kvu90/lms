@@ -77,7 +77,13 @@ export function messagingPersonProfileQueryOptions(userId: string) {
   });
 }
 
-/** Danh sách hội thoại đã lưu (GET /messages/conversations?archived=true). */
+/**
+ * Danh sách hội thoại đã lưu của server (GET /messages/conversations?archived=true).
+ * Từ issue #623 tập này là dữ kiện của tab Lưu trữ ở cột danh
+ * sách (tab thay cho tab Yêu thích): hook danh sách nạp nó
+ * cùng nhịp với danh sách chính để số đếm trên tab luôn đúng;
+ * hai tập không trộn nhau.
+ */
 export function messagingArchivedConversationsQueryOptions() {
   return queryOptions({
     queryKey: queryKeys.messagingArchivedConversations,
