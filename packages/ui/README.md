@@ -193,6 +193,19 @@ build + test của `@lms/web`, đối chiếu diff của `components.json` và
   sau lần chạy CLI này. Khi đồng bộ upstream lần tới: chạy
   `shadcn add popover --overwrite` tại thư mục này và đối chiếu
   diff của file, đặc biệt dòng import `cn`.
+- `src/styles/globals.css` (issue #624): thêm bốn biến ghi đè màu
+  trong khối `@theme inline`: `--color-green-400: #05df72`,
+  `--color-green-600: #00a544`, `--color-amber-400: #fcbb00`,
+  `--color-amber-600: #dd7400`. Lý do sửa tay: cùng bản chất với mục
+  ghi đè green-500/yellow-500 của issue #608 ở trên — template mẫu
+  dùng bộ màu ngữ nghĩa tuỳ biến riêng cho hai họ green/amber, khác
+  mặc định Tailwind v4, mà các huy hiệu trạng thái (đang hoạt động /
+  đã khoá) và huy hiệu khoá quyền trên các bề mặt vai trò & quyền
+  đang dùng; shadcn CLI không có thao tác đổi từng giá trị token như
+  vậy. Phạm vi ảnh hưởng là toàn ứng dụng (mọi bề mặt dùng các màu
+  green/amber 400/600), đối chiếu và ghi rõ trong thân PR của issue
+  #624. Khi đồng bộ upstream lần tới: đối chiếu bốn giá trị này để
+  giữ bảng màu của template thay vì quay về mặc định Tailwind.
 - `src/components/input-group.tsx` (issue #597, vòng sửa 2 của PR #601):
   THÊM MỚI bằng shadcn CLI (`shadcn add input-group --yes`, preset
   base-vega) chạy tại thư mục package này — nội dung file là đúng
