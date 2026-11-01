@@ -4021,6 +4021,37 @@ describe('Trang tin nhắn — đợt dựng UI giống demo (issue #591)', () =
     expect(await screen.findByText('Chưa có cuộc trò chuyện nào được lưu trữ.')).toBeInTheDocument();
   });
 
+  it('hai tab Trả lời / Ghi chú nội bộ của ô soạn chuyển qua lại được trong cùng một hộp; gửi ghi chú chỉ xử lý cục bộ — không gọi API, hiện thông báo và xoá nháp', async () => {
+    const calls: RecordedCall[] = [];
+    stub591Fetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Học.*tin mới của bạn học/ }));
+    // Tab Ghi chú nội bộ bấm được (không còn ở trạng thái vô
+    // hiệu như hình dạng cũ): chuyển tab là ô soạn ghi chú
+    // hiện với placeholder riêng của nó.
+    const noteTab = screen.getByRole('tab', { name: 'Ghi chú nội bộ' });
+    expect(noteTab).toBeEnabled();
+    await userEvent.click(noteTab);
+    const noteBox = await screen.findByPlaceholderText('Viết ghi chú nội bộ...');
+    await userEvent.type(noteBox, 'ghi chú kiểm chứng cục bộ');
+
+    // Gửi ở chế độ ghi chú: không một lời gọi ghi dữ kiện nào
+    // phát sinh (chức năng ghi chú nội bộ chưa có backend),
+    // thông báo cục bộ hiện và nháp ghi chú bị xoá.
+    const callsBefore = calls.length;
+    await userEvent.click(screen.getByRole('button', { name: 'Gửi' }));
+    expect(calls.slice(callsBefore).filter((c) => c.method !== 'GET')).toHaveLength(0);
+    expect(await screen.findByText('Ghi chú nội bộ được lưu cục bộ và không được gửi vào cuộc trò chuyện.')).toBeInTheDocument();
+    expect(noteBox).toHaveValue('');
+
+    // Chuyển về tab Trả lời: ô soạn tin nhắn hiện lại đúng
+    // trong cùng hộp tab, với placeholder của chế độ trả lời.
+    await userEvent.click(screen.getByRole('tab', { name: 'Trả lời' }));
+    expect(await screen.findByLabelText('Nội dung tin nhắn')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Nhập tin nhắn...')).toBeInTheDocument();
+  });
+
   it('avatar nhóm chỉ gồm chữ cái đầu của các từ chữ trong tên, bỏ ký tự đặc biệt ở đầu tên', async () => {
     const calls: RecordedCall[] = [];
     stub591Fetch(calls);

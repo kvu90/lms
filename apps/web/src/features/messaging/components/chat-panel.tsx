@@ -20,7 +20,7 @@ import {
 import { Input } from '@lms/ui/components/input';
 import { Separator } from '@lms/ui/components/separator';
 import { Skeleton } from '@lms/ui/components/skeleton';
-import { Tabs, TabsList, TabsTrigger } from '@lms/ui/components/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@lms/ui/components/tabs';
 import { Textarea } from '@lms/ui/components/textarea';
 import {
   Tooltip, TooltipContent, TooltipTrigger,
@@ -242,6 +242,43 @@ export function ChatPanel({
   const [infoOpen, setInfoOpen] = useState(false);
   /** Bộ chọn emoji ở ô soạn đang mở hay không (vòng sửa PR #593): Popover được điều khiển tường minh để chọn xong một emoji là đóng lại như hành vi menu trước đây. */
   const [emojiOpen, setEmojiOpen] = useState(false);
+  /**
+   * Tab đang chọn của hộp soạn (issue #623): hộp Tabs là Tabs
+   * điều khiển thật với hai trị `reply` / `note` như bản demo
+   * — `reply` là ô soạn tin nhắn thường, `note` là ô soạn ghi
+   * chú nội bộ cục bộ (xem `noteDrafts` ngay dưới).
+   */
+  const [composerTab, setComposerTab] = useState<'reply' | 'note'>('reply');
+  /**
+   * Nháp GHI CHÚ NỘI BỘ theo từng conversation — dữ kiện cục
+   * bộ thuần của panel: chức năng ghi chú nội bộ chưa có phán
+   * quyết và chưa có backend, nên nháp không rời client, không
+   * qua đường gửi tin và không phát tín hiệu đang nhập; gửi ở
+   * chế độ ghi chú chỉ hiện thông báo cục bộ rồi xoá nháp,
+   * đúng hành vi phía demo.
+   */
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
+  /** Nháp ghi chú của conversation đang mở (rỗng khi chưa chọn hội thoại nào). */
+  const noteDraft = active ? noteDrafts[active.id] ?? '' : '';
+  /** Conversation vừa gửi ghi chú xong — thông báo cục bộ hiện dưới hộp soạn của đúng conversation đó cho tới lần gõ kế tiếp vào ô ghi chú. */
+  const [noteNoticeFor, setNoteNoticeFor] = useState<string | null>(null);
+
+  /**
+   * Gửi ghi chú nội bộ (issue #623): xử lý CỤC BỘ thuần như
+   * phía demo — chặn submit mặc định, xoá nháp của conversation
+   * đang mở và bật thông báo cục bộ. Không gọi API, không qua
+   * đường gửi tin, không gửi gì vào luồng: chức năng ghi chú
+   * nội bộ thật chưa có phán quyết nên không nối backend.
+   *
+   * @param event - Sự kiện submit của form ghi chú.
+   */
+  const sendNote = (event: FormEvent) => {
+    event.preventDefault();
+    if (!active) return;
+    if (!noteDraft.trim()) return;
+    setNoteDrafts((prev) => ({ ...prev, [active.id]: '' }));
+    setNoteNoticeFor(active.id);
+  };
   /** Hồ sơ rút gọn của thành viên đang xem từ menu avatar/tên (lát MSG-T4) — một sheet dùng chung cho cả panel và dòng tin. */
   const memberProfile = useMemberProfile();
   /**
@@ -1347,42 +1384,21 @@ export function ChatPanel({
             {active.enabled === false ? (
               <p role="status" className="text-sm text-muted-foreground">{t('chatDisabledForMembers')}</p>
             ) : null}
-            {replyTarget ? (
-              <div
-                data-testid="reply-chip"
-                className="flex items-center gap-2 rounded-lg border-l-2 border-primary bg-muted/50 px-3 py-2"
-              >
-                {/*
-                  Nội dung thanh xem trước trả lời xếp HAI
-                  dòng như bản demo (issue #608): dòng tác
-                  giả 12px vừa màu primary ở trên, dòng trích
-                  12px màu muted cắt một dòng ở dưới.
-                */}
-                <span className="min-w-0 flex-1">
-                  <span className="block text-xs font-medium text-primary">{t('replyingTo', { user: nameOf(replyTarget.userIdFrom) })}</span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {replyTarget.recalledAt ? t('quotedMessageUnavailable') : quoteExcerptOfText(replyTarget.fullMessage)}
-                  </span>
-                </span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  aria-label={t('cancelReply')}
-                  onClick={() => onCancelReply()}
-                >
-                  ✕
-                </Button>
-              </div>
-            ) : null}
             {/*
               Ô soạn theo bản demo (issue #591; vòng sửa PR
-              #593 đưa về đúng dạng XẾP CHỒNG của demo):
-              - Tab Trả lời / Ghi chú nội bộ ở trên cùng: tab
-                Ghi chú nội bộ là điểm CHƯA có phán quyết chức
-                năng — chỉ dựng hình dạng, ở trạng thái vô hiệu.
-              - Chip trả lời nhanh phía trên ô nhập: CHỈ HÌNH
-                DẠNG từ lớp adapter, vô hiệu, không chèn nội
-                dung nào (điểm chưa có phán quyết).
+              #593 đưa về đúng dạng XẾP CHỒNG của demo; cấu
+              trúc hộp tab sửa ở issue #623):
+              - Chip trả lời nhanh nằm PHÍA TRÊN hộp tab: CHỈ
+                HÌNH DẠNG từ lớp adapter, vô hiệu, không chèn
+                nội dung nào (điểm chưa có phán quyết).
+              - Hộp tab Trả lời / Ghi chú nội bộ: Tabs điều
+                khiển thật bọc cả thanh tab và hai ô soạn
+                trong MỘT hộp viền — tab Ghi chú nội bộ bấm
+                chuyển được và mở ô soạn ghi chú riêng, nhưng
+                chức năng ghi chú nội bộ CHƯA có phán quyết
+                và chưa có backend: gửi ở chế độ ghi chú chỉ
+                xử lý cục bộ (thông báo + xoá nháp), không gọi
+                API, không vào luồng (xem `sendNote`).
               - Ô nhập nằm PHÍA TRÊN, hàng công cụ nằm PHÍA
                 DƯỚI (cột dọc như demo): hàng công cụ theo
                 thứ tự Bold → Emoji → Attach → Link ở nhóm
@@ -1400,19 +1416,6 @@ export function ChatPanel({
                 cổng gửi chặn như cũ, lỗi hiện ở dòng báo lỗi
                 dưới ô soạn).
             */}
-            {/*
-              Thanh tab của khung soạn theo demo (issue
-              #608): TabsList variant line — bề ngang đầy đủ,
-              căn trái, khoảng 8px, đường kẻ dưới, cao 40px;
-              các trigger không giãn đều. Tab Ghi chú nội bộ
-              vẫn là hình dạng thuần vô hiệu như trước.
-            */}
-            <Tabs value="reply">
-              <TabsList variant="line" className="h-10 w-full justify-start gap-2 border-b px-3">
-                <TabsTrigger value="reply" className="flex-none">{t('replyTabLabel')}</TabsTrigger>
-                <TabsTrigger value="internal-note" className="flex-none" disabled>{t('internalNoteTabLabel')}</TabsTrigger>
-              </TabsList>
-            </Tabs>
             <div className="flex flex-wrap gap-1.5">
               {QUICK_REPLY_SHAPE_SAMPLES.map((sample) => (
                 <Button
@@ -1427,118 +1430,223 @@ export function ChatPanel({
                 </Button>
               ))}
             </div>
-            <form onSubmit={(e) => void send(e)} className="flex flex-col gap-2">
-              <Textarea
-                ref={composerRef}
-                aria-label={t('messageText')}
-                rows={1}
-                className="max-h-32 min-h-10 min-w-0 resize-none rounded-none border-0 px-0 py-2 text-sm shadow-none focus-visible:ring-0"
-                value={draft}
-                onChange={(e) => {
-                  // Nháp ghi theo conversation đang mở (lát M1,
-                  // issue #204) — soạn dở ở conversation này
-                  // không lẫn sang conversation khác.
-                  setDrafts((prev) => ({ ...prev, [active.id]: e.target.value }));
-                  noteTyping();
-                }}
-                onKeyDown={(e) => {
-                  // Enter gửi, Shift+Enter xuống dòng (lát M1,
-                  // issue #204) — ngữ nghĩa chuẩn app nhắn tin
-                  // cho composer nhiều dòng. Đang có lượt gửi bay thì
-                  // Enter không kích thêm lượt gửi nào (fix nhân đôi
-                  // tin, issue #33); Shift+Enter vẫn xuống dòng.
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    if (!sendInFlight) e.currentTarget.form?.requestSubmit();
-                  }
-                }}
-              />
-              {/*
-                Hàng công cụ soạn theo đúng thứ tự và khuôn
-                phía demo (issue #608): hàng tách hai phía —
-                nhóm trái khoảng 4px gồm Bold (nút ghost chứa
-                chữ "B" như demo), Emoji, Attach, Link; nút
-                Send ở phía phải với glyph Send. Bold và Link
-                hoạt động thật (giai đoạn 2 của vòng sửa
-                PR #610), Attach vẫn là hình dạng vô hiệu
-                (điểm chưa có phán quyết); bộ chọn emoji dùng
-                khuôn đã trích từ demo: PopoverContent
-                `w-64 p-2`, lưới 5 cột khoảng 4px, nút emoji
-                đệm 8px.
-              */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={t('boldLabel')}
-                    onClick={applyBold}
-                  >
-                    <span className="text-base leading-none font-medium">B</span>
-                  </Button>
-                  <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
-                    <PopoverTrigger
-                      render={
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={t('emojiPickerLabel')}
-                        />
+            {/*
+              Hộp tab của khung soạn theo đúng cấu trúc demo
+              (issue #623): Tabs điều khiển thật (value +
+              onValueChange, hai trị reply / note) mang class
+              hộp viền bo góc của demo; TabsList variant line
+              mang đúng chuỗi class của demo — bề ngang đầy
+              đủ, căn trái, đường kẻ dưới, chiều cao hàng
+              ngang và đệm ngang của trigger đặt qua selector
+              của list; mỗi trigger tự thân là flex-none px-1
+              và không tab nào vô hiệu. Nội dung tab Trả lời
+              chứa thanh xem trước trả lời (bọc đệm trong hộp)
+              và form soạn tin; nội dung tab Ghi chú nội bộ
+              chứa form ghi chú cục bộ.
+            */}
+            <Tabs
+              value={composerTab}
+              onValueChange={(value) => setComposerTab(value === 'note' ? 'note' : 'reply')}
+              className="border-border rounded-md border"
+            >
+              <TabsList
+                variant="line"
+                className="w-full justify-start gap-2 border-b px-3 group-data-horizontal/tabs:h-10 **:data-[slot=tabs-trigger]:border-x-0 **:data-[slot=tabs-trigger]:px-6"
+              >
+                <TabsTrigger value="reply" className="flex-none px-1">{t('replyTabLabel')}</TabsTrigger>
+                <TabsTrigger value="note" className="flex-none px-1">{t('internalNoteTabLabel')}</TabsTrigger>
+              </TabsList>
+              <TabsContent value="reply" className="m-0">
+                {replyTarget ? (
+                  <div className="px-3 pt-3">
+                    <div
+                      data-testid="reply-chip"
+                      className="flex items-center gap-2 rounded-lg border-l-2 border-primary bg-muted/50 px-3 py-2"
+                    >
+                      {/*
+                        Nội dung thanh xem trước trả lời xếp HAI
+                        dòng như bản demo (issue #608): dòng tác
+                        giả 12px vừa màu primary ở trên, dòng trích
+                        12px màu muted cắt một dòng ở dưới. Nút xoá
+                        trích dẫn là nút ghost chỉ biểu tượng X
+                        như demo (issue #623).
+                      */}
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-medium text-primary">{t('replyingTo', { user: nameOf(replyTarget.userIdFrom) })}</span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {replyTarget.recalledAt ? t('quotedMessageUnavailable') : quoteExcerptOfText(replyTarget.fullMessage)}
+                        </span>
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={t('cancelReply')}
+                        onClick={() => onCancelReply()}
+                      >
+                        <X aria-hidden className="size-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+                <form onSubmit={(e) => void send(e)} className="flex flex-col gap-2 px-3 pb-2">
+                  <Textarea
+                    ref={composerRef}
+                    aria-label={t('messageText')}
+                    placeholder={t('messagePlaceholder')}
+                    rows={1}
+                    className="max-h-32 min-h-10 min-w-0 resize-none rounded-none border-0 px-0 py-2 text-sm shadow-none focus-visible:ring-0"
+                    value={draft}
+                    onChange={(e) => {
+                      // Nháp ghi theo conversation đang mở (lát M1,
+                      // issue #204) — soạn dở ở conversation này
+                      // không lẫn sang conversation khác.
+                      setDrafts((prev) => ({ ...prev, [active.id]: e.target.value }));
+                      noteTyping();
+                    }}
+                    onKeyDown={(e) => {
+                      // Enter gửi, Shift+Enter xuống dòng (lát M1,
+                      // issue #204) — ngữ nghĩa chuẩn app nhắn tin
+                      // cho composer nhiều dòng. Đang có lượt gửi bay thì
+                      // Enter không kích thêm lượt gửi nào (fix nhân đôi
+                      // tin, issue #33); Shift+Enter vẫn xuống dòng.
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        if (!sendInFlight) e.currentTarget.form?.requestSubmit();
                       }
+                    }}
+                  />
+                  {/*
+                    Hàng công cụ soạn theo đúng thứ tự và khuôn
+                    phía demo (issue #608): hàng tách hai phía —
+                    nhóm trái khoảng 4px gồm Bold (nút ghost chứa
+                    chữ "B" như demo), Emoji, Attach, Link; nút
+                    Send ở phía phải với glyph Send. Bold và Link
+                    hoạt động thật (giai đoạn 2 của vòng sửa
+                    PR #610), Attach vẫn là hình dạng vô hiệu
+                    (điểm chưa có phán quyết); bộ chọn emoji dùng
+                    khuôn đã trích từ demo: PopoverContent
+                    `w-64 p-2`, lưới 5 cột khoảng 4px, nút emoji
+                    đệm 8px.
+                  */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={t('boldLabel')}
+                        onClick={applyBold}
+                      >
+                        <span className="text-base leading-none font-medium">B</span>
+                      </Button>
+                      <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
+                        <PopoverTrigger
+                          render={
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={t('emojiPickerLabel')}
+                            />
+                          }
+                        >
+                          <Smile aria-hidden />
+                        </PopoverTrigger>
+                        <PopoverContent
+                          align="start"
+                          sideOffset={4}
+                          data-testid="emoji-picker-popover"
+                          className="w-64 p-2"
+                        >
+                          <div className="grid grid-cols-5 gap-1">
+                            {EMOJI_GRID_OPTIONS.map((emoji) => (
+                              <button
+                                key={emoji}
+                                type="button"
+                                className="rounded-md p-2 text-lg transition-colors hover:bg-muted"
+                                onClick={() => insertEmojiAtCursor(emoji)}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={t('attachFileLabel')}
+                        disabled
+                      >
+                        <Paperclip aria-hidden />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={t('insertLinkLabel')}
+                        onClick={insertLink}
+                      >
+                        <Link2 aria-hidden />
+                      </Button>
+                    </div>
+                    <Button
+                      type="submit"
+                      size="icon-sm"
+                      aria-label={t('send')}
+                      disabled={sendInFlight || !draft.trim()}
                     >
-                      <Smile aria-hidden />
-                    </PopoverTrigger>
-                    <PopoverContent
-                      align="start"
-                      sideOffset={4}
-                      data-testid="emoji-picker-popover"
-                      className="w-64 p-2"
+                      <Send aria-hidden />
+                    </Button>
+                  </div>
+                </form>
+              </TabsContent>
+              <TabsContent value="note" className="m-0">
+                {/*
+                  Ô soạn GHI CHÚ NỘI BỘ (issue #623): cùng
+                  khuôn ô nhập như tab Trả lời với placeholder
+                  riêng qua i18n; gửi chỉ xử lý cục bộ qua
+                  `sendNote` (thông báo + xoá nháp) — form này
+                  không chạm đường gửi tin, không gọi API.
+                */}
+                <form onSubmit={sendNote} className="flex flex-col gap-2 px-3 pb-2">
+                  <Textarea
+                    aria-label={t('internalNoteTabLabel')}
+                    placeholder={t('internalNotePlaceholder')}
+                    rows={1}
+                    className="max-h-32 min-h-10 min-w-0 resize-none rounded-none border-0 px-0 py-2 text-sm shadow-none focus-visible:ring-0"
+                    value={noteDraft}
+                    onChange={(e) => {
+                      setNoteDrafts((prev) => ({ ...prev, [active.id]: e.target.value }));
+                      setNoteNoticeFor(null);
+                    }}
+                    onKeyDown={(e) => {
+                      // Enter gửi, Shift+Enter xuống dòng — cùng
+                      // ngữ nghĩa như ô soạn tin nhắn.
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        e.currentTarget.form?.requestSubmit();
+                      }
+                    }}
+                  />
+                  <div className="flex items-center justify-end">
+                    <Button
+                      type="submit"
+                      size="icon-sm"
+                      aria-label={t('send')}
+                      disabled={!noteDraft.trim()}
                     >
-                      <div className="grid grid-cols-5 gap-1">
-                        {EMOJI_GRID_OPTIONS.map((emoji) => (
-                          <button
-                            key={emoji}
-                            type="button"
-                            className="rounded-md p-2 text-lg transition-colors hover:bg-muted"
-                            onClick={() => insertEmojiAtCursor(emoji)}
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={t('attachFileLabel')}
-                    disabled
-                  >
-                    <Paperclip aria-hidden />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={t('insertLinkLabel')}
-                    onClick={insertLink}
-                  >
-                    <Link2 aria-hidden />
-                  </Button>
-                </div>
-                <Button
-                  type="submit"
-                  size="icon-sm"
-                  aria-label={t('send')}
-                  disabled={sendInFlight || !draft.trim()}
-                >
-                  <Send aria-hidden />
-                </Button>
-              </div>
-            </form>
+                      <Send aria-hidden />
+                    </Button>
+                  </div>
+                </form>
+              </TabsContent>
+            </Tabs>
+            {noteNoticeFor === active.id ? (
+              <p role="status" className="text-sm text-muted-foreground">{t('internalNoteLocalNotice')}</p>
+            ) : null}
             {sendError ? (
               <p role="alert" className="text-sm text-destructive">{sendError}</p>
             ) : null}
