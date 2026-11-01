@@ -1,4 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
+import { QuestionsRepository } from '@lms/db/repositories/questions';
+import { SpaceRoutingModule } from '../../db/routing/space-routing.module';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { EventsModule } from '../../infra/events/events.module';
 import { AccessModule } from '../access/access.module';
 import { FilesModule } from '../files/files.module';
@@ -9,7 +12,6 @@ import { QuestionBanksController } from './question-banks.controller';
 import { QuestionBanksRepository } from './question-banks.repository';
 import { QuestionBanksService } from './question-banks.service';
 import { QuestionsController, QuestionUsagesController, StimuliController } from './questions.controller';
-import { QuestionsRepository } from './questions.repository';
 import { QuestionsService } from './questions.service';
 
 /**
@@ -25,11 +27,25 @@ import { QuestionsService } from './questions.service';
  * QuizModule dùng facade của Questions; hai phía đều khai
  * `forwardRef` theo khuôn vòng module đã có của repo (Users ↔ Auth ↔
  * BetterAuth).
+ *
+ * QuestionsRepository nay là repository Kysely của `@lms/db` (issue
+ * #642): provider dựng bằng factory với handle kho trung tâm ĐÃ
+ * ĐỊNH TUYẾN THEO KHÔNG GIAN (`routedKysely` của
+ * SpaceDatabaseService — cùng pool dùng chung có gắn ngữ cảnh
+ * tenant mà tầng Drizzle đang chạy trên đó), không phải handle
+ * tĩnh theo một database cố định.
  */
 @Module({
-  imports: [AccessModule, EventsModule, GroupsModule, TenantsModule, FilesModule, forwardRef(() => QuizModule)],
+  imports: [AccessModule, EventsModule, GroupsModule, TenantsModule, FilesModule, SpaceRoutingModule, forwardRef(() => QuizModule)],
   controllers: [QuestionsController, QuestionUsagesController, StimuliController, QuestionBanksController],
-  providers: [QuestionsRepository, QuestionsService, QuestionBanksRepository, QuestionBanksService],
+  providers: [
+    {
+      provide: QuestionsRepository,
+      useFactory: (spaceDb: SpaceDatabaseService) => new QuestionsRepository(spaceDb.routedKysely),
+      inject: [SpaceDatabaseService],
+    },
+    QuestionsService, QuestionBanksRepository, QuestionBanksService,
+  ],
   exports: [QuestionsService, QuestionBanksService],
 })
 /** Module ngân hàng câu hỏi và question engine. */
