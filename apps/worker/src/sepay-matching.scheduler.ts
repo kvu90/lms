@@ -38,6 +38,14 @@ const BATCH_SIZE = 20;
  * platform, RLS fail-closed sẽ che dữ kiện và cho kết quả "không
  * thấy" giả (lớp lỗi #292 của relay outbox). Các bảng payments
  * không bật RLS nên bọc này không đổi gì với chính nhịp quét.
+ * Bọc platform của nhịp KHÔNG mang slug của bất kỳ trung tâm nào:
+ * một nhịp gồm payment của nhiều trung tâm, nên không gian được
+ * phân giải THEO TỪNG PAYMENT tại các cổng hiệu ứng (kích hoạt
+ * ghi danh, kích hoạt cấp lớp, đối chiếu đích) qua
+ * `WorkerPaymentSpaceScope` từ `tenantId` của chính payment đó
+ * (tiền điều kiện Phần B của issue #587 — hạng mục 2); thân hiệu
+ * ứng của payment thuộc trung tâm kho riêng chạy trong phiên của
+ * kho đó, tách khỏi ngữ cảnh quét chung này.
  *
  * Chống quét chồng: cờ `ticking` giữ đúng một nhịp chạy tại một thời
  * điểm trong tiến trình — cờ này là chốt chặn có thật, không phải

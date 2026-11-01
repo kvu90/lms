@@ -147,13 +147,17 @@ export class SepayMatchingService {
       // payment còn `pending` thì chưa bên nào được coi giao dịch đã
       // thành công; kích hoạt xong mới lật `succeeded`. Cả ba khâu
       // kích hoạt đều idempotent — nhịp chết giữa chừng được nhận lại
-      // theo cửa sổ stale của claim và chạy lại an toàn.
+      // theo cửa sổ stale của claim và chạy lại an toàn. Hai cổng
+      // kích hoạt nhận thêm `tenantId` của payment để tiến trình chủ
+      // phân giải không gian của trung tâm sở hữu payment và chạy
+      // kích hoạt tại đúng kho của trung tâm đó; luật khớp ở đây
+      // không đổi.
       if (payment.component === 'enrol_fee' && payment.itemId) {
-        await this.enrol.activatePaidEnrol(payment.itemId, payment.userId);
+        await this.enrol.activatePaidEnrol(payment.itemId, payment.userId, payment.tenantId);
       }
       // CLASS-3: gói lớp — kích hoạt ghi danh cấp lớp (idempotent).
       if (payment.component === 'class_fee' && payment.itemId) {
-        await this.classes.activatePaidClassEnrol(payment.itemId, payment.userId);
+        await this.classes.activatePaidClassEnrol(payment.itemId, payment.userId, payment.tenantId);
       }
       // Lát 2 (#189): gói trung tâm / gói giáo viên — kích hoạt quyền
       // lợi gói (idempotent theo payment; cửa sổ nối tiếp khi mua tiếp).

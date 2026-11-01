@@ -104,6 +104,8 @@ interface Harness {
   listPendingArgs: { limit: number; staleBefore: Date }[];
   settleCalls: ProviderEventRow[];
   verifyCalls: PaymentRow[];
+  /** Tham số của hai cổng kích hoạt theo thứ tự gọi — ghim việc truyền `tenantId` của payment qua cổng. */
+  activationCalls: { port: 'enrol' | 'class'; itemId: string; userId: string; tenantId: string }[];
   setVerifyResult: (value: boolean) => void;
   setClaim: (fn: (id: string) => boolean) => void;
   setPending: (events: ProviderEventRow[]) => void;
@@ -124,6 +126,7 @@ function createHarness(): Harness {
   const listPendingArgs: { limit: number; staleBefore: Date }[] = [];
   const settleCalls: ProviderEventRow[] = [];
   const verifyCalls: PaymentRow[] = [];
+  const activationCalls: Harness['activationCalls'] = [];
   let verifyResult = true;
   let claimFn: (id: string) => boolean = () => true;
   let pending: ProviderEventRow[] = [];
@@ -158,10 +161,16 @@ function createHarness(): Harness {
   } as unknown as OutboxWriterService;
 
   const enrol: PaidEnrolActivationPort = {
-    activatePaidEnrol: async () => { calls.push('activate:enrol'); },
+    activatePaidEnrol: async (itemId, userId, tenantId) => {
+      activationCalls.push({ port: 'enrol', itemId, userId, tenantId });
+      calls.push('activate:enrol');
+    },
   };
   const classes: PaidClassEnrolActivationPort = {
-    activatePaidClassEnrol: async () => { calls.push('activate:class'); },
+    activatePaidClassEnrol: async (itemId, userId, tenantId) => {
+      activationCalls.push({ port: 'class', itemId, userId, tenantId });
+      calls.push('activate:class');
+    },
   };
   const plans = {
     activateForPayment: async () => { calls.push('activate:plan'); },
@@ -186,6 +195,7 @@ function createHarness(): Harness {
     listPendingArgs,
     settleCalls,
     verifyCalls,
+    activationCalls,
     setVerifyResult: (value) => { verifyResult = value; },
     setClaim: (fn) => { claimFn = fn; },
     setPending: (events) => { pending = events; },
@@ -290,6 +300,12 @@ describe('SepayMatchingService — đặc trưng hoá luồng matching IPN SePay
     expect(h.paymentsById.get(PAYMENT_ID)!.status).toBe('succeeded');
     expect(h.paymentsById.get(PAYMENT_ID)!.externalTransactionId).toBe('TXN-EXT-1');
     expect(h.eventsById.get(EVENT_ID)!.matchedPaymentId).toBe(PAYMENT_ID);
+    // Cổng kích hoạt nhận đủ định danh của payment, gồm `tenantId`
+    // của payment để tiến trình chủ phân giải không gian của
+    // trung tâm sở hữu payment.
+    expect(h.activationCalls).toEqual([
+      { port: 'enrol', itemId: ITEM_ID, userId: USER_ID, tenantId: TENANT_ID },
+    ]);
   });
 
   it('khớp đủ điều kiện (class_fee): kích hoạt ghi danh cấp lớp qua cổng trước nhịp lật trạng thái', async () => {
@@ -303,6 +319,9 @@ describe('SepayMatchingService — đặc trưng hoá luồng matching IPN SePay
       'payment:succeeded',
       'outbox:payment_succeeded',
       'event:matched',
+    ]);
+    expect(h.activationCalls).toEqual([
+      { port: 'class', itemId: ITEM_ID, userId: USER_ID, tenantId: TENANT_ID },
     ]);
   });
 

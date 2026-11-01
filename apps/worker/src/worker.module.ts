@@ -70,6 +70,7 @@ import { WorkerEnrolOutboxService } from './worker-enrol-outbox.service';
 import { WorkerPaidClassEnrolActivationService } from './worker-paid-class-enrol-activation.service';
 import { WorkerPaidEnrolActivationService } from './worker-paid-enrol-activation.service';
 import { WorkerPaymentSettlementService } from './worker-payment-settlement.service';
+import { WorkerPaymentSpaceScope } from './worker-payment-space-scope.service';
 import {
   AnalyticsRunProcessor, BackupProcessor, PaymentReconciliationProcessor, PrivacyProcessor,
   ReportScheduleProcessor, RestoreProcessor, SearchReindexProcessor,
@@ -240,7 +241,7 @@ const outboxRouteQueueNames: string[] = allQueueNamesOfRoutes(OUTBOX_EVENT_QUEUE
     // hàng đợi BullMQ nào cho nhịp quét: đây là quét bảng, không
     // phải đường relay outbox.
     PaymentsRepository, OutboxWriterService, PlanEntitlementsService, SepayMatchingService,
-    WorkerEnrolOutboxService, WorkerPaidEnrolActivationService, WorkerPaidClassEnrolActivationService, WorkerPaymentSettlementService,
+    WorkerEnrolOutboxService, WorkerPaymentSpaceScope, WorkerPaidEnrolActivationService, WorkerPaidClassEnrolActivationService, WorkerPaymentSettlementService,
     { provide: PAID_ENROL_ACTIVATION_PORT, useExisting: WorkerPaidEnrolActivationService },
     { provide: PAID_CLASS_ENROL_ACTIVATION_PORT, useExisting: WorkerPaidClassEnrolActivationService },
     { provide: PAYMENT_SETTLEMENT_PORT, useExisting: WorkerPaymentSettlementService },
