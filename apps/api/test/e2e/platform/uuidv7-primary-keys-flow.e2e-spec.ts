@@ -53,7 +53,7 @@ describe('Khoá chính UUIDv7 (kiểm chứng platform PostgreSQL 18)', () => {
     );
     expect(outbox.rows[0].v).toBe(7);
 
-    const drizzleDir = join(process.cwd(), 'drizzle');
+    const drizzleDir = join(process.cwd(), '..', '..', 'packages', 'db', 'migrations', 'centre');
     const migrations = readdirSync(drizzleDir, { withFileTypes: true })
       .filter((d) => d.isDirectory())
       .map((d) => join(drizzleDir, d.name, 'migration.sql'));

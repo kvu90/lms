@@ -131,17 +131,17 @@ describe('Kho ngân hàng hệ thống (issue #585)', () => {
         await client.query(`GRANT CONNECT ON DATABASE ${quoted(database)} TO ${quoted(role)}`);
       });
     }
-    const bankMigrationDir = readdirSync(join(__dirname, '../../../drizzle-system-bank')).filter((name) =>
+    const bankMigrationDir = readdirSync(join(__dirname, '../../../../../packages/db/migrations/system-bank')).filter((name) =>
       name !== 'meta',
     );
     if (bankMigrationDir.length !== 1) throw new Error(`expected exactly one system-bank migration dir, found ${bankMigrationDir.length}`);
     await applySqlFile(
       clusterUrl(BANK_DATABASE, BANK_ROLE, BANK_PASSWORD),
-      join(__dirname, '../../../drizzle-system-bank', bankMigrationDir[0]!, 'migration.sql'),
+      join(__dirname, '../../../../../packages/db/migrations/system-bank', bankMigrationDir[0]!, 'migration.sql'),
     );
     await applySqlFile(
       clusterUrl(CENTRE_DATABASE, CENTRE_ROLE, CENTRE_PASSWORD),
-      join(__dirname, '../../../drizzle/20261025163710_baseline/migration.sql'),
+      join(__dirname, '../../../../../packages/db/migrations/centre/20261025163710_baseline/migration.sql'),
     );
     bankPool = new Pool({ connectionString: clusterUrl(BANK_DATABASE, BANK_ROLE, BANK_PASSWORD) });
     centrePool = new Pool({ connectionString: clusterUrl(CENTRE_DATABASE, CENTRE_ROLE, CENTRE_PASSWORD) });

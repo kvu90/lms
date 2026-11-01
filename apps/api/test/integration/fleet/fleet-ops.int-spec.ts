@@ -100,7 +100,7 @@ async function applyUuidV7ShimIfNeeded(connectionString: string): Promise<void> 
 
 /** Áp bộ migration riêng của control plane từ rỗng (đọc chính file SQL đã sinh trong repo). */
 async function applyControlPlaneMigrations(connectionString: string): Promise<void> {
-  const outDir = join(__dirname, '..', '..', '..', 'drizzle-control-plane');
+  const outDir = join(__dirname, '..', '..', '..', '..', '..', 'packages', 'db', 'migrations', 'control-plane');
   const folders = readdirSync(outDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
@@ -368,7 +368,7 @@ describe('Đội kho: tách role, migration theo đợt, sao lưu, khôi phục 
   describe('runner migration theo đợt', () => {
     const runnerOptions = () => ({
       env: process.env,
-      migrationsDir: join(__dirname, '..', '..', '..', 'drizzle'),
+      migrationsDir: join(__dirname, '..', '..', '..', '..', '..', 'packages', 'db', 'migrations', 'centre'),
       backupDir: BACKUP_DIR,
       waveSize: 2,
       log: () => undefined,

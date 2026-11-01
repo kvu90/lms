@@ -75,7 +75,7 @@ async function applySqlFile(connectionString: string, filePath: string): Promise
 
 /** Tìm đúng một thư mục baseline trong `drizzle/` (luật: chỉ một thư mục `*_baseline`). */
 function findBaselineFile(): string {
-  const outDir = join(__dirname, '..', '..', '..', 'drizzle');
+  const outDir = join(__dirname, '..', '..', '..', '..', '..', 'packages', 'db', 'migrations', 'centre');
   const baselines = readdirSync(outDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && entry.name.endsWith('_baseline'))
     .map((entry) => entry.name);
@@ -85,7 +85,7 @@ function findBaselineFile(): string {
 
 /** Áp bộ migration riêng của control plane từ rỗng (đọc chính các file SQL đã sinh trong repo). */
 async function applyControlPlaneMigrations(connectionString: string): Promise<void> {
-  const outDir = join(__dirname, '..', '..', '..', 'drizzle-control-plane');
+  const outDir = join(__dirname, '..', '..', '..', '..', '..', 'packages', 'db', 'migrations', 'control-plane');
   const folders = readdirSync(outDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)

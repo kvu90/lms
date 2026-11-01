@@ -139,9 +139,9 @@ describe('Khung định tuyến theo trung tâm phía worker (integration)', () 
     });
 
     // Bộ migration control plane dùng chung của repo nằm ở phía
-    // API (apps/api/drizzle-control-plane) — worker đọc cùng các
+    // Carrier control plane (packages/db/migrations/control-plane) — worker đọc cùng các
     // file SQL đó, không có bộ migration riêng.
-    const cpDir = join(__dirname, '..', '..', '..', '..', 'api', 'drizzle-control-plane');
+    const cpDir = join(__dirname, '..', '..', '..', '..', '..', 'packages', 'db', 'migrations', 'control-plane');
     const folders = readdirSync(cpDir, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
@@ -151,7 +151,7 @@ describe('Khung định tuyến theo trung tâm phía worker (integration)', () 
     }
     await applySqlFile(
       clusterUrl(CENTRE_DATABASE, CENTRE_ROLE, CENTRE_PASSWORD),
-      join(__dirname, '..', '..', '..', '..', 'api', 'drizzle', '20261025163710_baseline', 'migration.sql'),
+      join(__dirname, '..', '..', '..', '..', '..', 'packages', 'db', 'migrations', 'centre', '20261025163710_baseline', 'migration.sql'),
     );
 
     // Gieo sổ đăng ký qua kết nối của chính role control plane:

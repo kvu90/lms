@@ -111,7 +111,7 @@ async function applySqlFile(connectionString: string, filePath: string, withUuid
 
 /** Áp bộ migration riêng của control plane từ rỗng (đọc chính các file SQL đã sinh trong repo). */
 async function applyControlPlaneMigrations(connectionString: string): Promise<void> {
-  const outDir = join(__dirname, '..', '..', '..', '..', 'api', 'drizzle-control-plane');
+  const outDir = join(__dirname, '..', '..', '..', '..', '..', 'packages', 'db', 'migrations', 'control-plane');
   const folders = readdirSync(outDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
@@ -124,7 +124,7 @@ async function applyControlPlaneMigrations(connectionString: string): Promise<vo
 /** Áp baseline nghiệp vụ vào kho riêng bằng kết nối của chính role chủ kho đó. */
 async function applyBusinessBaseline(connectionString: string): Promise<void> {
   const baseline = join(
-    __dirname, '..', '..', '..', '..', 'api', 'drizzle', '20261025163710_baseline', 'migration.sql',
+    __dirname, '..', '..', '..', '..', '..', 'packages', 'db', 'migrations', 'centre', '20261025163710_baseline', 'migration.sql',
   );
   await applySqlFile(connectionString, baseline, true);
 }

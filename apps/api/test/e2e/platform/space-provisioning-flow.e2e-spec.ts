@@ -120,7 +120,7 @@ async function applySqlFile(connectionString: string, filePath: string): Promise
 
 /** Áp bộ migration riêng của control plane từ rỗng (đọc chính các file SQL đã sinh trong repo). */
 async function applyControlPlaneMigrations(connectionString: string): Promise<void> {
-  const outDir = join(__dirname, '..', '..', '..', 'drizzle-control-plane');
+  const outDir = join(__dirname, '..', '..', '..', '..', '..', 'packages', 'db', 'migrations', 'control-plane');
   const folders = readdirSync(outDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
@@ -141,7 +141,7 @@ function provisionEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
   };
 }
 
-const MIGRATIONS_DIR = join(__dirname, '..', '..', '..', 'drizzle');
+const MIGRATIONS_DIR = join(__dirname, '..', '..', '..', '..', '..', 'packages', 'db', 'migrations', 'centre');
 
 describe('Cấp phát trung tâm + nhận diện (đầu-cuối)', () => {
   let app: INestApplication;
