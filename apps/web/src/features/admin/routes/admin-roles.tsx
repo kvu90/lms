@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@lms/ui/components/dropdown-menu';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
-import { Ellipsis, Pencil, Plus, Trash2 } from 'lucide-react';
+import { EllipsisVertical, Pencil, Plus, Trash2 } from 'lucide-react';
 import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
@@ -164,7 +164,7 @@ export function AdminRolesPage() {
                           <Button type="button" variant="ghost" size="icon-sm" aria-label={t('roleActions')} />
                         }
                       >
-                        <Ellipsis aria-hidden className="size-4" />
+                        <EllipsisVertical aria-hidden className="size-4" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => setMatrixDialog({ mode: 'edit', role: r })}>

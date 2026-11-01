@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@lms/ui/components/table';
-import { Ellipsis, Plus, Search } from 'lucide-react';
+import { EllipsisVertical, Plus, Search } from 'lucide-react';
 import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
@@ -317,7 +317,7 @@ export function UsersWithRolesSection({ roles, contexts }: UsersWithRolesSection
                         aria-label={t('userRolesManage')}
                         onClick={() => setManageUserId(user.id)}
                       >
-                        <Ellipsis aria-hidden className="size-4.5" />
+                        <EllipsisVertical aria-hidden className="size-4.5" />
                       </Button>
                     </TableCell>
                   </TableRow>
