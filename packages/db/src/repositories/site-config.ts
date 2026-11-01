@@ -24,7 +24,7 @@
  * nhật. Tương đương này được kiểm chứng ở mã nguồn kysely 0.29.7
  * (`OnConflictBuilder` thực thi `WhereInterface`, nút xung đột
  * mang hai trường `indexWhere`/`updateWhere` riêng) và được chốt
- * bằng spec tương đương ở `site-config.int-spec.ts`: cập nhật
+ * bằng spec tương đương ở `user-centre-cluster.int-spec.ts`: cập nhật
  * đúng khi điều kiện đích khớp, không cập nhật dòng tenant khi
  * ghi đè ở tầng platform.
  *
