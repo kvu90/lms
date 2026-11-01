@@ -2,7 +2,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Queue } from 'bullmq';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
-import { FilesRepository, type FileRow } from './files.repository';
+import { FilesRepository, type FileRow } from '@lms/db/repositories/files';
 import { FileSigningService } from './file-signing.service';
 import { OBJECT_STORAGE, sha256Hex, type ObjectStorage } from './storage';
 import { Inject } from '@nestjs/common';

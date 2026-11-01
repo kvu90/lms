@@ -3,14 +3,16 @@ import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundEx
 import { I18nService } from '@nestjs/i18n';
 import { OnEvent } from '@nestjs/event-emitter';
 import type { Queue } from 'bullmq';
-import { OutboxService } from '../../infra/events/outbox.service';
+import { sql, type CentreTx } from '@lms/db';
+import { CompletionRepository, type CourseCompletionRow } from '@lms/db/repositories/completion';
+import { OutboxService, type OutboxEventInput } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { RolesService } from '../access/roles.service';
 import { AvailabilityService } from '../availability/availability.service';
 import { CoursesService } from '../courses/courses.service';
 import { ENROL_WITHDRAWN, EnrolService } from '../enrol/enrol.service';
-import { CompletionRepository, type CourseCompletionRow } from './completion.repository';
+import { tenantAls } from '../tenants/tenant-als';
 
 export const COMPLETION_INCOMPLETE = 0;
 export const COMPLETION_COMPLETE = 1;
@@ -113,6 +115,51 @@ export class CompletionService implements OnModuleInit {
   ) {}
 
   /**
+   * Ghi một dòng sự kiện outbox TRONG transaction Kysely đang mở của
+   * repository — bản sao đúng ngữ nghĩa của `OutboxService.enqueue`
+   * cho hai luồng của module này (làm mới completion theo điểm và
+   * đánh dấu thủ công), nơi thay đổi nghiệp vụ đã chuyển sang Kysely:
+   *
+   * - Bất biến outbox giữ nguyên: dòng sự kiện nằm trong CÙNG
+   *   transaction với thay đổi nghiệp vụ — transaction thành thì cả
+   *   hai cùng ghi, transaction huỷ thì không dòng sự kiện nào tồn
+   *   tại. Vì vậy hai ghi không được tách thành hai transaction nối
+   *   tiếp nhau, và transaction chứa chúng là transaction Kysely
+   *   duy nhất (cấm giao dịch lai hai ORM trong một thao tác).
+   * - Ngữ nghĩa tenant sao đúng bản gốc: tenant hiệu lực lấy từ
+   *   `input.tenantId` nếu nơi gọi chỉ định, không thì từ ngữ cảnh
+   *   ALS của luồng phát sinh, không có nữa thì null; tenant cũng
+   *   được gương vào payload khi payload chưa có khoá `tenantId`,
+   *   để các consumer chạy ở ngữ cảnh platform biết sự kiện thuộc
+   *   tenant nào.
+   * - Payload ghi qua serialize tường minh + ép kiểu `::jsonb` như
+   *   mọi đường ghi jsonb của tầng Kysely (driver `pg` hiểu mảng cấp
+   *   cao nhất là mảng PostgreSQL).
+   *
+   * @remarks
+   * Đây là điểm chuyển tiếp có chủ đích: `OutboxService` thuộc phạm
+   * vi của hạng mục chuyển đổi outbox (nhóm D1) và vẫn nhận handle
+   * giao dịch của ORM cũ. Khi hạng mục đó chuyển `enqueue` sang
+   * nhận handle Kysely, hai điểm gọi trong module này quay về dùng
+   * `OutboxService.enqueue` và helper này bị xoá.
+   */
+  private async enqueueOutboxInTx(tx: CentreTx, input: OutboxEventInput): Promise<void> {
+    const tenantId = input.tenantId ?? tenantAls.getStore()?.tenantId ?? null;
+    const payload = tenantId && input.payload['tenantId'] === undefined
+      ? { ...input.payload, tenantId }
+      : input.payload;
+    await tx
+      .insertInto('outbox_events')
+      .values({
+        aggregate: input.aggregate,
+        type: input.type,
+        payload: sql`${JSON.stringify(payload)}::jsonb`,
+        tenant_id: tenantId,
+      })
+      .execute();
+  }
+
+  /**
    * Khởi tạo: nối các hook liên module.
    */
   onModuleInit(): void {
@@ -176,12 +223,12 @@ export class CompletionService implements OnModuleInit {
     const state = await this.computeCmState(cmId, userId);
     const existing = await this.repo.getCmCompletion(cmId, userId);
     if (existing && existing.completionState === state) return;
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       await this.repo.upsertCmCompletion({
         courseModuleId: cmId, userId: userId, completionState: state,
         viewed: existing?.viewed ?? false, overrideBy: existing?.overrideBy ?? null,
       }, tx);
-      await this.outbox.enqueue(tx, {
+      await this.enqueueOutboxInTx(tx, {
         aggregate: 'completion', type: 'cm_completion_changed',
         payload: { cmId, courseId: cm.course, userId, state, via: 'grade' },
       });
@@ -272,12 +319,12 @@ export class CompletionService implements OnModuleInit {
     }
     const existing = await this.repo.getCmCompletion(cmId, targetUserId);
     const state = complete ? COMPLETION_COMPLETE : COMPLETION_INCOMPLETE;
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       await this.repo.upsertCmCompletion({
         courseModuleId: cmId, userId: targetUserId, completionState: state,
         viewed: existing?.viewed ?? false, overrideBy: actorId !== targetUserId ? actorId : null,
       }, tx);
-      await this.outbox.enqueue(tx, {
+      await this.enqueueOutboxInTx(tx, {
         aggregate: 'completion', type: 'cm_completion_changed',
         payload: { cmId, courseId: cm.course, userId: targetUserId, state, manual: true },
       });

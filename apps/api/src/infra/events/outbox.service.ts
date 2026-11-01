@@ -58,23 +58,15 @@ export class OutboxService {
   }
 
   /**
-   * Biến thể phía Kysely của `enqueue` — ĐIỂM NỐI C-8/A của chiến
-   * dịch chuyển tầng dữ liệu sang Kysely (xem `CORRECTIONS.md` của
-   * chiến dịch, mục C-8): cùng bảng `outbox_events`, cùng hình
-   * dạng dòng và cùng cơ chế suy tenant/gương tenant vào payload
-   * như bản Drizzle (bản Drizzle là đặc tả), chỉ khác handle
-   * transaction — biến thể này nhận transaction Kysely của kho
-   * trung tâm cho các luồng đã chuyển điểm mở giao dịch sang
-   * Kysely (đợt đầu là cụm courses/classes/enrol/groups, issue
-   * #645). Chủ hấp thụ: D1 (#653) — khi chuyển OutboxService sang
-   * Kysely, PR đó hợp nhất hai đường ghi thành một và xoá biến
-   * thể này; issue #663 đối chiếu không còn sót.
-   *
-   * Hội tụ với PR #672 (issue #647): PR đó độc lập thêm đúng biến
-   * thể này với cùng tên, cùng chữ ký và cùng khâu phân giải
-   * tenant/payload dùng chung. PR nào trong {#672, #645} merge
-   * trước thì mang biến thể vào; PR merge sau chỉ bỏ phần trùng
-   * và tái sử dụng — không tồn tại hai biến thể song song.
+   * Đường ghi outbox qua handle Kysely: dòng sự kiện được ghi
+   * trong CÙNG transaction Kysely với thay đổi nghiệp vụ của nơi
+   * gọi — cùng bất biến giao dịch với {@link enqueue}, cho các
+   * module đã chuyển sang Kysely (hiện là calendar và badges,
+   * issue #647). Cột `payload` jsonb đi qua serialize tường minh
+   * kèm `::jsonb` theo khuôn ghi jsonb của `@lms/db`: driver `pg`
+   * tự stringify object thường nhưng hiểu MẢNG cấp cao nhất là
+   * mảng PostgreSQL. Khi hạng mục chuyển đổi của chính outbox
+   * (D1) về đích, hai đường ghi hợp nhất về đường Kysely này.
    */
   async enqueueKysely(tx: CentreTx, input: OutboxEventInput): Promise<void> {
     const { tenantId, payload } = this.resolveTenantPayload(input);
