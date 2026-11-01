@@ -3,7 +3,7 @@ import type { BookDatasetStatus, BookImportResult } from '@lms/contracts';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { CoursesService } from '../courses/courses.service';
-import { CurriculumRepository, type SubjectRow } from '../curriculum/curriculum.repository';
+import { CurriculumRepository, type SubjectRow } from '@lms/db/repositories/curriculum';
 import { programOutcomeDocText } from '../curriculum/program-datasets';
 import { CURRICULUM_MANAGE, CURRICULUM_VIEW } from '../curriculum/curriculum.service';
 import { BookRepository, type BookNodeRow, type BookRow } from './books.repository';
