@@ -1088,14 +1088,31 @@ export class ClassesService implements OnModuleInit {
    * không gian khác bị từ chối (`class.join_code_taken`) trước
    * khi bất kỳ dữ kiện nào đổi — ràng buộc duy nhất của thư mục
    * là chốt giữ tính duy nhất toàn hệ của mã. Lớp ở kho chung
-   * hoặc control plane chưa cấu hình → trả `null`, không có gì
-   * phải đăng ký. Trả slug của không gian khi đã đăng ký (bên
-   * gọi dùng để gỡ mục của mã cũ sau khi cập nhật thành công).
+   * không đăng ký mã vào thư mục (đăng ký sẽ phá đường phân giải
+   * đi vào kho riêng khi có mục), nhưng vẫn được kiểm tra va
+   * chạm: mã đã thuộc một không gian khác cũng bị từ chối, để
+   * lớp kho chung không bị lớp kho riêng che lặng khi tra mã
+   * (đường phân giải ưu tiên thư mục). Control plane chưa cấu
+   * hình → trả `null`, không có gì phải kiểm tra hay đăng ký.
+   * Trả slug của không gian khi đã đăng ký (bên gọi dùng để gỡ
+   * mục của mã cũ sau khi cập nhật thành công).
    */
   private async claimJoinCodeForClass(row: ClassRow, joinCode: string): Promise<string | null> {
     if (!this.directory.isConfigured()) return null;
     const target = await this.tenants.spaceTargetForTenant(row.tenantId);
-    if (!target?.dedicated) return null;
+    if (!target?.dedicated) {
+      // Lớp ở kho chung (hoặc không phân giải được đích): chỉ
+      // kiểm tra, tuyệt đối không đăng ký — mã đã có trong thư
+      // mục thuộc về một không gian khác nên phải từ chối trước
+      // khi lớp đổi mã, nếu không đường phân giải ưu tiên thư
+      // mục sẽ trỏ mã về lớp kho riêng đó và che lớp kho chung
+      // này.
+      const entry = await this.directory.findJoinCodeDirectory(joinCode);
+      if (entry) {
+        throw new ConflictException({ message: 'Join code is already registered to another space', code: 'class.join_code_taken' });
+      }
+      return null;
+    }
     const claim = await this.directory.claimJoinCodeDirectory(joinCode, target.slug);
     if (claim === 'conflict') {
       throw new ConflictException({ message: 'Join code is already registered to another space', code: 'class.join_code_taken' });
