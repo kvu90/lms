@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { AUTHENTICATED_VIA_BETTER_AUTH } from '../../common/better-auth-session.guard';
 import type { AuthenticatedUser } from '../../common/current-user.decorator';
 import { SpaceRoutingError, type ResolvedSpaceConnection } from '../../db/routing/space-connection-resolver';
 import { SpaceDatabaseService } from '../../db/routing/space-database.service';
@@ -57,10 +58,20 @@ import { TenantsRepository } from './tenants.repository';
  *    của trung tâm tại địa chỉ → 401 `auth.centre_mismatch`, và
  *    việc từ chối xảy ra TẠI ĐÂY — trước bước chuẩn bị ở bước 6 —
  *    nên request bị từ chối không mở bất kỳ kết nối nào tới kho
- *    của trung tâm tại địa chỉ. Phiên không mang claim (phiên
- *    cookie Better Auth, hoặc token cấp trước khi claim tồn tại)
- *    được đối chiếu bằng tenant hiệu lực mà `TenantGuard` đã kiểm
- *    chứng: slug của tenant đó phải đúng slug của địa chỉ.
+ *    của trung tâm tại địa chỉ. Hai đường không mang claim được
+ *    xử lý khác nhau (Phần A, issue #587 — bất biến A1):
+ *    - Đường JWT (không có dấu phiên cookie): token cấp trước khi
+ *      claim `centre_id` tồn tại — tức phiên cũ phát hành trước
+ *      khi trung tâm chuyển kho — bị từ chối 401
+ *      `auth.centre_mismatch` ngay, KHÔNG được cho qua theo slug
+ *      khớp; chủ phiên phải đăng nhập lại tại địa chỉ của trung
+ *      tâm để nhận phiên mang claim.
+ *    - Đường cookie Better Auth (request mang dấu
+ *      `authenticatedViaBetterAuth` do `BetterAuthSessionGuard`
+ *      đặt): phiên cookie không mang claim theo thiết kế, nên
+ *      vẫn được đối chiếu bằng tenant hiệu lực mà `TenantGuard`
+ *      đã kiểm chứng trong CHÍNH kho riêng: slug của tenant đó
+ *      phải đúng slug của địa chỉ.
  * 6. Bước CHUẨN BỊ theo hợp đồng của khung (issue #581): gọi
  *    `getDatabaseForSpace(slug)` để phân giải + mở pool của kho
  *    đích TRƯỚC khi request được xử lý, rồi ghim slug lên
@@ -99,6 +110,7 @@ export class SpaceContextGuard implements CanActivate {
       tenantId?: string;
       spaceSlug?: string;
       headers: Record<string, string | string[] | undefined>;
+      [AUTHENTICATED_VIA_BETTER_AUTH]?: boolean;
     }>();
     const hostHeader = request.headers?.host;
     const slug = extractSpaceSlugFromHost(Array.isArray(hostHeader) ? hostHeader[0] : hostHeader);
@@ -155,13 +167,32 @@ export class SpaceContextGuard implements CanActivate {
             code: 'auth.centre_mismatch',
           });
         }
-      } else {
-        // Phiên không mang claim `centre_id`: đối chiếu bằng tenant
-        // hiệu lực đã được TenantGuard kiểm chứng — tenant của
-        // phiên phải chính là tenant mang slug của địa chỉ này.
+      } else if (request[AUTHENTICATED_VIA_BETTER_AUTH]) {
+        // Đường cookie Better Auth không mang claim theo thiết kế:
+        // đối chiếu bằng tenant hiệu lực đã được TenantGuard kiểm
+        // chứng trong CHÍNH kho riêng — tenant của phiên phải chính
+        // là tenant mang slug của địa chỉ này. PHẢI đọc qua
+        // `withSpaceDatabase(slug)`: đọc trong ngữ cảnh platform
+        // không mang slug sẽ rơi về kho chung, nơi tenant chỉ sống
+        // ở kho riêng không tồn tại, và từ chối oan phiên cookie
+        // hợp lệ tại chính địa chỉ của trung tâm đó (lỗi A2).
         const tenantId = request.tenantId;
+        // Lượt đọc tenant PHẢI mang tenantId mà TenantGuard đã kiểm
+        // chứng làm GUC của kho đích: chính sách RLS của bảng
+        // `tenants` chỉ cho thấy dòng khi `app.platform = 'on'`
+        // hoặc `app.tenant_id` đúng id của dòng — đọc trong ngữ
+        // cảnh chỉ có slug (không tenant) bị RLS giấu sạch dòng và
+        // từ chối oan mọi phiên cookie hợp lệ tại địa chỉ của
+        // chính trung tâm đó (lỗi A2). Truyền tenantId không nới
+        // cổng: giá trị này đã qua kiểm membership trong kho riêng
+        // ở TenantGuard, và phép đối chiếu slug ngay dưới đây mới
+        // là quyết định cho phép.
         const effectiveTenant = tenantId
-          ? await tenantAls.run({ platform: true }, () => this.repo.getTenant(tenantId))
+          ? await this.spaceDb.withSpaceDatabase(
+              slug,
+              () => this.repo.getTenant(tenantId),
+              { tenantId },
+            )
           : undefined;
         if (!effectiveTenant || effectiveTenant.slug !== slug) {
           throw new UnauthorizedException({
@@ -169,6 +200,16 @@ export class SpaceContextGuard implements CanActivate {
             code: 'auth.centre_mismatch',
           });
         }
+      } else {
+        // Đường JWT không mang claim `centre_id`: đây là phiên cũ
+        // phát hành trước khi trung tâm chuyển kho (bất biến A1,
+        // Phần A issue #587) — từ chối fail-closed ngay, không cho
+        // qua theo slug khớp như đường cookie; chủ phiên phải đăng
+        // nhập lại tại địa chỉ của trung tâm để nhận phiên mới.
+        throw new UnauthorizedException({
+          message: 'Access token carries no centre claim for this dedicated centre; sign in again at this centre address',
+          code: 'auth.centre_mismatch',
+        });
       }
     }
 

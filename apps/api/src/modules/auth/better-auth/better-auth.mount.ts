@@ -1,6 +1,9 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { toNodeHandler } from 'better-auth/node';
 import type { NextFunction, Request, Response } from 'express';
+import type { SpaceDatabaseService } from '../../../db/routing/space-database.service';
+import { tenantAls } from '../../tenants/tenant-als';
+import { resolveDedicatedSpace } from '../../tenants/space-resolution';
 import { BETTER_AUTH_BASE_PATH, type BetterAuthInstance } from './better-auth.instance';
 
 /**
@@ -69,19 +72,86 @@ const LEGACY_AUTH_SEGMENTS = new Set([
  * không thuộc không gian `/api/v1/auth`). Nếu AS tắt (không compose
  * plugin mcp) thì handler trả 404 — hành vi ròng như trước khi vá.
  */
-export function mountBetterAuth(app: NestExpressApplication, auth: BetterAuthInstance): void {
+/**
+ * Khung định tuyến tối thiểu mà đường ghi Better Auth cần: chỉ
+ * phân giải đích và chuẩn bị kho — mount không tự mở pool hay đọc
+ * sổ đăng ký trực tiếp.
+ */
+export type BetterAuthSpaceRouting = Pick<SpaceDatabaseService, 'resolveTarget' | 'getDatabaseForSpace'>;
+
+/**
+ * Mount handler của Better Auth (xem chú thích ở đầu file về thứ tự
+ * mount).
+ *
+ * Đường GHI theo địa chỉ (Phần A, issue #587 — B1): handler này
+ * chạy thẳng trên Express, ngoài chuỗi guard của Nest, nên không
+ * có guard nào ghim trung tâm cho nó như đường đọc cookie
+ * (`BetterAuthSessionGuard`). Không định tuyến ở đây thì mọi lần
+ * ghi của Better Auth — kiểm chứng credential và ghi phiên khi
+ * đăng nhập — đều đi qua handle định tuyến mà ngữ cảnh ALS lúc đó
+ * không mang slug, tức rơi về kho chung: tại địa chỉ của trung tâm
+ * ở kho riêng, tài khoản chỉ sống ở kho riêng sẽ đăng nhập thất
+ * bại, và dù tài khoản có ở cả hai kho thì phiên cũng ghi vào kho
+ * chung rồi guard đọc cookie (đã định tuyến đúng) không tìm thấy
+ * phiên ở kho đích. Vì vậy, khi `spaceDb` được truyền vào, handler
+ * này tự phân giải không gian từ `Host` đúng khuôn đường đọc
+ * (`resolveDedicatedSpace`): địa chỉ thuộc trung tâm ở kho riêng
+ * thì chuẩn bị kho đích trước rồi chạy handler trong ngữ cảnh ALS
+ * mang slug đó, để handle định tuyến của adapter chọn đúng kho
+ * đích cho mọi lần đọc/ghi của lượt đăng nhập. Địa chỉ còn lại
+ * (không thuộc trung tâm kho riêng nào) giữ nguyên đường kho
+ * chung. Lỗi phân giải/chuẩn bị kho đích thì fail-closed qua
+ * `next(err)` — tuyệt đối không rơi lặng về kho chung cho một
+ * lượt ghi đăng nhập. Khi không truyền `spaceDb` (đường kiểm chứng
+ * tối thiểu của nền Better Auth), handler chạy như trước.
+ */
+export function mountBetterAuth(
+  app: NestExpressApplication,
+  auth: BetterAuthInstance,
+  spaceDb?: BetterAuthSpaceRouting,
+): void {
   const server = app.getHttpAdapter().getInstance() as {
     all: (path: string, handler: (req: Request, res: Response, next: NextFunction) => void) => void;
     get: (path: string, handler: (req: Request, res: Response) => void) => void;
   };
   const handler = toNodeHandler(auth);
-  server.all(`${BETTER_AUTH_BASE_PATH}/*splat`, (req: Request, res: Response, next: NextFunction) => {
+  server.all(`${BETTER_AUTH_BASE_PATH}/*splat`, async (req: Request, res: Response, next: NextFunction) => {
     const segment = req.path.slice(BETTER_AUTH_BASE_PATH.length + 1).split('/')[0];
     if (segment && LEGACY_AUTH_SEGMENTS.has(segment)) {
       next();
       return;
     }
-    handler(req, res);
+    if (!spaceDb) {
+      handler(req, res);
+      return;
+    }
+    let space: Awaited<ReturnType<typeof resolveDedicatedSpace>>;
+    try {
+      space = await resolveDedicatedSpace(spaceDb, req.headers.host);
+    } catch (err) {
+      next(err);
+      return;
+    }
+    if (!space) {
+      handler(req, res);
+      return;
+    }
+    try {
+      await spaceDb.getDatabaseForSpace(space.slug);
+    } catch (err) {
+      next(err);
+      return;
+    }
+    // Handler của Better Auth là dạng callback (req, res), không
+    // trả promise để await: bọc lời gọi của nó trong `tenantAls.run`
+    // để mọi tác vụ bất đồng bộ mà handler khởi tạo bên trong lời
+    // gọi này — kể cả các lần truy vấn của adapter — đều thừa hưởng
+    // ngữ cảnh mang slug, đúng khuôn các điểm bọc handler khác của
+    // hệ. Bước chuẩn bị ở trên đã ghi handle kho đích vào bảng
+    // đã-chuẩn-bị nên handle định tuyến tra được kho đích ngay.
+    tenantAls.run({ spaceSlug: space.slug }, () => {
+      handler(req, res);
+    });
   });
   // Dạng gốc: GET|HEAD — rewrite về dạng hậu tố đã kiểm chứng 200,
   // giữ nguyên query string. Express tự phục vụ HEAD từ route GET.

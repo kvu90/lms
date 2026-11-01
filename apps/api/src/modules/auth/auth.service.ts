@@ -492,14 +492,28 @@ export class AuthService {
    * tenant và slug đăng ký của trung tâm là một, xem SeedService).
    * Tenant ở kho chung, tenant chưa có dòng đăng ký, hoặc tầng định
    * tuyến chưa cấu hình/không đọc được lúc cấp token → không mang
-   * claim: việc cấp token không bao giờ được hỏng vì tầng định tuyến,
-   * và phiên thiếu claim vẫn bị `SpaceContextGuard` đối chiếu bằng
-   * slug của tenant hiệu lực ở địa chỉ kho riêng, nên thiếu claim
-   * không nới lỏng được việc gắn phiên vào trung tâm.
+   * claim: việc cấp token không bao giờ được hỏng vì tầng định tuyến.
+   * Phiên JWT thiếu claim dùng tại địa chỉ kho riêng bị
+   * `SpaceContextGuard` từ chối fail-closed (bất biến A1, Phần A
+   * issue #587 — phải đăng nhập lại để nhận phiên mang claim);
+   * chỉ đường cookie Better Auth (không mang claim theo thiết kế)
+   * mới được đối chiếu bằng slug của tenant hiệu lực, nên thiếu
+   * claim không nới lỏng được việc gắn phiên vào trung tâm.
    */
   private async centreClaimForTenant(tenantId: string): Promise<string | undefined> {
     try {
-      const tenant = await tenantAls.run({ platform: true }, () => this.tenants.getTenant(tenantId));
+      // Cổng ngữ cảnh platform GIỮ `spaceSlug` của ngữ cảnh hiện tại
+      // (Phần A, issue #587 — A4, đúng khuôn
+      // `access.repository.ts`): đăng nhập tại địa chỉ của trung tâm
+      // ở kho riêng chạy sau bước ghim slug của guard, nên tenant
+      // của trung tâm đó phải tra trong kho riêng — rơi về kho chung
+      // sẽ không thấy tenant chỉ sống ở kho riêng, cấp token thiếu
+      // claim, rồi token đó bị từ chối ở chính địa chỉ của trung tâm.
+      const spaceSlug = tenantAls.getStore()?.spaceSlug;
+      const tenant = await tenantAls.run(
+        { platform: true, ...(spaceSlug ? { spaceSlug } : {}) },
+        () => this.tenants.getTenant(tenantId),
+      );
       const target = await this.spaceDb.resolveTarget(tenant.slug);
       return target.mode === 'dedicated' ? target.spaceId : undefined;
     } catch {

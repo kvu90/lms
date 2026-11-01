@@ -10,6 +10,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { enableTrustedProxy } from './common/client-ip';
 import { ProblemDetailsFilter } from './common/problem-details.filter';
+import { SpaceDatabaseService } from './db/routing/space-database.service';
 import { mountBetterAuth } from './modules/auth/better-auth/better-auth.mount';
 import { BetterAuthService } from './modules/auth/better-auth/better-auth.service';
 import { McpDepsService } from './modules/mcp/mcp-deps.service';
@@ -30,7 +31,10 @@ async function bootstrap(): Promise<void> {
   // đường auth hiện tại xử lý mọi request như trước.
   const betterAuth = app.get(BetterAuthService);
   if (betterAuth.auth) {
-    mountBetterAuth(app, betterAuth.requireAuth());
+    // Truyền khung định tuyến để đường GHI của Better Auth (đăng
+    // nhập) cũng đi đúng kho đích tại địa chỉ trung tâm ở kho
+    // riêng — xem chú thích B1 ở better-auth.mount.ts.
+    mountBetterAuth(app, betterAuth.requireAuth(), app.get(SpaceDatabaseService, { strict: false }));
   }
   // MCP server (issue #110, lát MCP-0): mount POST /mcp + PRM lên
   // express instance ngay tại đây — trước prefix/route/body parser của

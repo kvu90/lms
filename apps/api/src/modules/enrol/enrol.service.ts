@@ -90,7 +90,17 @@ export class EnrolService implements OnModuleInit {
     this.materialization = new CohortMaterializationSurface({
       db: this.repo.dbHandle,
       outbox: this.outbox,
-      runInPlatformScope: (fn) => tenantAls.run({ platform: true }, fn),
+      // Cổng ngữ cảnh platform GIỮ `spaceSlug` của ngữ cảnh hiện
+      // tại (Phần A, issue #587 — A4, đúng khuôn
+      // `access.repository.ts`): khi bề mặt vật chất hoá được gọi
+      // trong request của một trung tâm ở kho riêng, các lượt
+      // đọc/ghi xuyên tenant của nó phải chạy trên kho của trung
+      // tâm đó, không rơi về kho chung. Chỉ đổi đích dữ kiện,
+      // không đổi tầm nhìn RLS (cờ `platform: true` giữ nguyên).
+      runInPlatformScope: (fn) => {
+        const spaceSlug = tenantAls.getStore()?.spaceSlug;
+        return tenantAls.run({ platform: true, ...(spaceSlug ? { spaceSlug } : {}) }, fn);
+      },
     });
   }
 
