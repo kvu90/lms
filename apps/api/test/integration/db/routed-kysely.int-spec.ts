@@ -36,7 +36,6 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createCentreKysely, type CentreDb } from '@lms/db';
-import { spaceRegistry } from '@lms/db/control-plane';
 import { buildTestDatabase, dropTestDatabase, withDatabase } from '@lms/db/test-support';
 import type { Database } from '../../../src/db/database';
 import { relations } from '../../../src/db/relations';
@@ -115,24 +114,24 @@ describe('Facade Kysely định tuyến phía API (integration)', () => {
     controlPlane = new ControlPlaneConnection(
       fakeConfig({ CONTROL_PLANE_DATABASE_URL: cpUrl, DATABASE_SSL: false }),
     );
-    if (!controlPlane.db) throw new Error('Control plane chưa được cấu hình trong ca kiểm chứng');
-    await controlPlane.db.insert(spaceRegistry).values([
+    if (!controlPlane.kysely) throw new Error('Control plane chưa được cấu hình trong ca kiểm chứng');
+    await controlPlane.kysely.insertInto('space_registry').values([
       {
         slug: CENTRE_A_SLUG, name: 'Trung tâm A 639', kind: 'center', status: 'active',
-        databaseName: CENTRE_A_DATABASE, storageMode: 'dedicated',
-        connectionRoleRef: adminUser, secretRef: 'env:SPACE_TEST_A_639_URL', schemaVersion: 'v1',
+        database_name: CENTRE_A_DATABASE, storage_mode: 'dedicated',
+        connection_role_ref: adminUser, secret_ref: 'env:SPACE_TEST_A_639_URL', schema_version: 'v1',
       },
       {
         slug: CENTRE_B_SLUG, name: 'Trung tâm B 639', kind: 'center', status: 'active',
-        databaseName: CENTRE_B_DATABASE, storageMode: 'dedicated',
-        connectionRoleRef: adminUser, secretRef: 'env:SPACE_TEST_B_639_URL', schemaVersion: 'v1',
+        database_name: CENTRE_B_DATABASE, storage_mode: 'dedicated',
+        connection_role_ref: adminUser, secret_ref: 'env:SPACE_TEST_B_639_URL', schema_version: 'v1',
       },
       {
         slug: SHARED_SLUG, name: 'Trang chính 639', kind: 'platform', status: 'active',
-        databaseName: SHARED_DATABASE, storageMode: 'shared',
-        connectionRoleRef: adminUser, secretRef: 'env:SPACE_TEST_SHARED_639_URL', schemaVersion: 'v1',
+        database_name: SHARED_DATABASE, storage_mode: 'shared',
+        connection_role_ref: adminUser, secret_ref: 'env:SPACE_TEST_SHARED_639_URL', schema_version: 'v1',
       },
-    ]);
+    ]).execute();
 
     service = new SpaceDatabaseService(
       fakeConfig({

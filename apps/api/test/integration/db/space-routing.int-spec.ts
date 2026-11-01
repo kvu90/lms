@@ -6,7 +6,6 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { tenants } from '@lms/db';
-import { spaceRegistry } from '@lms/db/control-plane';
 import type { Database } from '../../../src/db/database';
 import { relations } from '../../../src/db/relations';
 import { SpaceRoutingError } from '../../../src/db/routing/space-connection-resolver';
@@ -223,42 +222,42 @@ describe('Khung định tuyến kết nối theo trung tâm (integration)', () =
         DATABASE_SSL: false,
       }),
     );
-    if (!controlPlane.db) throw new Error('Control plane chưa được cấu hình trong ca kiểm chứng');
-    await controlPlane.db.insert(spaceRegistry).values([
+    if (!controlPlane.kysely) throw new Error('Control plane chưa được cấu hình trong ca kiểm chứng');
+    await controlPlane.kysely.insertInto('space_registry').values([
       {
         slug: CENTRE_A_SLUG,
         name: 'Trung tâm A 581',
         kind: 'center',
         status: 'active',
-        databaseName: CENTRE_A_DATABASE,
-        storageMode: 'dedicated',
-        connectionRoleRef: CENTRE_A_ROLE,
-        secretRef: 'env:SPACE_TEST_A_581_URL',
-        schemaVersion: 'v1',
+        database_name: CENTRE_A_DATABASE,
+        storage_mode: 'dedicated',
+        connection_role_ref: CENTRE_A_ROLE,
+        secret_ref: 'env:SPACE_TEST_A_581_URL',
+        schema_version: 'v1',
       },
       {
         slug: CENTRE_B_SLUG,
         name: 'Trung tâm B 581',
         kind: 'center',
         status: 'active',
-        databaseName: CENTRE_B_DATABASE,
-        storageMode: 'dedicated',
-        connectionRoleRef: CENTRE_B_ROLE,
-        secretRef: 'env:SPACE_TEST_B_581_URL',
-        schemaVersion: 'v1',
+        database_name: CENTRE_B_DATABASE,
+        storage_mode: 'dedicated',
+        connection_role_ref: CENTRE_B_ROLE,
+        secret_ref: 'env:SPACE_TEST_B_581_URL',
+        schema_version: 'v1',
       },
       {
         slug: SHARED_SLUG,
         name: 'Trang chính',
         kind: 'platform',
         status: 'active',
-        databaseName: businessDatabase,
-        storageMode: 'shared',
-        connectionRoleRef: businessRole,
-        secretRef: 'env:DATABASE_URL',
-        schemaVersion: 'v1',
+        database_name: businessDatabase,
+        storage_mode: 'shared',
+        connection_role_ref: businessRole,
+        secret_ref: 'env:DATABASE_URL',
+        schema_version: 'v1',
       },
-    ]);
+    ]).execute();
 
     service = new SpaceDatabaseService(
       fakeConfig({

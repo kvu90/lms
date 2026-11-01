@@ -22,10 +22,11 @@
  * trường của chúng là ranh giới tin cậy của tầng vận hành.
  */
 import type { ConfigService } from '@nestjs/config';
-import type { SchemaMigrationStep, SpaceRegistryRow } from '@lms/db/control-plane';
+import type { SchemaMigrationStep } from '@lms/db/control-plane';
+import type { SpaceRegistryRow } from '@lms/db/repositories/control-plane';
 import type { FleetSpace } from './fleet-common';
+import { ControlPlaneRepository } from '@lms/db/repositories/control-plane';
 import { ControlPlaneConnection } from '../control-plane/control-plane.connection';
-import { ControlPlaneRepository } from '../control-plane/control-plane.repository';
 
 /** Kết quả một lượt chạy migration mà runner báo về registry. */
 export type MigrationRunOutcome = {
@@ -54,7 +55,9 @@ export class FleetRegistryWriter {
     if (!this.connection.isConfigured) {
       throw new Error('CONTROL_PLANE_DATABASE_URL is required for fleet operations tooling');
     }
-    this.repo = new ControlPlaneRepository(this.connection);
+    // Adapter đã xác nhận có handle (isConfigured): repository của
+    // package nhận thẳng handle Kysely của adapter.
+    this.repo = new ControlPlaneRepository(this.connection.kysely);
   }
 
   /** Toàn bộ sổ đăng ký kèm ảnh registry phiên bản/trạng thái của từng kho, theo thứ tự slug. */

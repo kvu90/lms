@@ -1,8 +1,8 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { forwardRef, Module, ServiceUnavailableException } from '@nestjs/common';
+import { ControlPlaneRepository } from '@lms/db/repositories/control-plane';
 import { AccessModule } from '../access/access.module';
 import { ControlPlaneConnection } from './control-plane.connection';
 import { ControlPlaneController } from './control-plane.controller';
-import { ControlPlaneRepository } from './control-plane.repository';
 import { ControlPlaneRegistryService } from './control-plane.service';
 
 /**
@@ -19,6 +19,13 @@ import { ControlPlaneRegistryService } from './control-plane.service';
  * cùng repository của control plane để các module nghiệp vụ
  * (tenants, classes) đọc/ghi thư mục qua đúng một điểm truy cập
  * của database này.
+ *
+ * Từ pilot Kysely (issue #640), repository sống ở `@lms/db` (lớp
+ * thuần, không phụ thuộc Nest) nên module lắp nó bằng factory
+ * provider: handle lấy từ adapter `ControlPlaneConnection`, và hàm
+ * dựng lỗi chưa-cấu-hình là `ServiceUnavailableException` mang mã
+ * `control_plane.not_configured` — đúng hình dạng lỗi 503 mà đường
+ * Drizzle trước đây ném từ trong repository.
  */
 @Module({
   // forwardRef ở cạnh AccessModule: module này thuộc vòng module
@@ -29,7 +36,21 @@ import { ControlPlaneRegistryService } from './control-plane.service';
   // như khuôn AuthModule ↔ UsersModule (xem access.module.ts).
   imports: [forwardRef(() => AccessModule)],
   controllers: [ControlPlaneController],
-  providers: [ControlPlaneConnection, ControlPlaneRepository, ControlPlaneRegistryService],
+  providers: [
+    ControlPlaneConnection,
+    {
+      provide: ControlPlaneRepository,
+      useFactory: (connection: ControlPlaneConnection) =>
+        new ControlPlaneRepository(connection.kysely, () =>
+          new ServiceUnavailableException({
+            message: 'Control plane database is not configured',
+            code: 'control_plane.not_configured',
+          }),
+        ),
+      inject: [ControlPlaneConnection],
+    },
+    ControlPlaneRegistryService,
+  ],
   exports: [ControlPlaneRegistryService, ControlPlaneConnection, ControlPlaneRepository],
 })
 export class ControlPlaneModule {}

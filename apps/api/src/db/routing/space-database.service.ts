@@ -1,9 +1,7 @@
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { createCentreKysely, type CentreDb } from '@lms/db';
-import { spaceRegistry } from '@lms/db/control-plane';
 import { databaseConnectionFromEnv } from '../../config/env';
 import { ControlPlaneConnection } from '../../modules/control-plane/control-plane.connection';
 import { tenantAls, type TenantAlsStore } from '../../modules/tenants/tenant-als';
@@ -171,26 +169,33 @@ export class SpaceDatabaseService implements OnModuleDestroy {
     this.resolver = new SpaceConnectionResolver({
       cacheTtlMs: config.get<number>('SPACE_ROUTING_CACHE_TTL_MS') ?? 5_000,
       readRegistry: async (slug) => {
-        const db = controlPlane.db;
+        // Điểm đọc sổ của khung định tuyến đi qua handle Kysely của
+        // adapter control plane từ pilot chuyển đổi (issue #640):
+        // cùng một database, cùng dòng đăng ký — chỉ đổi đường truy
+        // vấn từ Drizzle sang Kysely của package.
+        const db = controlPlane.kysely;
         if (!db) {
           throw new SpaceRoutingError(
             'space_routing.not_configured',
             'Control plane database is not configured',
           );
         }
-        const [row] = await db.select().from(spaceRegistry).where(eq(spaceRegistry.slug, slug)).limit(1);
-        return row
-          ? {
-              id: row.id,
-              slug: row.slug,
-              status: row.status,
-              databaseName: row.databaseName,
-              storageMode: row.storageMode,
-              connectionRoleRef: row.connectionRoleRef,
-              secretRef: row.secretRef,
-              schemaVersion: row.schemaVersion,
-            }
-          : undefined;
+        const row = await db
+          .selectFrom('space_registry')
+          .select([
+            'id',
+            'slug',
+            'status',
+            'database_name as databaseName',
+            'storage_mode as storageMode',
+            'connection_role_ref as connectionRoleRef',
+            'secret_ref as secretRef',
+            'schema_version as schemaVersion',
+          ])
+          .where('slug', '=', slug)
+          .limit(1)
+          .executeTakeFirst();
+        return row ?? undefined;
       },
     });
     this.pools = new SpacePoolManager<Database>({

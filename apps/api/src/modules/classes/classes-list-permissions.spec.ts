@@ -14,7 +14,7 @@ import { TenantContextService } from '../tenants/tenant-context.service';
 import type { TenantsService } from '../tenants/tenants.service';
 import type { UsersService } from '../users/users.service';
 import type { SpaceDatabaseService } from '../../db/routing/space-database.service';
-import type { ControlPlaneRepository } from '../control-plane/control-plane.repository';
+import type { ControlPlaneRepository } from '@lms/db/repositories/control-plane';
 import type { ClassesRepository, ClassRow } from './classes.repository';
 import { ClassesService } from './classes.service';
 

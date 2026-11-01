@@ -4,7 +4,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ControlPlaneRepository } from '../../../src/modules/control-plane/control-plane.repository';
+import { ControlPlaneRepository } from '@lms/db/repositories/control-plane';
 import {
   ControlPlaneRegistryService,
   SHARED_DATABASE_SCHEMA_VERSION,
