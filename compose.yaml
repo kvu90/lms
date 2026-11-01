@@ -58,6 +58,15 @@ x-api-env: &api-env
   # cầu độ dài tối thiểu khi biến CÓ MẶT). Service migrate khai
   # riêng biến này trong khối environment của nó.
   SYSTEM_BANK_DATABASE_URL:
+  # Database kho riêng của trung tâm thí điểm nhantin (issue #587):
+  # sổ đăng ký control plane chỉ giữ tham chiếu
+  # `env:SPACE_NHANTIN_DATABASE_URL`, tầng ứng dụng đọc URL thật từ
+  # biến này khi phân giải phiên theo trung tâm. Khai báo TRƠ như
+  # SYSTEM_BANK_DATABASE_URL ở trên: Compose chỉ truyền vào
+  # api/worker khi biến thật sự được đặt ở môi trường triển khai;
+  # chưa đặt thì không có đường phân giải nào dùng tới biến và ứng
+  # dụng không gãy kiểm tra biến môi trường.
+  SPACE_NHANTIN_DATABASE_URL:
   REDIS_URL: redis://redis:6379
   JWT_SECRET: ${JWT_SECRET:?Can dat JWT_SECRET trong file .env}
   # Các biến tuỳ chọn có kiểm tra độ dài tối thiểu phía ứng dụng
@@ -158,6 +167,7 @@ services:
       # chưa cấu hình trong triển khai mặc định.
       CONTROL_PLANE_DATABASE_URL: postgres://lms_control_plane:${CONTROL_PLANE_POSTGRES_PASSWORD:?Can dat CONTROL_PLANE_POSTGRES_PASSWORD trong file .env}@postgres:5432/lms_control_plane
       SYSTEM_BANK_DATABASE_URL:
+      SPACE_NHANTIN_DATABASE_URL:
       DATABASE_POOL_MAX: ${WORKER_DATABASE_POOL_MAX:-10}
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:?Can dat JWT_SECRET trong file .env}
