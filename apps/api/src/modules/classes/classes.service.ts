@@ -1157,7 +1157,7 @@ export class ClassesService implements OnModuleInit {
 
   /** Hàng chờ duyệt tự báo danh của lớp (cổng quản roster). */
   async listJoinRequests(actorId: string, classId: string): Promise<ClassJoinRequestView[]> {
-    const row = await this.getClassRow(classId);
+    await this.getClassRow(classId);
     const ctxId = await this.classContextId(classId);
     await this.evaluator.requireCapability(actorId, 'class:manageroster', ctxId);
     const requests = await this.repo.listJoinRequests(classId, 'pending');
@@ -1182,7 +1182,7 @@ export class ClassesService implements OnModuleInit {
 
   /** Duyệt (đưa vào roster qua đúng đường CLASS-0) hoặc từ chối (chỉ đóng yêu cầu) một yêu cầu tự báo danh. */
   async decideJoinRequest(actorId: string, classId: string, requestId: string, approve: boolean): Promise<ClassJoinRequestView> {
-    const row = await this.getClassRow(classId);
+    await this.getClassRow(classId);
     const ctxId = await this.classContextId(classId);
     await this.evaluator.requireCapability(actorId, 'class:manageroster', ctxId);
     const request = await this.repo.getJoinRequest(requestId);
