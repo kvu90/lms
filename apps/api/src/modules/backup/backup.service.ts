@@ -1,7 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { BackupRepository, type JobRow } from '@lms/db/repositories/backup';
-import { sql, type RawBuilder, type Selectable } from 'kysely';
-import type { CentreDB } from '@lms/db';
+import { sql, type CentreDB, type RawBuilder, type Selectable } from '@lms/db';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { RoleSeparationService } from '../access/role-separation.service';
@@ -465,8 +464,11 @@ export class BackupService {
           settings: CourseCompletionSettingsRow | null;
         };
         if (d.settings) {
-          await db.insertInto('course_completion_settings').values({ course: targetCourseId, method: d.settings.method })
-            .onConflict((oc) => oc.column('course').doUpdateSet({ method: d.settings.method })).execute();
+          // Chốt giá trị trước khi vào callback onConflict: thu hẹp
+          // kiểu của `d.settings` không giữ qua biên closure.
+          const settingsMethod = d.settings.method;
+          await db.insertInto('course_completion_settings').values({ course: targetCourseId, method: settingsMethod })
+            .onConflict((oc) => oc.column('course').doUpdateSet({ method: settingsMethod })).execute();
         }
         const criteriaIdMap = new Map<string, string>();
         for (const crit of d.criteria) {

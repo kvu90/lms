@@ -9,10 +9,22 @@
  * NGUYÊN — archive cũ vẫn khôi phục được và archive mới vẫn mang
  * đúng các khoá camelCase như trước — nên các interface được khai
  * tường minh tại đây, thuộc về chính định dạng archive của module
- * backup. Cột jsonb mang kiểu `unknown` như hình dạng cũ; `seq`/int8
- * không xuất hiện trong các bảng này (size_bytes của content bank
- * không thuộc phạm vi contributor của backup).
+ * backup. Cột jsonb được khôi phục bằng insert mang kiểu
+ * `ArchiveJsonValue` (khớp kiểu `Json` mà codegen sinh cho các cột
+ * đó — hình dạng cũ phía Drizzle là `unknown` vì jsonb không khai
+ * `$type<>`); các cột jsonb chỉ đọc trong archive giữ `unknown`.
+ * `seq`/int8 không xuất hiện trong các bảng này (size_bytes của
+ * content bank không thuộc phạm vi contributor của backup).
  */
+
+/** Giá trị JSON thuần trong archive — khớp cấu trúc đệ quy của kiểu `Json` phía codegen. */
+export type ArchiveJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | ArchiveJsonValue[]
+  | { [key: string]: ArchiveJsonValue | undefined };
 
 /** Một dòng của bảng course trong archive. */
 export interface CourseRow {
@@ -322,8 +334,8 @@ export interface QuestionVersionsRow {
   questionId: string;
   version: number;
   status: string;
-  questionText: unknown;
-  generalFeedback: unknown | null;
+  questionText: ArchiveJsonValue;
+  generalFeedback: ArchiveJsonValue | null;
   defaultMark: number;
   penalty: number;
   stimulusId: string | null;
@@ -335,7 +347,7 @@ export interface StimuliRow {
   id: string;
   categoryId: string;
   createdBy: string | null;
-  content: unknown;
+  content: ArchiveJsonValue;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -344,9 +356,9 @@ export interface StimuliRow {
 export interface QuestionAnswersRow {
   id: string;
   questionVersionId: string;
-  answer: unknown;
+  answer: ArchiveJsonValue;
   isCorrect: boolean;
-  feedback: unknown | null;
+  feedback: ArchiveJsonValue | null;
   sortOrder: number;
 }
 
@@ -354,8 +366,8 @@ export interface QuestionAnswersRow {
 export interface QuestionAnswerKeysRow {
   id: string;
   questionVersionId: string;
-  guidance: unknown | null;
-  solution: unknown | null;
+  guidance: ArchiveJsonValue | null;
+  solution: ArchiveJsonValue | null;
 }
 
 /** Một dòng của bảng qtype_multichoice_options trong archive. */
@@ -364,8 +376,8 @@ export interface QtypeMultichoiceOptionsRow {
   questionVersionId: string;
   shuffleAnswers: boolean;
   answerNumbering: string;
-  correctFeedback: unknown | null;
-  incorrectFeedback: unknown | null;
+  correctFeedback: ArchiveJsonValue | null;
+  incorrectFeedback: ArchiveJsonValue | null;
   showStandardInstruction: boolean;
 }
 
@@ -398,8 +410,8 @@ export interface QtypeEssayOptionsRow {
   responseFieldLines: number;
   minWordLimit: number | null;
   maxWordLimit: number | null;
-  graderInfo: unknown | null;
-  responseTemplate: unknown | null;
+  graderInfo: ArchiveJsonValue | null;
+  responseTemplate: ArchiveJsonValue | null;
 }
 
 /** Một dòng của bảng badge trong archive. */
