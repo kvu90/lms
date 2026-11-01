@@ -356,6 +356,7 @@ async function oldDeletePref(oldDb: OldDb, userId: string, courseId: string): Pr
 
 let itemModId = '';
 let itemManualId = '';
+let itemOldId = '';
 
 beforeAll(async () => {
   if (!adminUrl) {
@@ -374,7 +375,9 @@ beforeAll(async () => {
   const category = await db.insertInto('course_categories')
     .values({ name: 'Danh mục 652', tenant_id: TENANT_ID }).returning('id').executeTakeFirstOrThrow();
   for (const [id, fullName, shortName] of [[COURSE_A, 'Khoá Toán 652', 'TOAN652'], [COURSE_B, 'Khoá Văn 652', 'VAN652']] as const) {
-    await db.insertInto('course').values({ id, category: category.id, full_name: fullName, short_name: shortName, tenant_id: TENANT_ID }).execute();
+    // is_template = true để qua check course_class_required_check
+    // (khoá mẫu của spec không gắn lớp học thật).
+    await db.insertInto('course').values({ id, category: category.id, full_name: fullName, short_name: shortName, tenant_id: TENANT_ID, is_template: true }).execute();
   }
   const section = await db.insertInto('course_sections').values({ course: COURSE_A }).returning('id').executeTakeFirstOrThrow();
   const sectionB = await db.insertInto('course_sections').values({ course: COURSE_B }).returning('id').executeTakeFirstOrThrow();
@@ -452,15 +455,21 @@ beforeAll(async () => {
   await db.insertInto('assign_submissions').values({ assignment_id: assignment2.id, user_id: OTHER_ID, status: 'submitted', attempt_number: 1, submitted_at: new Date('2026-11-02T07:30:00.000Z') }).execute();
   await db.insertInto('assign_grades').values({ assignment_id: assignment1.id, user_id: OTHER_ID, grader_id: TEACHER_ID, attempt_number: 1, status: 'released' }).execute();
 
-  // Điểm: item mod + item manual; các dòng điểm phủ các nhánh của mảnh
-  // điều kiện hiển thị (có điểm / chỉ có phản hồi / cả hai đều trống) và
-  // mốc thời gian (sau mốc xem / trước mốc xem).
+  // Điểm: bốn item (mỗi cặp item/người học chỉ có một dòng điểm theo
+  // unique của bảng) phủ các nhánh của mảnh điều kiện hiển thị (có
+  // điểm / chỉ có phản hồi / cả hai đều trống) và mốc thời gian (sau
+  // mốc xem / trước mốc xem).
   const itemMod = await db.insertInto('grade_items')
     .values({ course_id: COURSE_A, item_name: 'Quiz 1', item_type: 'mod', grade_max: 10 }).returning('id').executeTakeFirstOrThrow();
   const itemManual = await db.insertInto('grade_items')
     .values({ course_id: COURSE_A, item_name: 'Điểm miệng', item_type: 'manual', grade_max: 10 }).returning('id').executeTakeFirstOrThrow();
+  const itemBlank = await db.insertInto('grade_items')
+    .values({ course_id: COURSE_A, item_name: 'Điểm trống', item_type: 'manual', grade_max: 10 }).returning('id').executeTakeFirstOrThrow();
+  const itemOld = await db.insertInto('grade_items')
+    .values({ course_id: COURSE_A, item_name: 'Điểm cũ', item_type: 'manual', grade_max: 10 }).returning('id').executeTakeFirstOrThrow();
   itemModId = itemMod.id;
   itemManualId = itemManual.id;
+  itemOldId = itemOld.id;
   const mkGrade = async (itemId: string, patch: { finalGrade: number | null; feedback: string | null; updatedAt: Date }) => {
     await db.insertInto('grade_grades').values({
       item_id: itemId, user_id: STUDENT_ID, final_grade: patch.finalGrade, feedback: patch.feedback, updated_at: patch.updatedAt,
@@ -468,8 +477,8 @@ beforeAll(async () => {
   };
   await mkGrade(itemMod.id, { finalGrade: 8.5, feedback: null, updatedAt: new Date('2026-11-01T12:00:00.000Z') });
   await mkGrade(itemManual.id, { finalGrade: null, feedback: 'Làm tốt', updatedAt: new Date('2026-11-01T12:05:00.000Z') });
-  await mkGrade(itemMod.id, { finalGrade: null, feedback: '', updatedAt: new Date('2026-11-01T12:10:00.000Z') });
-  await mkGrade(itemManual.id, { finalGrade: 7, feedback: null, updatedAt: new Date('2026-10-01T12:00:00.000Z') });
+  await mkGrade(itemBlank.id, { finalGrade: null, feedback: '', updatedAt: new Date('2026-11-01T12:10:00.000Z') });
+  await mkGrade(itemOld.id, { finalGrade: 7, feedback: null, updatedAt: new Date('2026-10-01T12:00:00.000Z') });
 
   // Vết công bố: một vết scope item sau mốc, một vết scope khác (bị lọc).
   await db.insertInto('grade_publications').values({ course_id: COURSE_A, scope: 'item', item_id: itemManual.id, action: 'publish', actor_id: TEACHER_ID, created_at: new Date('2026-11-01T13:00:00.000Z') }).execute();
@@ -565,10 +574,13 @@ describe('đối chiếu dashboard: điểm và công bố', () => {
     expect(actual[0]!.itemId).toBe(itemManualId);
   });
 
-  it('gradeRowsForItems khớp đường cũ trên tập item ứng viên từ vết công bố', async () => {
-    const expected = await oldGradeRowsForItems(drizzleDb, [itemManualId, itemModId], STUDENT_ID);
-    const actual = await repo.gradeRowsForItems([itemManualId, itemModId], STUDENT_ID);
+  it('gradeRowsForItems khớp đường cũ trên tập item ứng viên và không lọc theo mốc thời gian', async () => {
+    const expected = await oldGradeRowsForItems(drizzleDb, [itemManualId, itemModId, itemOldId], STUDENT_ID);
+    const actual = await repo.gradeRowsForItems([itemManualId, itemModId, itemOldId], STUDENT_ID);
     expect(sortedBy(actual, (r) => r.gradeId)).toEqual(sortedBy(expected, (r) => r.gradeId));
+    // Ba dòng: điểm hiện tại, dòng chỉ có phản hồi, và dòng điểm cũ
+    // trước mốc xem (method này không có điều kiện thời gian); dòng
+    // không có điểm lẫn phản hồi khác rỗng bị mảnh điều kiện loại.
     expect(actual).toHaveLength(3);
   });
 });
