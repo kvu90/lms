@@ -5,7 +5,7 @@ import {
   NOTIFICATION_POLICY_COMPONENT,
   notificationPolicySettingName,
 } from '../messaging/notification-providers';
-import { SiteConfigRepository } from './site-config.repository';
+import { SiteConfigRepository } from '@lms/db/repositories/site-config';
 import {
   SITE_SETTINGS,
   findSiteSetting,
