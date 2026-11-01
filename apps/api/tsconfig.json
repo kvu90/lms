@@ -18,6 +18,17 @@
       // subpath control plane ở trên.
       "@lms/db/system-bank": [
         "../../packages/db/dist/system-bank.d.ts"
+      ],
+      // Wildcard repository Kysely của @lms/db (chiến dịch chuyển
+      // ORM sang Kysely): khai MỘT dòng duy nhất cho mọi module
+      // repository về sau — cùng lý do Node10 như các subpath trên.
+      "@lms/db/repositories/*": [
+        "../../packages/db/dist/repositories/*.d.ts"
+      ],
+      // Điểm vào test-support của @lms/db (harness dựng DB test):
+      // chỉ test mới import, cùng cơ chế ánh xạ dist như trên.
+      "@lms/db/test-support": [
+        "../../packages/db/dist/test-support/index.d.ts"
       ]
     },
     // Chương trình typecheck (noEmit) bao gồm cả cầu dẫn test
