@@ -39,6 +39,16 @@ const BATCH_SIZE = 20;
  * thấy" giả (lớp lỗi #292 của relay outbox). Các bảng payments
  * không bật RLS nên bọc này không đổi gì với chính nhịp quét.
  *
+ * Phạm vi kho theo từng payment (tiền điều kiện Phần B của #587):
+ * bọc platform ngoài này KHÔNG quyết kho đích — mỗi payment được
+ * phân giải không gian riêng tại đầu vào cổng kích hoạt và cổng
+ * đối chiếu đích (`WorkerPaymentSpaceScopeService`: từ
+ * `payment.tenantId` → slug → chế độ kho trong sổ đăng ký control
+ * plane), nên một nhịp quét chứa payment của nhiều trung tâm vẫn
+ * kích hoạt đúng kho của từng payment; trung tâm ở kho riêng thì
+ * toàn bộ thân kích hoạt chạy trong phiên theo trung tâm đó, kho
+ * chung thì hành vi giữ nguyên.
+ *
  * Chống quét chồng: cờ `ticking` giữ đúng một nhịp chạy tại một thời
  * điểm trong tiến trình — cờ này là chốt chặn có thật, không phải
  * tối ưu: vị từ claim của repository (`received` HOẶC

@@ -149,11 +149,11 @@ export class SepayMatchingService {
       // kích hoạt đều idempotent — nhịp chết giữa chừng được nhận lại
       // theo cửa sổ stale của claim và chạy lại an toàn.
       if (payment.component === 'enrol_fee' && payment.itemId) {
-        await this.enrol.activatePaidEnrol(payment.itemId, payment.userId);
+        await this.enrol.activatePaidEnrol(payment.itemId, payment.userId, payment.tenantId);
       }
       // CLASS-3: gói lớp — kích hoạt ghi danh cấp lớp (idempotent).
       if (payment.component === 'class_fee' && payment.itemId) {
-        await this.classes.activatePaidClassEnrol(payment.itemId, payment.userId);
+        await this.classes.activatePaidClassEnrol(payment.itemId, payment.userId, payment.tenantId);
       }
       // Lát 2 (#189): gói trung tâm / gói giáo viên — kích hoạt quyền
       // lợi gói (idempotent theo payment; cửa sổ nối tiếp khi mua tiếp).

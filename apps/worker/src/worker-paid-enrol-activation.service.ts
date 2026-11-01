@@ -12,6 +12,7 @@ import type { PaidEnrolActivationPort } from '@lms/payments';
 import { tenantAls } from './db/tenant-als';
 import type { relations } from './db/relations';
 import { WorkerEnrolOutboxService } from './worker-enrol-outbox.service';
+import { WorkerPaymentSpaceScopeService } from './worker-payment-space-scope.service';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -26,6 +27,17 @@ type Database = NodePgDatabase<typeof relations>;
  *    sách xuyên tenant (tách vai, slot gói, membership) nên ngoài
  *    ngữ cảnh platform, RLS fail-closed sẽ che dữ kiện và cho kết
  *    quả "không thấy" giả (lớp lỗi #292).
+ * 1b. Phạm vi kho theo payment (tiền điều kiện Phần B của #587):
+ *    trước khi đọc gì, service phân giải không gian của payment qua
+ *    `WorkerPaymentSpaceScopeService` (từ `tenantId` của payment →
+ *    slug → chế độ kho trong sổ đăng ký control plane). Trung tâm
+ *    ở kho riêng thì TOÀN BỘ thân dưới đây — đọc instance, ghi
+ *    ghi danh, bề mặt vật chất hoá — chạy trong phiên theo trung
+ *    tâm đó (handle định tuyến đã inject tự dẫn vào kho riêng);
+ *    trung tâm ở kho chung thì hành vi giữ nguyên như trước.
+ *    Cổng `runInPlatformScope` của bề mặt giữ nguyên `spaceSlug`
+ *    của ngữ cảnh đang chạy theo khuôn cohort-sync, để các lượt
+ *    đọc platform bên trong bề mặt không đánh rơi kho đích.
  * 2. Đọc instance đích: không tồn tại → lỗi `enrol.instance_not_found`
  *    (cùng mã với `EnrolService.getInstance` phía API); không phải
  *    instance thu phí → lỗi `enrol.not_fee`.
@@ -52,9 +64,13 @@ type Database = NodePgDatabase<typeof relations>;
  * giữa chừng gặp đúng các chốt này nên không ghi danh trùng.
  *
  * @throws SharedDomainError mã `enrol.instance_not_found`,
- * `enrol.not_fee`, hoặc lỗi của các điểm chặn dùng chung (tách vai,
- * slot, gán vai) — nhịp matching bắt từng sự kiện và ghi cảnh báo
- * nên lỗi ở đây không làm hỏng cả lô quét.
+ * `enrol.not_fee`, `tenant.missing`/`tenant.not_found` (không phân
+ * giải được không gian của payment), hoặc lỗi của các điểm chặn
+ * dùng chung (tách vai, slot, gán vai) — nhịp matching bắt từng sự
+ * kiện và ghi cảnh báo nên lỗi ở đây không làm hỏng cả lô quét.
+ * Kho đích chuẩn bị lỗi thì `SpaceRoutingError` của khung định
+ * tuyến lan ra nguyên dạng, payment ở lại `pending` để nhịp sau
+ * thử lại — tuyệt đối không ghi vào kho chung.
  */
 @Injectable()
 export class WorkerPaidEnrolActivationService implements PaidEnrolActivationPort {
@@ -63,11 +79,19 @@ export class WorkerPaidEnrolActivationService implements PaidEnrolActivationPort
   constructor(
     @InjectDrizzle() private readonly db: Database,
     enrolOutbox: WorkerEnrolOutboxService,
+    private readonly spaceScope: WorkerPaymentSpaceScopeService,
   ) {
     this.materialization = new CohortMaterializationSurface({
       db: this.db,
       outbox: enrolOutbox,
-      runInPlatformScope: (fn) => tenantAls.run({ platform: true }, fn),
+      // Giữ nguyên `spaceSlug` của ngữ cảnh đang chạy theo khuôn
+      // cohort-sync: phạm vi này chỉ đổi tầm nhìn RLS sang đường
+      // platform, không đổi kho đích; một kích hoạt của trung tâm
+      // ở kho riêng chạy trong phiên theo trung tâm mà phạm vi
+      // platform dựng store mới không mang slug thì handle định
+      // tuyến rơi về kho chung, ghi sai kho.
+      runInPlatformScope: (fn) =>
+        tenantAls.run({ platform: true, spaceSlug: tenantAls.getStore()?.spaceSlug }, fn),
     });
   }
 
@@ -76,9 +100,11 @@ export class WorkerPaidEnrolActivationService implements PaidEnrolActivationPort
    *
    * @param itemId - Id của instance ghi danh đích (trường `itemId` của payment).
    * @param userId - Id của người dùng được ghi danh (trường `userId` của payment).
+   * @param tenantId - Id tenant của payment: bắt buộc để phân giải
+   * không gian — vắng thì lỗi ngay thay vì đoán kho chung (fail-closed).
    */
-  async activatePaidEnrol(itemId: string, userId: string): Promise<void> {
-    await tenantAls.run({ platform: true }, async () => {
+  async activatePaidEnrol(itemId: string, userId: string, tenantId?: string): Promise<void> {
+    await this.spaceScope.runForPaymentTenant(tenantId, async () => {
       const [instance] = await this.db.select().from(enrol).where(eq(enrol.id, itemId));
       if (!instance) {
         throw new SharedDomainError('enrol.instance_not_found', `Enrol instance ${itemId} not found`);

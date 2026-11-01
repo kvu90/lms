@@ -20,6 +20,7 @@ import type { PaymentSettlementPort } from '@lms/payments';
 import { tenantAls } from './db/tenant-als';
 import type { relations } from './db/relations';
 import { WorkerEnrolOutboxService } from './worker-enrol-outbox.service';
+import { WorkerPaymentSpaceScopeService } from './worker-payment-space-scope.service';
 
 type Database = NodePgDatabase<typeof relations>;
 /** Handle của một transaction Drizzle đang mở trên tay cầm của worker. */
@@ -48,7 +49,12 @@ const PLATFORM_TENANT_SLUG = 'trang-chinh';
  *    thể đã bị can thiệp). Đối tượng đích không tồn tại, không còn
  *    cấu hình phí, hoặc ảnh chụp gói thiếu/sai hình dạng đều coi là
  *    KHÔNG khớp (fail-closed): thà đẩy vào `needs_review` còn hơn
- *    kích hoạt một quyền lợi không xác minh được.
+ *    kích hoạt một quyền lợi không xác minh được. Với `enrol_fee` /
+ *    `class_fee`, phép đối chiếu chạy trong PHẠM VI KHO của chính
+ *    payment (tiền điều kiện Phần B của #587 — cùng điểm phân giải
+ *    với hai service kích hoạt): đối tượng đích của trung tâm ở kho
+ *    riêng chỉ tồn tại ở kho riêng, đối chiếu ở kho chung sẽ trả
+ *    "không khớp" giả và chặn kích hoạt dù tiền đã về đúng.
  * 2. `settleRefundFromDebitEvent` — xác nhận chi tự động từ một sự
  *    kiện `debit`: đối khớp theo (mã lệnh chi, tài khoản, số tiền)
  *    với dòng hoàn đang `approved`, rồi xác nhận chi qua cùng khâu
@@ -97,6 +103,7 @@ export class WorkerPaymentSettlementService implements PaymentSettlementPort {
     private readonly repo: PaymentsRepository,
     private readonly plans: PlanEntitlementsService,
     private readonly enrolOutbox: WorkerEnrolOutboxService,
+    private readonly spaceScope: WorkerPaymentSpaceScopeService,
   ) {}
 
   /** Tenant platform (tenant-zero) — chủ của dòng tiền gói và của hàng đợi platform. */
@@ -117,8 +124,33 @@ export class WorkerPaymentSettlementService implements PaymentSettlementPort {
    * server; `false` khi lệch hoặc không xác minh được.
    */
   async verifyPaymentAgainstServerTarget(payment: PaymentRow): Promise<boolean> {
-    return tenantAls.run({ platform: true }, async () => {
-      switch (payment.component) {
+    // Đối tượng đích của enrol_fee/class_fee nằm ở kho của chính
+    // payment: đối chiếu phải chạy trong phạm vi kho đó, cùng điểm
+    // phân giải với hai service kích hoạt — nếu không, trung tâm ở
+    // kho riêng luôn bị "không khớp" giả ở kho chung và payment
+    // không bao giờ tới được khâu kích hoạt. Tenant không có dòng
+    // ở kho chung thì giữ ngữ nghĩa cũ (không khớp → needs_review);
+    // kho đích chuẩn bị lỗi thì ném để payment ở lại `pending`
+    // cho nhịp sau thử lại, như khâu kích hoạt.
+    if (payment.component === 'enrol_fee' || payment.component === 'class_fee') {
+      try {
+        return await this.spaceScope.runForPaymentTenant(payment.tenantId, () =>
+          this.verifyInScope(payment),
+        );
+      } catch (error) {
+        if (error instanceof SharedDomainError && error.code === 'tenant.not_found') return false;
+        throw error;
+      }
+    }
+    return tenantAls.run({ platform: true }, () => this.verifyInScope(payment));
+  }
+
+  /**
+   * Thân phép đối chiếu (chạy trong phạm vi kho mà nơi gọi đã mở):
+   * giá + tenant lấy từ đối tượng đích phía server.
+   */
+  private async verifyInScope(payment: PaymentRow): Promise<boolean> {
+    switch (payment.component) {
         case 'enrol_fee': {
           if (!payment.itemId) return false;
           const [instance] = await this.db.select().from(enrol).where(eq(enrol.id, payment.itemId));
@@ -144,7 +176,6 @@ export class WorkerPaymentSettlementService implements PaymentSettlementPort {
         default:
           return true;
       }
-    });
   }
 
   /**

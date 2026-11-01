@@ -12,6 +12,7 @@ import type { PaidClassEnrolActivationPort } from '@lms/payments';
 import { tenantAls } from './db/tenant-als';
 import type { relations } from './db/relations';
 import { WorkerEnrolOutboxService } from './worker-enrol-outbox.service';
+import { WorkerPaymentSpaceScopeService } from './worker-payment-space-scope.service';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -27,6 +28,18 @@ type Database = NodePgDatabase<typeof relations>;
  *    tenant khác tenant nền và các chốt đọc chính sách xuyên tenant
  *    — cùng khuôn đọc của `ClassesService.activatePaidClassEnrol`
  *    phía API và cùng lý do #292 (RLS fail-closed ngoài ngữ cảnh).
+ * 1b. Phạm vi kho theo payment (tiền điều kiện Phần B của #587):
+ *    trước khi đọc gì, service phân giải không gian của payment qua
+ *    `WorkerPaymentSpaceScopeService` (từ `tenantId` của payment →
+ *    slug → chế độ kho trong sổ đăng ký control plane). Trung tâm
+ *    ở kho riêng thì TOÀN BỘ thân dưới đây — đọc lớp, ghi ghi
+ *    danh, đảm bảo membership, bề mặt vật chất hoá — chạy trong
+ *    phiên theo trung tâm đó (handle định tuyến đã inject tự dẫn
+ *    vào kho riêng); trung tâm ở kho chung thì hành vi giữ nguyên
+ *    như trước. Cổng `runInPlatformScope` của bề mặt giữ nguyên
+ *    `spaceSlug` của ngữ cảnh đang chạy theo khuôn cohort-sync,
+ *    để các lượt đọc platform bên trong bề mặt không đánh rơi
+ *    kho đích.
  * 2. Đọc lớp đích: không tồn tại → lỗi `class.not_found`; đã lưu
  *    trữ → lỗi `class.archived` (payment đã thu tiền nhưng roster
  *    đóng băng: vận hành xử lý bằng hoàn tiền, không tự phá luật
@@ -74,8 +87,12 @@ type Database = NodePgDatabase<typeof relations>;
  * sai.
  *
  * @throws SharedDomainError mã `class.not_found`, `class.archived`,
- * hoặc lỗi chốt tách vai — nhịp matching bắt từng sự kiện và ghi
- * cảnh báo nên lỗi ở đây không làm hỏng cả lô quét.
+ * `tenant.missing`/`tenant.not_found` (không phân giải được không
+ * gian của payment), hoặc lỗi chốt tách vai — nhịp matching bắt
+ * từng sự kiện và ghi cảnh báo nên lỗi ở đây không làm hỏng cả lô
+ * quét. Kho đích chuẩn bị lỗi thì `SpaceRoutingError` của khung
+ * định tuyến lan ra nguyên dạng, payment ở lại `pending` để nhịp
+ * sau thử lại — tuyệt đối không ghi vào kho chung.
  */
 @Injectable()
 export class WorkerPaidClassEnrolActivationService implements PaidClassEnrolActivationPort {
@@ -84,11 +101,19 @@ export class WorkerPaidClassEnrolActivationService implements PaidClassEnrolActi
   constructor(
     @InjectDrizzle() private readonly db: Database,
     private readonly enrolOutbox: WorkerEnrolOutboxService,
+    private readonly spaceScope: WorkerPaymentSpaceScopeService,
   ) {
     this.materialization = new CohortMaterializationSurface({
       db: this.db,
       outbox: enrolOutbox,
-      runInPlatformScope: (fn) => tenantAls.run({ platform: true }, fn),
+      // Giữ nguyên `spaceSlug` của ngữ cảnh đang chạy theo khuôn
+      // cohort-sync: phạm vi này chỉ đổi tầm nhìn RLS sang đường
+      // platform, không đổi kho đích; một kích hoạt của trung tâm
+      // ở kho riêng chạy trong phiên theo trung tâm mà phạm vi
+      // platform dựng store mới không mang slug thì handle định
+      // tuyến rơi về kho chung, ghi sai kho.
+      runInPlatformScope: (fn) =>
+        tenantAls.run({ platform: true, spaceSlug: tenantAls.getStore()?.spaceSlug }, fn),
     });
   }
 
@@ -97,9 +122,11 @@ export class WorkerPaidClassEnrolActivationService implements PaidClassEnrolActi
    *
    * @param itemId - Id của lớp đích (trường `itemId` của payment).
    * @param userId - Id của người mua (trường `userId` của payment).
+   * @param tenantId - Id tenant của payment: bắt buộc để phân giải
+   * không gian — vắng thì lỗi ngay thay vì đoán kho chung (fail-closed).
    */
-  async activatePaidClassEnrol(itemId: string, userId: string): Promise<void> {
-    await tenantAls.run({ platform: true }, async () => {
+  async activatePaidClassEnrol(itemId: string, userId: string, tenantId?: string): Promise<void> {
+    await this.spaceScope.runForPaymentTenant(tenantId, async () => {
       const [row] = await this.db.select().from(classes).where(eq(classes.id, itemId));
       if (!row) {
         throw new SharedDomainError('class.not_found', `Class ${itemId} not found`);

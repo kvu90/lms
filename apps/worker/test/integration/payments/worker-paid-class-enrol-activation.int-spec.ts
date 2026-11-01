@@ -138,21 +138,21 @@ describe('Kích hoạt ghi danh cấp lớp ở worker — chèn thành viên v�
     const { classId, cohortId } = await makeClass(buyer);
 
     const restore = armFault(1);
-    await expect(adapter.activatePaidClassEnrol(classId, buyer)).rejects.toThrow('lỗi tiêm giữa chừng');
+    await expect(adapter.activatePaidClassEnrol(classId, buyer, tenantId)).rejects.toThrow('lỗi tiêm giữa chừng');
     restore();
 
     expect(await memberCount(cohortId, buyer)).toBe(0);
     expect(await outboxCount('cohort_member_added', buyer)).toBe(0);
     expect(await outboxCount('class_member_joined', buyer)).toBe(0);
 
-    await adapter.activatePaidClassEnrol(classId, buyer);
+    await adapter.activatePaidClassEnrol(classId, buyer, tenantId);
 
     expect(await memberCount(cohortId, buyer)).toBe(1);
     expect(await outboxCount('cohort_member_added', buyer)).toBe(1);
     expect(await outboxCount('class_member_joined', buyer)).toBe(1);
 
     // Gọi lại: đã thuộc roster nên dừng sớm, không ghi trùng.
-    await adapter.activatePaidClassEnrol(classId, buyer);
+    await adapter.activatePaidClassEnrol(classId, buyer, tenantId);
     expect(await memberCount(cohortId, buyer)).toBe(1);
     expect(await outboxCount('cohort_member_added', buyer)).toBe(1);
     expect(await outboxCount('class_member_joined', buyer)).toBe(1);
@@ -163,14 +163,14 @@ describe('Kích hoạt ghi danh cấp lớp ở worker — chèn thành viên v�
     const { classId, cohortId } = await makeClass(buyer);
 
     const restore = armFault(2);
-    await expect(adapter.activatePaidClassEnrol(classId, buyer)).rejects.toThrow('lỗi tiêm giữa chừng');
+    await expect(adapter.activatePaidClassEnrol(classId, buyer, tenantId)).rejects.toThrow('lỗi tiêm giữa chừng');
     restore();
 
     expect(await memberCount(cohortId, buyer)).toBe(0);
     expect(await outboxCount('cohort_member_added', buyer)).toBe(0);
     expect(await outboxCount('class_member_joined', buyer)).toBe(0);
 
-    await adapter.activatePaidClassEnrol(classId, buyer);
+    await adapter.activatePaidClassEnrol(classId, buyer, tenantId);
 
     expect(await memberCount(cohortId, buyer)).toBe(1);
     expect(await outboxCount('cohort_member_added', buyer)).toBe(1);
