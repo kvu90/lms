@@ -4,3 +4,9 @@
  * barrel `index.ts` (hai database, hai bộ migration tách nhau).
  */
 export * from './control-plane.schema';
+export {
+  createControlPlaneKysely,
+  type ControlPlaneDB,
+  type ControlPlaneDb,
+  type ControlPlaneTx,
+} from './client';

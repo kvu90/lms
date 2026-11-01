@@ -4,3 +4,9 @@
  * `index.ts` (hai database, hai bộ migration tách nhau).
  */
 export * from './system-bank.schema';
+export {
+  createSystemBankKysely,
+  type SystemBankDB,
+  type SystemBankDb,
+  type SystemBankTx,
+} from './client';

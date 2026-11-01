@@ -26,8 +26,10 @@ của repo.
 
 - 1 issue = 1 feat = 1 PR: đổi schema + baseline sinh từ schema + spec đếm ở
   apps/api là các chặng của CÙNG một PR, không tách.
-- Chỉ định nghĩa dữ liệu. Cần hành vi → `apps/api`; cần hình dạng API →
-  `packages/contracts`.
+- Định nghĩa dữ liệu và — với phần đã chuyển sang Kysely — các hàm truy cập
+  dữ liệu thuần (repository nhận handle, không giữ kết nối, không đọc ngữ
+  cảnh app) thuộc package này. Cần hành vi nghiệp vụ → `apps/api`; cần hình
+  dạng API → `packages/contracts`.
 
 ## Điều cấm package-specific
 
@@ -50,6 +52,32 @@ của repo.
   cây branch riêng không đủ — bẫy hai baseline chỉ lộ ở cây merge.
 - CI là cổng chính; kết luận CI chỉ từ LOG THẬT. Suite nặng local giữ khoá
   `flock /tmp/lms-heavy-suite.lock`, tối đa một vòng nặng một lúc.
+
+## Kỷ luật khung Kysely (chiến dịch chuyển ORM)
+
+- Kiểu của ba kho nằm ở `src/types/` và được SINH bằng lệnh `db:types`
+  (kysely-codegen từ DB thật dựng từ rỗng bằng SQL mang dữ liệu). Cấm sửa
+  tay file sinh; đổi hình dạng DB xong phải chạy lại `db:types` và commit
+  kết quả sinh cùng lượt — CI kiểm `git diff` trên `src/types/` phải rỗng.
+- Cấm bật camelCase ở mọi tầng (không `--camel-case` khi sinh kiểu, không
+  `CamelCasePlugin` khi truy vấn): tên cột trong code giữ snake_case như DB.
+- Cột jsonb có hình dạng nghiệp vụ (`$type<…>` phía Drizzle) phải có
+  override từng cột trong `scripts/codegen/<kho>.json` ở cùng lượt chạm
+  tới cột đó; `--type-mapping` của codegen là ánh xạ theo kiểu dữ liệu
+  toàn cục, cấm dùng thay override từng cột.
+- Mọi repository Kysely nhận handle qua kiểu của `src/client.ts`
+  (`CentreDb`/`CentreTx`, `ControlPlaneDb`/`ControlPlaneTx`,
+  `SystemBankDb`/`SystemBankTx`); cấm repository import từ `apps/*`, đọc
+  ALS/ngữ cảnh app, tự mở pool hay đọc biến môi trường. Package không tự
+  mở pool ở bất kỳ đâu ngoài harness test (`src/test-support/`).
+- Một module thuộc hẳn về một ORM; cấm giao dịch lai (một thao tác mở
+  đồng thời giao dịch Drizzle và giao dịch Kysely). Các file
+  `src/*.schema.ts` của Drizzle đóng băng tới hạng mục gỡ Drizzle: không
+  sửa, không xoá trong các PR chuyển đổi.
+- Cổng đếm kiểu sinh trên cụm PG18: số cột `id` có mặc định `uuidv7()`
+  theo catalog là trung tâm 187 / control plane 5 / ngân hàng hệ thống
+  10 — đổi schema làm lệch các con số này phải cập nhật README của
+  package bằng con số đếm thật trong cùng PR.
 
 ## Kỷ luật test theo nghiệp vụ
 

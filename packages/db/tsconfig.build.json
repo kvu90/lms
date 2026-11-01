@@ -1,1 +1,1 @@
-{"exclude":["node_modules","dist"],"extends":"./tsconfig.json","include":["src"]}
+{"exclude":["node_modules","dist","src/**/*.spec.ts","src/**/*.int-spec.ts"],"extends":"./tsconfig.json","include":["src"]}

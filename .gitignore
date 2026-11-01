@@ -26,3 +26,8 @@ apps/*/test/**/*.js.map
 packages/*/src/**/*.js
 packages/*/src/**/*.d.ts
 packages/*/src/**/*.js.map
+# Ngoại lệ có chủ đích: file kiểu Kysely của @lms/db được kysely-codegen
+# sinh từ DB thật và COMMIT vào repo tại src/types (CI kiểm lệch bằng
+# cách sinh lại rồi so git diff) — chúng là nguồn, không phải bản biên
+# dịch, nên phải thoát khỏi pattern *.d.ts ở trên.
+!packages/db/src/types/*.d.ts
