@@ -86,7 +86,7 @@ let seed: Seed;
 async function seedData(): Promise<Seed> {
   const bank = await db
     .insertInto('question_banks')
-    .values({ name: 'Bank mẫu', scope: 'personal', context_id: CONTEXT_ID, created_by: ACTOR_ID })
+    .values({ name: 'Bank mẫu', scope: 'platform', context_id: CONTEXT_ID, created_by: ACTOR_ID })
     .returning('id')
     .executeTakeFirstOrThrow();
   const catA = await repo.insertCategory({ name: 'Danh mục A', contextId: CONTEXT_ID, bankId: bank.id, info: '', parent: null, stamp: 'seed-a' });
@@ -99,20 +99,20 @@ async function seedData(): Promise<Seed> {
     .values({ subject_id: subject.id, grade: 10 })
     .returning('id').executeTakeFirstOrThrow();
   const node = await db.insertInto('curriculum_nodes')
-    .values({ curriculum_id: curriculum.id, title: 'Chương 1', kind: 'chapter' })
+    .values({ curriculum_id: curriculum.id, title: 'Chương 1', kind: 'topic' })
     .returning('id').executeTakeFirstOrThrow();
   const outcomeDoc = sql<LearningOutcomeDoc>`${JSON.stringify({ type: 'doc', content: [] })}::jsonb`;
   const outcomeActive = await db.insertInto('learning_outcomes')
-    .values({ node_id: node.id, content: outcomeDoc, source_kind: 'manual' })
+    .values({ node_id: node.id, content: outcomeDoc, source_kind: 'program' })
     .returning('id').executeTakeFirstOrThrow();
   const outcomeRetired = await db.insertInto('learning_outcomes')
-    .values({ node_id: node.id, content: outcomeDoc, source_kind: 'manual', retired_at: new Date() })
+    .values({ node_id: node.id, content: outcomeDoc, source_kind: 'program', retired_at: new Date() })
     .returning('id').executeTakeFirstOrThrow();
   const outcomeDerivedActive = await db.insertInto('learning_outcomes')
-    .values({ node_id: node.id, content: outcomeDoc, source_kind: 'manual', derived_from_id: outcomeActive.id })
+    .values({ node_id: node.id, content: outcomeDoc, source_kind: 'derived', derived_from_id: outcomeActive.id })
     .returning('id').executeTakeFirstOrThrow();
   const outcomeDerivedRetired = await db.insertInto('learning_outcomes')
-    .values({ node_id: node.id, content: outcomeDoc, source_kind: 'manual', derived_from_id: outcomeRetired.id })
+    .values({ node_id: node.id, content: outcomeDoc, source_kind: 'derived', derived_from_id: outcomeRetired.id })
     .returning('id').executeTakeFirstOrThrow();
 
   const mkQuestion = async (categoryId: string, qtype: string, status: string) => {
@@ -125,10 +125,10 @@ async function seedData(): Promise<Seed> {
   const three = await mkQuestion(catB.id, 'multichoice', 'draft');
 
   await repo.insertQuestionSubjectLink({ questionId: one.q.id, subjectId: subject.id });
-  await repo.insertQuestionOutcomeLink({ questionId: one.q.id, learningOutcomeId: outcomeActive.id, cognitiveLevel: 'remember' });
-  await repo.insertQuestionOutcomeLink({ questionId: two.q.id, learningOutcomeId: outcomeRetired.id, cognitiveLevel: 'remember' });
-  await repo.insertQuestionOutcomeLink({ questionId: three.q.id, learningOutcomeId: outcomeDerivedActive.id, cognitiveLevel: 'apply' });
-  await repo.insertQuestionOutcomeLink({ questionId: three.q.id, learningOutcomeId: outcomeDerivedRetired.id, cognitiveLevel: 'apply' });
+  await repo.insertQuestionOutcomeLink({ questionId: one.q.id, learningOutcomeId: outcomeActive.id, cognitiveLevel: 'biet' });
+  await repo.insertQuestionOutcomeLink({ questionId: two.q.id, learningOutcomeId: outcomeRetired.id, cognitiveLevel: 'biet' });
+  await repo.insertQuestionOutcomeLink({ questionId: three.q.id, learningOutcomeId: outcomeDerivedActive.id, cognitiveLevel: 'hieu' });
+  await repo.insertQuestionOutcomeLink({ questionId: three.q.id, learningOutcomeId: outcomeDerivedRetired.id, cognitiveLevel: 'hieu' });
 
   return {
     bankId: bank.id, catA: catA.id, catB: catB.id,
@@ -332,11 +332,11 @@ describe('QuestionsRepository trên Kysely (issue #642)', () => {
       { subjectId: seed.subjectId },
       { subjectId: seed.subjectId, qtype: 'essay' },
       { outcomeId: seed.outcomeRetired },
-      { outcomeId: seed.outcomeActive, cognitiveLevel: 'remember' },
-      { outcomeId: seed.outcomeActive, cognitiveLevel: 'apply' },
+      { outcomeId: seed.outcomeActive, cognitiveLevel: 'biet' },
+      { outcomeId: seed.outcomeActive, cognitiveLevel: 'hieu' },
       { nodeId: seed.nodeId },
-      { nodeId: seed.nodeId, cognitiveLevel: 'apply' },
-      { cognitiveLevel: 'apply' },
+      { nodeId: seed.nodeId, cognitiveLevel: 'hieu' },
+      { cognitiveLevel: 'hieu' },
       { subjectId: seed.subjectId, nodeId: seed.nodeId },
     ];
     for (const filter of filters) {
@@ -349,7 +349,7 @@ describe('QuestionsRepository trên Kysely (issue #642)', () => {
       .toEqual([seed.q1, seed.q3].sort());
     expect((await repo.filterQuestionsByCurriculumLinks({ nodeId: seed.nodeId })).map((q) => q.id).sort())
       .toEqual([seed.q1, seed.q3].sort());
-    expect(await repo.filterQuestionsByCurriculumLinks({ outcomeId: seed.outcomeActive, cognitiveLevel: 'apply' }))
+    expect(await repo.filterQuestionsByCurriculumLinks({ outcomeId: seed.outcomeActive, cognitiveLevel: 'hieu' }))
       .toEqual([]);
   });
 
