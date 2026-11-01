@@ -70,6 +70,16 @@ jobs:
         run: |
           DATABASE_URL=postgres://postgres:postgres@localhost:5432/lms_test_api pnpm --filter @lms/api db:migrate
           DATABASE_URL=postgres://postgres:postgres@localhost:5432/lms_test_worker pnpm --filter @lms/api db:migrate
+      # Cổng chống lệch kiểu Kysely của @lms/db: sinh lại cả ba file
+      # kiểu trong packages/db/src/types từ database dựng từ rỗng
+      # trên chính service PostgreSQL 18.6 của job (lệnh db:types
+      # tự suy kết nối quản trị từ DATABASE_URL cấp job) rồi yêu cầu
+      # cây nguồn không đổi — file kiểu lệch khỏi hình dạng DB thật
+      # sinh từ bộ SQL mang dữ liệu hiện hành là job đỏ tại chỗ.
+      - name: Check generated Kysely types are up to date
+        run: |
+          pnpm --filter @lms/db run db:types
+          git diff --exit-code -- packages/db/src/types
       - name: Build
         run: pnpm exec turbo run build
       - name: Typecheck
