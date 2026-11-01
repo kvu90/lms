@@ -1,8 +1,10 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
+import { SpaceRoutingModule } from '../../db/routing/space-routing.module';
 import { EventsModule } from '../../infra/events/events.module';
 import { AccessModule } from '../access/access.module';
 import { SiteConfigModule } from '../site-config/site-config.module';
+import { TenantsModule } from '../tenants/tenants.module';
 import { UsersModule } from '../users/users.module';
 import { BetterAuthModule } from '../auth/better-auth/better-auth.module';
 import { MessagingController, NotificationsController } from './messaging.controller';
@@ -28,6 +30,13 @@ import { NotificationUnreadStreamService } from './notification-unread-stream.se
     // GĐ5 (issue #7): lớp auth của gateway nhận thêm phiên cookie
     // Better Auth — cần BetterAuthService (instance tự tắt khi cờ off).
     BetterAuthModule,
+    // Tiền điều kiện Phần B (issue #587, hạng mục 1): lớp auth của
+    // gateway và gateway phân giải không gian theo Host của
+    // handshake và đọc dữ kiện theo kết nối trong kho của trung
+    // tâm — cần SpaceDatabaseService (SpaceRoutingModule) và
+    // TenantsService cho ngoại lệ phiên vận hành platform của
+    // đường token (TenantsModule).
+    SpaceRoutingModule, TenantsModule,
     BullModule.registerQueue({ name: NOTIFICATION_DISPATCH_QUEUE }),
   ],
   controllers: [MessagingController, NotificationsController],

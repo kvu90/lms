@@ -21,13 +21,19 @@ import { MessagingGateway } from './messaging.gateway';
  * tuyến trong quan hệ hội thoại chung và phát `presence.snapshot`
  * cho CHÍNH socket vừa nối, để người đã trực tuyến từ trước (không
  * phát sinh sự kiện thay đổi nào) vẫn được người nối học được.
+ *
+ * Và: phạm vi kho theo kết nối (tiền điều kiện Phần B, issue #587,
+ * hạng mục 1) — danh tính mang slug của trung tâm ở kho riêng thì
+ * toàn bộ lượt đọc lúc nối phải chạy qua `withSpaceDatabase` của
+ * slug đó; đầu dò trong fake ghi lại trạng thái phạm vi tại thời
+ * điểm đọc nên bỏ lớp bọc là ca này đỏ.
  */
 describe('MessagingGateway.handleConnection — danh sách chặn tải một lần cho cả lần nối', () => {
   const USER_ID = 'user-1';
   const TENANT_ID = 'tenant-1';
   const BLOCKED_PEER = 'user-blocked';
 
-  function build() {
+  function build(opts: { spaceSlug?: string | null } = {}) {
     // Ba hội thoại 1–1 (một đang chặn) + một hội thoại nhóm.
     const conversations = [
       { id: 'conv-blocked', tenantId: TENANT_ID },
@@ -40,8 +46,15 @@ describe('MessagingGateway.handleConnection — danh sách chặn tải một l�
       'conv-open-a': 'user-a',
       'conv-open-b': 'user-b',
     };
+    // Đầu dò phạm vi kho của kết nối: bật trong lúc callback của
+    // `withSpaceDatabase` chạy, các fake repository ghi lại trạng
+    // thái tại thời điểm được gọi.
+    const spaceProbe = { insideSpace: false, slugs: [] as string[], listInsideSpace: [] as boolean[] };
     const repo = {
-      listConversationsForUser: vi.fn(async () => conversations),
+      listConversationsForUser: vi.fn(async () => {
+        spaceProbe.listInsideSpace.push(spaceProbe.insideSpace);
+        return conversations;
+      }),
       getConversation: vi.fn(async (id: string) => ({
         id,
         type: id === 'conv-group' ? 2 : 1,
@@ -51,14 +64,27 @@ describe('MessagingGateway.handleConnection — danh sách chặn tải một l�
       listBlockedCounterpartIds: vi.fn(async () => [BLOCKED_PEER]),
     };
     const auth = {
-      authenticateHandshake: vi.fn(async () => ({ userId: USER_ID, username: 'user1', tenantId: TENANT_ID })),
+      authenticateHandshake: vi.fn(async () => ({
+        userId: USER_ID, username: 'user1', tenantId: TENANT_ID, spaceSlug: opts.spaceSlug ?? null,
+      })),
     };
     const realtime = {
       markConnected: vi.fn(async () => {}),
       markDisconnected: vi.fn(async () => {}),
       listOnlineCoMemberIds: vi.fn(async () => ['user-a']),
     };
-    const gateway = new MessagingGateway(auth as never, repo as never, realtime as never);
+    const spaceDb = {
+      withSpaceDatabase: vi.fn(async (slug: string, fn: () => Promise<unknown>) => {
+        spaceProbe.slugs.push(slug);
+        spaceProbe.insideSpace = true;
+        try {
+          return await fn();
+        } finally {
+          spaceProbe.insideSpace = false;
+        }
+      }),
+    };
+    const gateway = new MessagingGateway(auth as never, repo as never, realtime as never, spaceDb as never);
     const joinedRooms: string[] = [];
     const client = {
       id: 'socket-1',
@@ -70,7 +96,7 @@ describe('MessagingGateway.handleConnection — danh sách chặn tải một l�
       emit: vi.fn(),
       disconnect: vi.fn(),
     };
-    return { gateway, repo, client, realtime, joinedRooms };
+    return { gateway, repo, client, realtime, joinedRooms, spaceDb, spaceProbe };
   }
 
   it('nhiều hội thoại 1–1 trong một lần nối: danh sách chặn chỉ tải đúng một lần, room bị chặn không được vào', async () => {
@@ -105,5 +131,31 @@ describe('MessagingGateway.handleConnection — danh sách chặn tải một l�
     // Thứ tự: ghi presence của người nối TRƯỚC, đọc ảnh chụp SAU.
     expect(realtime.markConnected.mock.invocationCallOrder[0]!)
       .toBeLessThan(realtime.listOnlineCoMemberIds.mock.invocationCallOrder[0]!);
+  });
+
+  it('kết nối mang slug của trung tâm kho riêng: lượt đọc lúc nối chạy trong kho của trung tâm, room vào như cũ', async () => {
+    const { gateway, client, joinedRooms, spaceDb, spaceProbe } = build({ spaceSlug: 'trung-tam-a' });
+
+    await gateway.handleConnection(client as never);
+
+    expect(client.disconnect).not.toHaveBeenCalled();
+    // Lớp bọc kho được mở đúng slug của danh tính và lượt đọc danh
+    // sách hội thoại lúc nối chạy BÊN TRONG lớp bọc đó.
+    expect(spaceDb.withSpaceDatabase).toHaveBeenCalled();
+    expect(spaceProbe.slugs.every((slug) => slug === 'trung-tam-a')).toBe(true);
+    expect(spaceProbe.listInsideSpace).toEqual([true]);
+    // Tập room không đổi so với đường kho chung.
+    expect(joinedRooms).toHaveLength(4);
+    expect(joinedRooms.some((room) => room.includes('conv-blocked'))).toBe(false);
+  });
+
+  it('kết nối thuộc đường kho chung (không slug): không qua lớp bọc kho nào', async () => {
+    const { gateway, client, spaceDb, spaceProbe } = build();
+
+    await gateway.handleConnection(client as never);
+
+    expect(client.disconnect).not.toHaveBeenCalled();
+    expect(spaceDb.withSpaceDatabase).not.toHaveBeenCalled();
+    expect(spaceProbe.listInsideSpace).toEqual([false]);
   });
 });
