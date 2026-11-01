@@ -332,6 +332,18 @@ export class TenantsService {
   // riêng). Phân giải kho riêng lỗi (bí mật/role lệch sổ) thì ném
   // ra nguyên trạng — fail-closed, không rơi về đọc kho chung cho
   // một tenant đã đăng ký kho riêng.
+  //
+  // Bổ sung tiền điều kiện TĐ6 (issue #587): bước phân giải đích
+  // không còn chỉ tra dòng thư mục ở kho chung. Trung tâm CẤP
+  // PHÁT MỚI không có dòng thư mục nào ở kho chung — pipeline
+  // cấp phát chỉ ghi dòng tenant vào kho của chính trung tâm —
+  // nên `spaceTargetForTenant` đọc dòng tenant ngay tại kho của
+  // không gian mà ngữ cảnh request đã phân giải tới (địa chỉ
+  // riêng của trung tâm) trước khi rơi về tra cứu kho chung
+  // (xem `tenantRowForTargetResolution`). Nhờ đó ba method đọc
+  // A1 ở trên và đường tạo người dùng cho trung tâm tới được
+  // trung tâm cấp phát mới; tenant không tồn tại ở cả hai nơi
+  // vẫn `tenant.not_found` như trước.
 
   async listTenants(actorId: string): Promise<TenantDto[]> {
     return tenantAls.run({ platform: true }, () => this.listTenantsInContext(actorId));
@@ -353,11 +365,14 @@ export class TenantsService {
    * hạng mục 3 — nửa tra cứu của thiết kế A1, dùng chung cho các
    * đường đọc quản trị ở service này và cho điểm ghi mã tham gia
    * ở ClassesService):
-   * - Tra dòng thư mục của tenant ở kho chung trong ngữ cảnh
-   *   platform để lấy `slug` — slug là khoá phân giải không gian
-   *   duy nhất của khung định tuyến. Tenant không có dòng thư
-   *   mục ở kho chung → trả `null` (bên gọi giữ hành vi hiện tại:
-   *   thân InContext tự ném `tenant.not_found`).
+   * - Tìm dòng tenant để lấy `slug` — slug là khoá phân giải
+   *   không gian duy nhất của khung định tuyến — theo thứ tự của
+   *   `tenantRowForTargetResolution`: kho của không gian mà ngữ
+   *   cảnh đã phân giải tới trước (trung tâm cấp phát mới chỉ có
+   *   dòng tenant ở đó — tiền điều kiện TĐ6), dòng thư mục ở kho
+   *   chung sau. Không nơi nào có dòng tenant → trả `null` (bên
+   *   gọi giữ hành vi hiện tại: thân InContext tự ném
+   *   `tenant.not_found`).
    * - Hỏi sổ đăng ký chế độ kho của slug: `dedicated: true` khi
    *   trung tâm đã đăng ký kho riêng. Slug chưa đăng ký hoặc
    *   tầng định tuyến chưa cấu hình → `dedicated: false` (thế
@@ -367,10 +382,10 @@ export class TenantsService {
    *
    * @param tenantId - Định danh tenant cần phân giải đích.
    * @returns Slug của tenant và cờ kho riêng, hoặc `null` khi
-   *   tenant không tồn tại ở kho chung.
+   *   tenant không tồn tại ở kho nào.
    */
   async spaceTargetForTenant(tenantId: string): Promise<{ slug: string; dedicated: boolean } | null> {
-    const row = await tenantAls.run({ platform: true }, () => this.repo.getTenant(tenantId));
+    const row = await this.tenantRowForTargetResolution(tenantId);
     if (!row) return null;
     try {
       const target = await this.spaceDb.resolveTarget(row.slug);
@@ -384,6 +399,56 @@ export class TenantsService {
       }
       throw err;
     }
+  }
+
+  /**
+   * Dòng tenant dùng cho bước phân giải đích kho (issue #587,
+   * tiền điều kiện TĐ6): thứ tự tra cứu phản ánh nguyên tắc dữ
+   * kiện nghiệp vụ đọc tại kho đích, tầng điều khiển chỉ giữ thư
+   * mục định tuyến:
+   * 1. Khi ngữ cảnh hiện tại đã phân giải tới một không gian
+   *    (`spaceSlug` do tầng gắn ngữ cảnh nạp từ Host của
+   *    request), đọc dòng tenant theo id TRONG kho của không
+   *    gian đó trước. Trung tâm cấp phát mới chỉ có dòng tenant
+   *    trong kho của chính nó — pipeline cấp phát không ghi dòng
+   *    nào vào kho chung — nên tra kho chung trước sẽ kết luận
+   *    sai "không tồn tại" cho đúng trung tâm đang phục vụ
+   *    request. Lượt đọc bọc ngữ cảnh platform NGOÀI
+   *    `withSpaceDatabase` theo đúng khuôn `getTenantInSpace`:
+   *    bảng `tenants` mang RLS theo `app.tenant_id` và ngữ cảnh
+   *    của nơi gọi không đáng tin cho việc tra cứu này. Không
+   *    gian của ngữ cảnh chưa đăng ký hoặc tầng định tuyến chưa
+   *    cấu hình → lượt đọc coi như không có kết quả và rơi
+   *    xuống bước 2; lỗi phân giải còn lại (bí mật/role lệch
+   *    sổ) ném ra nguyên trạng — fail-closed.
+   * 2. Ngoài ngữ cảnh không gian, hoặc id không có trong kho
+   *    của không gian ngữ cảnh: tra dòng thư mục ở kho chung
+   *    trong ngữ cảnh platform như trước — đường của các tenant
+   *    đã di trú (dòng thư mục còn ở kho chung) và của mọi
+   *    request ở địa chỉ platform.
+   *
+   * @param tenantId - Định danh tenant cần tra dòng.
+   * @returns Dòng tenant tìm được, hoặc `undefined` khi không
+   *   kho nào có dòng của tenant này.
+   */
+  private async tenantRowForTargetResolution(tenantId: string): Promise<TenantRow | undefined> {
+    const contextSlug = tenantAls.getStore()?.spaceSlug;
+    if (contextSlug) {
+      try {
+        const inContextSpace = await tenantAls.run({ platform: true }, () =>
+          this.spaceDb.withSpaceDatabase(contextSlug, () => this.repo.getTenant(tenantId)),
+        );
+        if (inContextSpace) return inContextSpace;
+      } catch (err) {
+        if (
+          !(err instanceof SpaceRoutingError) ||
+          (err.code !== 'space_routing.space_not_found' && err.code !== 'space_routing.not_configured')
+        ) {
+          throw err;
+        }
+      }
+    }
+    return tenantAls.run({ platform: true }, () => this.repo.getTenant(tenantId));
   }
 
   /**
@@ -676,44 +741,43 @@ export class TenantsService {
    * để cổng membership của evaluator tiếp tục hoạt động trong kho
    * riêng mà không cần bất kỳ tra cứu nào sang kho chung. Cổng quản
    * trị tenant cũng xét trong kho riêng: quản trị của trung tâm
-   * khác (kể cả quản trị platform ở kho chung) không tạo được tài
-   * khoản ở đây.
+   * được nhận diện từ danh sách `siteadmins` của chính kho đó, và
+   * quản trị platform cũng được nhận diện trong ngữ cảnh này qua
+   * phép hợp nhất một chiều của evaluator — lớp phủ của người vận
+   * hành platform, không tạo membership hay tài khoản nào cho họ
+   * trong kho riêng, và chiều ngược lại không tồn tại (kho chung
+   * không bao giờ thấy danh sách của kho riêng). Riêng cổng đăng
+   * nhập platform vẫn ghim danh sách của kho chung, nên quản trị
+   * trung tâm không qua được cổng đó tại bất kỳ địa chỉ nào.
    */
   async createTenantUser(actorId: string, tenantId: string, dto: CreateTenantUserDto): Promise<TenantUserView> {
-    // Tra tenant đích ở kho chung trước để lấy slug — slug là khoá
-    // phân giải không gian; tra cứu này là đường hệ thống nên bọc
-    // ngữ cảnh platform như các method vòng đời khác.
-    const tenant = await tenantAls.run({ platform: true }, () => this.getTenant(tenantId));
-    let targetMode: string | undefined;
-    try {
-      targetMode = (await this.spaceDb.resolveTarget(tenant.slug)).mode;
-    } catch (err) {
-      // Chỉ hai lỗi này mới nghĩa là "không phải trung tâm kho
-      // riêng" và được rơi xuống đường kho chung bên dưới: slug
-      // chưa có dòng đăng ký (space_not_found) và tầng định tuyến
-      // chưa cấu hình (not_configured). Mọi lỗi phân giải còn lại
-      // là lỗi cấu hình của một trung tâm kho riêng ĐÃ đăng ký (bí
-      // mật thiếu hoặc không hợp lệ, role lệch sổ, mode lưu trữ
-      // lạ): nuốt chúng ở đây sẽ lặng lẽ tạo tài khoản toàn cục
-      // kèm membership xuyên trung tâm ở kho chung cho một trung
-      // tâm phải nằm trong kho riêng, nên ném ra nguyên trạng để
-      // thao tác thất bại — fail-closed, cùng kỷ luật với
-      // `resolveDedicatedSpace` ở tầng phân giải địa chỉ.
-      if (
-        err instanceof SpaceRoutingError &&
-        (err.code === 'space_routing.space_not_found' || err.code === 'space_routing.not_configured')
-      ) {
-        targetMode = undefined;
-      } else {
-        throw err;
-      }
+    // Phân giải đích kho của tenant đích qua điểm phân giải dùng
+    // chung `spaceTargetForTenant` — cùng kỷ luật lỗi đã có ở đó:
+    // chỉ "chưa đăng ký kho riêng / tầng định tuyến chưa cấu
+    // hình" mới rơi xuống đường kho chung; lỗi cấu hình của một
+    // trung tâm kho riêng ĐÃ đăng ký (bí mật thiếu hoặc không hợp
+    // lệ, role lệch sổ) ném ra nguyên trạng — nuốt chúng sẽ lặng
+    // lẽ tạo tài khoản toàn cục kèm membership xuyên trung tâm ở
+    // kho chung cho một trung tâm phải nằm trong kho riêng.
+    // Điểm phân giải này đọc dòng tenant tại kho của không gian
+    // mà ngữ cảnh đã phân giải tới trước khi tra kho chung, nên
+    // trung tâm cấp phát mới (chỉ có dòng tenant trong kho của
+    // chính nó — tiền điều kiện TĐ6, issue #587) tới được nhánh
+    // kho riêng; trước đây bước tra kho chung ở ngay đầu method
+    // này ném `tenant.not_found` oan cho đúng trung tâm đó dù
+    // nhánh kho riêng đã sẵn sàng phía dưới.
+    const target = await this.spaceTargetForTenant(tenantId);
+    if (target?.dedicated) {
+      return this.createTenantUserInSpace(actorId, target.slug, dto);
     }
-    if (targetMode === 'dedicated') {
-      return this.createTenantUserInSpace(actorId, tenant.slug, dto);
-    }
-    // Ngữ cảnh platform (HOTFIX #196 vòng 2): membership gắn ngay sau
+    // Ngữ cảnh platform (HOTFIX #196 vòng 2): kiểm tra tồn tại
+    // trước (tenant không tồn tại ở kho nào vẫn 404
+    // `tenant.not_found` như trước) và membership gắn ngay sau
     // khi tạo user thuộc tenant đích — cùng lý do với addMember.
-    return tenantAls.run({ platform: true }, () => this.createTenantUserInContext(actorId, tenantId, dto));
+    return tenantAls.run({ platform: true }, async () => {
+      await this.getTenant(tenantId);
+      return this.createTenantUserInContext(actorId, tenantId, dto);
+    });
   }
 
   private async createTenantUserInSpace(

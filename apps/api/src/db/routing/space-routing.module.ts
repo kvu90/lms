@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { ControlPlaneModule } from '../../modules/control-plane/control-plane.module';
 import { SpaceDatabaseService } from './space-database.service';
 
@@ -11,7 +11,13 @@ import { SpaceDatabaseService } from './space-database.service';
  * và cho các tầng gắn ngữ cảnh/trình nền ở các issue kế tiếp.
  */
 @Module({
-  imports: [ControlPlaneModule],
+  // forwardRef ở cạnh ControlPlaneModule: module này thuộc vòng
+  // module tường minh AccessModule → SpaceRoutingModule →
+  // ControlPlaneModule → AccessModule kể từ khi AccessModule
+  // import ngược module này cho PermissionEvaluator (issue #587,
+  // tiền điều kiện TĐ6) — forwardRef ở mọi cạnh của vòng như
+  // khuôn AuthModule ↔ UsersModule (xem access.module.ts).
+  imports: [forwardRef(() => ControlPlaneModule)],
   providers: [SpaceDatabaseService],
   exports: [SpaceDatabaseService],
 })

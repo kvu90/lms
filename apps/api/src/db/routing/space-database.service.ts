@@ -95,6 +95,19 @@ export class SpaceDatabaseService implements OnModuleDestroy {
    * chung.
    */
   private readonly dedicatedSlugs = new Set<string>();
+  /**
+   * Tên database kho riêng đã phân giải gần nhất theo slug — trí
+   * nhớ tối thiểu đi cùng `dedicatedSlugs`: mục đã-chuẩn-bị bị
+   * thu hồi khi pool đóng, nhưng danh tính kho của một trung tâm
+   * đã phân giải kho riêng phải còn tra được (xem
+   * `currentContextDatabaseName`) để tầng phía trên gắn đúng
+   * danh tính kho cho dữ kiện chỉ có nghĩa trong một kho, thay
+   * vì rơi về danh tính kho chung trong cửa sổ
+   * đã-chuẩn-bị-bị-thu-hồi. Mục của một slug bị xoá khi lần
+   * chuẩn bị sau kết luận slug đó ở kho chung — cùng nhịp với
+   * `dedicatedSlugs`.
+   */
+  private readonly dedicatedDatabaseNames = new Map<string, string>();
 
   /** Handle định tuyến theo ngữ cảnh — xem mô tả lớp. Tạo một lần, uỷ thác theo ngữ cảnh tại mỗi lần dùng. */
   readonly routedDatabase: Database;
@@ -208,12 +221,43 @@ export class SpaceDatabaseService implements OnModuleDestroy {
     return this.prepared.has(slug);
   }
 
+  /**
+   * Tên database của kho mà handle định tuyến sẽ phục vụ cho
+   * ngữ cảnh ALS hiện tại — bản tra ĐỒNG BỘ lấy cùng quyết định
+   * đích với `currentDatabase`, dành cho các tầng cần gắn danh
+   * tính kho cho dữ kiện chỉ có nghĩa trong đúng một kho (điển
+   * hình: khoá cache của cấu hình `siteadmins` ở
+   * PermissionEvaluator, issue #587 TĐ6 — giá trị là id người
+   * dùng của một kho, đọc nhầm danh tính kho là áp danh sách
+   * admin của kho này cho ngữ cảnh của kho khác):
+   * - Ngữ cảnh không mang slug, hoặc slug chưa từng được chuẩn
+   *   bị ở kho riêng (kể cả slug chưa chuẩn bị lần nào): trả
+   *   `undefined` — handle định tuyến đang phục vụ bằng kho
+   *   chung theo hợp đồng chuẩn bị-trước, bên gọi dùng danh
+   *   tính kho chung của chính nó.
+   * - Slug đã phân giải kho riêng: trả tên database trong sổ
+   *   đăng ký mà lần chuẩn bị gần nhất đã chốt cho slug đó —
+   *   kể cả khi mục đã-chuẩn-bị đã bị thu hồi vì pool đóng:
+   *   lượt đọc qua handle lúc đó fail-closed ở
+   *   `currentDatabase`, nhưng danh tính kho của ngữ cảnh vẫn
+   *   là kho riêng đó, tuyệt đối không rơi về kho chung.
+   *
+   * @returns Tên database kho riêng của ngữ cảnh, hoặc
+   *   `undefined` khi ngữ cảnh đang được phục vụ bằng kho chung.
+   */
+  currentContextDatabaseName(): string | undefined {
+    const slug = tenantAls.getStore()?.spaceSlug;
+    if (!slug || !this.dedicatedSlugs.has(slug)) return undefined;
+    return this.dedicatedDatabaseNames.get(slug);
+  }
+
   async getDatabaseForSpace(slug: string): Promise<Database> {
     const target = await this.resolver.resolve(slug);
     if (target.mode === 'shared') {
       const db = this.requireSharedDatabase();
       this.prepared.set(slug, { db, databaseName: target.databaseName });
       this.dedicatedSlugs.delete(slug);
+      this.dedicatedDatabaseNames.delete(slug);
       return db;
     }
     const connectionString = target.connectionString;
@@ -236,6 +280,7 @@ export class SpaceDatabaseService implements OnModuleDestroy {
     });
     this.prepared.set(slug, { db: handle.db, databaseName: target.databaseName });
     this.dedicatedSlugs.add(slug);
+    this.dedicatedDatabaseNames.set(slug, target.databaseName);
     return handle.db;
   }
 

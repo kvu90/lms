@@ -1,7 +1,9 @@
-import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Optional } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { ConfigService } from '@nestjs/config';
 import type { Cache } from 'cache-manager';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
+import { tenantAls } from '../tenants/tenant-als';
 import { AccessRepository, type ContextRow } from './access.repository';
 import { ContextsService } from './contexts.service';
 import { CAPABILITY_DEFINITIONS, CONTEXT_LEVELS } from './domain/capabilities';
@@ -33,30 +35,37 @@ const ACCESS_CACHE_TTL_MS = 60 * 60 * 1000;
  */
 export class PermissionEvaluator {
   /**
-   * Khoá cache của cấu hình `siteadmins` của riêng tiến trình này:
-   * `access:siteadmins:<tên cơ sở dữ liệu>` — điểm ghi duy nhất là
-   * `setSiteAdmins` của chính evaluator nên ghi xuyên tại đó giữ hiệu
-   * lực tức thì.
+   * Tên database của KHO CHUNG của tiến trình này (suy từ
+   * `DATABASE_URL` như các consumer outbox đã làm cho khoá
+   * watermark của chúng) — nửa kho chung của danh tính kho trong
+   * khoá cache của cấu hình `siteadmins` (xem
+   * `siteAdminsCacheKey`).
    *
-   * Tên cơ sở dữ liệu (suy từ `DATABASE_URL` như các consumer outbox
-   * đã làm cho khoá watermark của chúng) là phần bắt buộc phải có
-   * trong khoá: giá trị của mục cache là id người dùng — chỉ có
-   * nghĩa trong đúng một cơ sở dữ liệu — trong khi một Redis có thể
-   * được nhiều tiến trình trỏ vào các cơ sở dữ liệu khác nhau dùng
-   * chung (CI chạy nhiều DB test trên một Redis; spec
-   * seed-bootstrap spawn app con với `DATABASE_URL` khác nhưng cùng
-   * `REDIS_URL`). Khoá trần không nhúng cơ sở dữ liệu làm các tiến
-   * trình đó đọc/ghi lẫn mục của nhau: app con thấy danh sách admin
-   * của DB lạ, tưởng admin đầu tiên đã tồn tại nên bỏ qua việc tạo,
-   * và đăng nhập admin của DB con không bao giờ thành công.
+   * Tên cơ sở dữ liệu là phần bắt buộc phải có trong khoá: giá trị
+   * của mục cache là id người dùng — chỉ có nghĩa trong đúng một
+   * cơ sở dữ liệu — trong khi một Redis có thể được nhiều tiến
+   * trình trỏ vào các cơ sở dữ liệu khác nhau dùng chung (CI chạy
+   * nhiều DB test trên một Redis; spec seed-bootstrap spawn app
+   * con với `DATABASE_URL` khác nhưng cùng `REDIS_URL`). Khoá trần
+   * không nhúng cơ sở dữ liệu làm các tiến trình đó đọc/ghi lẫn
+   * mục của nhau: app con thấy danh sách admin của DB lạ, tưởng
+   * admin đầu tiên đã tồn tại nên bỏ qua việc tạo, và đăng nhập
+   * admin của DB con không bao giờ thành công.
    */
-  private readonly siteAdminsCacheKey: string;
+  private readonly sharedDatabaseName: string;
 
   constructor(
     private readonly repo: AccessRepository,
     private readonly contexts: ContextsService,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
     @Inject(ConfigService) config: ConfigService,
+    // Khung định tuyến kho theo trung tâm — nguồn danh tính kho
+    // riêng của ngữ cảnh hiện tại cho khoá cache `siteadmins`
+    // (xem `siteAdminsCacheKey`). Tuỳ chọn ở tầng dựng để các
+    // spec dựng evaluator trực tiếp không phải dựng cả khung
+    // định tuyến: khi vắng mặt, evaluator suy khoá như trước —
+    // mọi ngữ cảnh đều theo danh tính kho chung của tiến trình.
+    @Optional() @Inject(SpaceDatabaseService) private readonly spaceDb?: SpaceDatabaseService,
   ) {
     let databaseName = 'default';
     try {
@@ -65,15 +74,78 @@ export class PermissionEvaluator {
       // DATABASE_URL không parse được: dùng đoạn khoá mặc định — cấu
       // hình không hợp lệ vốn đã bị chặn ở tầng validate env khi boot.
     }
-    this.siteAdminsCacheKey = `access:siteadmins:${databaseName}`;
+    this.sharedDatabaseName = databaseName;
+  }
+
+  /**
+   * Khoá cache của cấu hình `siteadmins` cho NGỮ CẢNH HIỆN TẠI:
+   * `access:siteadmins:<tên cơ sở dữ liệu của kho đang phục vụ
+   * ngữ cảnh>` — điểm ghi duy nhất là `setSiteAdmins` của chính
+   * evaluator nên ghi xuyên tại đó giữ hiệu lực tức thì.
+   *
+   * Khoá phải mang danh tính của kho mà handle định tuyến sẽ
+   * đọc/ghi cho ngữ cảnh hiện tại, vì repository đọc cấu hình
+   * qua chính handle đó: ngữ cảnh đã phân giải tới một trung tâm
+   * kho riêng thì giá trị đọc ra là danh sách admin CỦA KHO ĐÓ.
+   * Danh tính lấy từ khung định tuyến
+   * (`SpaceDatabaseService.currentContextDatabaseName` — cùng
+   * quyết định đích với chính handle định tuyến): ngữ cảnh kho
+   * riêng thì dùng tên database trong sổ đăng ký đã phân giải
+   * cho ngữ cảnh; mọi trường hợp còn lại (không slug, slug ở
+   * kho chung, slug chưa được chuẩn bị ở kho riêng) thì kho
+   * đang phục vụ ngữ cảnh là kho chung nên dùng tên database
+   * chính của tiến trình. Trước tiền điều kiện TĐ6 (issue #587)
+   * khoá chốt cứng theo `DATABASE_URL` của tiến trình — mù kho:
+   * kho nào được đọc trước thắng cả TTL dưới khoá duy nhất đó,
+   * nên quản trị của một trung tâm kho riêng không bao giờ được
+   * nhận diện trong chính trung tâm của mình (cache luôn chứa
+   * sẵn danh sách của kho chung), và chiều ngược lại danh tính
+   * admin của kho này có thể bị áp khi chấm quyền trong ngữ
+   * cảnh của kho khác.
+   */
+  private siteAdminsCacheKey(): string {
+    return `access:siteadmins:${this.spaceDb?.currentContextDatabaseName() ?? this.sharedDatabaseName}`;
   }
 
   /** Site admin (tương đương $CFG->siteadmins, khoá config `siteadmins`) bỏ qua mọi kiểm tra capability. */
   /**
-   * User có nằm trong danh sách site admin (config siteadmins) hay không — admin bỏ qua mọi capability check.
+   * User có nằm trong danh sách site admin hay không — admin bỏ qua mọi capability check.
+   *
+   * HỢP NHẤT MỘT CHIỀU (TĐ6, issue #587): trong ngữ cảnh kho riêng,
+   * user được nhận diện nếu thuộc danh sách site admin CỦA KHO ĐÓ
+   * hoặc danh sách site admin PLATFORM (kho chung) — lớp phủ của
+   * người vận hành platform, giữ lượt đọc A1 của bề mặt platform
+   * vào trung tâm kho riêng (spec TĐ3) mà không tạo membership hay
+   * gán vai nào trong kho trung tâm. Chiều ngược không tồn tại:
+   * trong ngữ cảnh kho chung chỉ danh sách kho chung được dùng,
+   * danh sách kho riêng không bao giờ rò sang. Cổng đăng nhập
+   * platform KHÔNG dùng phép này mà dùng `isPlatformSiteAdmin`
+   * (ghim kho chung tường minh) để quản trị trung tâm không qua
+   * được cổng platform tại địa chỉ trung tâm mình.
    */
   async isSiteAdmin(userId: string): Promise<boolean> {
     const raw = await this.siteAdminsConfig();
+    if (Array.isArray(raw) && raw.map((v) => String(v)).includes(userId)) return true;
+    // Ngữ cảnh kho riêng mới cần lớp phủ platform: danh tính kho
+    // của ngữ cảnh do khung định tuyến báo (không phải kho chung)
+    // thì tra thêm danh sách platform; ngữ cảnh kho chung dừng ở
+    // danh sách vừa đọc — không có chiều rò ngược.
+    if (this.spaceDb?.currentContextDatabaseName() !== undefined) {
+      return this.isPlatformSiteAdmin(userId);
+    }
+    return false;
+  }
+  /**
+   * User có nằm trong danh sách site admin CỦA KHO CHUNG
+   * (platform) hay không — phép tra ghim tường minh cho cổng
+   * đăng nhập platform: lượt đọc chạy trong ngữ cảnh ALS đã
+   * lược slug không gian nên handle định tuyến và khoá cache đều
+   * rơi về kho chung, bất kể ngữ cảnh kho hiện hành của request.
+   * Dùng cho `platformLogin` và `verifyPlatformMfa`; mọi phép
+   * gác còn lại dùng `isSiteAdmin` (hợp nhất một chiều).
+   */
+  async isPlatformSiteAdmin(userId: string): Promise<boolean> {
+    const raw = await tenantAls.run({ platform: true }, async () => this.siteAdminsConfig());
     if (!Array.isArray(raw)) return false;
     return raw.map((v) => String(v)).includes(userId);
   }
@@ -88,13 +160,14 @@ export class PermissionEvaluator {
    * Thay danh sách site admin (lưu vào config) và ghi xuyên vào cache:
    * danh sách là dữ kiện gác cổng nên bản mới phải hiệu lực ngay ở lượt
    * đọc sau, không chờ TTL — cùng điều kiện hiệu lực như khi đọc thẳng
-   * từ DB như trước. Mục ghi xuyên nằm dưới khoá đã cô lập theo cơ sở
-   * dữ liệu của tiến trình (xem `siteAdminsCacheKey`) nên không chạm
-   * tới mục của tiến trình khác dùng chung Redis.
+   * từ DB như trước. Mục ghi xuyên nằm dưới khoá của đúng kho đang
+   * được ghi trong ngữ cảnh hiện tại (xem `siteAdminsCacheKey`) nên
+   * không chạm tới mục của kho khác hay của tiến trình khác dùng
+   * chung Redis.
    */
   async setSiteAdmins(userIds: string[]): Promise<void> {
     await this.repo.setConfigValue('siteadmins', userIds);
-    await this.cache.set(this.siteAdminsCacheKey, userIds, ACCESS_CACHE_TTL_MS);
+    await this.cache.set(this.siteAdminsCacheKey(), userIds, ACCESS_CACHE_TTL_MS);
   }
 
   /**
@@ -104,15 +177,20 @@ export class PermissionEvaluator {
    * ghi DB), nên mục cache không bao giờ lệch khỏi DB ở các đường ghi
    * hiện có. Giá trị vắng mặt trong DB được ghi vào cache dưới dạng
    * `null` để phân biệt với "chưa từng đọc". Mục cache nằm dưới khoá
-   * cô lập theo cơ sở dữ liệu của tiến trình: một tiến trình chỉ bao
-   * giờ thấy danh sách admin của đúng DB nó đang dùng, kể cả khi
-   * nhiều tiến trình dùng chung một Redis.
+   * của đúng kho mà ngữ cảnh hiện tại đang đọc (xem
+   * `siteAdminsCacheKey`): một lượt đọc nguyên thuỷ chỉ bao giờ thấy
+   * danh sách admin của đúng kho của nó — kể cả khi nhiều tiến trình
+   * dùng chung một Redis và kể cả khi cùng một tiến trình phục vụ
+   * nhiều kho. Lớp hợp nhất một chiều nằm ở `isSiteAdmin` (đọc
+   * thêm danh sách platform trong ngữ cảnh kho riêng), không nằm
+   * ở tầng cache này: các khoá cache vẫn tách bạch theo từng kho.
    */
   private async siteAdminsConfig(): Promise<unknown> {
-    const cached = await this.cache.get<unknown>(this.siteAdminsCacheKey);
+    const cacheKey = this.siteAdminsCacheKey();
+    const cached = await this.cache.get<unknown>(cacheKey);
     if (cached !== undefined) return cached === null ? undefined : cached;
     const raw = await this.repo.getConfigValue('siteadmins');
-    await this.cache.set(this.siteAdminsCacheKey, raw ?? null, ACCESS_CACHE_TTL_MS);
+    await this.cache.set(cacheKey, raw ?? null, ACCESS_CACHE_TTL_MS);
     return raw;
   }
 
