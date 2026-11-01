@@ -533,6 +533,20 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
       }
       await db.insert(tenantMemberships).values({ tenantId, userId: adminUserId, status: 'active' })
         .onConflictDoNothing({ target: [tenantMemberships.tenantId, tenantMemberships.userId] });
+      // Mục THƯ MỤC THÀNH VIÊN cho quản trị đầu tiên (issue #587,
+      // hạng mục 3 — thiết kế B1): bộ chọn trung tâm của các
+      // không gian kho riêng đọc thư mục ở control plane, nên
+      // membership vừa tạo trong kho trung tâm phải có mục thư
+      // mục ngay trong cùng lượt cấp phát. Tài khoản này chỉ tồn
+      // tại trong kho trung tâm — cả hai phía định danh của mục
+      // đều mang định danh tại kho đích; bộ chọn tra theo định
+      // danh tại kho đích sẽ thấy trung tâm này.
+      await writer.upsertMembershipDirectoryEntry({
+        globalUserId: adminUserId,
+        spaceSlug: slug,
+        spaceUserId: adminUserId,
+        status: 'active',
+      });
       const [siteAdminsRow] = await db.select().from(config).where(eq(config.key, 'siteadmins')).limit(1);
       const currentAdmins = Array.isArray(siteAdminsRow?.value) ? (siteAdminsRow!.value as unknown[]).map((v) => String(v)) : [];
       if (!currentAdmins.includes(adminUserId)) {

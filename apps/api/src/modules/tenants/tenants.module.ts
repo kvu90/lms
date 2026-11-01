@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { SpaceRoutingModule } from '../../db/routing/space-routing.module';
 import { EventsModule } from '../../infra/events/events.module';
 import { AccessModule } from '../access/access.module';
+import { ControlPlaneModule } from '../control-plane/control-plane.module';
 import { UsersModule } from '../users/users.module';
 import { CentreIdentityController } from './centre-identity.controller';
 import { CentreIdentityRepository } from './centre-identity.repository';
@@ -25,7 +26,7 @@ import { TenantsService } from './tenants.service';
  * import module này để lấy TenantContextService/TenantsService.
  */
 @Module({
-  imports: [AccessModule, UsersModule, EventsModule, SpaceRoutingModule],
+  imports: [AccessModule, UsersModule, EventsModule, SpaceRoutingModule, ControlPlaneModule],
   controllers: [TenantsController, CentreIdentityController],
   providers: [
     TenantsRepository,
