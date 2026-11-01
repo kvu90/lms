@@ -38,7 +38,10 @@
  *    context hệ thống của kho đích). Ghi nhận bản cài (phiên bản +
  *    checksum) để lần chạy lại biết kho này đã ở bản nào: bản cài
  *    khớp thì bỏ qua; chưa có bản cài mà dữ kiện đã có (chết giữa
- *    lúc restore và lúc ghi bản cài) thì chỉ ghi bản cài.
+ *    lúc restore và lúc ghi bản cài) thì chỉ ghi bản cài. Cùng bước
+ *    này cài thêm BỘ VAI MẶC ĐỊNH hiện hành vào kho đích (bước ghi
+ *    nhận `role-baseline`): cơ chế chuyển tiếp để trung tâm mới có
+ *    vai mà gán ngay khi mở — xem `installCentreRoleBaseline`.
  * 5. Nhận diện: dòng `centre_identity` (tên hiển thị = tên trung
  *    tâm, logo/chưa có, màu/chưa đặt) — dữ kiện này sống trong kho
  *    của trung tâm, không nằm ở sổ đăng ký control plane.
@@ -95,7 +98,14 @@ import {
   retargetUrl,
 } from '../fleet/fleet-common';
 import { FleetRegistryWriter } from '../fleet/fleet-registry-writer';
-import { CONTEXT_LEVELS } from '../access/domain/capabilities';
+import { AccessRepository } from '../access/access.repository';
+import { ContextsService } from '../access/contexts.service';
+import { RolesService } from '../access/roles.service';
+import { PlanLimitsService } from '../access/plan-limits.service';
+import { RoleSeparationService } from '../access/role-separation.service';
+import { OutboxService } from '../../infra/events/outbox.service';
+import type { Database } from '../../db/database';
+import { CONTEXT_LEVELS, DEFAULT_ROLES } from '../access/domain/capabilities';
 import { isDedicatedDatabaseNameConflict } from '../control-plane/control-plane.repository';
 import {
   loadProgramDumpSql,
@@ -211,6 +221,56 @@ async function assertCentreRoleIsClean(admin: Client, role: string): Promise<voi
     const names = members.rows.map((member) => member.rolname).join(', ');
     throw new Error(`Role ${role} is a member of privileged role(s) (${names}) — refusing to adopt it as a centre connection role`);
   }
+}
+
+/**
+ * Cài bộ vai mặc định hiện hành vào kho của một trung tâm — cơ chế
+ * CHUYỂN TIẾP trong chương trình tenant: trung tâm mới cấp phát
+ * phải có sẵn bộ vai để quản trị gán ngay khi trung tâm mở, trong
+ * lúc mẫu quyền chính thức (đi qua migration có phiên bản) thuộc
+ * một đợt riêng chưa thi công. Khi đợt đó thi công, bước chuyển
+ * tiếp này được thay thế tại đó; ở đây tuyệt đối không định nghĩa
+ * mô hình vai mới.
+ *
+ * Tái dùng đúng đường gieo của kho chung: dựng các service của
+ * module access trên CHÍNH handle của kho đích rồi gọi nguyên
+ * `RolesService.seedDefaults` — định nghĩa vai/năng lực
+ * (`DEFAULT_ROLES`, `CAPABILITY_DEFINITIONS`) và logic gieo chỉ
+ * có một nguồn duy nhất ở module access, không sao chép danh sách
+ * sang pipeline này. Các service còn lại trong bộ phụ thuộc của
+ * `RolesService` (outbox, hạn mức gói, tách vai) được dựng cùng
+ * handle nhưng `seedDefaults` không gọi tới chúng.
+ *
+ * Idempotent theo khuôn các bước còn lại của pipeline (kiểm tra
+ * trạng thái trước khi làm): kho đã có ĐỦ bộ vai mặc định thì bỏ
+ * qua toàn bộ (`reused`) — lần chạy lại không tạo trùng và không
+ * ghi đè thay đổi cục bộ mà quản trị trung tâm đã áp lên bộ vai
+ * của kho mình. Kho mới hoặc còn thiếu vai (lượt cài trước chết
+ * dở dang) thì `seedDefaults` lấp đủ: nó tự tạo vai còn thiếu và
+ * đồng bộ ma trận mặc định tại context hệ thống.
+ *
+ * @param db - Handle Drizzle của kho đích (kết nối đã mang ngữ
+ *   cảnh platform để qua RLS như mọi ghi seed của pipeline).
+ * @returns `created` khi lượt này đã chạy đường gieo, `reused`
+ *   khi kho đã có đủ bộ vai nên không đổi gì.
+ */
+async function installCentreRoleBaseline(db: Database): Promise<'created' | 'reused'> {
+  const accessRepository = new AccessRepository(db);
+  const contextsService = new ContextsService(accessRepository);
+  const rolesService = new RolesService(
+    accessRepository,
+    contextsService,
+    new OutboxService(db),
+    new PlanLimitsService(db),
+    new RoleSeparationService(db),
+  );
+  const existingRoles = await rolesService.listRoles();
+  const presentShortNames = new Set(existingRoles.map((row) => row.shortName));
+  if (DEFAULT_ROLES.every((definition) => presentShortNames.has(definition.shortName))) {
+    return 'reused';
+  }
+  await rolesService.seedDefaults();
+  return 'created';
 }
 
 /**
@@ -506,6 +566,11 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
         }
       }
       step('seed', 'created');
+      // Bộ vai mặc định của kho trung tâm (cơ chế chuyển tiếp —
+      // xem `installCentreRoleBaseline`): cài sau khi context hệ
+      // thống và dòng tenant đã có, vì ma trận mặc định neo vào
+      // context hệ thống của chính kho này.
+      step('role-baseline', await installCentreRoleBaseline(db));
       // Nhận diện của trung tâm (một dòng cho mỗi tenant).
       const [existingIdentity] = await db.select().from(centreIdentity).where(eq(centreIdentity.tenantId, tenantId)).limit(1);
       if (!existingIdentity) {
@@ -681,6 +746,71 @@ export async function manageCentreInvite(options: CentreInviteOptions): Promise<
         tokenHash: hashCentreInviteToken(inviteToken), expiresAt: inviteExpiresAt,
       });
       return { slug, userId: user.id, revokedCount: pending.length, inviteToken, inviteExpiresAt };
+    } finally {
+      await client.end().catch(() => undefined);
+    }
+  } finally {
+    await writer.close().catch(() => undefined);
+  }
+}
+
+/** Đầu vào của lệnh cài riêng bộ vai mặc định cho trung tâm đã cấp phát. */
+export type SpaceRoleBaselineOptions = {
+  slug: string;
+  env?: NodeJS.ProcessEnv;
+  log?: (message: string) => void;
+};
+
+/** Kết quả lệnh cài bộ vai: `created` = lượt này đã cài, `reused` = kho đã có đủ bộ vai nên không đổi gì. */
+export type SpaceRoleBaselineResult = {
+  slug: string;
+  outcome: 'created' | 'reused';
+};
+
+/**
+ * Cài bộ vai mặc định vào kho của một trung tâm ĐÃ cấp phát (lệnh
+ * `install-roles` của CLI cấp phát) — đường áp cơ chế chuyển tiếp
+ * cho các trung tâm được cấp phát trước khi bước `role-baseline`
+ * có trong pipeline, mà không cấp phát lại. Kết nối lấy từ sổ
+ * đăng ký control plane (tham chiếu bí mật `env:` → biến môi
+ * trường mang URL của kho trung tâm), cùng khuôn với lệnh cấp lại
+ * lời mời. Idempotent như bước trong pipeline: kho đã có đủ bộ
+ * vai thì không đổi gì.
+ *
+ * @param options - Slug của trung tâm.
+ * @returns Kết quả lượt cài (xem `SpaceRoleBaselineResult`).
+ * @throws Error khi trung tâm chưa đăng ký, không phải trung tâm
+ *   kho riêng, chưa có dòng tenant trong kho của nó, hoặc biến môi
+ *   trường URL kết nối của trung tâm chưa có trong môi trường
+ *   chạy lệnh.
+ */
+export async function installSpaceRoleBaseline(options: SpaceRoleBaselineOptions): Promise<SpaceRoleBaselineResult> {
+  const env = options.env ?? process.env;
+  const log = options.log ?? ((message: string) => console.log(message));
+  const slug = normalizeSpaceSlug(options.slug);
+  if (!env.CONTROL_PLANE_DATABASE_URL) throw new Error('CONTROL_PLANE_DATABASE_URL is required');
+  const writer = new FleetRegistryWriter(env);
+  try {
+    const space = await writer.findSpaceBySlug(slug);
+    if (!space) throw new Error(`Space ${slug} is not registered`);
+    if (space.storageMode !== 'dedicated') throw new Error(`Space ${slug} is not a dedicated centre space`);
+    const secretRef = space.secretRef;
+    if (!secretRef?.startsWith('env:')) throw new Error(`Space ${slug} has no env secret reference to connect with`);
+    const secretEnvVar = secretRef.slice('env:'.length);
+    const centreUrl = env[secretEnvVar];
+    if (!centreUrl) throw new Error(`Connection URL env var ${secretEnvVar} is not set in this environment`);
+    const client = new Client({ connectionString: centreUrl });
+    await client.connect();
+    try {
+      // GUC platform ở mức phiên như mọi đường ghi seed vào kho
+      // trung tâm: qua được RLS FORCE của kho.
+      await client.query(`SELECT set_config('app.platform', 'on', false)`);
+      const db = drizzle({ client, relations });
+      const [tenant] = await db.select().from(tenants).where(eq(tenants.slug, slug)).limit(1);
+      if (!tenant) throw new Error(`Tenant ${slug} does not exist in the centre database yet`);
+      const outcome = await installCentreRoleBaseline(db);
+      log(`[install-roles:${slug}] role-baseline: ${outcome}`);
+      return { slug, outcome };
     } finally {
       await client.end().catch(() => undefined);
     }
