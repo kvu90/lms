@@ -21,7 +21,7 @@ import type { ContextRow } from '#lib/access';
 import { contextOptionLabel } from '../api/context-labels';
 import { adminUsersQueryOptions } from '../queries/admin-users';
 import { useCreateRoleAssignment } from '../queries/admin-roles';
-import { NATIVE_SELECT_CLASS } from './native-select-class';
+import { AdminSelect } from './admin-select';
 
 /**
  * Hộp thoại gán vai trò của feature admin, dựng trên component
@@ -238,35 +238,30 @@ export function RoleAssignmentDialog({
           )}
           <Field>
             <FieldLabel htmlFor="assign-dialog-role">{t('role')}</FieldLabel>
-            <select
+            <AdminSelect
               id="assign-dialog-role"
-              className={NATIVE_SELECT_CLASS}
               value={roleId}
-              onChange={(e) => setRoleId(e.target.value)}
-            >
-              <option value="">{t('selectRole')}</option>
-              {roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
+              onValueChange={setRoleId}
+              options={[
+                { value: '', label: t('selectRole') },
+                ...roles.map((r) => ({ value: r.id, label: r.name })),
+              ]}
+            />
           </Field>
           <Field>
             <FieldLabel htmlFor="assign-dialog-context">{t('roleContext')}</FieldLabel>
-            <select
+            <AdminSelect
               id="assign-dialog-context"
-              className={NATIVE_SELECT_CLASS}
               value={effectiveContextId}
-              onChange={(e) => setContextId(e.target.value)}
-            >
-              <option value="">{t('selectContext')}</option>
-              {contexts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {contextOptionLabel(contexts, c, (key, options) => t(key, options))}
-                </option>
-              ))}
-            </select>
+              onValueChange={setContextId}
+              options={[
+                { value: '', label: t('selectContext') },
+                ...contexts.map((c) => ({
+                  value: c.id,
+                  label: contextOptionLabel(contexts, c, (key, options) => t(key, options)),
+                })),
+              ]}
+            />
           </Field>
         </FieldGroup>
         <DialogFooter>

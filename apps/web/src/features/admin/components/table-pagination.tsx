@@ -1,16 +1,19 @@
-import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
+import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
 import { Button } from '@lms/ui/components/button';
 
 /**
  * Chân phân trang của các bảng thuộc feature admin, dựng đúng số đo
- * của bảng mẫu: dòng tóm tắt bên trái (cỡ 14px, màu phụ), cụm nút bên
- * phải cách nhau gap-1 — nút số trang là nút vuông size-9 (36px),
- * trang hiện tại nền chính chữ trắng, các trang khác dạng ghost; nút
- * Trước/Sau cao h-9 kèm chevron, nhãn chữ của chúng ẩn ở bề rộng hẹp.
- * Số trang dài thì giữ trang đầu, trang cuối và ba trang quanh trang
- * hiện tại, khoảng nhảy thay bằng dấu ba chấm — cùng thuật toán với
- * chân bảng dùng chung của app nhưng số đo theo bảng mẫu của các bề
- * mặt vai trò & quyền (nút 36px thay vì 32px).
+ * của bảng mẫu: dòng tóm tắt bên trái (cỡ 14px, màu phụ, không xuống
+ * dòng), cụm nút bên phải cách nhau gap-1 — nút số trang là nút vuông
+ * size-9 (36px), trang hiện tại nền chính chữ trắng, các trang khác
+ * dạng ghost; nút Trước/Sau cao h-9 kèm chevron, nhãn chữ của chúng
+ * ẩn ở bề rộng hẹp. Ở bề rộng hẹp và trung bình, hai cụm xếp chồng
+ * dọc như chân bảng mẫu thay vì ép ngang. Số trang dài thì giữ trang
+ * đầu, trang cuối và ba trang quanh trang hiện tại, khoảng nhảy thay
+ * bằng biểu tượng ba chấm ngang — cùng thuật toán với chân bảng dùng
+ * chung của app nhưng số đo theo bảng mẫu của các bề mặt vai trò &
+ * quyền (nút 36px thay vì 32px). Mọi biểu tượng ở đây là Lucide như
+ * toàn bộ bản mẫu.
  *
  * Component chỉ trình bày: trạng thái trang và tổng số dòng do bề
  * mặt chứa giữ (phân trang phía server), component không tự cắt dữ
@@ -70,8 +73,8 @@ export function TablePagination({
   const current = page - 1;
   const pages = pageNumberList(Math.max(pageCount, 1), current);
   return (
-    <div className="flex items-center justify-between gap-3 px-6 py-4">
-      <p className="text-sm text-muted-foreground">{summary}</p>
+    <div className="flex items-center justify-between gap-3 px-6 py-4 max-sm:flex-col md:max-lg:flex-col">
+      <p className="text-sm whitespace-nowrap text-muted-foreground">{summary}</p>
       <nav aria-label="pagination" className="mx-0 w-auto">
         <ul className="flex flex-row items-center gap-1">
           <li>
@@ -82,16 +85,14 @@ export function TablePagination({
               disabled={current <= 0}
               onClick={() => onPageChange(current)}
             >
-              <IconChevronLeft className="size-4" />
+              <ChevronLeft className="size-4" />
               <span className="hidden sm:block">{previousLabel}</span>
             </Button>
           </li>
           {pages.map((item, index) =>
             item === 'ellipsis' ? (
               <li key={`ellipsis-${index}`} className="grid size-9 place-items-center">
-                <span aria-hidden="true" className="text-sm text-muted-foreground">
-                  …
-                </span>
+                <MoreHorizontal aria-hidden className="size-4 text-muted-foreground" />
               </li>
             ) : (
               <li key={item}>
@@ -117,7 +118,7 @@ export function TablePagination({
               onClick={() => onPageChange(current + 2)}
             >
               <span className="hidden sm:block">{nextLabel}</span>
-              <IconChevronRight className="size-4" />
+              <ChevronRight className="size-4" />
             </Button>
           </li>
         </ul>

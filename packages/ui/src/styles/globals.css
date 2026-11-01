@@ -53,6 +53,10 @@
   --font-mono: 'Geist Mono Variable', monospace;
   --color-green-500: #00c758;
   --color-yellow-500: #edb200;
+  --color-green-400: #05df72;
+  --color-green-600: #00a544;
+  --color-amber-400: #fcbb00;
+  --color-amber-600: #dd7400;
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);

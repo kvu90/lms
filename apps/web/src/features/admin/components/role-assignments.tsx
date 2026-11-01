@@ -14,16 +14,16 @@ import {
   TableHeader,
   TableRow,
 } from '@lms/ui/components/table';
-import { Search } from 'lucide-react';
+import { Plus, Search, UserMinus } from 'lucide-react';
 import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import '#config/i18n';
 import type { ContextRow } from '#lib/access';
-import { formatDate } from '#utils/date-format';
+import { formatWithOptions } from '#utils/date-format';
 import { contextOptionLabel } from '../api/context-labels';
 import { roleAssignmentsQueryOptions } from '../queries/admin-roles';
-import { NATIVE_SELECT_CLASS } from './native-select-class';
+import { AdminSelect } from './admin-select';
 import { RoleAssignmentDialog } from './role-assignment-dialog';
 import { RoleUnassignDialog, type UnassignTarget } from './role-unassign-dialog';
 import { TablePagination } from './table-pagination';
@@ -34,12 +34,16 @@ import { TablePagination } from './table-pagination';
  * trên hợp đồng danh sách gán, thao tác gán/gỡ ngay tại bảng.
  *
  * Hình dáng theo thẻ bảng mẫu: thẻ phẳng (không bóng, không đệm dọc),
- * đầu thẻ có viền dưới (tiêu đề 18px medium + mô tả), khối lọc có viền
- * dưới gồm đúng hai hàng ở bề rộng desktop — hàng 1 là các ô chọn có
- * nhãn đặt phía trên (vai trò, ngữ cảnh), hàng 2 là ô tìm kiếm bên
- * trái và cụm cỡ trang + nút Gán vai trò bên phải; ở bề rộng hẹp các
- * hàng gói dòng nhưng không tràn ngang. Hàng bảng cao 56px, chân bảng
- * là dòng tóm tắt khoảng đang hiển thị kèm cụm nút chuyển trang 36px.
+ * đầu thẻ có viền dưới (tiêu đề 18px medium + mô tả), vùng lọc gồm
+ * hai khối riêng ngăn nhau bằng viền dưới, mỗi khối đệm 24px — khối
+ * lọc là các ô chọn có nhãn đặt phía trên (vai trò, ngữ cảnh), khối
+ * công cụ là ô tìm kiếm bên trái và cụm cỡ trang + nút Gán vai trò
+ * bên phải; ở bề rộng hẹp các khối gói dòng nhưng không tràn ngang.
+ * Mọi ô chọn là Select của `@lms/ui` qua component dùng chung của
+ * feature. Hàng bảng cao 56px, cột thời gian bày dạng ngày chữ như
+ * bảng người dùng cùng trang, thao tác gỡ là nút ghost biểu tượng
+ * như ngôn ngữ thao tác của khuôn bảng mẫu. Chân bảng là dòng tóm
+ * tắt khoảng đang hiển thị kèm cụm nút chuyển trang 36px.
  * Nhãn ngữ cảnh lấy qua adapter nhãn ngữ cảnh (tên cấp dạng chữ) —
  * không bày định danh, đường dẫn hay chuỗi kỹ thuật trong bảng.
  *
@@ -153,50 +157,48 @@ export function RoleAssignmentsSection({ roles, contexts }: RoleAssignmentsSecti
         <CardTitle className="text-lg">{t('assignmentTableTitle')}</CardTitle>
         <CardDescription>{t('assignmentTableDescription')}</CardDescription>
       </CardHeader>
-      {/* Khối lọc hai hàng: hàng 1 là các ô chọn có nhãn phía trên,
-          hàng 2 là tìm kiếm bên trái + cỡ trang và nút gán bên phải. */}
-      <div className="flex flex-col gap-4 border-b p-6">
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3">
-          <Field>
-            <FieldLabel htmlFor="assignment-role-filter">{t('assignmentFilterRole')}</FieldLabel>
-            <select
-              id="assignment-role-filter"
-              className={`${NATIVE_SELECT_CLASS} w-full`}
-              value={roleFilter}
-              onChange={(e) => {
-                setRoleFilter(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">{t('assignmentFilterRoleAll')}</option>
-              {roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="assignment-context-filter">{t('assignmentFilterContext')}</FieldLabel>
-            <select
-              id="assignment-context-filter"
-              className={`${NATIVE_SELECT_CLASS} w-full`}
-              value={contextFilter}
-              onChange={(e) => {
-                setContextFilter(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">{t('assignmentFilterContextAll')}</option>
-              {contexts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {contextOptionLabel(contexts, c, (key, options) => t(key, options))}
-                </option>
-              ))}
-            </select>
-          </Field>
+      {/* Vùng lọc hai khối ngăn nhau bằng viền dưới như thẻ bảng mẫu:
+          khối lọc là các ô chọn có nhãn phía trên, khối công cụ là
+          tìm kiếm bên trái + cỡ trang và nút gán bên phải. */}
+      <div className="border-b">
+        <div className="flex flex-col gap-4 border-b p-6">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3">
+            <Field>
+              <FieldLabel htmlFor="assignment-role-filter">{t('assignmentFilterRole')}</FieldLabel>
+              <AdminSelect
+                id="assignment-role-filter"
+                value={roleFilter}
+                onValueChange={(next) => {
+                  setRoleFilter(next);
+                  setPage(1);
+                }}
+                options={[
+                  { value: '', label: t('assignmentFilterRoleAll') },
+                  ...roles.map((r) => ({ value: r.id, label: r.name })),
+                ]}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="assignment-context-filter">{t('assignmentFilterContext')}</FieldLabel>
+              <AdminSelect
+                id="assignment-context-filter"
+                value={contextFilter}
+                onValueChange={(next) => {
+                  setContextFilter(next);
+                  setPage(1);
+                }}
+                options={[
+                  { value: '', label: t('assignmentFilterContextAll') },
+                  ...contexts.map((c) => ({
+                    value: c.id,
+                    label: contextOptionLabel(contexts, c, (key, options) => t(key, options)),
+                  })),
+                ]}
+              />
+            </Field>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-4 p-6 max-sm:flex-col sm:items-center sm:justify-between">
           <Field className="w-full max-w-2xs">
             <InputGroup>
               <InputGroupAddon>
@@ -215,26 +217,20 @@ export function RoleAssignmentsSection({ roles, contexts }: RoleAssignmentsSecti
             </InputGroup>
           </Field>
           <div className="flex flex-wrap items-center gap-2">
-            <Field className="flex-row items-center gap-2">
-              <select
-                id="assignment-pagesize"
-                aria-label={t('assignmentPageSize')}
-                className={`${NATIVE_SELECT_CLASS} w-fit`}
-                value={String(pageSize)}
-                onChange={(e) => {
-                  const next = Number(e.target.value);
-                  setPageSize(PAGE_SIZE_OPTIONS.includes(next as 10 | 20 | 50) ? next : 20);
-                  setPage(1);
-                }}
-              >
-                {PAGE_SIZE_OPTIONS.map((n) => (
-                  <option key={n} value={String(n)}>
-                    {String(n)}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Button type="button" onClick={() => setAssignOpen(true)}>
+            <AdminSelect
+              id="assignment-pagesize"
+              ariaLabel={t('assignmentPageSize')}
+              className="w-fit"
+              value={String(pageSize)}
+              onValueChange={(next) => {
+                const size = Number(next);
+                setPageSize(PAGE_SIZE_OPTIONS.includes(size as 10 | 20 | 50) ? size : 20);
+                setPage(1);
+              }}
+              options={PAGE_SIZE_OPTIONS.map((n) => ({ value: String(n), label: String(n) }))}
+            />
+            <Button type="button" className="h-9 gap-1.5 px-2.5" onClick={() => setAssignOpen(true)}>
+              <Plus aria-hidden className="size-4" />
               {t('assignRole')}
             </Button>
           </div>
@@ -261,12 +257,14 @@ export function RoleAssignmentsSection({ roles, contexts }: RoleAssignmentsSecti
         <>
           <Table>
             <TableHeader>
-              <TableRow className="h-14 border-t-0 hover:bg-transparent">
-                <TableHead className="pl-4">{t('assignmentUserColumn')}</TableHead>
-                <TableHead>{t('assignmentRoleColumn')}</TableHead>
-                <TableHead>{t('assignmentContextColumn')}</TableHead>
-                <TableHead>{t('assignmentAssignedAtColumn')}</TableHead>
-                <TableHead className="pr-4 text-center">{t('assignmentActionsColumn')}</TableHead>
+              <TableRow className="h-14 border-t hover:bg-transparent">
+                <TableHead className="pl-4 text-muted-foreground">{t('assignmentUserColumn')}</TableHead>
+                <TableHead className="text-muted-foreground">{t('assignmentRoleColumn')}</TableHead>
+                <TableHead className="text-muted-foreground">{t('assignmentContextColumn')}</TableHead>
+                <TableHead className="text-muted-foreground">{t('assignmentAssignedAtColumn')}</TableHead>
+                <TableHead className="pr-4 text-center text-muted-foreground">
+                  {t('assignmentActionsColumn')}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -294,14 +292,23 @@ export function RoleAssignmentsSection({ roles, contexts }: RoleAssignmentsSecti
                     </TableCell>
                     <TableCell>{roleNameOf(row)}</TableCell>
                     <TableCell>{contextLabelOf(row)}</TableCell>
-                    <TableCell>{formatDate(row.updatedAt)}</TableCell>
+                    <TableCell>
+                      {formatWithOptions(row.updatedAt, undefined, {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </TableCell>
                     <TableCell className="pr-4 text-center">
                       {row.component === 'enrol' ? (
                         <span className="text-sm text-muted-foreground">{t('assignmentEnrolManaged')}</span>
                       ) : (
                         <Button
                           type="button"
-                          variant="destructive"
+                          variant="ghost"
+                          size="icon"
+                          className="size-9"
+                          aria-label={t('unassignRole')}
                           onClick={() =>
                             setUnassignTarget({
                               assignment: row,
@@ -311,7 +318,7 @@ export function RoleAssignmentsSection({ roles, contexts }: RoleAssignmentsSecti
                             })
                           }
                         >
-                          {t('unassignRole')}
+                          <UserMinus aria-hidden className="size-4.5" />
                         </Button>
                       )}
                     </TableCell>

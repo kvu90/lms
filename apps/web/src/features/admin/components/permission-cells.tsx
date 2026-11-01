@@ -13,8 +13,9 @@ import '#config/i18n';
  *
  * - Hình dạng theo ngôn ngữ demo nhưng mỗi ô là MỘT năng lực thật:
  *   hộp thoại dùng Checkbox của `@lms/ui`, trang Quyền dùng Toggle
- *   của `@lms/ui` dạng nút icon size-8 (bật = `bg-primary/10
- *   text-primary`, tắt = ghost xám; icon theo loại năng lực — read
+ *   của `@lms/ui` dạng nút icon size-8 variant outline (bật =
+ *   `bg-primary/10 text-primary`, tắt = outline viền/nền/bóng như
+ *   nút chưa cấp của demo; icon cỡ 12px theo loại năng lực — read
  *   là Eye, write là PencilLine, đúng cặp icon demo dùng cho
  *   Read/Write). Không có cột/nút Create/Delete vì dữ kiện của hệ
  *   không có hai trục đó.
@@ -123,26 +124,31 @@ export interface PermissionToggleCellProps {
 
 /**
  * Ô toggle của một cặp (vai trò × năng lực) trong trang Quyền độc
- * lập: nút icon size-8 như demo — nhấn khi ô đang Cho phép, ghost
- * xám khi Kế thừa; ô Ngăn chặn/Cấm hẳn bị khoá và mang huy hiệu
- * trạng thái ngay dưới nút.
+ * lập: nút icon size-8 như demo — trạng thái chưa cấp dùng variant
+ * outline của Toggle (có viền, nền background, bóng `shadow-xs`,
+ * chữ muted, hover chuyển foreground) như nút chưa cấp của demo,
+ * nhấn khi ô đang Cho phép chuyển sang dải primary nhạt; biểu tượng
+ * trong nút cỡ 12px như demo. Ô Ngăn chặn/Cấm hẳn bị khoá và mang
+ * huy hiệu trạng thái ngay cạnh nút — cùng cách bày với ô checkbox
+ * của hộp thoại ma trận.
  *
  * @param props - Xem {@link PermissionToggleCellProps}.
  */
 export function PermissionToggleCell({ value, capType, disabled, ariaLabel, title, onToggle }: PermissionToggleCellProps) {
   const locked = isLockedPermission(value);
   return (
-    <span className="inline-flex flex-col items-start gap-1">
+    <span className="inline-flex items-center gap-1.5">
       <Toggle
         aria-label={ariaLabel}
         title={title}
+        variant="outline"
         size="sm"
         pressed={value === CAP.ALLOW}
         disabled={disabled || locked}
-        className="size-8 min-w-8 px-0 text-muted-foreground hover:text-foreground aria-pressed:bg-primary/10 aria-pressed:text-primary aria-pressed:hover:bg-primary/20"
+        className="size-8 min-w-8 bg-background px-0 text-muted-foreground aria-pressed:bg-primary/10 aria-pressed:text-primary aria-pressed:hover:bg-primary/20"
         onPressedChange={(pressed) => onToggle(pressed)}
       >
-        {capType === 'read' ? <Eye /> : <PencilLine />}
+        {capType === 'read' ? <Eye className="size-3" /> : <PencilLine className="size-3" />}
       </Toggle>
       {locked ? <LockedPermissionMark value={value} /> : null}
     </span>

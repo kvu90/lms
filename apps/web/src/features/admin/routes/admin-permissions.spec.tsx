@@ -36,6 +36,12 @@ import { AdminPermissionsPage } from './admin-permissions';
  * lực truy được qua aria-label và title của nút thay vì một hàng
  * riêng cho từng năng lực. Mọi hành vi ghi từng ô, hoàn lại khi
  * lỗi và khoá ô chặn đã ghim ở các vòng trước giữ nguyên.
+ *
+ * Vòng căn chỉnh khớp demo (issue #624): ô chọn ngữ cảnh chuyển
+ * từ `<select>` native sang Select của `@lms/ui` — các ca đổi
+ * ngữ cảnh chọn theo nhãn nhìn thấy của lựa chọn qua helper
+ * `chooseOption`; toggle chưa cấp dùng variant outline, huy
+ * hiệu khoá đặt cạnh nút toggle như hộp thoại ma trận.
  */
 const ROLE_A_ID = '01900000-0000-7000-8000-0000000000b1';
 const ROLE_B_ID = '01900000-0000-7000-8000-0000000000b2';
@@ -157,6 +163,16 @@ function renderPage() {
   );
 }
 
+/**
+ * Chọn một lựa chọn trong ô Select của `@lms/ui` theo nhãn nhìn
+ * thấy: bấm nút mở rồi bấm lựa chọn trong danh sách xổ — danh sách
+ * xổ render qua portal ở tầng document nên truy vấn bằng `screen`.
+ */
+async function chooseOption(trigger: HTMLElement, optionLabel: string) {
+  await userEvent.click(trigger);
+  await userEvent.click(await screen.findByRole('option', { name: optionLabel }));
+}
+
 /** Nút toggle của một cặp vai trò × năng lực; trạng thái bật/tắt đọc ở thuộc tính aria-pressed. */
 function cellToggle(roleName: string, capability: string) {
   return screen.getByRole('button', { name: `Quyền ${capability} của vai trò ${roleName}` });
@@ -270,7 +286,7 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
     await screen.findByRole('button', { name: 'Quyền course:view của vai trò Giáo viên' });
     expect(cellToggle('Giáo viên', 'course:view')).toHaveAttribute('aria-pressed', 'true');
     const picker = screen.getByLabelText('Ngữ cảnh');
-    await userEvent.selectOptions(picker, TENANT_CONTEXT_ID);
+    await chooseOption(picker, 'Trung tâm');
     await waitFor(() => {
       expect(
         calls.filter((call) => call.url.startsWith('/api/v1/access/capability-matrix')),
@@ -313,7 +329,7 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
     // Đổi sang ngữ cảnh tenant trong lúc lần ghi còn chờ: ô cùng vị
     // trí ở ngữ cảnh mới không bị khoá nhầm theo lần ghi cũ.
     const picker = screen.getByLabelText('Ngữ cảnh');
-    await userEvent.selectOptions(picker, TENANT_CONTEXT_ID);
+    await chooseOption(picker, 'Trung tâm');
     await waitFor(() => {
       expect(
         calls.filter((call) => call.url.startsWith('/api/v1/access/capability-matrix')),
@@ -337,7 +353,7 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
     // tìm lại bộ chọn ngữ cảnh vì khối chứa nó đã tháo ra rồi gắn
     // lại trong lúc tải ma trận của ngữ cảnh mới (nút cũ đã rời cây).
     const pickerBack = screen.getByLabelText('Ngữ cảnh');
-    await userEvent.selectOptions(pickerBack, SYSTEM_CONTEXT_ID);
+    await chooseOption(pickerBack, 'Hệ thống');
     await waitFor(() => {
       expect(cellToggle('Giáo viên', 'course:edit')).toHaveAttribute('aria-pressed', 'false');
     });
@@ -398,7 +414,7 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
     // Đổi sang ngữ cảnh tenant: nháp cũ bị xoá theo hành vi gốc, ô
     // cùng vị trí hiện giá trị đã lưu tại ngữ cảnh mới (Kế thừa — đang tắt).
     const picker = screen.getByLabelText('Ngữ cảnh');
-    await userEvent.selectOptions(picker, TENANT_CONTEXT_ID);
+    await chooseOption(picker, 'Trung tâm');
     await waitFor(() => {
       expect(
         calls.filter((call) => call.url.startsWith('/api/v1/access/capability-matrix')),
@@ -460,7 +476,7 @@ describe('Trang Quyền độc lập — ma trận toàn trang và ghi từng ô
     expect(calls.filter((call) => call.url === '/api/v1/access/overrides')).toHaveLength(0);
     // Đổi sang ngữ cảnh trung tâm: user:view của Giáo viên đang Ngăn chặn (−1) — cũng khoá.
     const picker = screen.getByLabelText('Ngữ cảnh');
-    await userEvent.selectOptions(picker, TENANT_CONTEXT_ID);
+    await chooseOption(picker, 'Trung tâm');
     const preventCell = await screen.findByRole('button', {
       name: 'Quyền user:view của vai trò Giáo viên',
     });

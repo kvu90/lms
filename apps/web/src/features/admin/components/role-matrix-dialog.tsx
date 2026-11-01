@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@lms/ui/components/dialog';
-import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
+import { Field, FieldError, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import {
   Table,
@@ -27,7 +27,7 @@ import '#config/i18n';
 import { contextOptionLabel } from '../api/context-labels';
 import { useCreateRole, useReplaceRoleCapabilities, useUpdateRole } from '../queries/admin-roles';
 import { groupCapabilitiesByResource, verbOfCapability, type RoleMatrixDraft } from '../types/admin-roles';
-import { NATIVE_SELECT_CLASS } from './native-select-class';
+import { AdminSelect } from './admin-select';
 import { isLockedPermission, PermissionCheckboxCell } from './permission-cells';
 
 /**
@@ -47,7 +47,11 @@ import { isLockedPermission, PermissionCheckboxCell } from './permission-cells';
  *    chỉ có đúng một nút ở chân hộp thoại — đóng bằng nút × của
  *    Dialog, bằng Huỷ hay bằng Escape đều bị chặn trong lúc đang lưu.
  *    Nhãn của ô chọn ngữ cảnh lấy qua adapter nhãn ngữ cảnh (tên cấp
- *    dạng chữ), không bày chuỗi kỹ thuật của dòng ngữ cảnh.
+ *    dạng chữ), không bày chuỗi kỹ thuật của dòng ngữ cảnh. Tên vai
+ *    được kiểm ngay tại trường như form mẫu: ô nhập có placeholder,
+ *    tên đã nhập mà ngắn hơn 2 ký tự thì hiện lỗi ngay dưới ô nhập
+ *    và nút Lưu chỉ mở khi tên đạt tối thiểu đó — không còn trạng
+ *    thái nút Lưu bị khoá lặng mà người dùng không biết lý do.
  * 2. Ma trận trình bày các ghi đè ĐÃ LƯU tại ngữ cảnh đang chọn, gom
  *    theo resource, dưới dạng bảng checkbox theo ngôn ngữ demo (vòng
  *    sửa 3 của PR #601 theo phán quyết "hình dạng demo, dữ kiện
@@ -288,8 +292,14 @@ export function RoleMatrixDialog({
    * cảnh đó. Chế độ tạo không có ma trận đã lưu nên không cần cổng.
    */
   const matrixReady = mode === 'create' || (!matrixPending && !matrixError);
+  /**
+   * Lỗi tên tại trường: tên đã nhập (khác rỗng) mà ngắn hơn 2 ký tự
+   * thì báo ngay dưới ô nhập như form mẫu; tên còn trống thì chưa
+   * báo lỗi nhưng nút Lưu vẫn khoá theo điều kiện `canSave`.
+   */
+  const nameError = name.trim() !== '' && name.trim().length < 2;
   const canSave =
-    name.trim() !== '' && (mode === 'edit' || shortName.trim() !== '') && contextId !== '' && !saving && matrixReady;
+    name.trim().length >= 2 && (mode === 'edit' || shortName.trim() !== '') && contextId !== '' && !saving && matrixReady;
   /** Trạng thái checkbox chọn toàn cục ở hàng tiêu đề bảng ma trận. */
   const allScopeState = scopeState(capabilities);
 
@@ -312,9 +322,17 @@ export function RoleMatrixDialog({
 
         <div className="flex flex-col gap-6">
           <FieldGroup>
-            <Field>
+            <Field data-invalid={nameError || undefined}>
               <FieldLabel htmlFor="role-dialog-name">{t('roleName')}</FieldLabel>
-              <Input id="role-dialog-name" value={name} onChange={(e) => setName(e.target.value)} disabled={saving} />
+              <Input
+                id="role-dialog-name"
+                placeholder={t('roleNamePlaceholder')}
+                aria-invalid={nameError || undefined}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={saving}
+              />
+              {nameError ? <FieldError>{t('roleNameTooShort')}</FieldError> : null}
             </Field>
             <Field>
               <FieldLabel htmlFor="role-dialog-shortname">{t('roleShortName')}</FieldLabel>
@@ -337,31 +355,29 @@ export function RoleMatrixDialog({
             </Field>
             <Field>
               <FieldLabel htmlFor="role-dialog-context">{t('roleContext')}</FieldLabel>
-              <select
+              <AdminSelect
                 id="role-dialog-context"
-                className={NATIVE_SELECT_CLASS}
                 value={contextId}
-                onChange={(e) => {
+                onValueChange={(next) => {
                   // Đổi ngữ cảnh là đổi tập ghi đè đang sửa: xoá sạch sửa
                   // đổi của ngữ cảnh trước để không lẫn sang ngữ cảnh mới.
-                  setContextOverride(e.target.value);
+                  setContextOverride(next);
                   setEdits({});
                 }}
                 disabled={saving || contexts.length === 0}
-              >
-                <option value="">{t('selectContext')}</option>
-                {contexts.map((ctx) => (
-                  <option key={ctx.id} value={ctx.id}>
-                    {contextOptionLabel(contexts, ctx, (key, options) => t(key, options))}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: '', label: t('selectContext') },
+                  ...contexts.map((ctx) => ({
+                    value: ctx.id,
+                    label: contextOptionLabel(contexts, ctx, (key, options) => t(key, options)),
+                  })),
+                ]}
+              />
             </Field>
           </FieldGroup>
 
           <div>
             <h3 className="mb-3 text-sm font-medium">{t('roleMatrix')}</h3>
-            <p className="mb-3 text-xs text-muted-foreground">{t('roleMatrixHint')}</p>
             {matrixError ? (
               <>
                 <ErrorAlert variant="destructive" className="mb-3">
@@ -378,7 +394,7 @@ export function RoleMatrixDialog({
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
-                      <TableHead className="p-3">{t('resource')}</TableHead>
+                      <TableHead className="w-48 p-3">{t('resource')}</TableHead>
                       <TableHead className="w-16 p-3 text-center">
                         <Checkbox
                           aria-label={t('roleSelectAllPermissions')}
@@ -417,7 +433,6 @@ export function RoleMatrixDialog({
                 </Table>
               </div>
             )}
-            <p className="mt-3 text-xs text-muted-foreground">{t('permissionLockedNote')}</p>
           </div>
         </div>
 
