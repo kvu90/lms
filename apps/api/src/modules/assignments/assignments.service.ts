@@ -15,7 +15,7 @@ import { GradesService } from '../grades/grades.service';
 import { UsersService } from '../users/users.service';
 import {
   AssignmentsRepository, type AssignAnnotationRow, type AssignGradeRow, type AssignSubmissionRow, type AssignmentRow,
-} from './assignments.repository';
+} from '@lms/db/repositories/assignments';
 
 export const ASSIGN_COMPONENT = 'mod_assign';
 export const ASSIGN_CAPABILITIES = {
