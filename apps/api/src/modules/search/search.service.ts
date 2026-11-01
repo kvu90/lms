@@ -1,10 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { and, eq, sql } from 'drizzle-orm';
+import { sql, type SqlBool } from 'kysely';
+import { SearchRepository, type SearchDocRow } from '@lms/db/repositories/search';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
-import { SearchRepository, type SearchDocRow } from './search.repository';
-import { contentBankContent, course, users } from '../../db/schema';
 
 /** Một Search Area đăng ký vào registry: biết cách lấy tài liệu gốc để indexer lập chỉ mục và để re-check. */
 export interface SearchArea {
@@ -79,7 +78,11 @@ export class SearchService {
     this.registerArea({
       name: 'courses',
       fetch: async (itemId) => {
-        const [c] = await db.select().from(course).where(eq(course.id, itemId));
+        const c = await db
+          .selectFrom('course')
+          .select(['id', 'visible', 'full_name as fullName', 'short_name as shortName', 'summary'])
+          .where('id', '=', itemId)
+          .executeTakeFirst();
         if (!c || !c.visible) return null;
         const ctx = await this.contexts.getByLevelInstance(50, itemId);
         if (!ctx) return null;
@@ -88,7 +91,7 @@ export class SearchService {
       // Chỉ lấy cột id: tập id phải y hệt liệt kê toàn bộ khoá (kể cả
       // khoá đang ẩn) — khâu fetch mới quyết định item có vào chỉ mục
       // hay không, listIds không tự lọc thêm điều kiện nào.
-      listIds: async () => (await db.select({ id: course.id }).from(course)).map((r) => r.id),
+      listIds: async () => (await db.selectFrom('course').select('id').execute()).map((r) => r.id),
     });
     // Area: users — hồ sơ công khai; user suspended/deleted không được index.
     // Nội dung công khai đem lập chỉ mục chỉ gồm username (họ tên nằm ở
@@ -103,7 +106,11 @@ export class SearchService {
     this.registerArea({
       name: 'users',
       fetch: async (itemId) => {
-        const [u] = await db.select().from(users).where(eq(users.id, itemId));
+        const u = await db
+          .selectFrom('users')
+          .select(['id', 'suspended', 'deleted', 'is_guest as isGuest', 'first_name as firstName', 'last_name as lastName', 'username', 'email'])
+          .where('id', '=', itemId)
+          .executeTakeFirst();
         if (!u || u.suspended || u.deleted || u.isGuest) return null;
         const ctx = await this.contexts.getByLevelInstance(30, itemId);
         const sys = ctx ?? (await this.contexts.ensureSystemContext());
@@ -112,21 +119,25 @@ export class SearchService {
       // Chỉ lấy cột id của user chưa suspended/chưa deleted, lọc
       // ngay ở WHERE — cùng tập id với cách lọc ở tầng ứng dụng trước
       // đây (hai cột đều boolean NOT NULL nên điều kiện tương đương).
-      listIds: async () => (await db.select({ id: users.id }).from(users)
-        .where(and(eq(users.suspended, false), eq(users.deleted, false)))).map((r) => r.id),
+      listIds: async () => (await db.selectFrom('users').select('id')
+        .where('suspended', '=', false).where('deleted', '=', false).execute()).map((r) => r.id),
     });
     // Area: contentbank — chỉ nội dung public mới vào index.
     this.registerArea({
       name: 'contentbank',
       fetch: async (itemId) => {
-        const [c] = await db.select().from(contentBankContent).where(eq(contentBankContent.id, itemId));
+        const c = await db
+          .selectFrom('content_bank_content')
+          .select(['id', 'visibility', 'name', 'content_type as contentType', 'context_id as contextId', 'creator_id as creatorId'])
+          .where('id', '=', itemId)
+          .executeTakeFirst();
         if (!c || c.visibility !== 'public') return null;
         return { title: c.name, content: `${c.name} ${c.contentType}`, contextId: c.contextId, ownerId: c.creatorId };
       },
       // Chỉ lấy cột id của nội dung public, lọc ngay ở WHERE — cùng
       // tập id với cách lọc ở tầng ứng dụng trước đây.
-      listIds: async () => (await db.select({ id: contentBankContent.id }).from(contentBankContent)
-        .where(eq(contentBankContent.visibility, 'public'))).map((r) => r.id),
+      listIds: async () => (await db.selectFrom('content_bank_content').select('id')
+        .where('visibility', '=', 'public').execute()).map((r) => r.id),
     });
   }
 
@@ -203,7 +214,11 @@ export class SearchService {
     const extra: SearchDocRow[] = [];
     const db = this.repo.dbHandle;
     for (const token of tokens) {
-      const rows = await db.select().from(users).where(sql`lower(${users.email}) = ${token.toLowerCase()}`);
+      const rows = await db
+        .selectFrom('users')
+        .select(['id', 'suspended', 'deleted', 'is_guest as isGuest'])
+        .where(sql<SqlBool>`lower(email) = ${token.toLowerCase()}`)
+        .execute();
       for (const u of rows) {
         if (u.suspended || u.deleted || u.isGuest) continue;
         const key = `users:${u.id}`;
@@ -301,5 +316,5 @@ export class SearchService {
   /** Số tài liệu trong chỉ mục — đếm ở SQL qua repository, không nạp toàn bộ bảng về để lấy độ dài. */
   async countDocs(): Promise<number> { return this.repo.countAll(); }
   /** Truy vấn SQL thô phục vụ chẩn đoán — không dùng trong luồng nghiệp vụ. */
-  async ping(): Promise<boolean> { await this.repo.dbHandle.execute(sql`select 1`); return true; }
+  async ping(): Promise<boolean> { await sql`select 1`.execute(this.repo.dbHandle); return true; }
 }

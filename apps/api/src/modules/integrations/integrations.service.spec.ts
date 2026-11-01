@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ContextsService } from '../access/contexts.service';
 import type { PermissionEvaluator } from '../access/permission-evaluator.service';
 import type { CoursesService } from '../courses/courses.service';
-import type { IntegrationsRepository, ServiceRow, TokenOwnerState, TokenRow } from './integrations.repository';
+import type { IntegrationsRepository, ServiceRow, TokenOwnerState, TokenRow } from '@lms/db/repositories/integrations';
 import { hashToken, IntegrationsService } from './integrations.service';
 
 /**
