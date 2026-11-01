@@ -50,6 +50,18 @@ import {
  * tên database trong sổ đăng ký mà tầng phân giải kho đã chốt
  * cho ngữ cảnh).
  *
+ * Cô lập của chính bài test: mọi kho bài test dựng (kho riêng
+ * của trung tâm và kho control plane) mang tên duy nhất theo
+ * lượt chạy, nên khoá cache suy từ tên kho cũng duy nhất theo
+ * lượt — lượt chạy lại trên cùng một Redis giữ nguyên không
+ * bao giờ đọc trúng danh sách quản trị của lượt trước (danh
+ * sách đó mang id quản trị của một thế hệ dữ kiện đã bị xoá–
+ * tạo lại cùng tên kho), và không lượt chạy nào phải xoá khoá
+ * cache bằng tay để xanh. Nhờ đó kết quả xanh của bài test
+ * này phân biệt được "code đã đúng" với "cache đã được dọn
+ * tay" — đúng bản chất bằng chứng hồi quy của khuyết tật
+ * cache ở trên.
+ *
  * Bối cảnh dựng đúng trạng thái sau cấp phát: database riêng +
  * role riêng trên cụm test, baseline áp bằng role chủ kho, sổ
  * đăng ký ở database control plane riêng; dữ kiện nền ghi
@@ -85,13 +97,22 @@ import {
  *     chỉ của trung tâm kho riêng (và tại địa chỉ platform),
  *     vẫn trả 404 `tenant.not_found` — fail-closed không đổi.
  */
-const CP_DATABASE = 'lms_test_cp_td6';
+// Cô lập cache giữa các lượt chạy: khoá cache `siteadmins` của
+// evaluator mang tên database của kho đang được đọc, nên mọi kho
+// bài test này dựng đều mang tên duy nhất theo lượt chạy
+// (RUN_SUFFIX) — khoá cache của lượt chạy này vì thế cũng duy
+// nhất, lượt chạy sau không bao giờ trúng mục cache của lượt
+// trước dù Redis được giữ nguyên, và bài test không cần (cũng
+// không được) xoá khoá cache bằng tay để xanh. (Kho của lượt
+// trước còn sót trên cụm được dọn ở beforeAll — chỉ database,
+// không đụng tới Redis.)
+const RUN_SUFFIX = Math.random().toString(36).slice(2, 8);
+const CP_DATABASE = `lms_test_cp_td6_${RUN_SUFFIX}`;
 const CP_ROLE = 'lms_cp_test_td6';
 const CP_PASSWORD = 'cp-test-td6';
-const CENTRE_DATABASE = 'lms_test_centre_td6';
+const CENTRE_DATABASE = `lms_test_centre_td6_${RUN_SUFFIX}`;
 const CENTRE_ROLE = 'lms_centre_td6_app';
 const CENTRE_PASSWORD = 'centre-test-td6';
-const RUN_SUFFIX = Math.random().toString(36).slice(2, 8);
 const CENTRE_SLUG = `trung-tam-td6-${RUN_SUFFIX}`;
 const HOST = `${CENTRE_SLUG}.test.local`;
 
@@ -192,6 +213,20 @@ describe('Tạo người dùng cho trung tâm cấp phát mới chỉ có ở kh
     // Cấp phát control plane + kho riêng trên cụm test: role
     // riêng cho từng kho, CONNECT của PUBLIC bị thu hồi.
     await withClient(clusterUrl('postgres'), async (admin) => {
+      // Dọn các kho của những lượt chạy trước còn sót lại: tên
+      // kho mang hậu tố lượt chạy nên lượt này không gặp lại
+      // đúng tên cũ; không dọn thì kho cũ còn giữ vai trò chủ
+      // kho, bước DROP ROLE ở dưới vấp phụ thuộc và cả bài sập
+      // trước ca đầu tiên. Chỉ dọn đúng tiền tố tên kho của bài
+      // test này — Redis và mọi khoá cache không bị đụng tới,
+      // nên điều kiện "chạy lại trên cùng một Redis giữ nguyên"
+      // vẫn nguyên vẹn.
+      const leftovers = await admin.query<{ datname: string }>(
+        "SELECT datname FROM pg_database WHERE datname ~ '^lms_test_(cp|centre)_td6_'",
+      );
+      for (const row of leftovers.rows) {
+        await admin.query(`DROP DATABASE IF EXISTS ${quoted(row.datname)} WITH (FORCE)`);
+      }
       for (const database of [CP_DATABASE, CENTRE_DATABASE]) {
         await admin.query(`DROP DATABASE IF EXISTS ${quoted(database)} WITH (FORCE)`);
       }

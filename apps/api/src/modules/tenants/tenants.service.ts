@@ -741,8 +741,14 @@ export class TenantsService {
    * để cổng membership của evaluator tiếp tục hoạt động trong kho
    * riêng mà không cần bất kỳ tra cứu nào sang kho chung. Cổng quản
    * trị tenant cũng xét trong kho riêng: quản trị của trung tâm
-   * khác (kể cả quản trị platform ở kho chung) không tạo được tài
-   * khoản ở đây.
+   * được nhận diện từ danh sách `siteadmins` của chính kho đó, và
+   * quản trị platform cũng được nhận diện trong ngữ cảnh này qua
+   * phép hợp nhất một chiều của evaluator — lớp phủ của người vận
+   * hành platform, không tạo membership hay tài khoản nào cho họ
+   * trong kho riêng, và chiều ngược lại không tồn tại (kho chung
+   * không bao giờ thấy danh sách của kho riêng). Riêng cổng đăng
+   * nhập platform vẫn ghim danh sách của kho chung, nên quản trị
+   * trung tâm không qua được cổng đó tại bất kỳ địa chỉ nào.
    */
   async createTenantUser(actorId: string, tenantId: string, dto: CreateTenantUserDto): Promise<TenantUserView> {
     // Phân giải đích kho của tenant đích qua điểm phân giải dùng
