@@ -3,10 +3,15 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { fromNodeHeaders } from 'better-auth/node';
 import { SpaceDatabaseService } from '../../db/routing/space-database.service';
+import { SpaceRoutingError } from '../../db/routing/space-connection-resolver';
 import { BetterAuthService } from '../auth/better-auth/better-auth.service';
 import { BETTER_AUTH_SESSION_COOKIE } from '../auth/better-auth/better-auth.instance';
 import { tenantAls } from '../tenants/tenant-als';
-import { resolveDedicatedSpace, type DedicatedSpace } from '../tenants/space-resolution';
+import {
+  extractSpaceSlugFromHost,
+  resolveDedicatedSpace,
+  type DedicatedSpace,
+} from '../tenants/space-resolution';
 import { TenantsService } from '../tenants/tenants.service';
 import { UsersService } from '../users/users.service';
 import { MessagingRepository } from './messaging.repository';
@@ -81,6 +86,21 @@ const SESSION_COOKIE_PATTERN = new RegExp(`(?:^|;\\s*)(?:__Secure-)?${BETTER_AUT
  * kho chung; đây là điểm khác guard HTTP, vì guard còn lớp JWT phía
  * sau quyết định lại còn kênh socket thì không có lớp thứ hai.
  *
+ * Một tổ hợp mà hàm phân giải dùng chung cố ý trả `null` cần chốt
+ * riêng ở lớp này: tầng định tuyến CHƯA CẤU HÌNH
+ * (`space_routing.not_configured`) được `resolveDedicatedSpace` xếp
+ * vào đường kho chung cùng slug chưa đăng ký và trung tâm kho
+ * chung, theo hợp đồng "chưa cấu hình thì app chạy như trước" của
+ * tầng chiến lược xác thực. Phía HTTP, `SpaceContextGuard` là lớp
+ * thứ hai phân biệt tổ hợp đó bằng `resolveTarget` trực tiếp:
+ * phiên mang claim `centre_id` mà định tuyến chưa cấu hình thì
+ * fail-closed, phiên không mang claim thì cho qua. Kênh socket
+ * không có lớp thứ hai đó, nên `authenticateHandshake` tự phân
+ * biệt lại bằng `resolveTarget` trên slug ứng viên và mang cờ
+ * "chưa cấu hình" vào đường token: token mang claim `centre_id`
+ * bị từ chối TRƯỚC mọi lượt đọc tài khoản ở kho chung; token
+ * không claim và đường cookie giữ nguyên hành vi cho qua như cũ.
+ *
  * Gateway, consumer và tầng phân phối không biết gì về cơ chế bên
  * dưới — chúng chỉ nhận `MessagingSocketIdentity | null`.
  */
@@ -111,13 +131,56 @@ export class MessagingSocketAuth {
    * lỗi phân giải/chuẩn bị ném ra ngoài (gateway ngắt kết nối kèm
    * log) thay vì được nuốt thành null — một handshake thuộc trung
    * tâm kho riêng không bao giờ được phục vụ lặng lẽ từ kho chung.
+   *
+   * Khi phân giải trả `null` nhưng địa chỉ vẫn mang slug ứng
+   * viên, bước này phân biệt lại lý do qua `resolveTarget` (xem
+   * `isRoutingNotConfiguredForHost`): chỉ tổ hợp "tầng định tuyến
+   * chưa cấu hình" mới sinh cờ truyền xuống đường token; slug
+   * chưa đăng ký và trung tâm kho chung giữ nguyên đường kho
+   * chung như cũ.
    */
   async authenticateHandshake(handshake: MessagingHandshake): Promise<MessagingSocketIdentity | null> {
     const space = await resolveDedicatedSpace(this.spaceDb, handshake.headers['host']);
     if (space) await this.spaceDb.getDatabaseForSpace(space.slug);
+    const routingNotConfigured = space ? false : await this.isRoutingNotConfiguredForHost(handshake.headers['host']);
     const viaCookie = await this.authenticateCookie(handshake.headers, space);
     if (viaCookie) return viaCookie;
-    return this.authenticate(extractHandshakeToken(handshake), space);
+    return this.authenticate(extractHandshakeToken(handshake), space, routingNotConfigured);
+  }
+
+  /**
+   * Phân biệt lý do phân giải không gian trả `null` cho một địa
+   * chỉ mang slug ứng viên: tầng định tuyến chưa cấu hình
+   * (`space_routing.not_configured`) hay các trường hợp đường kho
+   * chung thông thường (slug chưa đăng ký, trung tâm ở chế độ kho
+   * chung).
+   *
+   * `resolveDedicatedSpace` cố ý gộp cả ba trường hợp thành
+   * `null` cho tầng chiến lược xác thực dùng chung với HTTP, nên
+   * lớp này gọi lại `resolveTarget` trực tiếp trên slug ứng viên
+   * — đúng cách `SpaceContextGuard` phía HTTP phân biệt — thay vì
+   * đổi hành vi của helper dùng chung (đổi helper sẽ phá hợp đồng
+   * "chưa cấu hình thì app chạy như trước" của mọi đường HTTP
+   * trên deployment chưa cấu hình control plane). Lỗi phân giải
+   * ngoài hai mã đã biết ném ra nguyên trạng, fail-closed như
+   * mọi lỗi phân giải khác của lớp này.
+   *
+   * @param host - Giá trị header `Host` của handshake.
+   * @returns `true` chỉ khi bộ phân giải báo tầng định tuyến chưa
+   *   cấu hình cho slug ứng viên của địa chỉ này.
+   */
+  private async isRoutingNotConfiguredForHost(host: string | string[] | undefined): Promise<boolean> {
+    const header = Array.isArray(host) ? host[0] : host;
+    const slug = extractSpaceSlugFromHost(header);
+    if (!slug) return false;
+    try {
+      await this.spaceDb.resolveTarget(slug);
+      return false;
+    } catch (err) {
+      if (err instanceof SpaceRoutingError && err.code === 'space_routing.not_configured') return true;
+      if (err instanceof SpaceRoutingError && err.code === 'space_routing.space_not_found') return false;
+      throw err;
+    }
   }
 
   /**
@@ -206,10 +269,20 @@ export class MessagingSocketAuth {
    *   không mang claim) tra ở kho chung như cũ — quản trị viên
    *   platform không có tài khoản trong kho riêng, và danh tính
    *   của đường này thuộc kho chung nên `spaceSlug` trả về null.
+   *
+   * Khi `routingNotConfigured` bật (địa chỉ mang slug ứng viên
+   * nhưng tầng định tuyến chưa cấu hình — xem
+   * `isRoutingNotConfiguredForHost`), token mang claim
+   * `centre_id` là bằng chứng phiên thuộc trung tâm kho riêng:
+   * deployment đang phục vụ mà không tra được sổ đăng ký là lỗi
+   * vận hành, nên từ chối TRƯỚC mọi lượt đọc tài khoản ở kho
+   * chung, đúng chốt của `SpaceContextGuard` phía HTTP. Token
+   * không mang claim giữ nguyên đường kho chung như cũ.
    */
   async authenticate(
     token: string | undefined,
     space?: DedicatedSpace | null,
+    routingNotConfigured = false,
   ): Promise<MessagingSocketIdentity | null> {
     if (!token) return null;
     let payload: { sub?: string; username?: string; scope?: unknown; sid?: unknown; tid?: unknown; centre_id?: unknown };
@@ -221,6 +294,11 @@ export class MessagingSocketAuth {
     // Cùng luật với JwtAuthStrategy phía REST: chỉ access token đăng
     // nhập (không scope) gắn với một phiên (sid) mới được chấp nhận.
     if (!payload.sub || payload.scope !== undefined || typeof payload.sid !== 'string') return null;
+    // Chốt fail-closed cho tổ hợp "định tuyến chưa cấu hình +
+    // claim centre_id" (khớp SpaceContextGuard): claim là bằng
+    // chứng phiên thuộc trung tâm kho riêng, không được rơi
+    // xuống lượt tra tài khoản ở kho chung ngay dưới đây.
+    if (routingNotConfigured && payload.centre_id !== undefined) return null;
     const sub = payload.sub;
     const tid = typeof payload.tid === 'string' ? payload.tid : undefined;
     let user: Awaited<ReturnType<typeof this.users.getByIdOrUndefined>>;
