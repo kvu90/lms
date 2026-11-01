@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { RoleListItem, UserListStatus, UserWithAssignmentsListItem } from '@lms/contracts';
-import { IconDotsVertical } from '@tabler/icons-react';
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
@@ -16,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@lms/ui/components/table';
-import { Search } from 'lucide-react';
+import { Ellipsis, Plus, Search } from 'lucide-react';
 import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
@@ -25,7 +24,7 @@ import type { ContextRow } from '#lib/access';
 import { formatWithOptions } from '#utils/date-format';
 import { assignmentContextLabel } from '../api/context-labels';
 import { usersWithAssignmentsQueryOptions } from '../queries/admin-roles';
-import { NATIVE_SELECT_CLASS } from './native-select-class';
+import { AdminSelect } from './admin-select';
 import { RoleAssignmentDialog } from './role-assignment-dialog';
 import { RoleUserDialog, userDisplayName } from './role-user-dialog';
 import { TablePagination } from './table-pagination';
@@ -38,11 +37,13 @@ import { TablePagination } from './table-pagination';
  *
  * Hình dáng theo thẻ bảng "Total users with their roles" của mẫu:
  * thẻ phẳng, đầu thẻ có viền dưới (tiêu đề 18px medium + mô tả),
- * khối lọc gồm đúng hai hàng — hàng 1 là hai ô chọn có nhãn đặt phía
- * trên (vai trò, trạng thái; KHÔNG có ô chọn gói dịch vụ vì gói thuộc
- * về trung tâm, không thuộc về người dùng), hàng 2 là ô tìm kiếm bên
- * trái và cụm cỡ trang + nút Gán vai trò bên phải (KHÔNG có
- * Export/Import vì hệ không có endpoint đó). Hàng bảng cao 56px:
+ * vùng lọc gồm hai khối riêng ngăn nhau bằng viền dưới, mỗi khối đệm
+ * 24px — khối lọc là hai ô chọn có nhãn đặt phía trên (vai trò,
+ * trạng thái; KHÔNG có ô chọn gói dịch vụ vì gói thuộc về trung tâm,
+ * không thuộc về người dùng), khối công cụ là ô tìm kiếm bên trái và
+ * cụm cỡ trang + nút Gán vai trò bên phải (KHÔNG có Export/Import vì
+ * hệ không có endpoint đó). Mọi ô chọn là Select của `@lms/ui` qua
+ * component dùng chung của feature. Hàng bảng cao 56px:
  * người dùng là avatar 36px kèm tên đậm và email xám dưới tên; cột
  * vai trò bày MỌI gán của người đó kèm nhãn cấp ngữ cảnh dạng chữ
  * qua adapter — không bày định danh hay đường dẫn kỹ thuật; trạng
@@ -155,48 +156,47 @@ export function UsersWithRolesSection({ roles, contexts }: UsersWithRolesSection
         <CardTitle className="text-lg">{t('userRolesTitle')}</CardTitle>
         <CardDescription>{t('userRolesDescription')}</CardDescription>
       </CardHeader>
-      {/* Khối lọc hai hàng: hàng 1 là hai ô chọn có nhãn phía trên (vai
-          trò, trạng thái); hàng 2 là tìm kiếm trái, cỡ trang + nút gán phải. */}
-      <div className="flex flex-col gap-4 border-b p-6">
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3">
-          <Field>
-            <FieldLabel htmlFor="user-roles-role-filter">{t('assignmentFilterRole')}</FieldLabel>
-            <select
-              id="user-roles-role-filter"
-              className={`${NATIVE_SELECT_CLASS} w-full`}
-              value={roleFilter}
-              onChange={(e) => {
-                setRoleFilter(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">{t('assignmentFilterRoleAll')}</option>
-              {roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="user-roles-status-filter">{t('userRolesStatusColumn')}</FieldLabel>
-            <select
-              id="user-roles-status-filter"
-              className={`${NATIVE_SELECT_CLASS} w-full`}
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value as '' | UserListStatus);
-                setPage(1);
-              }}
-            >
-              <option value="">{t('userRolesStatusAll')}</option>
-              <option value="active">{t('userRolesStatusActive')}</option>
-              <option value="suspended">{t('userRolesStatusSuspended')}</option>
-              <option value="deleted">{t('userRolesStatusDeleted')}</option>
-            </select>
-          </Field>
+      {/* Vùng lọc hai khối ngăn nhau bằng viền dưới như thẻ bảng mẫu:
+          khối lọc là hai ô chọn có nhãn phía trên (vai trò, trạng
+          thái); khối công cụ là tìm kiếm trái, cỡ trang + nút gán phải. */}
+      <div className="border-b">
+        <div className="flex flex-col gap-4 border-b p-6">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3">
+            <Field>
+              <FieldLabel htmlFor="user-roles-role-filter">{t('assignmentFilterRole')}</FieldLabel>
+              <AdminSelect
+                id="user-roles-role-filter"
+                value={roleFilter}
+                onValueChange={(next) => {
+                  setRoleFilter(next);
+                  setPage(1);
+                }}
+                options={[
+                  { value: '', label: t('assignmentFilterRoleAll') },
+                  ...roles.map((r) => ({ value: r.id, label: r.name })),
+                ]}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="user-roles-status-filter">{t('userRolesStatusColumn')}</FieldLabel>
+              <AdminSelect
+                id="user-roles-status-filter"
+                value={statusFilter}
+                onValueChange={(next) => {
+                  setStatusFilter(next as '' | UserListStatus);
+                  setPage(1);
+                }}
+                options={[
+                  { value: '', label: t('userRolesStatusAll') },
+                  { value: 'active', label: t('userRolesStatusActive') },
+                  { value: 'suspended', label: t('userRolesStatusSuspended') },
+                  { value: 'deleted', label: t('userRolesStatusDeleted') },
+                ]}
+              />
+            </Field>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-4 p-6 max-sm:flex-col sm:items-center sm:justify-between">
           <Field className="w-full max-w-2xs">
             <InputGroup>
               <InputGroupAddon>
@@ -215,24 +215,20 @@ export function UsersWithRolesSection({ roles, contexts }: UsersWithRolesSection
             </InputGroup>
           </Field>
           <div className="flex flex-wrap items-center gap-2">
-            <select
+            <AdminSelect
               id="user-roles-pagesize"
-              aria-label={t('userRolesPageSize')}
-              className={`${NATIVE_SELECT_CLASS} w-fit`}
+              ariaLabel={t('userRolesPageSize')}
+              className="w-fit"
               value={String(pageSize)}
-              onChange={(e) => {
-                const next = Number(e.target.value);
-                setPageSize(PAGE_SIZE_OPTIONS.includes(next as 10 | 25 | 50 | 100) ? next : 10);
+              onValueChange={(next) => {
+                const size = Number(next);
+                setPageSize(PAGE_SIZE_OPTIONS.includes(size as 10 | 25 | 50 | 100) ? size : 10);
                 setPage(1);
               }}
-            >
-              {PAGE_SIZE_OPTIONS.map((n) => (
-                <option key={n} value={String(n)}>
-                  {String(n)}
-                </option>
-              ))}
-            </select>
-            <Button type="button" onClick={() => setAssignOpen(true)}>
+              options={PAGE_SIZE_OPTIONS.map((n) => ({ value: String(n), label: String(n) }))}
+            />
+            <Button type="button" className="h-9 gap-1.5 px-2.5" onClick={() => setAssignOpen(true)}>
+              <Plus aria-hidden className="size-4" />
               {t('assignRole')}
             </Button>
           </div>
@@ -259,12 +255,14 @@ export function UsersWithRolesSection({ roles, contexts }: UsersWithRolesSection
         <>
           <Table>
             <TableHeader>
-              <TableRow className="h-14 border-t-0 hover:bg-transparent">
-                <TableHead className="pl-4">{t('assignmentUserColumn')}</TableHead>
-                <TableHead>{t('assignmentRoleColumn')}</TableHead>
-                <TableHead>{t('userRolesStatusColumn')}</TableHead>
-                <TableHead>{t('userRolesJoinedColumn')}</TableHead>
-                <TableHead className="pr-4 text-center">{t('assignmentActionsColumn')}</TableHead>
+              <TableRow className="h-14 border-t hover:bg-transparent">
+                <TableHead className="pl-4 text-muted-foreground">{t('assignmentUserColumn')}</TableHead>
+                <TableHead className="text-muted-foreground">{t('assignmentRoleColumn')}</TableHead>
+                <TableHead className="text-muted-foreground">{t('userRolesStatusColumn')}</TableHead>
+                <TableHead className="text-muted-foreground">{t('userRolesJoinedColumn')}</TableHead>
+                <TableHead className="pr-4 text-center text-muted-foreground">
+                  {t('assignmentActionsColumn')}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -319,7 +317,7 @@ export function UsersWithRolesSection({ roles, contexts }: UsersWithRolesSection
                         aria-label={t('userRolesManage')}
                         onClick={() => setManageUserId(user.id)}
                       >
-                        <IconDotsVertical className="size-4.5" />
+                        <Ellipsis aria-hidden className="size-4.5" />
                       </Button>
                     </TableCell>
                   </TableRow>

@@ -10,8 +10,8 @@ import { PageShell } from '#components/page-shell';
 import '#config/i18n';
 import { useAccessCapabilities, useAccessContexts } from '#lib/access';
 import { contextOptionLabel } from '../api/context-labels';
+import { AdminSelect } from '../components/admin-select';
 import { PermissionsMatrix } from '../components/permissions-matrix';
-import { NATIVE_SELECT_CLASS } from '../components/native-select-class';
 import { useCapabilityMatrix, useSetCapabilityOverride } from '../queries/admin-roles';
 import { groupCapabilitiesByResource } from '../types/admin-roles';
 
@@ -19,7 +19,10 @@ import { groupCapabilitiesByResource } from '../types/admin-roles';
  * Trang Quyền độc lập: ma trận quyền toàn trang của mọi vai trò tại
  * một ngữ cảnh, theo hình dáng trang Permissions mẫu (tiêu đề 20px
  * semibold kèm mô tả, ba thẻ tổng trên bảng, bảng phẳng trong thẻ
- * không bóng) nhưng giữ mô hình thật của hệ.
+ * không bóng) nhưng giữ mô hình thật của hệ. Trang đứng trong khung
+ * `app` của PageShell (trần 1440px, đệm nằm trong trần; khoảng cách
+ * khối 12px dưới bề rộng 768px và 24px từ 768px) như khối nội dung
+ * của bản mẫu.
  *
  * Luồng hiển thị:
  *
@@ -219,7 +222,7 @@ export function AdminPermissionsPage() {
   };
 
   return (
-    <PageShell width="full">
+    <PageShell width="app" contentClassName="gap-3 md:gap-6">
       <div>
         <h1 className="font-heading text-xl font-semibold">{t('navPermissions')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('permissionsDescription')}</p>
@@ -250,28 +253,25 @@ export function AdminPermissionsPage() {
           <div className="max-w-xs">
             <Field>
               <FieldLabel htmlFor="permissions-context">{t('roleContext')}</FieldLabel>
-              <select
+              <AdminSelect
                 id="permissions-context"
-                className={`${NATIVE_SELECT_CLASS} w-full`}
                 value={contextId}
-                onChange={(event) => {
+                onValueChange={(next) => {
                   // Đổi ngữ cảnh là đổi tập ghi đè đang xem: xoá sạch
                   // sửa đổi lạc quan của ngữ cảnh trước. Tập ô đang
                   // lưu KHÔNG xoá theo — khoá mang ngữ cảnh nên
                   // không khoá nhầm ô ở ngữ cảnh mới, và quay lại
                   // ngữ cảnh cũ khi yêu cầu còn chờ thì ô vẫn khoá.
-                  setContextOverride(event.target.value);
+                  setContextOverride(next);
                   setEdits({});
                   setSaveError(null);
                 }}
                 disabled={contexts.length === 0}
-              >
-                {contexts.map((ctx) => (
-                  <option key={ctx.id} value={ctx.id}>
-                    {contextOptionLabel(contexts, ctx, (key, options) => t(key, options))}
-                  </option>
-                ))}
-              </select>
+                options={contexts.map((ctx) => ({
+                  value: ctx.id,
+                  label: contextOptionLabel(contexts, ctx, (key, options) => t(key, options)),
+                }))}
+              />
             </Field>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 md:gap-6">
@@ -295,7 +295,6 @@ export function AdminPermissionsPage() {
             </Card>
           </div>
           {saveError ? <ErrorAlert variant="destructive">{saveError}</ErrorAlert> : null}
-          <p className="text-xs text-muted-foreground">{t('permissionLockedNote')}</p>
           <Card className="gap-0 p-0 shadow-none">
             <CardContent className="p-0">
               <PermissionsMatrix

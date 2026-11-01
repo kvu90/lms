@@ -58,6 +58,18 @@ import { UsersWithRolesSection } from '../components/users-with-roles';
  *    bảng người dùng kèm vai trò (một người một dòng kèm mọi gán của
  *    họ, đọc từ endpoint gộp) — mỗi bảng tự giữ trạng thái lọc/tìm/
  *    trang và gọi API theo đúng tham số đó.
+ * 5. Trang đứng trong khung `app` của PageShell (trần 1440px, đệm
+ *    trong trần, khoảng cách khối 24px) như trang quản trị của bản
+ *    demo mẫu. Báo lỗi tải dữ kiện đi theo độ hạt của từng query:
+ *    danh sách vai là dữ kiện chính — chỉ khi query này lỗi VÀ chưa
+ *    có dữ kiện nào thì trang mới hiện banner lỗi toàn trang kèm nút
+ *    thử lại; hai query phụ (danh mục capability, cây context) lỗi
+ *    khi chưa có dữ kiện thì báo tại chỗ ở đầu trang, giữ nguyên dữ
+ *    kiện đang hiển thị; đã có dữ kiện mà một lần làm mới nền lỗi
+ *    thì không dựng banner phủ lên dữ kiện còn tốt. Trước đây cả ba
+ *    query gộp thành một cờ lỗi duy nhất nên một lỗi tạm thời của
+ *    endpoint phụ cũng bật banner "Không tải được vai trò" chập
+ *    chờn theo nhịp làm mới nền.
  */
 export function AdminRolesPage() {
   const { t } = useTranslation('app');
@@ -80,11 +92,21 @@ export function AdminRolesPage() {
   const contexts = contextsQuery.data ?? [];
   const matrix = matrixQuery.data ?? [];
   const loading = rolesQuery.isPending || capabilitiesQuery.isPending || contextsQuery.isPending;
-  const loadFailed = rolesQuery.isError || capabilitiesQuery.isError || contextsQuery.isError;
+  /**
+   * Lỗi tải theo độ hạt của từng query (điểm 5 ở comment đầu file):
+   * banner toàn trang chỉ khi danh sách vai lỗi và chưa có dữ kiện;
+   * hai query phụ lỗi khi chưa có dữ kiện thì báo tại chỗ; lỗi làm
+   * mới nền khi đã có dữ kiện không sinh thông báo nào.
+   */
+  const rolesLoadFailed = rolesQuery.isError && rolesQuery.data === undefined;
+  const supportLoadFailed =
+    !rolesLoadFailed &&
+    ((capabilitiesQuery.isError && capabilitiesQuery.data === undefined) ||
+      (contextsQuery.isError && contextsQuery.data === undefined));
 
   return (
-    <PageShell width="full">
-      {loadFailed ? (
+    <PageShell width="app" contentClassName="gap-6">
+      {rolesLoadFailed ? (
         <>
           <ErrorAlert variant="destructive">{t('rolesLoadFailed')}</ErrorAlert>
           <div>
@@ -101,6 +123,25 @@ export function AdminRolesPage() {
             </Button>
           </div>
         </>
+      ) : null}
+      {supportLoadFailed ? (
+        <ErrorAlert
+          variant="destructive"
+          descriptionClassName="flex items-center justify-between gap-2"
+        >
+          <span>{t('rolesSupportLoadFailed')}</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              void capabilitiesQuery.refetch();
+              void contextsQuery.refetch();
+            }}
+          >
+            {t('retry')}
+          </Button>
+        </ErrorAlert>
       ) : null}
       {loading ? (
         <PageSkeleton label={t('loading')} rows={['h-9 w-full', 'h-9 w-full', 'h-9 w-full']} />

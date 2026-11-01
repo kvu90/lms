@@ -79,6 +79,17 @@ import { AdminRolesPage } from './admin-roles';
  * lực. Mọi hành vi đã ghim ở các vòng trước (ô khoá kèm huy
  * hiệu, chọn theo cấp bỏ qua ô khoá, bảo toàn giá trị khoá khi
  * lưu) giữ nguyên phạm vi kiểm chứng.
+ *
+ * Vòng căn chỉnh khớp demo (issue #624): mọi ô chọn của hai bề
+ * mặt (lọc, cỡ trang, ngữ cảnh, hộp thoại gán) chuyển từ
+ * `<select>` native sang Select của `@lms/ui` — các ca tương
+ * tác chọn theo nhãn nhìn thấy của lựa chọn qua helper
+ * `chooseOption`; form vai báo lỗi tên tại trường (tối thiểu 2
+ * ký tự, có placeholder); báo lỗi tải của trang đi theo độ hạt
+ * từng query (banner toàn trang chỉ khi danh sách vai lỗi lúc
+ * chưa có dữ kiện, query phụ lỗi thì báo tại chỗ); nút gỡ ở
+ * bảng gán thành nút ghost biểu tượng mang nhãn truy cập "Gỡ
+ * gán" như cũ; cột thời gian của bảng gán bày dạng ngày chữ.
  */
 const ROLE_ID = '01900000-0000-7000-8000-0000000000b1';
 const NEW_ROLE_ID = '01900000-0000-7000-8000-0000000000b2';
@@ -124,6 +135,10 @@ interface StubOptions {
   dualCourseAssignments?: boolean;
   /** Ma trận ngữ cảnh hệ thống chứa đồng thời một ô Ngăn chặn, một ô Cấm hẳn và một ô Cho phép để kiểm chứng bảo toàn hai giá trị khoá. */
   prohibitMatrix?: boolean;
+  /** GET /access/roles trả lỗi 500 (ca banner toàn trang khi danh sách vai lỗi ở lần tải đầu). */
+  rolesError?: boolean;
+  /** GET /access/capabilities trả lỗi 500 (ca báo tại chỗ khi một query phụ lỗi, danh sách vai vẫn tải tốt). */
+  capabilitiesError?: boolean;
 }
 
 function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
@@ -162,7 +177,9 @@ function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown, status = 200) =>
         new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
-      if (url === '/api/v1/access/roles' && method === 'GET')
+      if (url === '/api/v1/access/roles' && method === 'GET') {
+        if (options.rolesError)
+          return respond({ type: 'about:blank', title: 'Lỗi tải vai trò', status: 500 }, 500);
         return respond([
           {
             id: ROLE_ID,
@@ -177,7 +194,10 @@ function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
             resourceCount: 2,
           },
         ]);
-      if (url === '/api/v1/access/capabilities')
+      }
+      if (url === '/api/v1/access/capabilities') {
+        if (options.capabilitiesError)
+          return respond({ type: 'about:blank', title: 'Lỗi tải danh mục', status: 500 }, 500);
         return respond([
           {
             id: '01900000-0000-7000-8000-0000000000c1',
@@ -201,6 +221,7 @@ function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
             component: 'core',
           },
         ]);
+      }
       if (url === '/api/v1/access/contexts')
         return respond([
           { id: SYSTEM_CONTEXT_ID, contextLevel: 10, instanceId: '0', path: '/1' },
@@ -440,6 +461,17 @@ async function openEditDialog() {
   await screen.findByRole('dialog', { name: 'Sửa vai trò' });
 }
 
+/**
+ * Chọn một lựa chọn trong ô Select của `@lms/ui` theo nhãn nhìn
+ * thấy: bấm nút mở rồi bấm lựa chọn trong danh sách xổ — danh sách
+ * xổ render qua portal ở tầng document nên truy vấn bằng `screen`,
+ * không giới hạn trong hộp thoại hay thẻ chứa nút mở.
+ */
+async function chooseOption(trigger: HTMLElement, optionLabel: string) {
+  await userEvent.click(trigger);
+  await userEvent.click(await screen.findByRole('option', { name: optionLabel }));
+}
+
 describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2, #546)', () => {
   afterEach(() => {
     cleanup();
@@ -486,7 +518,7 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     const dialog = await screen.findByRole('dialog', { name: 'Thêm vai trò mới' });
     await userEvent.type(within(dialog).getByLabelText('Tên vai trò'), 'Vai trò mới');
     await userEvent.type(within(dialog).getByLabelText('Tên ngắn (shortName)'), 'newrole');
-    await userEvent.selectOptions(within(dialog).getByLabelText('Ngữ cảnh'), SYSTEM_CONTEXT_ID);
+    await chooseOption(within(dialog).getByLabelText('Ngữ cảnh'), 'Hệ thống');
     // Chỉ một ô khác kế thừa: tích checkbox course:view thành Cho phép; các ô còn lại giữ Kế thừa nên không vào tập gửi lên.
     await userEvent.click(within(dialog).getByRole('checkbox', { name: 'course:view' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Lưu vai trò' }));
@@ -702,7 +734,7 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
       ),
     );
     // Chuyển sang ngữ cảnh trung tâm: course:view không có ghi đè ở đó nên về Kế thừa (trống, sửa được), course:edit giữ Cho phép (tích).
-    await userEvent.selectOptions(within(dialog).getByLabelText('Ngữ cảnh'), TENANT_CONTEXT_ID);
+    await chooseOption(within(dialog).getByLabelText('Ngữ cảnh'), 'Trung tâm');
     await waitFor(() =>
       expect(within(dialog).getByRole('checkbox', { name: 'course:view' })).toHaveAttribute(
         'aria-checked',
@@ -745,7 +777,7 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     const dialog = await screen.findByRole('dialog', { name: 'Thêm vai trò mới' });
     await userEvent.type(within(dialog).getByLabelText('Tên vai trò'), 'Vai trò mới');
     await userEvent.type(within(dialog).getByLabelText('Tên ngắn (shortName)'), 'newrole');
-    await userEvent.selectOptions(within(dialog).getByLabelText('Ngữ cảnh'), SYSTEM_CONTEXT_ID);
+    await chooseOption(within(dialog).getByLabelText('Ngữ cảnh'), 'Hệ thống');
     const selectAll = within(dialog).getByRole('checkbox', { name: 'Chọn tất cả các quyền' });
     expect(selectAll).toHaveAttribute('aria-checked', 'false');
     // Tích một ô lẻ thì checkbox toàn cục chuyển sang trạng thái lưng chừng.
@@ -784,7 +816,7 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     const dialog = await screen.findByRole('dialog', { name: 'Thêm vai trò mới' });
     await userEvent.type(within(dialog).getByLabelText('Tên vai trò'), 'Vai trò mới');
     await userEvent.type(within(dialog).getByLabelText('Tên ngắn (shortName)'), 'newrole');
-    await userEvent.selectOptions(within(dialog).getByLabelText('Ngữ cảnh'), SYSTEM_CONTEXT_ID);
+    await chooseOption(within(dialog).getByLabelText('Ngữ cảnh'), 'Hệ thống');
     await userEvent.click(
       within(dialog).getByRole('checkbox', { name: 'Chọn tất cả quyền của nhóm course' }),
     );
@@ -910,6 +942,50 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     await userEvent.click(within(editDialog).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
+
+  it('tên vai trò ngắn hơn 2 ký tự thì báo lỗi ngay tại trường và chặn Lưu, đủ 2 ký tự thì hết lỗi', async () => {
+    stubFetch([]);
+    renderPage();
+
+    await screen.findByRole('button', { name: 'Thêm vai trò mới' });
+    await userEvent.click(screen.getByRole('button', { name: 'Thêm vai trò mới' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Thêm vai trò mới' });
+    const nameInput = within(dialog).getByLabelText('Tên vai trò');
+    // Ô nhập tên có placeholder như form mẫu.
+    expect(nameInput).toHaveAttribute('placeholder', 'Nhập tên vai trò');
+    // Gõ một ký tự: lỗi hiện ngay dưới ô nhập và nút Lưu bị chặn —
+    // người dùng thấy rõ lý do thay vì nút khoá lặng như trước.
+    await userEvent.type(nameInput, 'A');
+    expect(within(dialog).getByText('Tên vai trò phải có ít nhất 2 ký tự.')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Lưu vai trò' })).toBeDisabled();
+    // Gõ thêm ký tự thứ hai: lỗi biến mất.
+    await userEvent.type(nameInput, 'B');
+    expect(within(dialog).queryByText('Tên vai trò phải có ít nhất 2 ký tự.')).not.toBeInTheDocument();
+  });
+
+  it('một query phụ lỗi khi chưa có dữ kiện thì báo tại chỗ, lưới vai vẫn hiện và không có banner toàn trang', async () => {
+    stubFetch([], { capabilitiesError: true });
+    renderPage();
+
+    // Danh sách vai tải tốt nên lưới thẻ vẫn dựng; lỗi của endpoint
+    // danh mục chỉ hiện thành thông báo tại chỗ ở đầu trang.
+    await screen.findByRole('button', { name: 'Thêm vai trò mới' });
+    expect(screen.getByText('5 người dùng')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Không tải được danh mục quyền hoặc cây ngữ cảnh — hộp thoại ma trận có thể chưa đầy đủ.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Không tải được danh sách vai trò. Thử tải lại.')).not.toBeInTheDocument();
+  });
+
+  it('danh sách vai lỗi ở lần tải đầu thì hiện banner lỗi toàn trang kèm nút thử lại', async () => {
+    stubFetch([], { rolesError: true });
+    renderPage();
+
+    expect(await screen.findByText('Không tải được danh sách vai trò. Thử tải lại.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Thử lại' })).toBeInTheDocument();
+  });
 });
 
 describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
@@ -978,15 +1054,15 @@ describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
     await userEvent.type(card.getByLabelText('Tìm người dùng'), 'An');
     await waitFor(() => expect(assignmentsCalls().some((c) => c.url.includes('search=An'))).toBe(true));
 
-    await userEvent.selectOptions(card.getByLabelText('Lọc theo vai trò'), ROLE_ID);
+    await chooseOption(card.getByLabelText('Lọc theo vai trò'), 'Giáo viên');
     await waitFor(() => expect(assignmentsCalls().some((c) => c.url.includes(`roleId=${ROLE_ID}`))).toBe(true));
 
-    await userEvent.selectOptions(card.getByLabelText('Lọc theo ngữ cảnh'), TENANT_CONTEXT_ID);
+    await chooseOption(card.getByLabelText('Lọc theo ngữ cảnh'), 'Trung tâm');
     await waitFor(() =>
       expect(assignmentsCalls().some((c) => c.url.includes(`contextId=${TENANT_CONTEXT_ID}`))).toBe(true),
     );
 
-    await userEvent.selectOptions(card.getByLabelText('Số dòng mỗi trang'), '10');
+    await chooseOption(card.getByLabelText('Số dòng mỗi trang'), '10');
     await waitFor(() => expect(assignmentsCalls().some((c) => c.url.includes('pageSize=10'))).toBe(true));
     // Tổng 25 dòng với cỡ trang 10 thành 3 trang: chân bảng hiện khoảng
     // dòng của trang 1 (stub trả 2 dòng mỗi trang bất kể cỡ trang).
@@ -1005,10 +1081,9 @@ describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
     const roleLoadsBefore = calls.filter((c) => c.url === '/api/v1/access/roles' && c.method === 'GET').length;
     const dialog = await openAssignDialog();
     // Ngữ cảnh mặc định là ngữ cảnh hệ thống như form gán cũ.
-    await waitFor(() =>
-      expect((within(dialog).getByLabelText('Ngữ cảnh') as HTMLSelectElement).value).toBe(SYSTEM_CONTEXT_ID),
-    );
-    await userEvent.selectOptions(within(dialog).getByLabelText('Vai trò'), ROLE_ID);
+    // Ô chọn ngữ cảnh hiện nhãn cấp dạng chữ của ngữ cảnh hệ thống mặc định.
+    expect(within(dialog).getByLabelText('Ngữ cảnh')).toHaveTextContent('Hệ thống');
+    await chooseOption(within(dialog).getByLabelText('Vai trò'), 'Giáo viên');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Gán vai trò' }));
 
     await waitFor(() =>
@@ -1032,7 +1107,7 @@ describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
 
     await screen.findByText('An Nguyễn');
     const dialog = await openAssignDialog();
-    await userEvent.selectOptions(within(dialog).getByLabelText('Vai trò'), ROLE_ID);
+    await chooseOption(within(dialog).getByLabelText('Vai trò'), 'Giáo viên');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Gán vai trò' }));
 
     expect(
@@ -1050,7 +1125,7 @@ describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
 
     await screen.findByText('An Nguyễn');
     const dialog = await openAssignDialog();
-    await userEvent.selectOptions(within(dialog).getByLabelText('Vai trò'), ROLE_ID);
+    await chooseOption(within(dialog).getByLabelText('Vai trò'), 'Giáo viên');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Gán vai trò' }));
 
     expect(
@@ -1162,7 +1237,7 @@ describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
     ).toBe(true);
   });
 
-  it('bảng có mô tả phụ dưới tiêu đề, thanh lọc đúng hai hàng và chân bảng hiện khoảng dòng ngay cả khi một trang', async () => {
+  it('bảng có mô tả phụ dưới tiêu đề, vùng lọc đúng hai khối và chân bảng hiện khoảng dòng ngay cả khi một trang', async () => {
     stubFetch([]);
     renderPage();
 
@@ -1170,10 +1245,11 @@ describe('Trang vai trò — bảng gán vai (đợt 3, #547)', () => {
     const card = within(assignmentsCard());
     // Dòng mô tả phụ dưới tiêu đề bảng.
     expect(card.getByText('Mọi người dùng đang giữ vai trò và ngữ cảnh họ được gán.')).toBeInTheDocument();
-    // Thanh lọc hai hàng: hàng 1 là hai ô chọn có nhãn phía trên, hàng
-    // 2 là ô tìm kiếm mang bề rộng tối đa 288px như bảng mẫu. jsdom
-    // không tính layout nên hành vi quan sát được ở đây là class bề
-    // rộng trên đúng trường tìm kiếm và sự hiện diện của cả hai ô chọn.
+    // Vùng lọc hai khối ngăn bằng viền dưới: khối lọc là hai ô chọn
+    // có nhãn phía trên, khối công cụ mang ô tìm kiếm bề rộng tối đa
+    // 288px như bảng mẫu. jsdom không tính layout nên hành vi quan
+    // sát được ở đây là class bề rộng trên đúng trường tìm kiếm và
+    // sự hiện diện của cả hai ô chọn.
     const searchField = card.getByLabelText('Tìm người dùng').closest('[data-slot="field"]');
     expect(searchField?.className).toContain('max-w-2xs');
     expect(card.getByLabelText('Lọc theo vai trò')).toBeInTheDocument();
@@ -1266,10 +1342,17 @@ describe('Trang vai trò — bảng người dùng kèm vai trò', () => {
     expect(card.queryByLabelText(/Plan/)).not.toBeInTheDocument();
     // Chân bảng: khoảng dòng đếm NGƯỜI DÙNG (3), không đếm dòng gán.
     expect(card.getByText('Hiển thị 1 đến 3 trong 3 mục')).toBeInTheDocument();
-    // Cỡ trang mặc định 10 và có đủ các lựa chọn 10/25/50/100.
-    const pageSizeSelect = card.getByLabelText('Số người dùng mỗi trang') as HTMLSelectElement;
-    expect(pageSizeSelect.value).toBe('10');
-    expect([...pageSizeSelect.options].map((option) => option.value)).toEqual(['10', '25', '50', '100']);
+    // Cỡ trang mặc định 10 và danh sách xổ có đủ các lựa chọn 10/25/50/100.
+    const pageSizePicker = card.getByLabelText('Số người dùng mỗi trang');
+    expect(pageSizePicker).toHaveTextContent('10');
+    await userEvent.click(pageSizePicker);
+    expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual([
+      '10',
+      '25',
+      '50',
+      '100',
+    ]);
+    await userEvent.click(screen.getByRole('option', { name: '10' }));
   });
 
   it('lọc theo vai trò, trạng thái và tìm kiếm đều gửi tham số lên endpoint gộp', async () => {
@@ -1287,13 +1370,13 @@ describe('Trang vai trò — bảng người dùng kèm vai trò', () => {
     await waitFor(() => expect(card.queryByText('An Nguyễn')).not.toBeInTheDocument());
     expect(card.getByText('Bình Trần')).toBeInTheDocument();
 
-    await userEvent.selectOptions(card.getByLabelText('Trạng thái'), 'suspended');
+    await chooseOption(card.getByLabelText('Trạng thái'), 'Đã khoá');
     await waitFor(() => expect(usersCalls().some((c) => c.url.includes('status=suspended'))).toBe(true));
 
-    await userEvent.selectOptions(card.getByLabelText('Lọc theo vai trò'), ROLE_ID);
+    await chooseOption(card.getByLabelText('Lọc theo vai trò'), 'Giáo viên');
     await waitFor(() => expect(usersCalls().some((c) => c.url.includes(`roleId=${ROLE_ID}`))).toBe(true));
 
-    await userEvent.selectOptions(card.getByLabelText('Số người dùng mỗi trang'), '25');
+    await chooseOption(card.getByLabelText('Số người dùng mỗi trang'), '25');
     await waitFor(() => expect(usersCalls().some((c) => c.url.includes('pageSize=25'))).toBe(true));
   });
 
@@ -1410,7 +1493,7 @@ describe('Trang vai trò — bảng người dùng kèm vai trò', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Thêm vai trò mới' });
     await userEvent.type(within(dialog).getByLabelText('Tên vai trò'), 'Vai trò mới');
     await userEvent.type(within(dialog).getByLabelText('Tên ngắn (shortName)'), 'newrole');
-    await userEvent.selectOptions(within(dialog).getByLabelText('Ngữ cảnh'), SYSTEM_CONTEXT_ID);
+    await chooseOption(within(dialog).getByLabelText('Ngữ cảnh'), 'Hệ thống');
     await userEvent.click(within(dialog).getByRole('checkbox', { name: 'course:view' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Lưu vai trò' }));
     await waitFor(() =>
