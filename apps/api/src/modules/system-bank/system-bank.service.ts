@@ -37,8 +37,8 @@
  */
 import { createHash } from 'node:crypto';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
-import { curricula, curriculumNodes, learningOutcomes, subjects } from '@lms/db';
+import { SystemBankCentreRepository } from '@lms/db/repositories/system-bank-centre';
+import { SystemBankRepository } from '@lms/db/repositories/system-bank';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { tenantAls } from '../tenants/tenant-als';
@@ -47,9 +47,7 @@ import type { RichTextInput, SystemBankPackage } from '@lms/contracts';
 import { QuestionsService, type QuestionContentInput } from '../questions/questions.service';
 import { QuestionBanksService } from '../questions/question-banks.service';
 import { canonicalizeJson, checksumPackage, packageValidationError, verifyPackageChecksum } from './system-bank-package';
-import { SystemBankCentreRepository } from './system-bank-centre.repository';
 import { SystemBankConnection } from './system-bank.connection';
-import { SystemBankRepository } from './system-bank.repository';
 import type {
   CreateSystemBankQuestionDto,
   CreateSystemBankVersionDto,
@@ -59,7 +57,12 @@ import type {
   WithdrawSystemBankQuestionDto,
 } from './dto/system-bank.dto';
 
-/** Bóc lỗi vi phạm unique của PostgreSQL (23505) dù Drizzle có bọc qua cause hay không. */
+/**
+ * Bóc lỗi vi phạm unique của PostgreSQL (23505): qua Kysely lỗi pg
+ * ném THÔ — `code` nằm trực tiếp trên lỗi, không có `cause`; helper
+ * vẫn duyệt cả chuỗi `cause` (vòng đầu kiểm chính lỗi được ném) để
+ * tương thích các đường lỗi còn bọc qua Drizzle ở tầng khác.
+ */
 function isUniqueViolation(err: unknown): boolean {
   let e: unknown = err;
   while (e !== null && typeof e === 'object') {
@@ -540,11 +543,25 @@ export class SystemBankService {
    */
   async createOutcomePackage(actorId: string, dto: CreateSystemOutcomePackageDto) {
     await this.assertPlatformManager(actorId);
-    const snapshot = await this.tenantDb.withPlatform(async (tx) => {
+    const snapshot = await this.tenantDb.withPlatformKysely(async (tx) => {
+      // Chụp cây chương trình bằng truy vấn Kysely trên handle định
+      // tuyến (hạng mục G10, issue #650): danh sách cột tường minh có
+      // bí danh camelCase khớp hình dạng dòng mà phần dựng gói phía
+      // dưới đang dùng; các tập id rỗng được chặn trước bằng guard
+      // độ dài như bản Drizzle — không phát truy vấn `in ()`.
+      const subjectColumns = [
+        'id',
+        'context_id as contextId',
+        'name',
+        'slug',
+        'position',
+        'created_at as createdAt',
+        'updated_at as updatedAt',
+      ] as const;
       const subjectRows =
         dto.scope === 'all'
-          ? await tx.select().from(subjects)
-          : await tx.select().from(subjects).where(eq(subjects.slug, dto.scope));
+          ? await tx.selectFrom('subjects').select(subjectColumns).execute()
+          : await tx.selectFrom('subjects').select(subjectColumns).where('slug', '=', dto.scope).execute();
       if (dto.scope !== 'all' && subjectRows.length === 0) {
         throw new NotFoundException({
           message: `Subject ${dto.scope} not found in the platform programme`,
@@ -555,26 +572,54 @@ export class SystemBankService {
       const curriculumRows =
         subjectIds.length === 0
           ? []
-          : await tx.select().from(curricula).where(inArray(curricula.subjectId, subjectIds));
+          : await tx
+              .selectFrom('curricula')
+              .select(['id', 'subject_id as subjectId', 'grade', 'created_at as createdAt', 'updated_at as updatedAt'])
+              .where('subject_id', 'in', subjectIds)
+              .execute();
       const curriculumIds = curriculumRows.map((row) => row.id);
       const nodeRows =
         curriculumIds.length === 0
           ? []
-          : await tx.select().from(curriculumNodes).where(inArray(curriculumNodes.curriculumId, curriculumIds));
+          : await tx
+              .selectFrom('curriculum_nodes')
+              .select([
+                'id',
+                'curriculum_id as curriculumId',
+                'parent_id as parentId',
+                'title',
+                'kind',
+                'position',
+                'duration_periods as durationPeriods',
+                'duration_percent as durationPercent',
+                'created_at as createdAt',
+                'updated_at as updatedAt',
+              ])
+              .where('curriculum_id', 'in', curriculumIds)
+              .execute();
       const nodeIds = nodeRows.map((row) => row.id);
       const outcomeRows =
         nodeIds.length === 0
           ? []
           : await tx
-              .select()
-              .from(learningOutcomes)
-              .where(
-                and(
-                  inArray(learningOutcomes.nodeId, nodeIds),
-                  isNull(learningOutcomes.tenantId),
-                  isNull(learningOutcomes.retiredAt),
-                ),
-              );
+              .selectFrom('learning_outcomes')
+              .select([
+                'id',
+                'node_id as nodeId',
+                'position',
+                'content',
+                'source_kind as sourceKind',
+                'source_ref as sourceRef',
+                'tenant_id as tenantId',
+                'derived_from_id as derivedFromId',
+                'retired_at as retiredAt',
+                'created_at as createdAt',
+                'updated_at as updatedAt',
+              ])
+              .where('node_id', 'in', nodeIds)
+              .where('tenant_id', 'is', null)
+              .where('retired_at', 'is', null)
+              .execute();
       return { subjectRows, curriculumRows, nodeRows, outcomeRows };
     });
     const subjectSlugById = new Map(snapshot.subjectRows.map((row) => [row.id, row.slug]));
