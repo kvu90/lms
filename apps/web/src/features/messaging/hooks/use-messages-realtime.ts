@@ -4,8 +4,10 @@
  * socket một lần khi trang mở, đăng ký các handler tin mới, tin bị
  * xoá, thu hồi, đang gõ, hiện diện và nối lại, rồi ngắt khi trang
  * đóng. Mọi sự kiện mang dữ kiện máy chủ đều VÁ VÀO CACHE TanStack
- * (gộp tin vào cache chi tiết, áp sự kiện lên cache danh sách/cây
- * nhóm qua các bộ chuyển đổi của hook danh sách, áp mốc đọc lên
+ * (gộp tin vào cache chi tiết, áp sự kiện lên cache danh sách
+ * chính + tập đã lưu/cây nhóm qua các bộ chuyển đổi của hook
+ * danh sách — kèm dời hội thoại khỏi tập đã lưu khi server tự
+ * bỏ lưu trữ cho người xem lúc có tin mới — áp mốc đọc lên
  * cache chi tiết, invalidate cửa sổ khi server báo dữ kiện đã đổi
  * căn bản) — không còn state bản chép nào để đồng bộ tay. Giữ
  * nguyên kỷ luật: handlers đọc state mới nhất qua ref nên không
@@ -23,7 +25,7 @@
  */
 import { useEffect, useRef } from 'react';
 import { connectMessagingRealtime, type MessagingRealtimeHandle } from '../api/messaging-socket';
-import { withTreeUnread } from '../utils/page-helpers';
+import { withConversationMovedToSectionTop, withTreeUnread } from '../utils/page-helpers';
 import type { ConversationGroupTreeView, ConversationView, MessageView } from '../types/types';
 
 export interface UseMessagesRealtimeParams {
@@ -49,6 +51,8 @@ export interface UseMessagesRealtimeParams {
   invalidateConversationWindow: (conversationId: string) => void;
   /** Ghi danh sách conversation (bộ chuyển đổi ghi cache của hook danh sách). */
   setConversations: (conversations: ConversationView[] | ((prev: ConversationView[]) => ConversationView[])) => void;
+  /** Ghi tập hội thoại đã lưu vào cache — sự kiện conversation.updated áp lên cả cache này: hội thoại đã lưu chỉ sống ở đó, và khi server tự bỏ lưu trữ cho người xem thì sự kiện dời nó sang danh sách chính qua cả hai bộ chuyển đổi. */
+  setArchivedConversations: (conversations: ConversationView[] | ((prev: ConversationView[]) => ConversationView[])) => void;
   /** Ghi cây nhóm vào cache (áp số chưa đọc mới). */
   setGroupTree: (
     tree:
@@ -87,6 +91,7 @@ export function useMessagesRealtime({
   applyReadMarker,
   invalidateConversationWindow,
   setConversations,
+  setArchivedConversations,
   setGroupTree,
   setTypingUsers,
   setOnlineUsers,
@@ -153,22 +158,53 @@ export function useMessagesRealtime({
         // cùng một sự kiện, vẫn áp như thường và vô hại.
         if (message.seq < (lastSeqRef.current.get(conversationId) ?? 0)) return;
         noteSeq(conversationId, message.seq);
-        setConversations((prev) => {
+        // Phép vá nội dung của sự kiện lên một mục hội thoại: số
+        // chưa đọc mới theo sự kiện (hội thoại đang mở thì về 0
+        // như luật hiện hành), tin cuối và mốc seq mới.
+        const applyUpdate = (c: ConversationView): ConversationView => ({
+          ...c,
+          unread: activeRef.current?.id === conversationId ? 0 : unreadCount,
+          lastMessage: message,
+          lastMessageSeq: message.seq,
+        });
+        // Hội thoại đã lưu trữ chỉ sống trong cache tập đã lưu
+        // (tab Lưu trữ, issue #623) — danh sách chính không có nó
+        // để vá. Cách áp sự kiện lên cache đó đi theo đúng luật
+        // phía server khi có tin mới (server tự bỏ lưu trữ cho
+        // mọi thành viên TRỪ người gửi, ngay trong giao dịch gửi):
+        // - Tin của NGƯỜI KHÁC: trạng thái lưu trữ của chính
+        //   người xem đã bị server gỡ — gỡ mục khỏi tập đã lưu
+        //   và dời bản đã vá sang danh sách chính ở bước dưới,
+        //   cờ `archivedAt` làm sạch theo trạng thái server mới.
+        // - Tin của CHÍNH người xem: trạng thái lưu trữ của
+        //   người xem giữ nguyên — vá nội dung và dời hội
+        //   thoại lên đầu phân mục của nó (Ghim / Gần đây)
+        //   trong tập đã lưu, đúng thứ tự server trả khi tải
+        //   lại (vòng sửa issue #623: vá tại chỗ giữ nguyên
+        //   vị trí làm thứ tự của tab Lưu trữ lệch thứ tự
+        //   server cho tới lần tải lại kế tiếp).
+        let moved: ConversationView | undefined;
+        setArchivedConversations((prev) => {
           const target = prev.find((c) => c.id === conversationId);
           if (!target) return prev;
+          if (message.userIdFrom === myId) {
+            return withConversationMovedToSectionTop(prev, conversationId, applyUpdate);
+          }
+          moved = target;
+          return prev.filter((c) => c.id !== conversationId);
+        });
+        setConversations((prev) => {
+          const target = prev.find((c) => c.id === conversationId);
+          if (!target) {
+            // Hội thoại vừa dời từ tập đã lưu sang: lên đầu danh
+            // sách như mọi hội thoại vừa có tin mới.
+            return moved ? [{ ...applyUpdate(moved), archivedAt: null }, ...prev] : prev;
+          }
           // Danh sách tự sắp xếp lại theo hoạt động mới nhất (lát M1,
           // issue #204): conversation vừa có tin mới được đưa lên đầu
           // — cùng thứ tự server trả khi tải lại (updated_at giảm
           // dần) nên realtime và reload không bao giờ lệch nhau.
-          return [
-            {
-              ...target,
-              unread: activeRef.current?.id === conversationId ? 0 : unreadCount,
-              lastMessage: message,
-              lastMessageSeq: message.seq,
-            },
-            ...prev.filter((c) => c.id !== conversationId),
-          ];
+          return [applyUpdate(target), ...prev.filter((c) => c.id !== conversationId)];
         });
         recountUnread();
         // Cây nhóm cũng nhận số chưa đọc mới của conversation này để
@@ -305,6 +341,7 @@ export function useMessagesRealtime({
     applyReadMarker,
     invalidateConversationWindow,
     setConversations,
+    setArchivedConversations,
     setGroupTree,
     setTypingUsers,
     setOnlineUsers,

@@ -10,8 +10,10 @@
  *
  * @param params - `active` là conversation đang mở;
  * `setConversations` là bộ chuyển đổi ghi cache danh sách (chèn
- * conversation vừa ensure); `conversations`/
- * `archivedConversations` để mở conversation đã có; `groupTree`
+ * conversation vừa ensure); `conversations` /
+ * `archivedConversations` (danh sách chính và tập đã lưu của
+ * server — hai tập tách riêng từ issue #623) để mở conversation
+ * đã có; `groupTree`
  * để suy quyền hiển thị nút tạo nhóm; `nameOf` cho câu xác nhận
  * gỡ thành viên; `reload` nạp lại sau khi tạo/mở; `open` mở
  * conversation (trang nối qua callback dùng-chung);
@@ -34,9 +36,9 @@ export interface UseGroupActionsParams {
   active: ConversationView | null;
   /** Ghi danh sách conversation (bộ chuyển đổi ghi cache của hook danh sách). */
   setConversations: (conversations: ConversationView[] | ((prev: ConversationView[]) => ConversationView[])) => void;
-  /** Danh sách conversation chính — nguồn tìm conversation đã có. */
+  /** Danh sách conversation chính (chưa lưu trữ) — nguồn tìm conversation đã có. */
   conversations: ConversationView[];
-  /** Mục đã lưu — nguồn tìm conversation đã có. */
+  /** Tập đã lưu của server — nguồn tìm conversation đã có (hội thoại đã lưu trữ mở từ cây Nhóm vẫn tra được tại chỗ). */
   archivedConversations: ConversationView[];
   /** Cây nhóm của tôi — nguồn suy quyền hiển thị nút tạo nhóm. */
   groupTree: ConversationGroupTreeView | null;
@@ -76,10 +78,11 @@ export function useGroupActions({
 
   /**
    * Mở một conversation ĐÃ có id (lát MSG-T3 — nút nhóm con/nhóm tự
-   * do/chat đã ensure của cây Nhóm): có sẵn trong danh sách (chính
-   * hoặc đã lưu) thì mở như cú bấm thường; chưa có thì lấy chi tiết
-   * theo id bằng đúng cơ chế deep-link rồi mở — server là nơi thực
-   * thi quyền thành viên, không phải thành viên thì bỏ qua êm.
+   * do/chat đã ensure của cây Nhóm): có sẵn trong một trong hai
+   * tập danh sách của trang (chính hoặc đã lưu) thì mở như cú bấm
+   * thường; chưa có thì lấy chi tiết theo id bằng đúng cơ chế
+   * deep-link rồi mở — server là nơi thực thi quyền thành viên,
+   * không phải thành viên thì bỏ qua êm.
    */
   async function openConversationById(conversationId: string) {
     const found =

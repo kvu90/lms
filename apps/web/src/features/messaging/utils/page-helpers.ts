@@ -22,15 +22,17 @@ const MESSAGES_TAB_STORAGE_KEY = 'lms.messages.tab';
 const MESSAGES_CONVERSATION_STORAGE_KEY = 'lms.messages.conversationId';
 /**
  * Các tab khung trái hợp lệ — giá trị lưu hỏng thì lùi về tab
- * Tất cả. Từ issue #564, mục Đã lưu trữ không còn là tab riêng
- * mà là một mục thu gọn trong tab danh sách chính, nên giá trị
- * lưu cũ "archived" rơi về mặc định theo đúng luật này. Từ
- * issue #606, thanh tab đổi thành bốn tab lọc ngang hàng của
- * bản demo (Tất cả / Chưa đọc / Nhóm / Yêu thích) thay cấu trúc
- * hai tab cũ, nên giá trị lưu cũ "chats" cũng rơi về mặc định
- * "all"; "groups" giữ nguyên nghĩa ở cả hai cấu trúc.
+ * Tất cả. Từ issue #606, thanh tab là bốn tab lọc ngang hàng
+ * thay cấu trúc hai tab cũ, nên giá trị lưu cũ "chats" rơi về
+ * mặc định "all"; "groups" giữ nguyên nghĩa ở mọi cấu trúc.
+ * Từ issue #623, tab Yêu thích bị bỏ và tab Lưu trữ quay lại
+ * thành một tab của thanh tab (lưu trữ từng là tab riêng ở
+ * cấu trúc cũ, rồi thành mục thu gọn trong tab danh sách
+ * chính ở issue #564): giá trị "archived" là giá trị hợp lệ
+ * hiện hành, còn giá trị lưu "favourites" của tab đã bỏ rơi
+ * về mặc định "all" theo đúng luật này.
  */
-const MESSAGES_TABS = ['all', 'unread', 'groups', 'favourites'] as const;
+const MESSAGES_TABS = ['all', 'unread', 'groups', 'archived'] as const;
 
 /**
  * Đọc tab khung trái đã lưu bền; chưa lưu hoặc giá trị hỏng thì
@@ -125,6 +127,37 @@ export function withTreeUnread(
     // chưa đọc — giữ nguyên khi vá cây.
     canCreateFreeGroup: tree.canCreateFreeGroup,
   };
+}
+
+/**
+ * Dời một conversation lên đầu PHÂN MỤC của nó sau khi nó có hoạt
+ * động mới nhất, sau khi áp phép biến đổi nội dung lên chính nó
+ * (vòng sửa issue #623): thứ tự của server là hội thoại đã ghim
+ * trước (trong nhóm ghim theo hoạt động gần nhất), còn lại theo
+ * hoạt động gần nhất — nên hội thoại vừa có tin mới lên đầu nhóm
+ * Gần đây nếu chưa ghim, và lên đầu nhóm Ghim (đầu danh sách) nếu
+ * đã ghim; dời thẳng lên đầu toàn danh sách sẽ phá thứ tự ghim
+ * của server khi hội thoại chưa ghim nhảy qua các hội thoại đã
+ * ghim. Danh sách không có conversation đó thì trả nguyên danh
+ * sách (cùng tham chiếu) để các tầng gọi không phải tự gác.
+ *
+ * @param list - Danh sách hội thoại đang có trong cache.
+ * @param conversationId - Conversation vừa có hoạt động mới.
+ * @param update - Phép biến đổi nội dung áp lên conversation đó (tin cuối, số chưa đọc…).
+ * @returns Danh sách mới đã sắp lại; trả lại chính `list` khi conversation vắng mặt.
+ */
+export function withConversationMovedToSectionTop(
+  list: ConversationView[],
+  conversationId: string,
+  update: (conversation: ConversationView) => ConversationView,
+): ConversationView[] {
+  const target = list.find((c) => c.id === conversationId);
+  if (!target) return list;
+  const updated = update(target);
+  const rest = list.filter((c) => c.id !== conversationId);
+  if (updated.pinnedAt) return [updated, ...rest];
+  const pinnedCount = rest.filter((c) => c.pinnedAt).length;
+  return [...rest.slice(0, pinnedCount), updated, ...rest.slice(pinnedCount)];
 }
 
 /**
