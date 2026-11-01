@@ -15,7 +15,7 @@ import { CustomFieldsService } from '../custom-fields/custom-fields.service';
 import { GroupsService } from '../groups/groups.service';
 import { MessagingService } from '../messaging/messaging.service';
 import { USER_AREA, USER_COMPONENT, UsersService } from '../users/users.service';
-import { BadgesRepository, type BadgeRow, type CriteriaRow, type IssuedRow } from './badges.repository';
+import { BadgesRepository, type BadgeRow, type CriteriaRow, type IssuedRow } from '@lms/db/repositories/badges';
 
 export const BADGE_AWARD_QUEUE = 'badge-award';
 export const BADGE_STATUS = { INACTIVE: 0, ACTIVE: 1, RETIRED: 2, ARCHIVED: 3, DISABLED: 4 } as const;
@@ -252,7 +252,7 @@ export class BadgesService implements OnModuleInit {
         throw new BadRequestException({ message: paramError, code: 'badges.bad_criteria_params' });
       }
     }
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       await this.repo.deleteCriteria(badgeId, tx);
       await this.repo.insertCriteria({ badgeId: badgeId, criteriaType: 'overall', method: input.method, params: {} }, tx);
       for (const leaf of input.criteria) {
@@ -446,7 +446,7 @@ export class BadgesService implements OnModuleInit {
     const dateExpire = badgeRow.expireDate ?? (badgeRow.expirePeriod
       ? new Date(Date.now() + badgeRow.expirePeriod * 86400_000) : null);
     const uniqueHash = createHash('sha256').update(`${badgeId}:${userId}:${randomUUID()}`).digest('hex');
-    const issued = await this.repo.dbHandle.transaction(async (tx) => {
+    const issued = await this.repo.transaction(async (tx) => {
       const row = await this.repo.insertIssued({
         badgeId: badgeId, userId: userId, uniqueHash,
         snapshot: {
@@ -456,7 +456,7 @@ export class BadgesService implements OnModuleInit {
         evidence: evidence ?? {},
         dateExpire, visible: true,
       }, tx);
-      await this.outbox.enqueue(tx, {
+      await this.outbox.enqueueKysely(tx, {
         aggregate: 'badges', type: 'badge_issued',
         payload: { badgeId, userId, issuedId: row.id, uniqueHash },
       });
