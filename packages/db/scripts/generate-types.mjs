@@ -36,7 +36,6 @@ import pg from 'pg';
 const { Client } = pg;
 
 const packageDir = join(dirname(fileURLToPath(import.meta.url)), '..');
-const repoRoot = join(packageDir, '..', '..');
 
 /**
  * Hàm `uuidv7()` cho cụm PostgreSQL dưới 18 — trích nguyên văn hằng số
@@ -51,21 +50,21 @@ const STORES = [
   {
     key: 'centre',
     database: 'lms_types_centre',
-    migrationsDir: join(repoRoot, 'apps', 'api', 'drizzle'),
+    migrationsDir: join(packageDir, 'migrations', 'centre'),
     configFile: join(packageDir, 'scripts', 'codegen', 'centre.json'),
     outFile: join(packageDir, 'src', 'types', 'centre-db.d.ts'),
   },
   {
     key: 'control-plane',
     database: 'lms_types_control_plane',
-    migrationsDir: join(repoRoot, 'apps', 'api', 'drizzle-control-plane'),
+    migrationsDir: join(packageDir, 'migrations', 'control-plane'),
     configFile: join(packageDir, 'scripts', 'codegen', 'control-plane.json'),
     outFile: join(packageDir, 'src', 'types', 'control-plane-db.d.ts'),
   },
   {
     key: 'system-bank',
     database: 'lms_types_system_bank',
-    migrationsDir: join(repoRoot, 'apps', 'api', 'drizzle-system-bank'),
+    migrationsDir: join(packageDir, 'migrations', 'system-bank'),
     configFile: join(packageDir, 'scripts', 'codegen', 'system-bank.json'),
     outFile: join(packageDir, 'src', 'types', 'system-bank-db.d.ts'),
   },

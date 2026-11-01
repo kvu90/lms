@@ -116,9 +116,14 @@ Drizzle khỏi cây mã.
 - Không chứa logic nghiệp vụ hay gác quyền theo capability: package giữ
   định nghĩa dữ liệu và (phần đã chuyển) các hàm truy cập dữ liệu thuần
   qua handle; luật chạy nằm ở `apps/api`.
-- Baseline/migration hiện hành nằm ở `apps/api/drizzle*` trong giai đoạn
-  chuyển đổi (bộ máy migration native của Kysely thuộc hạng mục nền tiếp
-  theo của chiến dịch).
+- Carrier migration hiện hành nằm ở `packages/db/migrations/<kho>`
+  (centre, control-plane, system-bank) — bộ SQL đóng băng dời từ
+  `apps/api/drizzle*` ở hạng mục nền thứ hai của chiến dịch (issue
+  #639); bộ máy áp là Migrator của Kysely trong `src/migrate/`
+  (provider đọc carrier, cấy nhật ký adoption, runner CLI
+  `dist/migrate/run.js <kho>`, hậu kiểm số đếm). Nhật ký Drizzle
+  cũ (`drizzle.__drizzle_migrations`) giữ nguyên, chỉ đọc trong
+  cửa sổ cùng tồn tại.
 - Không phải hợp đồng API: hình dạng request/response thuộc `packages/contracts`.
 
 ## Kỹ thuật tối thiểu
@@ -127,7 +132,7 @@ Drizzle khỏi cây mã.
   `src/infrastructure.schema.ts`, xuất qua `src/index.ts`.
 - Ngoại lệ có chủ đích: schema control plane (`src/control-plane.schema.ts`,
   issue #580) thuộc **database riêng** trên cùng cụm Postgres với bộ migration
-  riêng ở `apps/api/drizzle-control-plane/`, nên xuất qua subpath
+  riêng ở `packages/db/migrations/control-plane/`, nên xuất qua subpath
   `@lms/db/control-plane` (`src/control-plane.ts`) và KHÔNG qua `src/index.ts` —
   đưa vào barrel chung sẽ làm bộ migration của kho nghiệp vụ sinh lệnh cho các
   bảng control plane và ngược lại. Kho ngân hàng hệ thống theo cùng khuôn qua
