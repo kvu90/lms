@@ -14,7 +14,9 @@
  *      tiếp chuỗi X-Forwarded-For của chặng trước, và
  *      STREAM không đệm để SSE sống qua proxy; trình duyệt đóng kết
  *      nối thì hủy luôn request phía API. WebSocket (socket.io) đi qua
- *      đường hầm TCP ở sự kiện `upgrade`.
+ *      đường hầm TCP ở sự kiện `upgrade` — đầu request upgrade cũng
+ *      giữ nguyên Host gốc (xem `proxy-headers.mjs`), vì socket auth
+ *      phân giải trung tâm theo Host của chính request bắt tay đó.
  *   3. Phục vụ asset tĩnh của bản build client (tên file có hash →
  *      cache immutable; asset text được nén brotli/gzip theo
  *      Accept-Encoding — xem `compression.mjs`, CHỈ ở đường tĩnh này)
@@ -37,7 +39,7 @@ import { fileURLToPath } from 'node:url';
 import { createRequestListener } from '@react-router/node';
 import * as serverBuild from '../build/server/index.js';
 import { isProxyPath } from './proxy-paths.mjs';
-import { buildProxyHeaders } from './proxy-headers.mjs';
+import { buildProxyHeaders, buildUpgradeRequestLines } from './proxy-headers.mjs';
 import { compressBuffer, isCompressibleType, MIN_COMPRESS_BYTES, pickEncoding } from './compression.mjs';
 import { applyDocumentSecurityHeaders } from './security-headers.mjs';
 
@@ -109,23 +111,22 @@ function proxyUpgrade(req, socket, head) {
     return;
   }
   const upstream = netConnect(Number(apiOrigin.port), apiOrigin.hostname, () => {
-    const lines = [`${req.method} ${req.url} HTTP/${req.httpVersion}`];
-    const raw = req.rawHeaders;
-    let hostSeen = false;
-    for (let i = 0; i < raw.length; i += 2) {
-      const name = raw[i];
-      const lower = name.toLowerCase();
-      if (lower === 'host') {
-        lines.push(`Host: ${apiOrigin.host}`);
-        hostSeen = true;
-      } else if (lower === 'x-forwarded-for') {
-        lines.push(`${name}: ${raw[i + 1]}, ${req.socket.remoteAddress ?? ''}`);
-      } else {
-        lines.push(`${name}: ${raw[i + 1]}`);
-      }
-    }
-    if (!hostSeen) lines.push(`Host: ${apiOrigin.host}`);
-    if (!req.headers['x-forwarded-for']) lines.push(`X-Forwarded-For: ${req.socket.remoteAddress ?? ''}`);
+    // Đầu request upgrade dựng ở proxy-headers.mjs: Host GIỮ NGUYÊN
+    // của request gốc — client của hệ mở transport websocket ngay
+    // từ request đầu tiên và socket auth ở API phân giải trung tâm
+    // theo Host của chính request bắt tay này (điểm B1 của PR
+    // #634); ghi đè bằng origin nội bộ thì địa chỉ trung tâm biến
+    // mất như đã từng xảy ra ở đường HTTP. Đích của đường hầm vẫn
+    // là origin nội bộ qua hostname/port của netConnect ở trên.
+    const lines = buildUpgradeRequestLines({
+      method: req.method,
+      url: req.url,
+      httpVersion: req.httpVersion,
+      rawHeaders: req.rawHeaders,
+      headers: req.headers,
+      remoteAddress: req.socket.remoteAddress,
+      apiHost: apiOrigin.host,
+    });
     upstream.write(lines.join('\r\n') + '\r\n\r\n');
     if (head?.length) upstream.write(head);
     upstream.pipe(socket);
