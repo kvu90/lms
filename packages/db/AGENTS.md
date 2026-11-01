@@ -113,3 +113,72 @@ luồng nghiệp vụ — bằng tiếng Việt**; mọi tài liệu bằng ti�
   đạt chuẩn là chưa đạt. Comment tiếng Anh còn tồn đọng trong package được dịch
   theo đợt riêng của chương trình sửa chuẩn ngôn ngữ toàn repo, không tự trộn
   việc dịch vào feat đang bay.
+
+## Sổ tay chuyển đổi repository sang Kysely
+
+Đúc từ pilot kho control plane (repository mẫu:
+`src/repositories/control-plane.ts`, spec khoá hành vi:
+`src/repositories/control-plane.int-spec.ts`). Mọi repository chuyển
+đổi sau làm theo đúng các khuôn này:
+
+- **Ranh giới hình dạng.** Repository giữ nguyên hợp đồng dòng mà
+  phía tiêu thụ đang dùng (hình camelCase của repository Drizzle
+  cũ): SELECT/RETURNING dùng danh sách cột tường minh có bí danh
+  (`'database_name as databaseName'`), khai một hằng danh sách cột
+  cho mỗi bảng dùng chung cho select và returning; giá trị ghi
+  được ánh xạ từng trường camelCase → snake_case ở hàm ánh xạ
+  riêng của bảng. Kiểu dòng công khai khai ngay trong file
+  repository, không import từ file schema Drizzle (file schema bị
+  xoá ở hạng mục gỡ Drizzle, repository phải sống sót qua nó).
+- **Transaction.** Mọi phương thức nhận handle tuỳ chọn mặc định
+  là handle gốc của repository; `transaction(fn)` mở giao dịch
+  bằng handle đó và truyền handle giao dịch xuống các phương thức
+  khác qua tham số. Một giao dịch chỉ chứa một ORM — cấm lai.
+  Khi điều tra bề mặt chuyển đổi của một module, phải đếm cả các
+  điểm consumer gọi `repo.transaction(...)`, không chỉ file
+  repository.
+- **`undefined` (thử nghiệm T-4, đã đo).** Kysely tự loại cột mang
+  `undefined` khỏi values/set khi biên dịch, nhưng repository vẫn
+  loại tường minh trong hàm ánh xạ ghi để hành vi không phụ thuộc
+  mặc định thư viện. `undefined` trong mệnh đề WHERE biên dịch
+  thành placeholder với tham số giữ nguyên `undefined` (driver gắn
+  NULL khi chạy) và lặng lẽ trả 0 dòng — vì vậy mọi giá trị where
+  là tham số bắt buộc, cấm truyền `undefined`.
+- **jsonb.** Mọi giá trị ghi vào cột jsonb đi qua một helper
+  serialize tường minh duy nhất
+  (`sql<T>\`${JSON.stringify(value)}::jsonb\``): driver `pg` tự
+  stringify object thường nhưng hiểu MẢNG cấp cao nhất là mảng
+  PostgreSQL, khiến cột jsonb lỗi `invalid input syntax for type
+  json`. Biến tích luỹ cho `.values()` có trường biểu thức phải
+  khai kiểu `InsertObject<DB, '<bảng>'>`.
+- **onConflict.** `doNothing()` khi trùng không ném lỗi và
+  `returning` trả mảng rỗng — repository ánh xạ thành `undefined`
+  cho hợp đồng insert-if-absent; bên trong transaction, doNothing
+  không phá giao dịch. Khoá phức hợp dùng
+  `oc.columns([...]).doUpdateSet({...})` với set đã loại
+  `undefined` từng trường.
+- **Lỗi Postgres (thử nghiệm T-10, đã đo).** Qua Kysely, lỗi pg
+  ném thẳng ra: `code` và `constraint` nằm trực tiếp trên lỗi,
+  không có `cause`. Qua Drizzle, lỗi bị bọc và lỗi pg thật nằm ở
+  `cause`. Helper nhận diện lỗi phải duyệt chuỗi `cause` (vòng
+  đầu kiểm chính lỗi được ném), khớp mã lỗi và tên
+  constraint/chỉ số, và bắt buộc có spec ca âm tính (va chạm khác
+  không được nhận diện nhầm) chạy trên database thật.
+- **Khoá hàng.** `select … for update` của Drizzle chuyển thành
+  `.forUpdate()` trên select builder; phương thức đọc kèm khoá
+  bắt buộc nhận handle giao dịch tường minh.
+- **Kiểu runtime (thử nghiệm T-7, đã đo).** `timestamptz` đọc
+  thành `Date` ở cả hai ORM; `int8` đọc thành `string` (không bật
+  setTypeParser toàn cục; phía tiêu thụ tự chuyển tường minh);
+  jsonb đọc lại thành object/mảng JS. Khẳng định khớp byte của
+  jsonb đặt ở tầng `::text` lưu trữ, không qua `JSON.stringify`
+  của giá trị đọc lại.
+- **UUIDv7.** Insert bỏ khoá chính + `returning` cho id sinh bởi
+  `DEFAULT uuidv7()` — codegen đã sinh `Generated<string>` cho
+  các cột này nên kiểu ghi không đòi id; spec khoá bằng regex
+  UUIDv7 trên id trả về và ca insert có id tường minh giữ nguyên
+  id.
+- **Pool.** Instance Kysely tạo rất rẻ và pool lười mở kết nối:
+  ngân sách kết nối tính theo tổng `max` của các pool ĐÃ chạm
+  database. `destroy()` chờ truy vấn đang chạy kết thúc — khi tắt
+  module phải tính độ trễ này.
