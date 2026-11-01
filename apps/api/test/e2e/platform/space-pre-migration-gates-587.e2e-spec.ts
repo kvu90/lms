@@ -1,5 +1,6 @@
 import { JwtService } from '@nestjs/jwt';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, VersioningType } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { createHmac, randomUUID } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -22,6 +23,47 @@ process.env.BETTER_AUTH_TRUSTED_ORIGINS = 'http://localhost:5173';
 
 type Helpers = typeof import('../../support/identity-access-helpers');
 let helpers: Helpers;
+
+/**
+ * Dựng app test đúng khuôn bootstrap thật (main.ts): mount handler
+ * Better Auth TRƯỚC khi init, kèm khung định tuyến kho để đường
+ * ghi đăng nhập đi đúng kho đích tại địa chỉ trung tâm ở kho
+ * riêng — `helpers.createTestApp` không mount Better Auth nên ca
+ * (e) không dùng được nó. Mọi import của AppModule đều động bên
+ * trong hàm này (gọi từ beforeAll, sau khi biến môi trường Better
+ * Auth đã gán ở đầu file).
+ */
+async function createMountedTestApp(): Promise<INestApplication> {
+  const { Test } = await import('@nestjs/testing');
+  const { AppModule } = await import('../../../src/app.module');
+  const { enableTrustedProxy } = await import('../../../src/common/client-ip');
+  const { ProblemDetailsFilter } = await import('../../../src/common/problem-details.filter');
+  const { mountBetterAuth } = await import('../../../src/modules/auth/better-auth/better-auth.mount');
+  const { BetterAuthService: BetterAuthServiceClass } = await import(
+    '../../../src/modules/auth/better-auth/better-auth.service'
+  );
+  const { SpaceDatabaseService: SpaceDatabaseServiceClass } = await import(
+    '../../../src/db/routing/space-database.service'
+  );
+  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+  const app = moduleRef.createNestApplication();
+  enableTrustedProxy(app as NestExpressApplication);
+  const betterAuth = app.get(BetterAuthServiceClass);
+  const spaceDb = app.get(SpaceDatabaseServiceClass, { strict: false });
+  mountBetterAuth(app as NestExpressApplication, betterAuth.requireAuth(), spaceDb);
+  app.setGlobalPrefix('api');
+  app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
+  app.useGlobalFilters(new ProblemDetailsFilter());
+  await app.init();
+  return app;
+}
+
+/** Lấy cặp cookie phiên Better Auth từ header set-cookie của một response đăng nhập. */
+function sessionCookieFrom(setCookie: string[] | undefined): string {
+  const raw = (setCookie ?? []).find((value) => value.includes('better-auth.session_token='));
+  if (!raw) throw new Error(`no Better Auth session cookie in: ${JSON.stringify(setCookie)}`);
+  return raw.split(';')[0]!;
+}
 
 /**
  * Ký giá trị cookie phiên Better Auth đúng định dạng mà handler của
@@ -64,10 +106,16 @@ function signedBetterAuthCookie(token: string): string {
  *     riêng đọc được hồ sơ qua địa chỉ của chính trung tâm đó
  *     (phiên và tài khoản đều đọc qua kho đích, không đọc kho
  *     chung). Phiên được gieo thẳng vào bảng `session` ở kho đích
- *     — ca này khoá đường ĐỌC theo địa chỉ của guard; đường GHI
- *     đăng nhập Better Auth (handler Express chạy ngoài guard nên
- *     chưa phân giải không gian) nằm ngoài phạm vi Phần A và được
- *     ghi rõ trong thân PR.
+ *     — ca này khoá đường ĐỌC theo địa chỉ của guard.
+ * (e) đường GHI đăng nhập Better Auth (B1, vòng sửa sau phán quyết
+ *     CHƯA ĐẠT của PR #627) — tài khoản chỉ ở kho riêng đăng nhập
+ *     bằng luồng web Better Auth (`POST /api/v1/auth/sign-in/
+ *     username`) tại địa chỉ của chính trung tâm đó phải thành
+ *     công, phiên phải được GHI vào bảng `session` ở kho đích (không
+ *     phải kho chung), và cookie phiên đó đọc được hồ sơ mang dấu
+ *     kho đích. Ca này khoá đúng khâu ghi mà ca (d) bỏ qua (gieo
+ *     phiên thẳng) và ca đối chứng dương bỏ qua (giáo viên có ở cả
+ *     hai kho).
  */
 const CP_DATABASE = 'lms_test_cp_587';
 const CP_ROLE = 'lms_cp_test_587';
@@ -235,6 +283,8 @@ describe('Các cổng tiền di trú ở kho riêng (đầu-cuối, issue #587)'
   let revokedTokenA = '';
   let dedicatedOnlyId = '';
   let dedicatedOnlyUsername = '';
+  let dedicatedOnlyBaId = '';
+  let dedicatedOnlyBaUsername = '';
 
   const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
   const must = async (res: { status: number; body: unknown }, what: string) => {
@@ -298,7 +348,9 @@ describe('Các cổng tiền di trú ở kho riêng (đầu-cuối, issue #587)'
     // Import helpers ĐỘNG sau khi biến môi trường Better Auth đã
     // được gán ở đầu file (xem chú thích ở đầu file).
     helpers = await import('../../support/identity-access-helpers');
-    app = await helpers.createTestApp();
+    // App mount handler Better Auth kèm định tuyến kho (ca (e)
+    // đăng nhập qua handler này, không qua createTestApp).
+    app = await createMountedTestApp();
     adminToken = (await helpers.login(app, 'admin', 'Admin123!')).accessToken;
 
     // Tenant của trung tâm tạo bằng API công khai ở kho chung
@@ -373,6 +425,50 @@ describe('Các cổng tiền di trú ở kho riêng (đầu-cuối, issue #587)'
         dedicatedOnlyId,
       ]);
       await client.query('DELETE FROM users WHERE id = $1', [dedicatedOnlyId]);
+    });
+
+    // Tài khoản chỉ ở kho riêng dùng cho ca đăng nhập Better Auth
+    // (e): tạo CẶP user + account credential qua cầu nối (kho
+    // chung, vì cầu nối chạy ngoài ngữ cảnh trung tâm), thêm
+    // membership, sao user + membership + dòng account credential
+    // vào kho A kèm dấu phân biệt, rồi xoá sạch khỏi kho chung
+    // (account trước, membership sau, user cuối) — trạng thái sau
+    // di trú mà phía kho chung không còn dấu vết nào để đường ghi
+    // có thể "ăn gian" bằng kho chung.
+    const { CredentialBridgeService: BridgeClass } = await import(
+      '../../../src/modules/auth/better-auth/credential-bridge.service'
+    );
+    const bridge = app.get(BridgeClass);
+    const baUsername = helpers.uniqueName('bauser587');
+    const baCreated = await bridge.createUserWithCredential({
+      email: `${baUsername}@example.com`,
+      username: baUsername,
+      firstName: 'Test',
+      lastName: 'User',
+      password: helpers.STRONG_PASSWORD,
+    });
+    dedicatedOnlyBaId = baCreated.id;
+    dedicatedOnlyBaUsername = baUsername;
+    await must(
+      await helpers.http(app).post(`/api/v1/tenants/${tenantAId}/members`).set(auth(adminToken)).send({ userId: dedicatedOnlyBaId }),
+      'add dedicated-only BA user to tenant A',
+    );
+    await copyMemberToCentre(dedicatedOnlyBaId, tenantAId, 'DauAnKhoBA587');
+    await copyRow(
+      process.env.DATABASE_URL!,
+      clusterUrl(CENTRE_A_DATABASE, CENTRE_A_ROLE, CENTRE_A_PASSWORD),
+      'account',
+      'user_id',
+      dedicatedOnlyBaId,
+    );
+    await withClient(process.env.DATABASE_URL!, async (client) => {
+      await client.query("SELECT set_config('app.platform', 'on', false)");
+      await client.query('DELETE FROM account WHERE user_id = $1', [dedicatedOnlyBaId]);
+      await client.query('DELETE FROM tenant_memberships WHERE tenant_id = $1 AND user_id = $2', [
+        tenantAId,
+        dedicatedOnlyBaId,
+      ]);
+      await client.query('DELETE FROM users WHERE id = $1', [dedicatedOnlyBaId]);
     });
 
     // Tài khoản sẽ bị thu hồi: tạo, sao vào kho A, lấy token
@@ -458,6 +554,42 @@ describe('Các cổng tiền di trú ở kho riêng (đầu-cuối, issue #587)'
 
     expect(res.status).toBe(401);
     expect((res.body as { code?: string }).code).toBe('tenant.membership_inactive');
+  });
+
+  it('đăng nhập Better Auth tại địa chỉ kho riêng của tài khoản chỉ ở kho riêng ghi phiên vào kho đích', async () => {
+    // Tài khoản thật sự chỉ còn ở kho riêng: kho chung không còn
+    // dòng user lẫn dòng account credential, kho đích còn đủ cả hai.
+    expect(await countRows(process.env.DATABASE_URL!, 'users', 'id', dedicatedOnlyBaId)).toBe(0);
+    expect(await countRows(process.env.DATABASE_URL!, 'account', 'user_id', dedicatedOnlyBaId)).toBe(0);
+    const centreUrl = clusterUrl(CENTRE_A_DATABASE, CENTRE_A_ROLE, CENTRE_A_PASSWORD);
+    expect(await countRows(centreUrl, 'users', 'id', dedicatedOnlyBaId)).toBe(1);
+    expect(await countRows(centreUrl, 'account', 'user_id', dedicatedOnlyBaId)).toBe(1);
+
+    // Đăng nhập bằng đúng luồng web Better Auth tại địa chỉ của
+    // chính trung tâm: kiểm chứng credential và ghi phiên đều phải
+    // đi kho đích — kho chung không còn tài khoản này nên mọi lần
+    // đọc/ghi rơi về kho chung đều thất bại ngay tại đây.
+    const signIn = await helpers
+      .http(app)
+      .post('/api/v1/auth/sign-in/username')
+      .set('Host', HOST_A)
+      .set('Origin', 'http://localhost:5173')
+      .send({ username: dedicatedOnlyBaUsername, password: helpers.STRONG_PASSWORD });
+    expect(signIn.status).toBe(200);
+
+    // Phiên được GHI vào kho đích, không phải kho chung.
+    expect(await countRows(centreUrl, 'session', 'user_id', dedicatedOnlyBaId)).toBe(1);
+    expect(await countRows(process.env.DATABASE_URL!, 'session', 'user_id', dedicatedOnlyBaId)).toBe(0);
+
+    // Cookie phiên vừa ghi đọc được hồ sơ mang dấu kho đích qua
+    // địa chỉ của chính trung tâm.
+    const me = await helpers
+      .http(app)
+      .get('/api/v1/users/me')
+      .set('Host', HOST_A)
+      .set('Cookie', sessionCookieFrom(signIn.headers['set-cookie'] as unknown as string[]));
+    expect(me.status).toBe(200);
+    expect((me.body as { firstName?: string }).firstName).toBe('DauAnKhoBA587');
   });
 
   it('phiên cookie Better Auth ở kho riêng đọc được hồ sơ qua địa chỉ của chính trung tâm', async () => {

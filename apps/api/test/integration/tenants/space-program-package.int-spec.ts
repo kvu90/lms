@@ -31,6 +31,9 @@ import { PROGRAM_DUMP_VERSION } from '../../../src/modules/curriculum/program-du
  *     vẫn khớp phiên bản artifact hiện hành;
  * (3) trung tâm còn ở kho chung thì bước này từ chối fail-closed
  *     thay vì cài chồng lên kho chung.
+ * (4) bản cài đã có trong kho đích lệch phiên bản/checksum so với
+ *     artifact hiện hành thì bước này từ chối thay vì ghi đè lặng
+ *     lẽ, và dòng bản cài lệch được giữ nguyên.
  */
 const CP_DATABASE = 'lms_test_cp_587b';
 const CP_ROLE = 'lms_cp_test_587b';
@@ -255,6 +258,26 @@ describe('Bước cài gói YCCĐ vào kho đích (tích hợp)', () => {
     expect(report.installRecorded).toBe(false);
     expect(report.transferredKeys).toEqual([]);
     expect(report.targetInstallAfter.version).toBe(PROGRAM_DUMP_VERSION);
+  });
+
+  it('bản cài đã có lệch phiên bản/checksum thì bước cài từ chối thay vì ghi đè', async () => {
+    // Ghi đè dòng bản cài ở kho đích thành bản lệch — nhánh
+    // fail-closed này chỉ chạm tới khi bản cài đã có mà không khớp
+    // artifact hiện hành.
+    await withClient(centreAUrl(), async (client) => {
+      await client.query("SELECT set_config('app.platform', 'on', false)");
+      await client.query(
+        'UPDATE program_package_installs SET version = $1, checksum = $2 WHERE tenant_id = $3 AND package_key = $4',
+        ['0.0-lech', 'checksum-lech', TENANT_ID, CENTRE_PROGRAM_PACKAGE_KEY],
+      );
+    });
+    await expect(service.installIntoSpace(CENTRE_A_SLUG, TENANT_ID)).rejects.toThrow(/refusing to overwrite/);
+    // Dòng lệch được giữ nguyên, không bị ghi đè lặng lẽ.
+    const installs = await listInstalls(centreAUrl());
+    expect(installs.find((row) => row.packageKey === CENTRE_PROGRAM_PACKAGE_KEY)).toMatchObject({
+      version: '0.0-lech',
+      checksum: 'checksum-lech',
+    });
   });
 
   it('trung tâm còn ở kho chung thì bước cài từ chối fail-closed', async () => {
