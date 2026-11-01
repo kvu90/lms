@@ -1,13 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { NotFoundException, type INestApplication } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   ADMIN, adminToken, assignRole, createContextViaApi, createTestApp, createUserViaApi, http, login, roleIdByShortname, systemContextId,
 } from '../../support/identity-access-helpers';
 import { QuestionsRepository } from '@lms/db/repositories/questions';
 import { QuestionsService } from '../../../src/modules/questions/questions.service';
-import { questionBankEntries } from '../../../src/db/schema';
 
 /**
  * Đặc trưng hoá hình dạng QuestionView của ba đường liệt kê câu hỏi
@@ -282,8 +280,10 @@ describe('Đặc trưng hoá view của các đường liệt kê câu hỏi (is
     const entry = await repo.getEntryByQuestion(qid);
     // Trỏ con trỏ version mới nhất tới số version không có dòng nào:
     // dữ kiện hỏng mà cả hai đường đọc đều phải báo cùng một mã lỗi.
-    await repo.dbHandle.update(questionBankEntries).set({ latestVersion: 99 })
-      .where(eq(questionBankEntries.id, entry!.id));
+    // Ghi thẳng qua handle gốc của repository Kysely (issue #642 —
+    // repository không còn handle Drizzle).
+    await repo.db().updateTable('question_bank_entries').set({ latest_version: 99 })
+      .where('id', '=', entry!.id).execute();
     const brokenEntry = await repo.getEntryByQuestion(qid);
     expect(brokenEntry?.latestVersion).toBe(99);
     // Hàm nạp version theo lô không bịa dòng nào cho entry này.
