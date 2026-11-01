@@ -6,11 +6,11 @@ import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createCentreKysely, type CentreDb } from '../client';
 import {
-  curricula, curriculumNodes, learningOutcomes,
+  curricula, curriculumNodes, learningOutcomes, questionLearningOutcomes,
+  questionSubjects, type LearningOutcomeDoc,
 } from '../curriculum.schema';
 import {
-  question, questionBankEntries, questionLearningOutcomes,
-  questionSubjects, questionVersions,
+  question, questionBankEntries, questionVersions,
 } from '../questions.schema';
 import { buildTestDatabase, dropTestDatabase, withDatabase } from '../test-support/build-test-database';
 import { QuestionsRepository, type EntryRow } from './questions';
@@ -101,7 +101,7 @@ async function seedData(): Promise<Seed> {
   const node = await db.insertInto('curriculum_nodes')
     .values({ curriculum_id: curriculum.id, title: 'Chương 1', kind: 'chapter' })
     .returning('id').executeTakeFirstOrThrow();
-  const outcomeDoc = sql`${JSON.stringify({ type: 'doc', content: [] })}::jsonb`;
+  const outcomeDoc = sql<LearningOutcomeDoc>`${JSON.stringify({ type: 'doc', content: [] })}::jsonb`;
   const outcomeActive = await db.insertInto('learning_outcomes')
     .values({ node_id: node.id, content: outcomeDoc, source_kind: 'manual' })
     .returning('id').executeTakeFirstOrThrow();
@@ -147,7 +147,7 @@ beforeAll(async () => {
   pool = new Pool({ connectionString: storeUrl });
   db = createCentreKysely(pool);
   repo = new QuestionsRepository(db);
-  drizzleDb = drizzle(pool);
+  drizzleDb = drizzle({ client: pool });
   seed = await seedData();
 }, 180_000);
 
