@@ -297,7 +297,7 @@ describe('QuestionsRepository trên Kysely (issue #642)', () => {
   it('markSystemImportDerived đổi pristine thành derived trong giao dịch và rollback cùng giao dịch khi huỷ', async () => {
     const q = await repo.insertQuestion({ category: seed.catA, qtype: 'essay', createdBy: ACTOR_ID, modifiedBy: ACTOR_ID });
     await db.insertInto('system_question_imports').values({
-      question_id: q.id, source_question_id: 'src-q', source_version_id: 'src-v',
+      question_id: q.id, source_question_id: '019276a1-1111-7000-8000-000000000051', source_version_id: '019276a1-1111-7000-8000-000000000052',
       source_version_number: 1, package_checksum: 'sum', imported_version_number: 1, imported_by: ACTOR_ID,
     }).execute();
     await expect(repo.transaction(async (tx) => {
