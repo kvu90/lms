@@ -6,6 +6,7 @@ import { DrizzleModule } from '@nestjs/drizzle';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 import { drizzle } from 'drizzle-orm/node-postgres';
+import { createCentreKysely } from '@lms/db';
 import { I18nWorkerModule } from './i18n/i18n.config';
 import { databaseConnectionFromEnv, redisConnectionFromUrl, validateEnv } from './config/env';
 import { relations } from './db/relations';
@@ -125,6 +126,12 @@ const outboxRouteQueueNames: string[] = allQueueNamesOfRoutes(OUTBOX_EVENT_QUEUE
         // chạy trong phiên do `SpaceJobRunner` mở và được handle
         // này dẫn vào kho của trung tâm đó.
         spaceDatabase.bindSharedDatabase(sharedDb);
+        // Đường Kysely (issue #639): gắn handle Kysely kho chung
+        // dựng trên CÙNG pool kho chung (không mở thêm pool) để
+        // `routedKysely` có đích kho chung mà uỷ thác. Instance
+        // này không được `destroy()` riêng — vòng đời của nó đi
+        // theo vòng đời pool chung.
+        spaceDatabase.bindSharedKysely(createCentreKysely(pool));
         return {
           // TENANT-1 (#196): pool tự dựng có gắn GUC tenant theo ngữ
           // cảnh ALS ở mọi checkout — cùng cơ chế với phía API (xem

@@ -25,12 +25,14 @@
  *
  * Tiền điều kiện: kho nghiệp vụ và kho control plane đều đã áp
  * baseline/migration của chúng (cũ hoặc mới). Bước này KHÔNG thay
- * bộ migration: database trống vẫn phải chạy `drizzle-kit migrate`
- * trước (nó tạo mọi bảng kể cả delta).
+ * bộ migration: database trống vẫn phải chạy runner migration của
+ * package (`@lms/db/dist/migrate/run.js`) trước (nó tạo mọi bảng
+ * kể cả delta).
  *
  * Nối dây: chuỗi migrate của stack (`compose.yaml`, service
- * `migrate`) chạy script này SAU hai lệnh `drizzle-kit migrate`
- * và TRƯỚC khi api/worker khởi động. Script đọc `DATABASE_URL`
+ * `migrate`) chạy script này SAU hai lượt migrate của runner
+ * (kho nghiệp vụ rồi kho control plane) và TRƯỚC khi api/worker
+ * khởi động. Script đọc `DATABASE_URL`
  * (kho nghiệp vụ, bắt buộc) và `CONTROL_PLANE_DATABASE_URL` (kho
  * control plane — vắng thì bỏ qua phần control plane kèm dòng log,
  * theo cùng cách script cấp phát control plane bỏ qua khi chưa cấu

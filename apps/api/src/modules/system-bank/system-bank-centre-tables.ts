@@ -12,7 +12,7 @@
  *   nhận sự kiện) và `outcome_package_installs` (vết bản cài gói
  *   YCCĐ) — sống trong kho nghiệp vụ của trung tâm, được khai trong
  *   schema `@lms/db` và được tạo bởi file baseline
- *   `apps/api/drizzle/20261025163710_baseline/migration.sql`.
+ *   `packages/db/migrations/centre/20261025163710_baseline/migration.sql`.
  * - Ba bảng được NỐI VÀO CUỐI file baseline sau khi baseline đã phát
  *   hành. Drizzle bỏ qua cả thư mục baseline trên các database đã áp
  *   nó (production, preview), nên các database đó KHÔNG bao giờ nhận

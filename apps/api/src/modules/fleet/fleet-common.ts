@@ -41,8 +41,10 @@
 import { execFile } from 'node:child_process';
 import { createCipheriv, createDecipheriv, createHash, randomBytes, scryptSync } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { createRequire } from 'node:module';
+import { basename, dirname, join } from 'node:path';
 import type { Client } from 'pg';
+import { getAppliedMigrations, getLatestAppliedMigration } from '@lms/db';
 
 /** Một kho trong mắt công cụ vận hành: dòng đăng ký + ảnh registry phiên bản của nó. */
 export type FleetSpace = {
@@ -299,10 +301,30 @@ export function runPgTool(
 }
 
 /**
- * Liệt kê các thư mục migration Drizzle (thư mục con chứa
- * `migration.sql`), sắp xếp tăng dần theo tên — cùng thứ tự mà bộ
- * máy migration của Drizzle áp dụng (sắp theo tên thư mục). Tên thư
- * mục CUỐI là phiên bản đích của đội kho.
+ * Thư mục carrier của kho trung tâm tại vị trí mới
+ * (`packages/db/migrations/centre`): phân giải qua điểm vào chính
+ * của package `@lms/db` để đường dẫn là TUYỆT ĐỐI và đúng ở mọi bố
+ * cục chạy (repo phát triển, image production đóng gói bằng
+ * `pnpm deploy` — carrier nằm trong `node_modules/@lms/db`), không
+ * suy từ thư mục làm việc như mặc định cũ `<cwd>/drizzle` (thư mục
+ * đó không còn tồn tại sau khi carrier dời vào package). Phân giải
+ * lỗi (bố cục lạ chưa build package) thì dự phòng theo vị trí
+ * `node_modules` tính từ thư mục làm việc của tiến trình API.
+ */
+export function resolveCentreMigrationsDir(): string {
+  try {
+    const require = createRequire(__filename);
+    return join(dirname(require.resolve('@lms/db')), '..', 'migrations', 'centre');
+  } catch {
+    return join(process.cwd(), 'node_modules', '@lms', 'db', 'migrations', 'centre');
+  }
+}
+
+/**
+ * Liệt kê các thư mục migration carrier (thư mục con chứa
+ * `migration.sql`), sắp xếp tăng dần theo tên — cùng thứ tự mà cả
+ * hai bộ máy migration áp dụng (sắp theo tên thư mục). Tên thư mục
+ * CUỐI là phiên bản đích của đội kho.
  */
 export function listMigrationFolders(migrationsDir: string): string[] {
   return readdirSync(migrationsDir, { withFileTypes: true })
@@ -320,45 +342,35 @@ export function listMigrationFolders(migrationsDir: string): string[] {
 
 /**
  * Đọc phiên bản schema THẬT của một database từ nhật ký migration
- * của chính nó (`drizzle.__drizzle_migrations` — dòng áp gần nhất
- * theo thời gian áp, hoà thì theo id). Database chưa từng được áp
- * migration (chưa có bảng nhật ký) được coi là chưa có phiên bản
- * (null) — đây là NGUỒN SỰ THẬT về phiên bản của kho; sổ đăng ký
- * chỉ là ảnh phản chiếu phải khớp với nó.
+ * của chính nó — uỷ thác cho hàm đọc tương thích của `@lms/db`
+ * (issue #639): kho đã qua adoption thì đọc `kysely_migration`
+ * (phiên bản mới nhất là tên lớn nhất — tên migration mở đầu bằng
+ * dấu thời gian nên thứ tự tên là thứ tự áp); kho chưa qua
+ * adoption thì đọc `drizzle.__drizzle_migrations` đúng truy vấn cũ
+ * (theo thời gian áp, hoà thì theo id). Database chưa từng được
+ * áp migration (chưa có bảng nhật ký nào) được coi là chưa có
+ * phiên bản (null) — đây là NGUỒN SỰ THẬT về phiên bản của kho;
+ * sổ đăng ký chỉ là ảnh phản chiếu phải khớp với nó. Hàm này CHỈ
+ * ĐỌC, không đổi hành vi ghi nhận phiên bản của runner (runner
+ * vẫn ghi qua bộ máy Drizzle cho tới nấc đổi chủ B2).
  */
 export async function readDatabaseSchemaVersion(client: Client): Promise<string | null> {
-  try {
-    const result = await client.query<{ name: string | null }>(
-      'SELECT name FROM drizzle.__drizzle_migrations ORDER BY created_at DESC NULLS LAST, id DESC LIMIT 1',
-    );
-    return result.rows[0]?.name ?? null;
-  } catch (error) {
-    const code = (error as { code?: string }).code;
-    if (code === '42P01' || code === '3F000') return null;
-    throw error;
-  }
+  return getLatestAppliedMigration(client);
 }
 
 /**
  * Đọc TOÀN TẬP tên migration đã áp trong một database từ nhật ký
- * của chính nó. Đây là căn cứ để runner quyết định một kho còn
- * thiếu migration nào: chỉ nhìn migration MỚI NHẤT (như
- * `readDatabaseSchemaVersion`) sẽ bỏ sót kho đã có migration mới
- * nhất nhưng THIẾU một migration cũ ở giữa — kho như vậy trông
- * như đã đạt đích mà thật ra chưa từng áp đủ bộ. Database chưa có
- * bảng nhật ký thì tập đã áp là rỗng.
+ * của chính nó — uỷ thác cho hàm đọc tương thích của `@lms/db`
+ * (cùng luật chọn nguồn như `readDatabaseSchemaVersion`). Đây là
+ * căn cứ để runner quyết định một kho còn thiếu migration nào:
+ * chỉ nhìn migration MỚI NHẤT (như `readDatabaseSchemaVersion`)
+ * sẽ bỏ sót kho đã có migration mới nhất nhưng THIẾU một
+ * migration cũ ở giữa — kho như vậy trông như đã đạt đích mà thật
+ * ra chưa từng áp đủ bộ. Database chưa có bảng nhật ký thì tập đã
+ * áp là rỗng.
  */
 export async function readDatabaseAppliedMigrations(client: Client): Promise<string[]> {
-  try {
-    const result = await client.query<{ name: string | null }>(
-      'SELECT name FROM drizzle.__drizzle_migrations',
-    );
-    return result.rows.map((row) => row.name).filter((name): name is string => name !== null);
-  } catch (error) {
-    const code = (error as { code?: string }).code;
-    if (code === '42P01' || code === '3F000') return [];
-    throw error;
-  }
+  return getAppliedMigrations(client);
 }
 
 /** Đọc một số nguyên dương từ chuỗi cấu hình; rỗng/không hợp lệ thì dùng giá trị dự phòng được truyền vào. */
