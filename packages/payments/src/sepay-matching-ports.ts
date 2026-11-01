@@ -45,8 +45,14 @@ export interface PaidEnrolActivationPort {
    * Kích hoạt ghi danh có phí.
    * @param itemId Id của instance ghi danh đích (trường `itemId` của payment).
    * @param userId Id của người dùng được ghi danh (trường `userId` của payment).
+   * @param tenantId Id của tenant sở hữu payment (trường `tenantId` của
+   *   payment). Tiến trình chủ dùng giá trị này để chạy kích hoạt tại
+   *   đúng kho của trung tâm sở hữu payment khi trung tâm đó có kho
+   *   riêng (phía worker phân giải không gian theo từng payment);
+   *   cài đặt phía apps/api hiện hành không cần tới vì đường kích
+   *   hoạt của API chạy trong ngữ cảnh của request/tiến trình đó.
    */
-  activatePaidEnrol(itemId: string, userId: string): Promise<void>;
+  activatePaidEnrol(itemId: string, userId: string, tenantId: string): Promise<void>;
 }
 
 /**
@@ -61,8 +67,13 @@ export interface PaidClassEnrolActivationPort {
    * Kích hoạt ghi danh cấp lớp.
    * @param itemId Id của lớp đích (trường `itemId` của payment).
    * @param userId Id của người dùng vào lớp (trường `userId` của payment).
+   * @param tenantId Id của tenant sở hữu payment (trường `tenantId` của
+   *   payment) — cùng vai trò với tham số cùng tên của
+   *   {@link PaidEnrolActivationPort.activatePaidEnrol}: tiến trình
+   *   chủ phân giải không gian của trung tâm sở hữu payment để chạy
+   *   kích hoạt tại đúng kho của trung tâm đó.
    */
-  activatePaidClassEnrol(itemId: string, userId: string): Promise<void>;
+  activatePaidClassEnrol(itemId: string, userId: string, tenantId: string): Promise<void>;
 }
 
 /**

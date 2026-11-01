@@ -20,6 +20,7 @@ import type { PaymentSettlementPort } from '@lms/payments';
 import { tenantAls } from './db/tenant-als';
 import type { relations } from './db/relations';
 import { WorkerEnrolOutboxService } from './worker-enrol-outbox.service';
+import { WorkerPaymentSpaceScope } from './worker-payment-space-scope.service';
 
 type Database = NodePgDatabase<typeof relations>;
 /** Handle của một transaction Drizzle đang mở trên tay cầm của worker. */
@@ -48,7 +49,13 @@ const PLATFORM_TENANT_SLUG = 'trang-chinh';
  *    thể đã bị can thiệp). Đối tượng đích không tồn tại, không còn
  *    cấu hình phí, hoặc ảnh chụp gói thiếu/sai hình dạng đều coi là
  *    KHÔNG khớp (fail-closed): thà đẩy vào `needs_review` còn hơn
- *    kích hoạt một quyền lợi không xác minh được.
+ *    kích hoạt một quyền lợi không xác minh được. Riêng hai
+ *    component có đích thuộc trung tâm của payment (`enrol_fee`,
+ *    `class_fee`) thì lượt đọc đích chạy tại kho của trung tâm đó
+ *    qua điểm phân giải không gian theo payment
+ *    (`WorkerPaymentSpaceScope` — tiền điều kiện Phần B của issue
+ *    #587, hạng mục 2), vì đích của trung tâm đã chuyển kho chỉ
+ *    tồn tại ở kho riêng.
  * 2. `settleRefundFromDebitEvent` — xác nhận chi tự động từ một sự
  *    kiện `debit`: đối khớp theo (mã lệnh chi, tài khoản, số tiền)
  *    với dòng hoàn đang `approved`, rồi xác nhận chi qua cùng khâu
@@ -97,6 +104,7 @@ export class WorkerPaymentSettlementService implements PaymentSettlementPort {
     private readonly repo: PaymentsRepository,
     private readonly plans: PlanEntitlementsService,
     private readonly enrolOutbox: WorkerEnrolOutboxService,
+    private readonly spaceScope: WorkerPaymentSpaceScope,
   ) {}
 
   /** Tenant platform (tenant-zero) — chủ của dòng tiền gói và của hàng đợi platform. */
@@ -117,34 +125,65 @@ export class WorkerPaymentSettlementService implements PaymentSettlementPort {
    * server; `false` khi lệch hoặc không xác minh được.
    */
   async verifyPaymentAgainstServerTarget(payment: PaymentRow): Promise<boolean> {
-    return tenantAls.run({ platform: true }, async () => {
-      switch (payment.component) {
-        case 'enrol_fee': {
-          if (!payment.itemId) return false;
-          const [instance] = await this.db.select().from(enrol).where(eq(enrol.id, payment.itemId));
-          if (!instance) return false;
-          if (instance.enrol !== 'fee' || !instance.cost || instance.cost <= 0) return false;
-          const [courseRow] = await this.db.select({ tenantId: course.tenantId })
-            .from(course).where(eq(course.id, instance.courseId));
-          if (!courseRow?.tenantId) return false;
-          return payment.amount === instance.cost && payment.tenantId === courseRow.tenantId;
-        }
-        case 'class_fee': {
-          if (!payment.itemId) return false;
-          const [target] = await this.db.select().from(classes).where(eq(classes.id, payment.itemId));
-          if (!target || !target.feeCost || target.feeCost <= 0) return false;
-          return payment.amount === target.feeCost && payment.tenantId === target.tenantId;
-        }
-        case 'tenant_plan':
-        case 'teacher_plan': {
-          const expectedAmount = planChargedAmountOf(payment);
-          if (expectedAmount === null) return false;
-          return payment.amount === expectedAmount && payment.tenantId === (await this.platformTenantId());
-        }
-        default:
-          return true;
+    // Hai component có đối tượng đích thuộc về trung tâm của
+    // payment (`enrol_fee`, `class_fee`): đối chiếu phải đọc đối
+    // tượng đích tại đúng kho của trung tâm đó — instance/lớp của
+    // trung tâm đã chuyển kho chỉ tồn tại ở kho riêng, đọc ở kho
+    // chung sẽ kết luận "không tồn tại" và đẩy payment oan vào
+    // `needs_review` trước khi kích hoạt được gọi. Phân giải
+    // không gian theo từng payment qua cùng điểm phân giải của
+    // hai cổng kích hoạt (`WorkerPaymentSpaceScope` — tiền điều
+    // kiện Phần B của issue #587, hạng mục 2); lỗi phân giải hoặc
+    // chuẩn bị kho đích ném ra (fail-closed) thay vì trả `false`,
+    // vì `false` nghĩa là "đích lệch" trong khi đây là "không đọc
+    // được đích" — payment ở lại `pending` để nhịp sau thử lại.
+    // Các component còn lại giữ nguyên phạm vi platform ở kho
+    // chung như trước (đích của payment gói là tenant platform).
+    if (payment.component === 'enrol_fee' || payment.component === 'class_fee') {
+      return this.spaceScope.runForTenant(payment.tenantId, () =>
+        this.verifyTargetInCurrentScope(payment),
+      );
+    }
+    return tenantAls.run({ platform: true }, () => this.verifyTargetInCurrentScope(payment));
+  }
+
+  /**
+   * Thân đối chiếu đích, chạy trong phạm vi kho mà nơi gọi đã mở
+   * (xem {@link verifyPaymentAgainstServerTarget}): mọi lượt đọc
+   * đối tượng đích đi qua handle định tuyến nên vào đúng kho của
+   * phạm vi hiện hành.
+   *
+   * @param payment - Bản ghi payment đang đối chiếu.
+   * @returns `true` khi khớp cả giá lẫn tenant phía server của
+   *   đối tượng đích; `false` khi lệch hoặc không xác minh được.
+   */
+  private async verifyTargetInCurrentScope(payment: PaymentRow): Promise<boolean> {
+    switch (payment.component) {
+      case 'enrol_fee': {
+        if (!payment.itemId) return false;
+        const [instance] = await this.db.select().from(enrol).where(eq(enrol.id, payment.itemId));
+        if (!instance) return false;
+        if (instance.enrol !== 'fee' || !instance.cost || instance.cost <= 0) return false;
+        const [courseRow] = await this.db.select({ tenantId: course.tenantId })
+          .from(course).where(eq(course.id, instance.courseId));
+        if (!courseRow?.tenantId) return false;
+        return payment.amount === instance.cost && payment.tenantId === courseRow.tenantId;
       }
-    });
+      case 'class_fee': {
+        if (!payment.itemId) return false;
+        const [target] = await this.db.select().from(classes).where(eq(classes.id, payment.itemId));
+        if (!target || !target.feeCost || target.feeCost <= 0) return false;
+        return payment.amount === target.feeCost && payment.tenantId === target.tenantId;
+      }
+      case 'tenant_plan':
+      case 'teacher_plan': {
+        const expectedAmount = planChargedAmountOf(payment);
+        if (expectedAmount === null) return false;
+        return payment.amount === expectedAmount && payment.tenantId === (await this.platformTenantId());
+      }
+      default:
+        return true;
+    }
   }
 
   /**
