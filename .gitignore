@@ -31,3 +31,8 @@ packages/*/src/**/*.js.map
 # cách sinh lại rồi so git diff) — chúng là nguồn, không phải bản biên
 # dịch, nên phải thoát khỏi pattern *.d.ts ở trên.
 !packages/db/src/types/*.d.ts
+# Ngoại lệ có chủ đích: khai báo ambient cho module con kysely/migration
+# của @lms/db (src/migrate/kysely-migration.d.ts) là file nguồn viết tay
+# — chuỗi tsconfig của repo phân giải module kiểu Node10 không đọc được
+# exports map của Kysely — nên cũng phải thoát khỏi pattern *.d.ts.
+!packages/db/src/migrate/kysely-migration.d.ts
