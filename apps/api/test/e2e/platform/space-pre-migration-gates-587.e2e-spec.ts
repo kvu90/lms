@@ -116,6 +116,18 @@ function signedBetterAuthCookie(token: string): string {
  *     kho đích. Ca này khoá đúng khâu ghi mà ca (d) bỏ qua (gieo
  *     phiên thẳng) và ca đối chứng dương bỏ qua (giáo viên có ở cả
  *     hai kho).
+ * (f) đối chứng âm của (e) — tài khoản chỉ ở kho chung (có
+ *     credential Better Auth hẳn hoi, đăng nhập được ở địa chỉ
+ *     platform) phải bị TỪ CHỐI khi đăng nhập tại địa chỉ của
+ *     trung tâm kho riêng: kiểm chứng credential tại địa chỉ đó
+ *     chỉ được chạm kho đích. Đây là chiều xuyên thủng đã gặp ở
+ *     production trong thí điểm nhantin (tiền điều kiện TĐ5):
+ *     khi Host không tới được API nguyên vẹn, ca này ở production
+ *     trả 200 cho tài khoản kho chung.
+ * (g) địa chỉ platform giữ nguyên hành vi hiện tại sau khi đường
+ *     địa chỉ trung tâm được nối đúng: tài khoản kho chung đăng
+ *     nhập được tại địa chỉ platform và phiên ghi ở kho chung;
+ *     tài khoản chỉ ở kho riêng bị từ chối tại địa chỉ platform.
  */
 const CP_DATABASE = 'lms_test_cp_587';
 const CP_ROLE = 'lms_cp_test_587';
@@ -285,6 +297,8 @@ describe('Các cổng tiền di trú ở kho riêng (đầu-cuối, issue #587)'
   let dedicatedOnlyUsername = '';
   let dedicatedOnlyBaId = '';
   let dedicatedOnlyBaUsername = '';
+  let sharedOnlyBaId = '';
+  let sharedOnlyBaUsername = '';
 
   const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
   const must = async (res: { status: number; body: unknown }, what: string) => {
@@ -471,6 +485,21 @@ describe('Các cổng tiền di trú ở kho riêng (đầu-cuối, issue #587)'
       await client.query('DELETE FROM users WHERE id = $1', [dedicatedOnlyBaId]);
     });
 
+    // Tài khoản CHỈ ở kho chung dùng cho ca (f) và (g): tạo cặp
+    // user + account credential qua cầu nối ở kho chung và KHÔNG
+    // sao đi đâu cả — tài khoản đăng nhập được ở địa chỉ platform
+    // nhưng không tồn tại ở kho riêng.
+    const sharedBaUsername = helpers.uniqueName('sharedba587');
+    const sharedBaCreated = await bridge.createUserWithCredential({
+      email: `${sharedBaUsername}@example.com`,
+      username: sharedBaUsername,
+      firstName: 'Test',
+      lastName: 'User',
+      password: helpers.STRONG_PASSWORD,
+    });
+    sharedOnlyBaId = sharedBaCreated.id;
+    sharedOnlyBaUsername = sharedBaUsername;
+
     // Tài khoản sẽ bị thu hồi: tạo, sao vào kho A, lấy token
     // chuyển tenant khi membership còn hiệu lực — ca thu hồi sẽ
     // kết thúc membership ở kho đích rồi dùng lại chính token này.
@@ -604,5 +633,56 @@ describe('Các cổng tiền di trú ở kho riêng (đầu-cuối, issue #587)'
 
     expect(me.status).toBe(200);
     expect((me.body as { firstName?: string }).firstName).toBe(CENTRE_A_FIRST_NAME);
+  });
+
+  it('tài khoản chỉ ở kho chung bị từ chối khi đăng nhập Better Auth tại địa chỉ của trung tâm kho riêng', async () => {
+    // Tài khoản có credential hẳn hoi ở kho chung và không tồn
+    // tại ở kho riêng: kiểm chứng credential tại địa chỉ của
+    // trung tâm chỉ được chạm kho đích, không được rơi về kho
+    // chung theo bất kỳ đường nào.
+    expect(await countRows(process.env.DATABASE_URL!, 'users', 'id', sharedOnlyBaId)).toBe(1);
+    expect(await countRows(process.env.DATABASE_URL!, 'account', 'user_id', sharedOnlyBaId)).toBe(1);
+    const centreUrl = clusterUrl(CENTRE_A_DATABASE, CENTRE_A_ROLE, CENTRE_A_PASSWORD);
+    expect(await countRows(centreUrl, 'users', 'id', sharedOnlyBaId)).toBe(0);
+    expect(await countRows(centreUrl, 'account', 'user_id', sharedOnlyBaId)).toBe(0);
+
+    const signIn = await helpers
+      .http(app)
+      .post('/api/v1/auth/sign-in/username')
+      .set('Host', HOST_A)
+      .set('Origin', 'http://localhost:5173')
+      .send({ username: sharedOnlyBaUsername, password: helpers.STRONG_PASSWORD });
+    expect(signIn.status).toBe(401);
+    expect((signIn.body as { code?: string }).code).toBe('INVALID_USERNAME_OR_PASSWORD');
+
+    // Lượt từ chối không ghi phiên ở bất kỳ kho nào.
+    expect(await countRows(centreUrl, 'session', 'user_id', sharedOnlyBaId)).toBe(0);
+    expect(await countRows(process.env.DATABASE_URL!, 'session', 'user_id', sharedOnlyBaId)).toBe(0);
+  });
+
+  it('đăng nhập Better Auth tại địa chỉ platform giữ nguyên hành vi: tài khoản kho chung vào được, tài khoản chỉ ở kho riêng bị từ chối', async () => {
+    // Không đặt Host của trung tâm: request mang địa chỉ mặc định
+    // (không trích được slug) — đúng đường platform hiện tại.
+    const centreUrl = clusterUrl(CENTRE_A_DATABASE, CENTRE_A_ROLE, CENTRE_A_PASSWORD);
+
+    // Tài khoản kho chung đăng nhập được và phiên ghi ở kho chung.
+    const sharedSignIn = await helpers
+      .http(app)
+      .post('/api/v1/auth/sign-in/username')
+      .set('Origin', 'http://localhost:5173')
+      .send({ username: sharedOnlyBaUsername, password: helpers.STRONG_PASSWORD });
+    expect(sharedSignIn.status).toBe(200);
+    expect(await countRows(process.env.DATABASE_URL!, 'session', 'user_id', sharedOnlyBaId)).toBe(1);
+    expect(await countRows(centreUrl, 'session', 'user_id', sharedOnlyBaId)).toBe(0);
+
+    // Tài khoản chỉ ở kho riêng không tồn tại ở kho chung nên bị
+    // từ chối tại địa chỉ platform như mọi tài khoản không tồn tại.
+    const dedicatedSignIn = await helpers
+      .http(app)
+      .post('/api/v1/auth/sign-in/username')
+      .set('Origin', 'http://localhost:5173')
+      .send({ username: dedicatedOnlyBaUsername, password: helpers.STRONG_PASSWORD });
+    expect(dedicatedSignIn.status).toBe(401);
+    expect((dedicatedSignIn.body as { code?: string }).code).toBe('INVALID_USERNAME_OR_PASSWORD');
   });
 });
