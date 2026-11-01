@@ -2,12 +2,17 @@
   "dependencies": {
     "@lms/contracts": "workspace:*",
     "drizzle-orm": "1.0.0-rc.5",
-    "uuid": "^14.0.3"
+    "uuid": "^14.0.3",
+    "kysely": "0.29.7",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "@lms/config": "workspace:*",
     "@types/node": "^26.6.5",
-    "typescript": "catalog:nest"
+    "typescript": "catalog:nest",
+    "@types/pg": "^8.23.1",
+    "kysely-codegen": "0.20.0",
+    "vitest": "catalog:"
   },
   "exports": {
     ".": {
@@ -21,15 +26,25 @@
     "./system-bank": {
       "types": "./dist/system-bank.d.ts",
       "default": "./dist/system-bank.js"
+    },
+    "./repositories/*": {
+      "types": "./dist/repositories/*.d.ts",
+      "default": "./dist/repositories/*.js"
+    },
+    "./test-support": {
+      "types": "./dist/test-support/index.d.ts",
+      "default": "./dist/test-support/index.js"
     }
   },
   "main": "./dist/index.js",
   "name": "@lms/db",
   "private": true,
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && mkdir -p dist/types && cp src/types/*.d.ts dist/types/",
     "lint": "eslint .",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "db:types": "node scripts/generate-types.mjs",
+    "test": "vitest run"
   },
   "types": "./dist/index.d.ts",
   "version": "0.1.0"

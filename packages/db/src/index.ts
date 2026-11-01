@@ -45,3 +45,4 @@ export * from './centre.schema';
 export * from './payments.schema';
 export * from './privacy.schema';
 export * from './system-bank-centre.schema';
+export { createCentreKysely, type CentreDB, type CentreDb, type CentreTx } from './client';

@@ -29,6 +29,19 @@ của repo.
   **1 issue = 1 feat = 1 PR**; các chặng là commit đẩy vào chính PR đó.
 - Nghiệp vụ phải gác ở server. Không "gác" bằng cách giấu ở client.
 
+## Quy ước hai ORM cùng tồn tại (chiến dịch chuyển ORM sang Kysely)
+
+- Hệ đang chuyển tầng dữ liệu từ Drizzle sang Kysely theo từng module.
+  **Một module thuộc hẳn về một ORM**: module đã chuyển thì toàn bộ
+  đường dữ liệu đi qua handle Kysely (inject bằng `@InjectKysely(...)`
+  từ `src/db/kysely.module.ts`, repository nằm ở `@lms/db/repositories/*`);
+  module chưa chuyển giữ nguyên Drizzle như hiện tại.
+- **Cấm giao dịch lai**: một thao tác nghiệp vụ không bao giờ mở đồng
+  thời một giao dịch Drizzle và một giao dịch Kysely.
+- Handle Kysely của kho trung tâm phải dựng trên `TenantAwarePool` để
+  GUC/RLS theo ngữ cảnh tenant hoạt động như phía Drizzle; hai kho còn
+  lại dùng pool thường qua các điểm vào riêng của `@lms/db`.
+
 ## Điều cấm package-specific
 
 - Cấm capability có tiền tố (`moodle/`, `mod/`, `lms/`, `report/`) — dạng duy nhất

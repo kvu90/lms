@@ -1,0 +1,1 @@
+{"camelCase":false,"customImports":{"SchemaMigrationStep":"../control-plane.schema","SpaceRegistrySnapshot":"../control-plane.schema"},"overrides":{"columns":{"space_registry_history.after":"SpaceRegistrySnapshot","space_registry_history.before":"SpaceRegistrySnapshot | null","space_schema_migration_runs.steps":"Generated<SchemaMigrationStep[]>"}}}
