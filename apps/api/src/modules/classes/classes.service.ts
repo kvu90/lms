@@ -983,11 +983,12 @@ export class ClassesService implements OnModuleInit {
    * kiện Phần B, hạng mục 3 — thiết kế C1):
    * 1. Tra THƯ MỤC mã tham gia ở control plane trước. Mã có mục
    *    thư mục → lớp thuộc không gian kho riêng của mục đó: đọc
-   *    dòng lớp tại chính kho đích (`withSpaceDatabase`), bọc
-   *    platform đặt ngoài khung định tuyến theo khuôn các đường
-   *    đọc kho riêng của TenantsService. Thư mục trỏ tới kho
-   *    đích mà chuẩn bị kho lỗi → lỗi ném ra nguyên trạng,
-   *    không rơi về tra kho chung.
+   *    dòng lớp tại chính kho đích (`withSpaceKysely` — repository
+   *    lớp đã chuyển Kysely ở issue #645 nên bước chuẩn bị phải là
+   *    của facade Kysely), bọc platform đặt ngoài khung định
+   *    tuyến theo khuôn các đường đọc kho riêng của
+   *    TenantsService. Thư mục trỏ tới kho đích mà chuẩn bị kho
+   *    lỗi → lỗi ném ra nguyên trạng, không rơi về tra kho chung.
    * 2. Mã không có mục thư mục → đường hiện tại ở kho chung:
    *    tra ở ngữ cảnh platform (mã là bí mật toàn hệ, lớp đích
    *    có thể thuộc tenant khác tenant hiệu lực của người gọi —
@@ -1002,7 +1003,7 @@ export class ClassesService implements OnModuleInit {
       const entry = await this.directory.findJoinCodeDirectory(code);
       if (entry) {
         const row = await tenantAls.run({ platform: true }, () =>
-          this.spaceDb.withSpaceDatabase(entry.spaceSlug, () => this.repo.getClassByJoinCode(code)),
+          this.spaceDb.withSpaceKysely(entry.spaceSlug, () => this.repo.getClassByJoinCode(code)),
         );
         if (!row || !row.allowSelfReport || !row.joinCode) {
           throw new NotFoundException({ message: 'Join code is not valid for any open class', code: 'class.join_code_invalid' });
@@ -1052,9 +1053,12 @@ export class ClassesService implements OnModuleInit {
    * Lớp thuộc không gian kho riêng (phân giải qua thư mục mã —
    * thiết kế C1): TOÀN BỘ các bước ghi của luồng (đảm bảo
    * membership, thêm vào roster, ghi outbox, tạo yêu cầu chờ
-   * duyệt) chạy trong kho của lớp qua `withSpaceDatabase`, bọc
-   * platform đặt ngoài khung định tuyến như các đường kho riêng
-   * khác; kho chung không nhận bất kỳ lượt ghi nào của luồng này.
+   * duyệt) chạy trong kho của lớp qua chuẩn bị kép hai facade
+   * (`withSpaceDatabase` + `withSpaceKysely` — thân luồng dùng cả
+   * repository Kysely lẫn đường Drizzle của membership/outbox),
+   * bọc platform đặt ngoài khung định tuyến như các đường kho
+   * riêng khác; kho chung không nhận bất kỳ lượt ghi nào của
+   * luồng này.
    */
   async joinByCode(actorId: string, joinCode: string): Promise<JoinClassResult> {
     const { row, spaceSlug } = await this.resolveClassByJoinCode(joinCode);
@@ -1084,7 +1088,14 @@ export class ClassesService implements OnModuleInit {
       return { outcome: 'pending' as const, class: view };
     };
     if (spaceSlug) {
-      return tenantAls.run({ platform: true }, () => this.spaceDb.withSpaceDatabase(spaceSlug, body));
+      // Thân luồng dùng cả hai họ repository (nhóm/ghi danh chờ
+      // duyệt đã chuyển Kysely; membership của tenant và outbox
+      // vẫn phía Drizzle) nên phải chuẩn bị đủ cả hai facade:
+      // bọc `withSpaceKysely` trong `withSpaceDatabase` để mọi
+      // truy vấn của thân đều có bảng đã-chuẩn-bị của facade mình.
+      return tenantAls.run({ platform: true }, () =>
+        this.spaceDb.withSpaceDatabase(spaceSlug, () => this.spaceDb.withSpaceKysely(spaceSlug, body)),
+      );
     }
     return this.tenantContext.run({ platform: true }, body);
   }
