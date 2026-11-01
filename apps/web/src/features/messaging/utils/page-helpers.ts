@@ -130,6 +130,37 @@ export function withTreeUnread(
 }
 
 /**
+ * Dời một conversation lên đầu PHÂN MỤC của nó sau khi nó có hoạt
+ * động mới nhất, sau khi áp phép biến đổi nội dung lên chính nó
+ * (vòng sửa issue #623): thứ tự của server là hội thoại đã ghim
+ * trước (trong nhóm ghim theo hoạt động gần nhất), còn lại theo
+ * hoạt động gần nhất — nên hội thoại vừa có tin mới lên đầu nhóm
+ * Gần đây nếu chưa ghim, và lên đầu nhóm Ghim (đầu danh sách) nếu
+ * đã ghim; dời thẳng lên đầu toàn danh sách sẽ phá thứ tự ghim
+ * của server khi hội thoại chưa ghim nhảy qua các hội thoại đã
+ * ghim. Danh sách không có conversation đó thì trả nguyên danh
+ * sách (cùng tham chiếu) để các tầng gọi không phải tự gác.
+ *
+ * @param list - Danh sách hội thoại đang có trong cache.
+ * @param conversationId - Conversation vừa có hoạt động mới.
+ * @param update - Phép biến đổi nội dung áp lên conversation đó (tin cuối, số chưa đọc…).
+ * @returns Danh sách mới đã sắp lại; trả lại chính `list` khi conversation vắng mặt.
+ */
+export function withConversationMovedToSectionTop(
+  list: ConversationView[],
+  conversationId: string,
+  update: (conversation: ConversationView) => ConversationView,
+): ConversationView[] {
+  const target = list.find((c) => c.id === conversationId);
+  if (!target) return list;
+  const updated = update(target);
+  const rest = list.filter((c) => c.id !== conversationId);
+  if (updated.pinnedAt) return [updated, ...rest];
+  const pinnedCount = rest.filter((c) => c.pinnedAt).length;
+  return [...rest.slice(0, pinnedCount), updated, ...rest.slice(pinnedCount)];
+}
+
+/**
  * Ngữ cảnh ROSTER cho panel thành viên của một conversation nhóm
  * (lát MSG-T4): phân loại CHỈ theo `itemType`/`itemId` do server
  * gắn (không đoán theo tên) — chat cấp lớp đọc roster lớp, chat cấp

@@ -1925,6 +1925,325 @@ describe('Messages page — M5: ghim / lưu trữ / tắt tiếng và tab Lưu t
   });
 });
 
+/* ====== Vòng sửa issue #623: trạng thái riêng của tập đã lưu, mốc seq hai tập, thứ tự tập đã lưu, cụm soạn ghi chú ====== */
+
+const R2_CONV_A = '01900000-0000-7000-8000-0000000000a6';
+const R2_CONV_B = '01900000-0000-7000-8000-0000000000b6';
+const R2_CONV_C = '01900000-0000-7000-8000-0000000000c6';
+
+interface R2ConvState {
+  id: string; name: string; unread: number;
+  pinnedAt: string | null; archivedAt: string | null; muted: boolean;
+  activity: number; lastMessageSeq: number; lastMessageText: string | null;
+}
+
+/**
+ * Stub cho các ca của vòng sửa issue #623 (phán quyết thống nhất
+ * trên PR #625): A ở danh sách chính; B và C đã lưu trữ với mốc
+ * seq và tin cuối thật (B hoạt động gần hơn C). Tuỳ chọn
+ * `archivedGate` giữ phản hồi `?archived=true` treo cho tới khi
+ * ca kiểm chứng thả ra (mô phỏng phản hồi chậm), và
+ * `archivedFails` quyết định phản hồi đó lỗi 500 hay thành công
+ * theo từng thời điểm (mô phỏng lỗi rồi thử lại thành công).
+ * Đường gửi tin cập nhật trạng thái stub như server (tin vừa
+ * gửi thành tin cuối, seq mới) và trả đúng tin đã lưu.
+ */
+function stubFetch625Round2(
+  calls: RecordedCall[],
+  opts?: { archivedGate?: Promise<void>; archivedFails?: () => boolean },
+) {
+  const convs: R2ConvState[] = [
+    { id: R2_CONV_A, name: 'Hội thoại A', unread: 0, pinnedAt: null, archivedAt: null, muted: false, activity: 1, lastMessageSeq: 5, lastMessageText: 'tin cuối của A' },
+    { id: R2_CONV_B, name: 'Hội thoại B', unread: 0, pinnedAt: null, archivedAt: '2026-01-02T00:00:00.000Z', muted: false, activity: 3, lastMessageSeq: 20, lastMessageText: 'tin cuối của B' },
+    { id: R2_CONV_C, name: 'Hội thoại C', unread: 0, pinnedAt: null, archivedAt: '2026-01-02T00:00:00.000Z', muted: false, activity: 2, lastMessageSeq: 10, lastMessageText: 'tin cuối của C' },
+  ];
+  const summary = (c: R2ConvState) => ({
+    id: c.id, type: 1, name: c.name, members: [ME_ID, OTHER_ID], unread: c.unread,
+    lastReadSeq: 0, lastMessageSeq: c.lastMessageSeq,
+    lastMessage: c.lastMessageText
+      ? {
+          id: `lm-${c.id}`, conversationId: c.id, userIdFrom: OTHER_ID, subject: '',
+          fullMessage: c.lastMessageText, smallMessage: '', createdAt: '2026-01-01T00:00:00.000Z',
+          seq: c.lastMessageSeq, clientMessageId: null, replyToMessageId: null,
+        }
+      : null,
+    pinnedAt: c.pinnedAt, archivedAt: c.archivedAt, muted: c.muted,
+  });
+  const byServerOrder = (list: R2ConvState[]) => [...list].sort((x, y) =>
+    Number(y.pinnedAt !== null) - Number(x.pinnedAt !== null) || y.activity - x.activity);
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const respond = (payload: unknown, status = 200) =>
+        new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/messages/conversations' && method === 'GET')
+        return respond(byServerOrder(convs.filter((c) => !c.archivedAt)).map(summary));
+      if (url === '/api/v1/messages/conversations?archived=true' && method === 'GET') {
+        if (opts?.archivedGate) await opts.archivedGate;
+        if (opts?.archivedFails?.()) return respond({ title: 'Lỗi tải tập đã lưu' }, 500);
+        return respond(byServerOrder(convs.filter((c) => c.archivedAt)).map(summary));
+      }
+      const detailMatch = url.match(/^\/api\/v1\/messages\/conversations\/([^/]+)$/);
+      if (detailMatch && method === 'GET') {
+        const conv = convs.find((c) => c.id === detailMatch[1]);
+        if (!conv) return respond({ code: 'messaging.conversation_not_found' }, 404);
+        return respond({ ...summary(conv), messages: [], hasMoreBefore: false, memberReadMarkers: [] });
+      }
+      const sendMatch = url.match(/^\/api\/v1\/messages\/conversations\/([^/]+)\/messages$/);
+      if (sendMatch && method === 'POST') {
+        const conv = convs.find((c) => c.id === sendMatch[1]);
+        if (!conv) return respond({ code: 'messaging.conversation_not_found' }, 404);
+        const body = JSON.parse(String(init?.body)) as { text?: string; clientMessageId?: string };
+        conv.lastMessageSeq = 30;
+        conv.lastMessageText = body.text ?? '';
+        conv.activity = 99;
+        return respond({
+          id: '01900000-0000-7000-8000-0000000000f6', conversationId: conv.id, userIdFrom: ME_ID,
+          subject: '', fullMessage: body.text ?? '', smallMessage: '', createdAt: '2026-01-01T04:00:00.000Z',
+          seq: 30, clientMessageId: body.clientMessageId ?? null, replyToMessageId: null,
+        }, 201);
+      }
+      if (/^\/api\/v1\/messages\/conversations\/[^/]+\/read$/.test(url) && method === 'POST')
+        return respond({ ok: true, lastReadSeq: 0 });
+      if (url === '/api/v1/messages/unread-count') return respond({ conversations: 0, notifications: 0 });
+      if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [], profiles: {} });
+      if (url === '/api/v1/messages/contacts')
+        return respond({ contacts: [OTHER_ID], profiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } } });
+      if (url === '/api/v1/messages/contacts/requests') return respond({ incoming: [], outgoing: [], profiles: {} });
+      if (url === '/api/v1/messages/courses') return respond({ courses: [] });
+      return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
+}
+
+describe('Messages page — vòng sửa issue #623: tập đã lưu và cụm soạn ghi chú', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  it('tập đã lưu về chậm hơn danh sách chính: tab Lưu trữ hiện khung đang tải của chính nó, không khẳng định rỗng giả', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    let releaseArchived!: () => void;
+    const gate = new Promise<void>((resolve) => { releaseArchived = resolve; });
+    stubFetch625Round2(calls, { archivedGate: gate });
+    renderMessages();
+
+    // Danh sách chính đã về (A hiện) trong khi ?archived=true
+    // còn treo: mở tab Lưu trữ phải thấy khung đang tải của
+    // chính tập đó, không thấy câu rỗng của tab Lưu trữ.
+    expect(await screen.findByRole('button', { name: /Hội thoại A/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('tab', { name: 'Lưu trữ' }));
+    expect(await screen.findByTestId('conversations-loading')).toBeInTheDocument();
+    expect(screen.queryByText('Chưa có cuộc trò chuyện nào được lưu trữ.')).not.toBeInTheDocument();
+
+    // Thả phản hồi tập đã lưu: hai hội thoại đã lưu hiện ra và
+    // số đếm của tab khớp tập.
+    releaseArchived();
+    expect(await screen.findByRole('button', { name: /Hội thoại B/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Lưu trữ' })).toHaveTextContent('(2)');
+  });
+
+  it('tập đã lưu lỗi: tab Lưu trữ hiện báo lỗi kèm nút thử lại thay cho câu rỗng, và thử lại nạp được tập', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    const archivedState = { fails: true };
+    stubFetch625Round2(calls, { archivedFails: () => archivedState.fails });
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('tab', { name: 'Lưu trữ' }));
+    // Lỗi chốt sau các lần thử lại của QueryClient.
+    await screen.findByText('Không tải được cuộc trò chuyện đã lưu trữ', {}, { timeout: 10000 });
+    expect(screen.queryByText('Chưa có cuộc trò chuyện nào được lưu trữ.')).not.toBeInTheDocument();
+
+    // Đường thử lại của chính panel: lần nạp này thành công
+    // thì tập đã lưu hiện ra.
+    archivedState.fails = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+    expect(await screen.findByRole('button', { name: /Hội thoại B/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Lưu trữ' })).toHaveTextContent('(2)');
+  });
+
+  it('sự kiện cũ đến muộn cho hội thoại chỉ sống ở tập đã lưu bị chốt seq bỏ qua: hội thoại không nhảy sang danh sách chính và tin cuối không lùi', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetch625Round2(calls);
+    renderMessages();
+
+    // Ảnh chụp tập đã lưu đã nạp (số đếm 2): mốc seq của B là
+    // 20 theo ảnh chụp đó.
+    expect(await screen.findByRole('button', { name: /Hội thoại A/ })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('tab', { name: 'Lưu trữ' })).toHaveTextContent('(2)');
+    });
+
+    // Sự kiện conversation.updated mang seq 7 (cũ hơn ảnh chụp)
+    // phân phối muộn: phải bị bỏ qua hoàn toàn — trước vòng sửa,
+    // mốc của B chưa từng được khởi tạo từ tập đã lưu nên sự
+    // kiện này lọt qua và dời B sang danh sách chính với số của
+    // thời điểm cũ.
+    act(() => {
+      realtime.handlers?.onConversationUpdated({
+        conversationId: R2_CONV_B,
+        message: {
+          id: '01900000-0000-7000-8000-0000000000f7',
+          conversationId: R2_CONV_B,
+          userIdFrom: OTHER_ID,
+          subject: '',
+          fullMessage: 'tin cũ đến muộn',
+          createdAt: '2026-01-01T01:00:00.000Z',
+          seq: 7,
+          clientMessageId: null,
+        },
+        unreadCount: 9,
+      } as never);
+    });
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Lưu trữ' }));
+    const rowB = await screen.findByRole('button', { name: /Hội thoại B/ });
+    expect(rowB.textContent).toContain('tin cuối của B');
+    expect(rowB.textContent).not.toContain('tin cũ đến muộn');
+    expect(screen.getByRole('tab', { name: 'Lưu trữ' })).toHaveTextContent('(2)');
+    await userEvent.click(screen.getByRole('tab', { name: 'Tất cả' }));
+    expect(screen.queryByRole('button', { name: /Hội thoại B/ })).not.toBeInTheDocument();
+  });
+
+  it('gửi tin của chính mình trong hội thoại đã lưu: hội thoại dời lên đầu mục Gần đây của tab Lưu trữ', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetch625Round2(calls);
+    renderMessages();
+
+    // Thứ tự server ban đầu ở tab Lưu trữ: B (hoạt động gần
+    // hơn) trước C.
+    await userEvent.click(await screen.findByRole('tab', { name: 'Lưu trữ' }));
+    const archivedRows = () => screen.getAllByRole('button', { name: /Hội thoại [BC]/ });
+    expect(await screen.findByRole('button', { name: /Hội thoại B/ })).toBeInTheDocument();
+    expect(archivedRows()[0]).toHaveTextContent('Hội thoại B');
+
+    // Mở C và gửi một tin từ ô soạn: tin vừa gửi là hoạt động
+    // mới nhất nên C phải dời lên đầu mục Gần đây (trước B)
+    // ngay trong cache tập đã lưu, không chờ tải lại.
+    await userEvent.click(screen.getByRole('button', { name: /Hội thoại C/ }));
+    const composer = await screen.findByLabelText('Nội dung tin nhắn');
+    await userEvent.type(composer, 'tin mới của tôi vào C');
+    await userEvent.click(screen.getByRole('button', { name: 'Gửi' }));
+    await waitFor(() => {
+      expect(calls.some((c) => c.method === 'POST'
+        && c.url === `/api/v1/messages/conversations/${R2_CONV_C}/messages`)).toBe(true);
+    });
+    await waitFor(() => expect(archivedRows()[0]).toHaveTextContent('Hội thoại C'));
+    expect(archivedRows()[0]!.textContent).toContain('tin mới của tôi vào C');
+    expect(screen.getByRole('tab', { name: 'Lưu trữ' })).toHaveTextContent('(2)');
+  });
+
+  it('sự kiện realtime của chính mình vào hội thoại đã lưu: hội thoại dời lên đầu phân mục của nó và cập nhật trích đoạn', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetch625Round2(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('tab', { name: 'Lưu trữ' }));
+    const archivedRows = () => screen.getAllByRole('button', { name: /Hội thoại [BC]/ });
+    expect(await screen.findByRole('button', { name: /Hội thoại B/ })).toBeInTheDocument();
+    expect(archivedRows()[0]).toHaveTextContent('Hội thoại B');
+
+    // Tin của chính người xem (seq mới hơn ảnh chụp của C):
+    // trạng thái lưu trữ của người gửi giữ nguyên, nhưng thứ
+    // tự trong tập đã lưu phải theo hoạt động mới nhất như
+    // server — C lên đầu mục Gần đây kèm trích đoạn mới.
+    act(() => {
+      realtime.handlers?.onConversationUpdated({
+        conversationId: R2_CONV_C,
+        message: {
+          id: '01900000-0000-7000-8000-0000000000f8',
+          conversationId: R2_CONV_C,
+          userIdFrom: ME_ID,
+          subject: '',
+          fullMessage: 'tin realtime của tôi vào C',
+          createdAt: '2026-01-01T05:00:00.000Z',
+          seq: 25,
+          clientMessageId: null,
+        },
+        unreadCount: 0,
+      } as never);
+    });
+
+    await waitFor(() => expect(archivedRows()[0]).toHaveTextContent('Hội thoại C'));
+    expect(archivedRows()[0]!.textContent).toContain('tin realtime của tôi vào C');
+    expect(screen.getByRole('tab', { name: 'Lưu trữ' })).toHaveTextContent('(2)');
+  });
+
+  it('form Ghi chú nội bộ mang cùng hàng công cụ như form Trả lời và các nút định dạng tác động lên nháp ghi chú', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetch625Round2(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Ghi chú nội bộ' }));
+    const noteBox = (await screen.findByPlaceholderText('Viết ghi chú nội bộ...')) as HTMLTextAreaElement;
+
+    // Đủ hàng công cụ theo thứ tự của form Trả lời: In đậm,
+    // emoji, đính kèm (hình dạng vô hiệu như ở tab Trả lời),
+    // chèn liên kết, và nút Gửi.
+    expect(screen.getByRole('button', { name: 'In đậm' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Chèn biểu tượng cảm xúc' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Đính kèm tệp' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Chèn liên kết' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Gửi' })).toBeInTheDocument();
+
+    // In đậm tác động lên nháp ghi chú: bọc vùng chọn bằng **.
+    await userEvent.type(noteBox, 'quan trọng');
+    noteBox.setSelectionRange(0, 10);
+    await userEvent.click(screen.getByRole('button', { name: 'In đậm' }));
+    expect(noteBox).toHaveValue('**quan trọng**');
+  });
+
+  it('bộ chọn emoji của form Ghi chú nội bộ chèn biểu tượng vào nháp ghi chú tại con trỏ', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetch625Round2(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Ghi chú nội bộ' }));
+    const noteBox = await screen.findByPlaceholderText('Viết ghi chú nội bộ...');
+    await userEvent.type(noteBox, 'chép');
+    await userEvent.click(screen.getByRole('button', { name: 'Chèn biểu tượng cảm xúc' }));
+    const popover = await screen.findByTestId('note-emoji-picker-popover');
+    expect(within(popover).getAllByRole('button')).toHaveLength(20);
+    await userEvent.click(within(popover).getAllByRole('button')[0]!);
+    expect(noteBox).toHaveValue('chép😀');
+  });
+
+  it('thông báo sau khi gửi ghi chú không bám lại dưới hộp: chuyển về tab Trả lời là thông báo biến mất', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetch625Round2(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Ghi chú nội bộ' }));
+    const noteBox = await screen.findByPlaceholderText('Viết ghi chú nội bộ...');
+    await userEvent.type(noteBox, 'ghi chú thoáng qua');
+    await userEvent.click(screen.getByRole('button', { name: 'Gửi' }));
+    expect(await screen.findByText('Ghi chú nội bộ được lưu cục bộ và không được gửi vào cuộc trò chuyện.')).toBeInTheDocument();
+
+    // Chuyển tab soạn là rời ngữ cảnh của thông báo: nó bị
+    // xoá ngay thay vì nằm nguyên dưới hộp ở tab Trả lời như
+    // trước vòng sửa.
+    await userEvent.click(screen.getByRole('tab', { name: 'Trả lời' }));
+    expect(screen.queryByText('Ghi chú nội bộ được lưu cục bộ và không được gửi vào cuộc trò chuyện.')).not.toBeInTheDocument();
+  });
+});
+
 const T3_DM_A = '01900000-0000-7000-8000-0000000000a1';
 const T3_DM_B = '01900000-0000-7000-8000-0000000000b1';
 const T3_CLASS_ID = '01900000-0000-7000-8000-0000000000c1';
@@ -3827,6 +4146,14 @@ function stub591Fetch(calls: RecordedCall[], gateList?: Promise<void>) {
           },
         ]);
       }
+      // Tập đã lưu của bộ dữ kiện này rỗng — endpoint có thật
+      // của server trả mảng rỗng (bổ sung ở vòng sửa issue
+      // #623 khi panel Lưu trữ bắt đầu phân biệt trạng thái
+      // lỗi của chính query này: thiếu nhánh này thì query
+      // rơi vào 404 mặc định của stub và panel hiện báo lỗi
+      // thay cho trạng thái rỗng thật).
+      if (url === '/api/v1/messages/conversations?archived=true' && method === 'GET')
+        return respond([]);
       if (url === '/api/v1/messages/group-tree')
         return respond({
           classes: [],

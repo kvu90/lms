@@ -242,6 +242,8 @@ export function ChatPanel({
   const [infoOpen, setInfoOpen] = useState(false);
   /** Bộ chọn emoji ở ô soạn đang mở hay không (vòng sửa PR #593): Popover được điều khiển tường minh để chọn xong một emoji là đóng lại như hành vi menu trước đây. */
   const [emojiOpen, setEmojiOpen] = useState(false);
+  /** Bộ chọn emoji của ô soạn GHI CHÚ đang mở hay không (vòng sửa issue #623): trạng thái riêng của form ghi chú — hai form dùng cùng khuôn hàng công cụ nhưng mỗi form giữ popover của chính nó. */
+  const [noteEmojiOpen, setNoteEmojiOpen] = useState(false);
   /**
    * Tab đang chọn của hộp soạn (issue #623): hộp Tabs là Tabs
    * điều khiển thật với hai trị `reply` / `note` như bản demo
@@ -260,7 +262,13 @@ export function ChatPanel({
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   /** Nháp ghi chú của conversation đang mở (rỗng khi chưa chọn hội thoại nào). */
   const noteDraft = active ? noteDrafts[active.id] ?? '' : '';
-  /** Conversation vừa gửi ghi chú xong — thông báo cục bộ hiện dưới hộp soạn của đúng conversation đó cho tới lần gõ kế tiếp vào ô ghi chú. */
+  /**
+   * Conversation vừa gửi ghi chú xong — thông báo cục bộ của
+   * nó hiện thoáng qua dưới hộp soạn như toast của phía demo
+   * (vòng sửa issue #623): tự tắt sau vài giây, và bị xoá
+   * ngay khi chuyển tab soạn hoặc chuyển hội thoại, không
+   * bám lại dưới hộp như trước.
+   */
   const [noteNoticeFor, setNoteNoticeFor] = useState<string | null>(null);
 
   /**
@@ -279,6 +287,15 @@ export function ChatPanel({
     setNoteDrafts((prev) => ({ ...prev, [active.id]: '' }));
     setNoteNoticeFor(active.id);
   };
+  // Thông báo ghi chú tự tắt sau vài giây (hiệu ứng toast
+  // thoáng qua của phía demo — vòng sửa issue #623): hết giờ
+  // là xoá khỏi bề mặt; chuyển tab soạn / chuyển hội thoại
+  // cũng xoá ngay ở hai đường đổi ngữ cảnh tương ứng.
+  useEffect(() => {
+    if (!noteNoticeFor) return;
+    const timer = setTimeout(() => setNoteNoticeFor(null), 4000);
+    return () => clearTimeout(timer);
+  }, [noteNoticeFor]);
   /** Hồ sơ rút gọn của thành viên đang xem từ menu avatar/tên (lát MSG-T4) — một sheet dùng chung cho cả panel và dòng tin. */
   const memberProfile = useMemberProfile();
   /**
@@ -370,6 +387,72 @@ export function ChatPanel({
   };
 
   /**
+   * Ô nhập của form GHI CHÚ NỘI BỘ (vòng sửa issue #623): phía
+   * demo dùng CHUNG một component soạn cho cả hai tab nên form
+   * ghi chú mang cùng hàng công cụ như form Trả lời — các thao
+   * tác định dạng dưới đây là cùng thuật toán với phía Trả lời
+   * (Bold bọc/bỏ bọc `**`, Insert link qua hộp thoại của trình
+   * duyệt, emoji chèn tại con trỏ) nhưng tác động lên NHÁP GHI
+   * CHÚ của conversation đang mở và ô nhập của chính form ghi
+   * chú. Mọi thao tác vẫn cục bộ thuần: không gọi API, không
+   * phát tín hiệu đang nhập như đường soạn tin.
+   */
+  const noteComposerRef = useRef<HTMLTextAreaElement | null>(null);
+
+  /**
+   * Thay đoạn [start, end) của nháp ghi chú bằng `inserted` rồi
+   * khôi phục vùng chọn trong đoạn vừa chèn sau khi React vẽ
+   * lại — cùng khuôn với `replaceDraftRange` của nháp trả lời.
+   */
+  const replaceNoteDraftRange = (start: number, end: number, inserted: string, selectStart: number, selectEnd: number) => {
+    if (!active) return;
+    const nextDraft = `${noteDraft.slice(0, start)}${inserted}${noteDraft.slice(end)}`;
+    setNoteDrafts((prev) => ({ ...prev, [active.id]: nextDraft }));
+    requestAnimationFrame(() => {
+      const el = noteComposerRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(selectStart, selectEnd);
+    });
+  };
+
+  /** Nút Bold của form ghi chú: bọc/bỏ bọc `**` quanh vùng chọn của nháp ghi chú — cùng thuật toán với form Trả lời. */
+  const applyNoteBold = () => {
+    const el = noteComposerRef.current;
+    if (!el) return;
+    const start = el.selectionStart ?? noteDraft.length;
+    const end = el.selectionEnd ?? noteDraft.length;
+    const selected = noteDraft.slice(start, end);
+    const isWrapped = selected.startsWith('**') && selected.endsWith('**') && selected.length > 4;
+    const inserted = isWrapped ? selected.slice(2, -2) : `**${selected}**`;
+    replaceNoteDraftRange(start, end, inserted, start, start + inserted.length);
+  };
+
+  /** Nút Insert link của form ghi chú: cùng cơ chế hộp thoại của trình duyệt và cùng khuôn bọc liên kết như form Trả lời, áp lên nháp ghi chú. */
+  const insertNoteLink = () => {
+    const el = noteComposerRef.current;
+    const raw = window.prompt(t('insertLinkPrompt'));
+    if (raw === null) return;
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    const url = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const start = el?.selectionStart ?? noteDraft.length;
+    const end = el?.selectionEnd ?? noteDraft.length;
+    const selected = noteDraft.slice(start, end);
+    const inserted = selected ? `[${selected}](${url})` : `[${url}](${url})`;
+    replaceNoteDraftRange(start, end, inserted, start, start + inserted.length);
+  };
+
+  /** Chèn emoji tại con trỏ của ô ghi chú và đóng bộ chọn — cùng hành vi với form Trả lời. */
+  const insertNoteEmojiAtCursor = (emoji: string) => {
+    const el = noteComposerRef.current;
+    const start = el?.selectionStart ?? noteDraft.length;
+    const end = el?.selectionEnd ?? start;
+    replaceNoteDraftRange(start, end, emoji, start + emoji.length, start + emoji.length);
+    setNoteEmojiOpen(false);
+  };
+
+  /**
    * Query hồ sơ đối tác 1–1 phục vụ panel thông tin (issue #592):
    * đặt ở đây — trước return sớm khi chưa chọn hội thoại — nên id
    * đối tác tính trực tiếp từ props (cùng luật với `otherId` tính
@@ -388,7 +471,11 @@ export function ChatPanel({
     setSearchOpen(false);
     setInfoOpen(false);
     setEmojiOpen(false);
+    setNoteEmojiOpen(false);
     setSearchDraft('');
+    // Thông báo ghi chú của hội thoại trước không bám sang
+    // hội thoại mới (vòng sửa issue #623).
+    setNoteNoticeFor(null);
   }, [active?.id]);
 
   if (!active) {
@@ -1394,11 +1481,14 @@ export function ChatPanel({
               - Hộp tab Trả lời / Ghi chú nội bộ: Tabs điều
                 khiển thật bọc cả thanh tab và hai ô soạn
                 trong MỘT hộp viền — tab Ghi chú nội bộ bấm
-                chuyển được và mở ô soạn ghi chú riêng, nhưng
-                chức năng ghi chú nội bộ CHƯA có phán quyết
-                và chưa có backend: gửi ở chế độ ghi chú chỉ
-                xử lý cục bộ (thông báo + xoá nháp), không gọi
-                API, không vào luồng (xem `sendNote`).
+                chuyển được và mở ô soạn ghi chú riêng mang
+                CÙNG hàng công cụ như tab Trả lời (phía demo
+                dùng chung một component soạn cho cả hai
+                tab), nhưng chức năng ghi chú nội bộ CHƯA có
+                phán quyết và chưa có backend: gửi ở chế độ
+                ghi chú chỉ xử lý cục bộ (thông báo thoáng
+                qua + xoá nháp), không gọi API, không vào
+                luồng (xem `sendNote`).
               - Ô nhập nằm PHÍA TRÊN, hàng công cụ nằm PHÍA
                 DƯỚI (cột dọc như demo): hàng công cụ theo
                 thứ tự Bold → Emoji → Attach → Link ở nhóm
@@ -1423,7 +1513,7 @@ export function ChatPanel({
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-auto rounded-full px-3 py-1 text-xs text-muted-foreground hover:bg-muted"
+                  className="h-auto rounded-full px-3 py-1 text-xs font-normal text-muted-foreground shadow-none hover:bg-muted"
                   disabled
                 >
                   {sample}
@@ -1446,7 +1536,13 @@ export function ChatPanel({
             */}
             <Tabs
               value={composerTab}
-              onValueChange={(value) => setComposerTab(value === 'note' ? 'note' : 'reply')}
+              onValueChange={(value) => {
+                setComposerTab(value === 'note' ? 'note' : 'reply');
+                // Chuyển tab soạn là rời ngữ cảnh của thông
+                // báo ghi chú: xoá ngay, không để nó bám lại
+                // dưới hộp ở tab bên kia (vòng sửa issue #623).
+                setNoteNoticeFor(null);
+              }}
               className="border-border rounded-md border"
             >
               <TabsList
@@ -1605,14 +1701,25 @@ export function ChatPanel({
               </TabsContent>
               <TabsContent value="note" className="m-0">
                 {/*
-                  Ô soạn GHI CHÚ NỘI BỘ (issue #623): cùng
-                  khuôn ô nhập như tab Trả lời với placeholder
-                  riêng qua i18n; gửi chỉ xử lý cục bộ qua
-                  `sendNote` (thông báo + xoá nháp) — form này
-                  không chạm đường gửi tin, không gọi API.
+                  Ô soạn GHI CHÚ NỘI BỘ (issue #623; hàng công
+                  cụ bổ sung ở vòng sửa cùng issue theo phán
+                  quyết thống nhất): cùng khuôn ô nhập như tab
+                  Trả lời với placeholder riêng qua i18n, và
+                  mang CÙNG hàng công cụ như form Trả lời —
+                  Bold → Emoji → Attach → Link ở nhóm trái,
+                  nút Gửi ở phía phải — vì phía demo dùng
+                  chung một component soạn cho cả hai tab.
+                  Các thao tác định dạng tác động lên NHÁP
+                  GHI CHÚ (xem các handler `*Note*` ở trên);
+                  nút đính kèm giữ hình dạng vô hiệu như ở
+                  tab Trả lời (chức năng chưa có phán quyết).
+                  Gửi chỉ xử lý cục bộ qua `sendNote` (thông
+                  báo thoáng qua + xoá nháp) — form này không
+                  chạm đường gửi tin, không gọi API.
                 */}
                 <form onSubmit={sendNote} className="flex flex-col gap-2 px-3 pb-2">
                   <Textarea
+                    ref={noteComposerRef}
                     aria-label={t('internalNoteTabLabel')}
                     placeholder={t('internalNotePlaceholder')}
                     rows={1}
@@ -1631,7 +1738,69 @@ export function ChatPanel({
                       }
                     }}
                   />
-                  <div className="flex items-center justify-end">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={t('boldLabel')}
+                        onClick={applyNoteBold}
+                      >
+                        <span className="text-base leading-none font-medium">B</span>
+                      </Button>
+                      <Popover open={noteEmojiOpen} onOpenChange={setNoteEmojiOpen}>
+                        <PopoverTrigger
+                          render={
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={t('emojiPickerLabel')}
+                            />
+                          }
+                        >
+                          <Smile aria-hidden />
+                        </PopoverTrigger>
+                        <PopoverContent
+                          align="start"
+                          sideOffset={4}
+                          data-testid="note-emoji-picker-popover"
+                          className="w-64 p-2"
+                        >
+                          <div className="grid grid-cols-5 gap-1">
+                            {EMOJI_GRID_OPTIONS.map((emoji) => (
+                              <button
+                                key={emoji}
+                                type="button"
+                                className="rounded-md p-2 text-lg transition-colors hover:bg-muted"
+                                onClick={() => insertNoteEmojiAtCursor(emoji)}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={t('attachFileLabel')}
+                        disabled
+                      >
+                        <Paperclip aria-hidden />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={t('insertLinkLabel')}
+                        onClick={insertNoteLink}
+                      >
+                        <Link2 aria-hidden />
+                      </Button>
+                    </div>
                     <Button
                       type="submit"
                       size="icon-sm"

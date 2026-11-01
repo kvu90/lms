@@ -2149,6 +2149,7 @@ export const enResources = {
     messagesOfflineNow: 'Offline',
     messagesFilterArchived: 'Archived',
     archivedEmpty: 'No archived conversations yet.',
+    archivedLoadFailed: 'Could not load archived conversations',
     conversationsLoading: 'Loading conversations…',
     inviteLinkLabel: 'Invite link',
     inviteLinkPlaceholder: 'The invite link will appear here',

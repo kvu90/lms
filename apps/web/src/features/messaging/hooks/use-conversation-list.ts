@@ -63,6 +63,28 @@ export function useConversationList({ myId, applyReadMarker, lastSeqRef }: UseCo
   const archivedQuery = useQuery(messagingArchivedConversationsQueryOptions());
   const archivedConversations = useMemo(() => archivedQuery.data ?? [], [archivedQuery.data]);
   /**
+   * Cờ đang nạp của CHÍNH tập đã lưu (vòng sửa issue #623): panel
+   * Lưu trữ dùng cờ này để hiện khung đang tải theo nhịp của
+   * truy vấn của chính nó — mượn cờ của truy vấn chính làm tab
+   * Lưu trữ khẳng định rỗng giả trong lúc `?archived=true` còn
+   * đang trên đường về. Cùng khuôn với cờ của cây nhóm ở dưới.
+   */
+  const archivedLoading = archivedQuery.isPending;
+  /**
+   * Lỗi nạp tập đã lưu lần đầu (vòng sửa issue #623): cùng luật
+   * với lỗi cây nhóm — chỉ tính khi query lỗi mà chưa từng có
+   * dữ kiện trong cache; tập đã có dữ kiện thì vẫn hiện dữ kiện
+   * cũ, không báo lỗi. Panel Lưu trữ hiện báo lỗi kèm nút thử
+   * lại thay cho câu rỗng giả khi cờ này có trị.
+   */
+  const archivedError =
+    archivedQuery.isError && !archivedQuery.data ? t('archivedLoadFailed') : null;
+  /** Nạp lại riêng truy vấn tập đã lưu — nút thử lại của panel Lưu trữ. */
+  const refetchArchived = archivedQuery.refetch;
+  const retryArchived = useCallback(() => {
+    void refetchArchived();
+  }, [refetchArchived]);
+  /**
    * CÂY NHÓM của tôi (lát MSG-T1 dựng ở server, MSG-T3 trình bày ở
    * tab Nhóm): đăng ký cùng nhịp với danh sách hội thoại; lỗi thì
    * giữ cây gần nhất trong cache như các đường phụ khác của trang.
@@ -151,16 +173,21 @@ export function useConversationList({ myId, applyReadMarker, lastSeqRef }: UseCo
     for (const c of archivedQuery.data ?? []) mergePeople(c.memberProfiles);
   }
   // Nâng mốc seq cao nhất đã thấy của từng conversation mỗi khi
-  // danh sách đổi — mốc xin đồng bộ khi nối lại của kênh realtime
-  // (chỉ ghi ref trong hiệu ứng, không đụng state).
+  // một trong hai danh sách đổi — mốc xin đồng bộ khi nối lại của
+  // kênh realtime và chốt chặn sự kiện cũ đến muộn của handler
+  // conversation.updated (chỉ ghi ref trong hiệu ứng, không đụng
+  // state). Cả hai tập phải cùng nâng mốc (vòng sửa issue #623):
+  // hội thoại chỉ sống ở tập đã lưu mà mốc vẫn 0 thì một sự kiện
+  // cũ phân phối muộn vượt qua chốt và ghi đè tin cuối / số chưa
+  // đọc trong cache tập đã lưu bằng số của thời điểm cũ.
   useEffect(() => {
-    for (const c of conversations) {
+    for (const c of [...conversations, ...archivedConversations]) {
       if (c.lastMessageSeq !== undefined) {
         const seen = lastSeqRef.current.get(c.id) ?? 0;
         if (c.lastMessageSeq > seen) lastSeqRef.current.set(c.id, c.lastMessageSeq);
       }
     }
-  }, [conversations, lastSeqRef]);
+  }, [conversations, archivedConversations, lastSeqRef]);
 
   /**
    * Ghi danh sách chính vào CACHE thay cho state (bộ chuyển đổi giữ
@@ -301,6 +328,9 @@ export function useConversationList({ myId, applyReadMarker, lastSeqRef }: UseCo
     conversations,
     setConversations,
     archivedConversations,
+    archivedLoading,
+    archivedError,
+    retryArchived,
     setArchivedConversations,
     stateError,
     listLoaded,

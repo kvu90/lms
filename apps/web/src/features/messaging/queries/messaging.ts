@@ -16,6 +16,7 @@ import type {
   ConversationView,
   PersonSummary,
 } from '../types/types';
+import { withConversationMovedToSectionTop } from '../utils/page-helpers';
 import { queryKeys } from './keys';
 
 /**
@@ -229,7 +230,12 @@ export function useSetContactBlocked() {
  * Đột biến gửi một tin (POST .../messages) — thân mang clientMessageId chống trùng phía server.
  * Tin vừa gửi là hoạt động mới nhất của hội thoại: vá cache danh
  * sách (xem trước = tin vừa gửi, hội thoại lên đầu) bằng chính đáp
- * ứng; cửa sổ tin do tầng soạn tin vá vào cache chi tiết.
+ * ứng; cửa sổ tin do tầng soạn tin vá vào cache chi tiết. Cache
+ * tập đã lưu cũng được vá cùng luật khi hội thoại đang mở thuộc
+ * tập đó (gửi tin trong một hội thoại đã lưu trữ không đổi trạng
+ * thái lưu trữ của chính người gửi): xem trước cập nhật và hội
+ * thoại dời lên đầu phân mục Ghim / Gần đây của nó, khớp thứ tự
+ * server (vòng sửa issue #623).
  */
 export function useSendMessage() {
   const queryClient = useQueryClient();
@@ -246,6 +252,15 @@ export function useSendMessage() {
           ...old.filter((c) => c.id !== conversationId),
         ];
       });
+      queryClient.setQueryData<ConversationView[]>(queryKeys.messagingArchivedConversations, (old) =>
+        old
+          ? withConversationMovedToSectionTop(old, conversationId, (c) => ({
+              ...c,
+              lastMessage: saved,
+              lastMessageSeq: saved.seq,
+            }))
+          : old,
+      );
     },
   });
 }

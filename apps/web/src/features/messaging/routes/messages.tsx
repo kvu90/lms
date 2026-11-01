@@ -338,6 +338,9 @@ export function MessagesPage() {
             loading={!list.listLoaded && !list.error}
             groupTreeLoading={list.groupTreeLoading}
             groupTreeError={list.groupTreeError}
+            archivedLoading={list.archivedLoading}
+            archivedError={list.archivedError}
+            onRetryArchived={list.retryArchived}
           />
         </div>
         <div className={activeHook.active ? 'flex min-h-0 min-w-0 flex-1 flex-col' : 'hidden min-h-0 min-w-0 flex-1 flex-col md:flex'}>

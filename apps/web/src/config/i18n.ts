@@ -2098,6 +2098,7 @@ export const appResources = {
       messagesOfflineNow: 'Ngoại tuyến',
       messagesFilterArchived: 'Lưu trữ',
       archivedEmpty: 'Chưa có cuộc trò chuyện nào được lưu trữ.',
+      archivedLoadFailed: 'Không tải được cuộc trò chuyện đã lưu trữ',
       conversationsLoading: 'Đang tải cuộc trò chuyện…',
       inviteLinkLabel: 'Liên kết mời',
       inviteLinkPlaceholder: 'Liên kết mời sẽ hiện ở đây',

@@ -25,7 +25,7 @@
  */
 import { useEffect, useRef } from 'react';
 import { connectMessagingRealtime, type MessagingRealtimeHandle } from '../api/messaging-socket';
-import { withTreeUnread } from '../utils/page-helpers';
+import { withConversationMovedToSectionTop, withTreeUnread } from '../utils/page-helpers';
 import type { ConversationGroupTreeView, ConversationView, MessageView } from '../types/types';
 
 export interface UseMessagesRealtimeParams {
@@ -177,15 +177,18 @@ export function useMessagesRealtime({
         //   và dời bản đã vá sang danh sách chính ở bước dưới,
         //   cờ `archivedAt` làm sạch theo trạng thái server mới.
         // - Tin của CHÍNH người xem: trạng thái lưu trữ của
-        //   người xem giữ nguyên — chỉ vá nội dung tại chỗ để
-        //   hàng ở tab Lưu trữ hiện đúng trích đoạn / số chưa
-        //   đọc mới.
+        //   người xem giữ nguyên — vá nội dung và dời hội
+        //   thoại lên đầu phân mục của nó (Ghim / Gần đây)
+        //   trong tập đã lưu, đúng thứ tự server trả khi tải
+        //   lại (vòng sửa issue #623: vá tại chỗ giữ nguyên
+        //   vị trí làm thứ tự của tab Lưu trữ lệch thứ tự
+        //   server cho tới lần tải lại kế tiếp).
         let moved: ConversationView | undefined;
         setArchivedConversations((prev) => {
           const target = prev.find((c) => c.id === conversationId);
           if (!target) return prev;
           if (message.userIdFrom === myId) {
-            return prev.map((c) => (c.id === conversationId ? applyUpdate(c) : c));
+            return withConversationMovedToSectionTop(prev, conversationId, applyUpdate);
           }
           moved = target;
           return prev.filter((c) => c.id !== conversationId);

@@ -721,10 +721,19 @@ export class MessagingConversationsService {
     // không xáo trộn thứ tự của chúng; xem trước để trống cho tới
     // lần mở đầu tiên, khi đó hàng thật từ summaries thay thế
     // hàng này.
+    // Tôn trọng trạng thái lưu trữ của chính người xem (vòng sửa
+    // issue #623): người xem có thể ĐÃ có dòng thành viên trên
+    // conversation lớp/khoá (đã từng mở/đồng bộ) và đã lưu trữ
+    // nó — truy vấn summaries mặc định lọc dòng đó ra nên
+    // conversation vắng khỏi `seenIds`, nhưng hàng tổng hợp
+    // KHÔNG được nối nó trở lại danh sách chính: hội thoại đã
+    // lưu chỉ thuộc tập đã lưu của chính người xem.
     if (!opts.archivedOnly) {
       const seenIds = new Set(out.map((entry) => entry.id));
       for (const conversation of await this.repo.listCourseAndClassConversations()) {
         if (seenIds.has(conversation.id)) continue;
+        const myState = await this.repo.getMemberConversationState(conversation.id, userId);
+        if (myState?.archivedAt) continue;
         if (this.membershipSync.isCourseLinked(conversation)) {
           if (!(await this.isCourseStaff(userId, conversation.itemId!))) continue;
           out.push({
@@ -791,13 +800,17 @@ export class MessagingConversationsService {
    * bộ thành viên trước khi kiểm tra). `memberReadMarkers` cho client
    * hiển thị biên "đã xem" theo mốc đã đọc của từng thành viên.
    * Hội thoại 1–1 đang có quan hệ chặn thì 404 như không tồn tại
-   * (xem {@link assertDirectConversationVisible}).
+   * (xem {@link assertDirectConversationVisible}). Đáp ứng mang
+   * kèm ba trạng thái cá nhân của chính người xem (`pinnedAt`,
+   * `archivedAt`, `muted`) để bề mặt mở hội thoại biết trạng
+   * thái thật của mình bất kể mở từ tập danh sách nào.
    */
   async getConversation(userId: string, conversationId: string, opts: { limit?: number } = {}): Promise<ConversationRow & {
     members: string[]; messages: MessageWithQuoteRow[]; hasMoreBefore: boolean;
     lastReadSeq: number; memberReadMarkers: { userId: string; lastReadSeq: number }[];
     memberProfiles: Record<string, PersonSummaryView>;
     canModerate: boolean; canManage: boolean;
+    pinnedAt: Date | null; archivedAt: Date | null; muted: boolean;
   }> {
     const conversation = await this.repo.getConversation(conversationId);
     if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
@@ -829,8 +842,20 @@ export class MessagingConversationsService {
     const messages = canModerate ? withQuotes : withQuotes.map((m) => ({ ...blankRecalledContent(m), replyTo: m.replyTo }));
     const markers = await this.repo.listMemberReadMarkers(conversationId);
     const members = await this.repo.listMembers(conversationId);
+    // Trạng thái cá nhân của CHÍNH người xem đi kèm chi tiết
+    // (vòng sửa issue #623): client mở hội thoại từ bất kỳ tập
+    // nào (kể cả tab Lưu trữ) đều phải biết trạng thái thật của
+    // mình để menu đầu khung hiện đúng "Lưu trữ" / "Bỏ lưu trữ"
+    // và thao tác đổi trạng thái có hiệu lực ngay — bản tóm tắt
+    // lúc mở có thể là hàng tổng hợp (trạng thái rỗng) hoặc đã
+    // cũ. Người xem chưa có dòng thành viên (phạm vi quản trị
+    // chưa từng mở) thì cả ba trạng thái ở trị mặc định.
+    const myState = await this.repo.getMemberConversationState(conversationId, userId);
     return {
       ...conversation,
+      pinnedAt: myState?.pinnedAt ?? null,
+      archivedAt: myState?.archivedAt ?? null,
+      muted: myState?.muted ?? false,
       members,
       messages,
       hasMoreBefore: messages.length > 0 ? await this.repo.hasMessagesBefore(conversationId, messages[0]!.seq, canModerate, canModerate ? undefined : userId) : false,

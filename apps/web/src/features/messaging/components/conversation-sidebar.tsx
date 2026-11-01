@@ -190,6 +190,22 @@ interface ConversationSidebarProps {
    * chưa lỗi.
    */
   groupTreeError?: string | null;
+  /**
+   * Tập đã lưu đang nạp lần đầu (vòng sửa issue #623): trạng
+   * thái tải của panel Lưu trữ lấy từ chính query tập đã lưu
+   * của trang — panel không mượn cờ của danh sách chính, vì
+   * hai query về lệch nhịp và mượn cờ nhau làm tab Lưu trữ
+   * khẳng định rỗng giả trong lúc tập của nó còn đang nạp.
+   */
+  archivedLoading?: boolean;
+  /**
+   * Lỗi nạp tập đã lưu lần đầu (vòng sửa issue #623): panel
+   * Lưu trữ hiện thông báo lỗi kèm nút thử lại thay cho câu
+   * rỗng giả; null khi tập đã có dữ kiện hoặc chưa lỗi.
+   */
+  archivedError?: string | null;
+  /** Nạp lại riêng truy vấn tập đã lưu (nút thử lại của panel Lưu trữ). */
+  onRetryArchived?: () => void;
 }
 
 /**
@@ -212,6 +228,7 @@ export function ConversationSidebar({
   onMessageContact, onSendContactRequest, onRespondContactRequest, onUnblockContact,
   pickerContext, onSelectPickerContext, pickerClasses, pickerCourses, pickerMembers,
   pickerRosterError, pickerRosterCursor, onLoadMorePicker, loading, groupTreeLoading, groupTreeError,
+  archivedLoading, archivedError, onRetryArchived,
 }: ConversationSidebarProps) {
   const { t, i18n } = useTranslation('app');
   const open = onOpenConversation;
@@ -498,17 +515,27 @@ export function ConversationSidebar({
    * @param unreadOnly - true ở tab Chưa đọc: chỉ hội thoại có tin chưa đọc.
    * @param source - Tập nguồn của tab (mặc định là danh sách chính; tab Lưu trữ truyền tập đã lưu).
    * @param emptyText - Câu rỗng riêng của tab khi danh sách trống (mặc định suy theo tab Tất cả / Chưa đọc).
+   * @param panelStatus - Trạng thái nạp riêng của CHÍNH tập nguồn (vòng sửa issue #623 — tab Lưu
+   *   trữ truyền trạng thái của query tập đã lưu): khi có mặt, khung đang tải và nhánh lỗi/thử lại
+   *   lấy từ trạng thái này thay cho cờ của danh sách chính, và câu rỗng chỉ hiện khi query của
+   *   chính tập đó đã thành công. Vắng mặt (hai tab của danh sách chính) thì giữ luật hiện hành.
    * @returns Khối cuộn của panel tab.
    */
-  const renderConversationPanel = (unreadOnly: boolean, source: ConversationView[] = conversations, emptyText?: string) => {
+  const renderConversationPanel = (
+    unreadOnly: boolean,
+    source: ConversationView[] = conversations,
+    emptyText?: string,
+    panelStatus?: { loading: boolean; error: string | null; onRetry?: () => void },
+  ) => {
     const visible = source
       .filter(matchesFilter)
       .filter((c) => (unreadOnly ? (c.unread ?? 0) > 0 : true));
     const pinned = visible.filter((c) => c.pinnedAt);
     const recent = visible.filter((c) => !c.pinnedAt);
+    const panelLoading = panelStatus ? panelStatus.loading && source.length === 0 : initialLoading;
     return (
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 py-2">
-        {initialLoading ? (
+        {panelLoading ? (
           /*
             Khung đang tải lần đầu (issue #591): các dòng
             skeleton giữ đúng hình dạng hàng hội thoại
@@ -527,13 +554,37 @@ export function ConversationSidebar({
               </div>
             ))}
           </div>
-        ) : !error && visible.length === 0 ? (
+        ) : panelStatus?.error ? (
+          /*
+            Nhánh lỗi của CHÍNH tập nguồn (vòng sửa issue
+            #623): query của tập lỗi mà chưa từng có dữ kiện
+            thì hiện báo lỗi kèm nút thử lại ngay trong panel
+            — không im lặng hiện rỗng như thể tập thật sự
+            trống. Chỉ áp cho panel có trạng thái riêng (tab
+            Lưu trữ); hai tab của danh sách chính giữ cơ chế
+            banner lỗi dùng chung ở trên.
+          */
+          <div className="flex flex-col items-center gap-2 p-10 text-center">
+            <MessageSquare className="size-9 text-muted-foreground/40" aria-hidden />
+            <p role="alert" className="text-sm font-medium">{panelStatus.error}</p>
+            {panelStatus.onRetry ? (
+              <Button type="button" size="sm" variant="outline" onClick={panelStatus.onRetry}>
+                {t('retry')}
+              </Button>
+            ) : null}
+          </div>
+        ) : (panelStatus ? visible.length === 0 : !error && visible.length === 0) ? (
           /*
             Nhánh rỗng chỉ hiện khi KHÔNG có lỗi tải (vòng
             sửa 2 PR #593): tải lần đầu lỗi thì chỉ banner
             lỗi ở trên hiện — câu "chưa có hội thoại" trên
             đường lỗi là trạng thái rỗng giả mà issue #591
             cấm (chưa tải xong, chưa xác nhận là rỗng thật).
+            Panel có trạng thái riêng (vòng sửa issue #623)
+            chỉ tới được nhánh này sau khi query của chính
+            nó đã thành công — đang nạp và lỗi đã rẽ nhánh ở
+            trên — nên rỗng ở đây là rỗng thật của chính tập
+            đó.
           */
           /*
             Khối rỗng của danh sách theo đúng khuôn demo
@@ -740,9 +791,17 @@ export function ConversationSidebar({
             hàng, cùng ô tìm lọc — chỉ khác tập nguồn và câu
             rỗng riêng của tab. Hội thoại ở đây mở như mọi
             hội thoại khác; bỏ lưu trữ qua menu đầu khung của
-            cuộc trò chuyện đã mở.
+            cuộc trò chuyện đã mở. Trạng thái đang nạp / lỗi
+            của panel là của CHÍNH query tập đã lưu (vòng sửa
+            issue #623): panel chỉ khẳng định rỗng sau khi
+            query đó thành công, lỗi thì hiện báo lỗi kèm nút
+            thử lại riêng của nó.
           */}
-          {renderConversationPanel(false, archivedConversations, t('archivedEmpty'))}
+          {renderConversationPanel(false, archivedConversations, t('archivedEmpty'), {
+            loading: Boolean(archivedLoading),
+            error: archivedError ?? null,
+            onRetry: onRetryArchived,
+          })}
         </TabsContent>
       </Tabs>
       <NewMessageDialog
