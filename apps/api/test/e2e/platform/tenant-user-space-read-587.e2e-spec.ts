@@ -66,12 +66,18 @@ import {
  *     lượt đọc quản trị tại địa chỉ của trung tâm thấy đúng dữ
  *     kiện ở kho đích, và mục thư mục thành viên ở control
  *     plane được ghi trong cùng thao tác như trước;
- * (a2) cache `siteadmins` không nhiễm chéo hai chiều trên cùng
- *     một Redis dùng chung: nạp cache từ kho chung trước rồi
- *     chấm trong ngữ cảnh kho riêng vẫn nhận diện đúng quản
- *     trị của kho riêng (và không nhận diện quản trị kho
- *     chung), và sau khi cache của kho riêng đã nạp, ngữ cảnh
- *     kho chung vẫn chỉ thấy danh sách của kho chung;
+ * (a2) `siteadmins` hợp nhất một chiều trên cùng một Redis
+ *     dùng chung: nạp cache từ kho chung trước rồi chấm trong
+ *     ngữ cảnh kho riêng vẫn nhận diện đúng quản trị của kho
+ *     riêng VÀ quản trị platform (lớp phủ một chiều giữ lượt
+ *     đọc A1 của bề mặt platform, spec TĐ3), và sau khi cache
+ *     của kho riêng đã nạp, ngữ cảnh kho chung vẫn chỉ thấy
+ *     danh sách của kho chung — danh sách kho riêng không bao
+ *     giờ rò sang;
+ * (a3) cổng đăng nhập platform ghim kho chung: quản trị trung
+ *     tâm gọi cổng platform tại địa chỉ trung tâm mình vẫn bị
+ *     403 `auth.platform_admin_required` dù phép hợp nhất một
+ *     chiều nhận diện quản trị đó trong ngữ cảnh kho riêng;
  * (b) tenant ở kho chung giữ nguyên hành vi: tạo người dùng
  *     qua endpoint thật sinh tài khoản toàn cục ở kho chung
  *     kèm membership ở kho chung;
@@ -365,7 +371,7 @@ describe('Tạo người dùng cho trung tâm cấp phát mới chỉ có ở kh
     expect(memberIds).toContain(createdBody.id);
   });
 
-  it('cache siteadmins không nhiễm chéo hai chiều: mỗi ngữ cảnh chỉ thấy danh sách quản trị của đúng kho của nó trên cùng một Redis', async () => {
+  it('siteadmins hợp nhất một chiều: ngữ cảnh kho riêng nhận diện cả quản trị của kho mình và quản trị platform, ngữ cảnh kho chung không bao giờ thấy danh sách kho riêng', async () => {
     const evaluator = app.get(PermissionEvaluator, { strict: false });
     const spaceDb = app.get(SpaceDatabaseService, { strict: false });
 
@@ -385,8 +391,9 @@ describe('Tạo người dùng cho trung tâm cấp phát mới chỉ có ở kh
     // ngữ cảnh platform trước (đúng thứ tự làm ca (a) đỏ trước
     // TĐ6), rồi chấm trong ngữ cảnh kho riêng qua chính
     // evaluator của ứng dụng — quản trị kho riêng phải được
-    // nhận diện từ danh sách của kho riêng, quản trị kho chung
-    // không được nhận diện ở đây.
+    // nhận diện từ danh sách của kho riêng, và quản trị
+    // platform cũng được nhận diện nhờ lớp phủ một chiều (giữ
+    // lượt đọc A1 của bề mặt platform vào kho riêng).
     await tenantAls.run({ platform: true }, async () => {
       expect(await evaluator.isSiteAdmin(sharedAdminId)).toBe(true);
       expect(await evaluator.isSiteAdmin(centreAdminId)).toBe(false);
@@ -395,7 +402,7 @@ describe('Tạo người dùng cho trung tâm cấp phát mới chỉ có ở kh
       CENTRE_SLUG,
       async () => {
         expect(await evaluator.isSiteAdmin(centreAdminId)).toBe(true);
-        expect(await evaluator.isSiteAdmin(sharedAdminId)).toBe(false);
+        expect(await evaluator.isSiteAdmin(sharedAdminId)).toBe(true);
       },
       { tenantId },
     );
@@ -408,6 +415,22 @@ describe('Tạo người dùng cho trung tâm cấp phát mới chỉ có ở kh
       expect(await evaluator.isSiteAdmin(sharedAdminId)).toBe(true);
       expect(await evaluator.isSiteAdmin(centreAdminId)).toBe(false);
     });
+  });
+
+  it('cổng đăng nhập platform ghim kho chung: quản trị trung tâm gọi tại địa chỉ trung tâm mình vẫn bị 403 auth.platform_admin_required', async () => {
+    // Quản trị trung tâm xác thực được tại địa chỉ của trung
+    // tâm (tài khoản và mật khẩu nằm trong kho riêng) nên chỉ
+    // phép tra ghim kho chung mới chặn được: phép hợp nhất một
+    // chiều của isSiteAdmin sẽ nhận diện quản trị này trong
+    // ngữ cảnh kho riêng, nhưng cổng platform không dùng phép
+    // đó mà tra thẳng danh sách của kho chung.
+    const res = await http(app)
+      .post('/api/v1/auth/platform/login')
+      .set('Host', HOST)
+      .send({ username: centreAdminUsername, password: STRONG_PASSWORD });
+    expect(res.status).toBe(403);
+    expect((res.body as { code?: string }).code).toBe('auth.platform_admin_required');
+    expect((res.body as { accessToken?: string }).accessToken).toBeUndefined();
   });
 
   it('tenant ở kho chung: tạo người dùng giữ nguyên hành vi — tài khoản toàn cục ở kho chung kèm membership ở kho chung', async () => {

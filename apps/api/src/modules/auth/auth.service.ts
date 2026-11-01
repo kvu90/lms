@@ -285,17 +285,22 @@ export class AuthService {
    * nghiệp vụ của trung tâm: chỉ tài khoản quản trị platform (ghi
    * trong cấu hình `siteadmins` của kho chung) mới qua được cổng
    * này; tài khoản thường — kể cả quản trị của một trung tâm —
-   * bị 403 `auth.platform_admin_required`. Đăng nhập ở địa chỉ kho
-   * riêng tra tài khoản trong kho đó nên quản trị platform ở kho
-   * chung không đăng nhập được tại đó — bề mặt vận hành sống ở
-   * địa chỉ gốc. Token cấp ra mang audience `platform` (không có
+   * bị 403 `auth.platform_admin_required`. Phép tra ghim kho
+   * chung tường minh (`isPlatformSiteAdmin`): cổng này KHÔNG
+   * dùng `isSiteAdmin` (hợp nhất một chiều, TĐ6) vì tại địa chỉ
+   * kho riêng phép đó nhận diện cả quản trị của chính kho đó —
+   * quản trị trung tâm gọi cổng này tại địa chỉ trung tâm mình
+   * vẫn bị 403. Đăng nhập ở địa chỉ kho riêng tra tài khoản
+   * trong kho đó nên quản trị platform ở kho chung không đăng
+   * nhập được tại đó — bề mặt vận hành sống ở địa chỉ gốc.
+   * Token cấp ra mang audience `platform` (không có
    * refresh family) nên `AudienceGuard` chỉ cho nó gọi route vận
    * hành mang `@PlatformRoute()`; user bật MFA thì dừng ở challenge
    * của luồng platform như luồng token.
    */
   async platformLogin(username: string, password: string, ip?: string, userAgent?: string): Promise<PlatformLoginOutcome> {
     const user = await this.validateCredentials(username, password, ip);
-    if (!(await this.evaluator.isSiteAdmin(user.id))) {
+    if (!(await this.evaluator.isPlatformSiteAdmin(user.id))) {
       throw new ForbiddenException({ message: 'Only platform administrators may use this login surface', code: 'auth.platform_admin_required' });
     }
     if (await this.totp.isEnabled(user.id)) {
@@ -311,10 +316,13 @@ export class AuthService {
   /**
    * Bước hai của đăng nhập platform: qua thử thách MFA của luồng
    * platform rồi cấp access token platform như `platformLogin`.
+   * Phép tra ghim kho chung tường minh như `platformLogin`
+   * (cùng lý do: không dùng phép hợp nhất một chiều của
+   * `isSiteAdmin` cho cổng platform).
    */
   async verifyPlatformMfa(challengeToken: string, code: string, ip?: string, userAgent?: string): Promise<{ user: UserRow; accessToken: string; expiresIn: number }> {
     const user = await this.passMfaChallenge(challengeToken, code, ip, 'platform');
-    if (!(await this.evaluator.isSiteAdmin(user.id))) {
+    if (!(await this.evaluator.isPlatformSiteAdmin(user.id))) {
       throw new ForbiddenException({ message: 'Only platform administrators may use this login surface', code: 'auth.platform_admin_required' });
     }
     await this.users.recordLogin(user.id);

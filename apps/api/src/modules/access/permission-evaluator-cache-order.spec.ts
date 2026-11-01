@@ -6,6 +6,7 @@ import { AccessRepository, type ContextRow } from './access.repository';
 import { ContextsService } from './contexts.service';
 import { CAP_ALLOW } from './domain/permission';
 import { PermissionEvaluator } from './permission-evaluator.service';
+import { tenantAls } from '../tenants/tenant-als';
 
 /**
  * Bộ spec phân quyền cho việc tái thứ tự tra cứu của PermissionEvaluator
@@ -70,6 +71,12 @@ function makeWorld(opts?: { databaseUrl?: string; cacheStore?: Map<string, unkno
     tenantInfo: { kind: 'center', status: 'active' } as { kind: string; status: string } | undefined,
     memberships: new Map<string, string>([['tenant-1|user-member', 'active'], ['tenant-1|user-plain', 'active']]),
     siteAdmins: ['user-admin'] as string[],
+    // Danh sách site admin của KHO CHUNG, chỉ phép đọc ghim
+    // platform của evaluator (`isPlatformSiteAdmin`, TĐ6) mới
+    // thấy: tầng dữ liệu giả lập phân biệt lượt đọc này bằng
+    // ngữ cảnh ALS platform đã lược slug (xem `getConfigValue`
+    // và `currentContextDatabaseName` giả lập dưới đây).
+    platformSiteAdmins: ['user-admin'] as string[],
     assignments: [
       { userId: 'user-member', roleId: 'role-viewer', contextId: CRS_ID },
       { userId: 'user-outsider', roleId: 'role-viewer', contextId: CRS_ID },
@@ -119,7 +126,15 @@ function makeWorld(opts?: { databaseUrl?: string; cacheStore?: Map<string, unkno
     },
     async getConfigValue(key: string) {
       counters.configReads += 1;
-      return key === 'siteadmins' ? state.siteAdmins : undefined;
+      if (key !== 'siteadmins') return undefined;
+      // Lượt đọc ghim platform của evaluator chạy trong ngữ
+      // cảnh ALS platform đã lược slug: tầng dữ liệu thật lúc
+      // đó đọc kho chung, nên giả lập trả danh sách platform
+      // riêng thay vì danh sách của "kho đang được ngữ cảnh
+      // đọc" mà các ca thường dùng.
+      const store = tenantAls.getStore();
+      if (store?.platform && !store?.spaceSlug) return state.platformSiteAdmins;
+      return state.siteAdmins;
     },
     async setConfigValue(key: string, value: unknown) {
       if (key === 'siteadmins') state.siteAdmins = value as string[];
@@ -161,8 +176,16 @@ function makeWorld(opts?: { databaseUrl?: string; cacheStore?: Map<string, unkno
   // chỉ phơi đúng phép tra danh tính kho của ngữ cảnh mà evaluator
   // dùng để dựng khoá cache `siteadmins`; mặc định không có ngữ
   // cảnh kho riêng (trả undefined — kho chung) như các ca còn lại.
+  // Lượt đọc ghim platform của evaluator lược slug khỏi ALS nên
+  // khung thật lúc đó cũng báo "không phải kho riêng": giả lập
+  // trả undefined trong ngữ cảnh ALS platform đã lược slug để
+  // khoá cache của lượt đọc đó rơi về kho chung như code thật.
   const spaceDb = {
-    currentContextDatabaseName: () => opts?.contextDatabaseName?.(),
+    currentContextDatabaseName: () => {
+      const store = tenantAls.getStore();
+      if (store?.platform && !store?.spaceSlug) return undefined;
+      return opts?.contextDatabaseName?.();
+    },
   } as unknown as SpaceDatabaseService;
   const evaluator = new PermissionEvaluator(repoCast, contextsService, cache as unknown as Cache, config, spaceDb);
   return { state, counters, contextsService, evaluator, cacheStore };
@@ -335,7 +358,7 @@ describe('PermissionEvaluator — cô lập cache site admin theo cơ sở dữ 
     expect(processB.counters.configReads).toBe(0);
   });
 
-  it('cùng một tiến trình phục vụ hai kho: ngữ cảnh kho riêng dùng mục cache của đúng kho đó, không đọc hay ghi lẫn danh sách của kho chung', async () => {
+  it('cùng một tiến trình phục vụ hai kho: ngữ cảnh kho riêng hợp nhất một chiều với danh sách platform, ngữ cảnh kho chung không bao giờ thấy danh sách kho riêng', async () => {
     // Mô hình của tiền điều kiện TĐ6 (issue #587): một tiến trình vừa
     // phục vụ kho chung vừa phục vụ một trung tâm kho riêng qua
     // handle định tuyến, dùng chung một Redis. Tầng dữ liệu giả lập
@@ -343,7 +366,10 @@ describe('PermissionEvaluator — cô lập cache site admin theo cơ sở dữ 
     // admin của repository theo "kho đang được ngữ cảnh đọc" để
     // đóng vai hai kho; phần bị kiểm chứng là khoá cache mà
     // evaluator dựng từ danh tính kho của ngữ cảnh — khoá đó phải
-    // tự tách hai kho dù cache vật lý là một.
+    // tự tách hai kho dù cache vật lý là một — cộng lớp hợp nhất
+    // một chiều của isSiteAdmin: ngữ cảnh kho riêng nhận diện cả
+    // admin của kho mình và admin platform (lượt đọc ghim platform
+    // trả danh sách platform riêng của giả lập).
     const sharedStore = new Map<string, unknown>();
     let contextDatabaseName: string | undefined;
     const { evaluator, state, counters } = makeWorld({
@@ -351,6 +377,7 @@ describe('PermissionEvaluator — cô lập cache site admin theo cơ sở dữ 
       contextDatabaseName: () => contextDatabaseName,
     });
     state.siteAdmins = ['admin-kho-chung'];
+    state.platformSiteAdmins = ['admin-kho-chung'];
 
     // Ngữ cảnh kho chung nạp cache trước: thấy admin của kho chung.
     await expect(evaluator.isSiteAdmin('admin-kho-chung')).resolves.toBe(true);
@@ -358,13 +385,14 @@ describe('PermissionEvaluator — cô lập cache site admin theo cơ sở dữ 
 
     // Chuyển ngữ cảnh sang kho riêng (danh tính kho do khung định
     // tuyến báo): evaluator phải đọc lại từ tầng dữ liệu theo khoá
-    // của kho riêng — không dùng mục kho chung vừa nạp — và chỉ
-    // nhận diện admin của kho riêng.
+    // của kho riêng — không dùng mục kho chung vừa nạp — và nhận
+    // diện admin của kho riêng; đồng thời lớp phủ platform khiến
+    // admin kho chung cũng được nhận diện trong ngữ cảnh này.
     contextDatabaseName = 'lms_space_rieng';
     state.siteAdmins = ['admin-kho-rieng'];
     await expect(evaluator.isSiteAdmin('admin-kho-rieng')).resolves.toBe(true);
     expect(counters.configReads).toBeGreaterThan(readsAfterSharedPrime);
-    await expect(evaluator.isSiteAdmin('admin-kho-chung')).resolves.toBe(false);
+    await expect(evaluator.isSiteAdmin('admin-kho-chung')).resolves.toBe(true);
 
     // Ghi xuyên trong ngữ cảnh kho riêng chỉ chạm mục của kho
     // riêng: quay lại ngữ cảnh kho chung, danh sách hiệu lực vẫn
