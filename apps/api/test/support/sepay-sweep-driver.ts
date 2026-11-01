@@ -13,10 +13,13 @@ import { CohortSyncService } from '../../../worker/src/cohort-sync.service';
 import { SepayMatchingScheduler } from '../../../worker/src/sepay-matching.scheduler';
 import { TenantAwarePool } from '../../../worker/src/db/tenant-pool';
 import { relations } from '../../../worker/src/db/relations';
+import type { ConfigService } from '@nestjs/config';
 import { WorkerEnrolOutboxService } from '../../../worker/src/worker-enrol-outbox.service';
 import { WorkerPaidClassEnrolActivationService } from '../../../worker/src/worker-paid-class-enrol-activation.service';
 import { WorkerPaidEnrolActivationService } from '../../../worker/src/worker-paid-enrol-activation.service';
 import { WorkerPaymentSettlementService } from '../../../worker/src/worker-payment-settlement.service';
+import { WorkerPaymentSpaceScopeService } from '../../../worker/src/worker-payment-space-scope.service';
+import { SpaceDatabaseService } from '../../../worker/src/db/routing/space-database.service';
 
 /**
  * Cầu dẫn nhịp quét matching SePay ở worker cho các suite e2e
@@ -87,13 +90,24 @@ function getScheduler(): SepayMatchingScheduler {
     const writer = new OutboxWriterService(db);
     const plans = new PlanEntitlementsService(repo);
     const enrolOutbox = new WorkerEnrolOutboxService(writer);
+    // Điểm phân giải không gian của các adapter (tiền điều kiện Phần B
+    // của #587): driver dựng đúng ngăn xếp production nên phải cấp
+    // scope thật — ConfigService giả không mang
+    // `CONTROL_PLANE_DATABASE_URL` nên khung báo chưa cấu hình và
+    // scope rơi về kho chung, đúng môi trường e2e của API (chưa có
+    // trung tâm kho riêng). Timer nhàn rỗi của khung đã `unref` nên
+    // không cần teardown riêng ở driver.
+    const spaceScope = new WorkerPaymentSpaceScopeService(
+      db,
+      new SpaceDatabaseService({ get: () => undefined } as unknown as ConfigService),
+    );
     const matching = new SepayMatchingService(
       repo,
       writer,
-      new WorkerPaidEnrolActivationService(db, enrolOutbox),
-      new WorkerPaidClassEnrolActivationService(db, enrolOutbox),
+      new WorkerPaidEnrolActivationService(db, enrolOutbox, spaceScope),
+      new WorkerPaidClassEnrolActivationService(db, enrolOutbox, spaceScope),
       plans,
-      new WorkerPaymentSettlementService(db, repo, plans, enrolOutbox),
+      new WorkerPaymentSettlementService(db, repo, plans, enrolOutbox, spaceScope),
     );
     scheduler = new SepayMatchingScheduler(matching);
   }
