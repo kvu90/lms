@@ -9,6 +9,7 @@ import type { MyTenant, Tenant as TenantDto, TenantMembership as TenantMembershi
 import { ensureActiveTenantMembership } from '@lms/enrol';
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
+import { ControlPlaneRepository } from '../control-plane/control-plane.repository';
 import { PlanLimitsService } from '../access/plan-limits.service';
 import { UsersService } from '../users/users.service';
 import type { UserRow } from '../users/users.repository';
@@ -118,6 +119,7 @@ export class TenantsService {
     private readonly outbox: OutboxService,
     private readonly planLimits: PlanLimitsService,
     private readonly spaceDb: SpaceDatabaseService,
+    private readonly directory: ControlPlaneRepository,
   ) {}
 
   // --- tenant-zero + hàm hỗ trợ seed ------------------------------------------
@@ -310,6 +312,26 @@ export class TenantsService {
   // tầm nhìn RLS của khâu tra cứu/ghi hệ thống; MỌI cổng capability
   // (assertPlatformManager/assertTenantManager/assertTenantViewer) vẫn
   // chạy nguyên vẹn bên trong, không một quyền nào được nới.
+  //
+  // Bổ sung issue #587 (tiền điều kiện Phần B, hạng mục 3 — thiết kế
+  // A1): ba method ĐỌC theo một tenant đích đã biết
+  // (getTenantForActor, listMembers, listTenantUsers) không còn bọc
+  // platform một cách mù nữa. Lớp bọc của chúng phân giải đích
+  // trước: tra dòng thư mục của tenant ở kho chung theo `tenantId`
+  // để lấy `slug` (chỉ dữ kiện thư mục — không đọc membership hay
+  // dữ kiện nghiệp vụ của tenant kho riêng từ kho chung), hỏi sổ
+  // đăng ký chế độ kho của slug đó; tenant ở kho chung thì chạy
+  // nguyên đường platform như cũ, tenant ở kho riêng thì chạy
+  // NGUYÊN thân InContext (gồm mọi cổng capability) trong
+  // `withSpaceDatabase(slug)` để các lượt đọc vào đúng kho đích.
+  // Các method còn lại của bề mặt này giữ nguyên khuôn platform:
+  // chúng hoặc là thao tác vòng đời do platform chủ trì trên dòng
+  // thư mục ở kho chung (tạo/sửa tenant), hoặc là đường ghi
+  // membership mà điểm đến đã được quyết ở tầng cao hơn
+  // (createTenantUser tự rẽ sang kho riêng khi tenant đích ở kho
+  // riêng). Phân giải kho riêng lỗi (bí mật/role lệch sổ) thì ném
+  // ra nguyên trạng — fail-closed, không rơi về đọc kho chung cho
+  // một tenant đã đăng ký kho riêng.
 
   async listTenants(actorId: string): Promise<TenantDto[]> {
     return tenantAls.run({ platform: true }, () => this.listTenantsInContext(actorId));
@@ -326,8 +348,64 @@ export class TenantsService {
     return (await this.repo.listTenants()).map(toTenantDto);
   }
 
+  /**
+   * Phân giải đích kho của một tenant theo `tenantId` (issue #587,
+   * hạng mục 3 — nửa tra cứu của thiết kế A1, dùng chung cho các
+   * đường đọc quản trị ở service này và cho điểm ghi mã tham gia
+   * ở ClassesService):
+   * - Tra dòng thư mục của tenant ở kho chung trong ngữ cảnh
+   *   platform để lấy `slug` — slug là khoá phân giải không gian
+   *   duy nhất của khung định tuyến. Tenant không có dòng thư
+   *   mục ở kho chung → trả `null` (bên gọi giữ hành vi hiện tại:
+   *   thân InContext tự ném `tenant.not_found`).
+   * - Hỏi sổ đăng ký chế độ kho của slug: `dedicated: true` khi
+   *   trung tâm đã đăng ký kho riêng. Slug chưa đăng ký hoặc
+   *   tầng định tuyến chưa cấu hình → `dedicated: false` (thế
+   *   giới kho chung, cùng khuôn `createTenantUser`). Mọi lỗi
+   *   phân giải còn lại là lỗi cấu hình của một trung tâm kho
+   *   riêng đã đăng ký → ném ra nguyên trạng, fail-closed.
+   *
+   * @param tenantId - Định danh tenant cần phân giải đích.
+   * @returns Slug của tenant và cờ kho riêng, hoặc `null` khi
+   *   tenant không tồn tại ở kho chung.
+   */
+  async spaceTargetForTenant(tenantId: string): Promise<{ slug: string; dedicated: boolean } | null> {
+    const row = await tenantAls.run({ platform: true }, () => this.repo.getTenant(tenantId));
+    if (!row) return null;
+    try {
+      const target = await this.spaceDb.resolveTarget(row.slug);
+      return { slug: row.slug, dedicated: target.mode === 'dedicated' };
+    } catch (err) {
+      if (
+        err instanceof SpaceRoutingError &&
+        (err.code === 'space_routing.space_not_found' || err.code === 'space_routing.not_configured')
+      ) {
+        return { slug: row.slug, dedicated: false };
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Chạy một thân đọc `InContext` tại ĐÚNG kho của tenant đích
+   * (thiết kế A1): tenant ở kho riêng thì thân chạy trong
+   * `withSpaceDatabase(slug)` — bọc platform đặt NGOÀI
+   * `withSpaceDatabase` theo khuôn `getTenantInSpace`, vì khung
+   * định tuyến hợp ngữ cảnh cha vào store của nó (platform còn
+   * nguyên), trong khi bọc platform ở trong sẽ thay toàn bộ
+   * store và đánh rơi slug. Tenant ở kho chung (hoặc không tra
+   * được dòng thư mục) thì chạy nguyên đường platform hiện tại.
+   */
+  private async runInTenantTargetStore<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
+    const target = await this.spaceTargetForTenant(tenantId);
+    if (target?.dedicated) {
+      return tenantAls.run({ platform: true }, () => this.spaceDb.withSpaceDatabase(target.slug, fn));
+    }
+    return tenantAls.run({ platform: true }, fn);
+  }
+
   async getTenantForActor(actorId: string, tenantId: string): Promise<TenantDto> {
-    return tenantAls.run({ platform: true }, () => this.getTenantForActorInContext(actorId, tenantId));
+    return this.runInTenantTargetStore(tenantId, () => this.getTenantForActorInContext(actorId, tenantId));
   }
 
   private async getTenantForActorInContext(actorId: string, tenantId: string): Promise<TenantDto> {
@@ -433,13 +511,53 @@ export class TenantsService {
     return ensureActiveTenantMembership(this.repo.dbHandle, tenantId, userId);
   }
 
+  /**
+   * Đồng bộ thư mục thành viên ở control plane sau một thao tác
+   * ghi membership thành công (issue #587, hạng mục 3 — thiết kế
+   * B1): chỉ áp cho tenant ở kho riêng và chỉ khi control plane
+   * đã cấu hình; tenant ở kho chung không có gì phải đồng bộ vì
+   * bộ chọn đọc thẳng membership ở kho chung.
+   *
+   * Mục đã có trong thư mục thì chỉ cập nhật trạng thái — giữ
+   * nguyên `spaceUserId` mà các điểm ghi biết định danh đích
+   * (lấp thư mục của đợt di trú, cấp phát) đã chốt, không ghi
+   * đè bằng định danh toàn cục. Chưa có mục thì tạo mới với
+   * `spaceUserId` bằng chính định danh của người dùng: mô hình
+   * vật chất hoá tài khoản sang kho riêng giữ nguyên định danh
+   * gốc của người dùng, nên định danh toàn cục cũng là định
+   * danh tại kho đích cho tới khi một điểm ghi biết đích tường
+   * minh chốt lại liên kết khác.
+   *
+   * Lỗi ghi thư mục ném ra nguyên trạng thay vì nuốt lặng: ghi
+   * membership và ghi thư mục là hai nửa của cùng một thao tác,
+   * lệch lặng sẽ làm bộ chọn trung tâm mất trung tâm mà không
+   * ai biết — thà thao tác thất bại tường minh để gọi lại (mọi
+   * điểm ghi đều chạy lại an toàn).
+   */
+  private async syncMembershipDirectory(tenantId: string, userId: string, status: string): Promise<void> {
+    if (!this.directory.isConfigured()) return;
+    const target = await this.spaceTargetForTenant(tenantId);
+    if (!target?.dedicated) return;
+    const updated = await this.directory.updateMembershipDirectoryStatus(userId, target.slug, status);
+    if (updated === 0) {
+      await this.directory.upsertMembershipDirectory({
+        globalUserId: userId,
+        spaceSlug: target.slug,
+        spaceUserId: userId,
+        status,
+      });
+    }
+  }
+
   async addMember(actorId: string, tenantId: string, dto: AddTenantMemberDto): Promise<TenantMembershipDto> {
     // Ngữ cảnh platform (HOTFIX #196 vòng 2): đây là điểm seed chết ở
     // production — platform admin đứng trong ngữ cảnh tenant-zero gọi
     // `getTenant(tenant trường)` bị RLS giấu → 404 `tenant.not_found`
     // giả; ghi membership + outbox cho tenant đích cũng cần tầm nhìn
     // platform. Cổng assertTenantManager chạy nguyên vẹn bên trong.
-    return tenantAls.run({ platform: true }, () => this.addMemberInContext(actorId, tenantId, dto));
+    const result = await tenantAls.run({ platform: true }, () => this.addMemberInContext(actorId, tenantId, dto));
+    await this.syncMembershipDirectory(tenantId, dto.userId, result.status);
+    return result;
   }
 
   private async addMemberInContext(actorId: string, tenantId: string, dto: AddTenantMemberDto): Promise<TenantMembershipDto> {
@@ -481,7 +599,11 @@ export class TenantsService {
   ): Promise<TenantMembershipDto> {
     // Ngữ cảnh platform (HOTFIX #196 vòng 2) — cùng lý do với addMember:
     // đọc/sửa membership của tenant đích từ ngữ cảnh của tenant khác.
-    return tenantAls.run({ platform: true }, () => this.setMemberStatusInContext(actorId, tenantId, userId, status));
+    const result = await tenantAls.run({ platform: true }, () =>
+      this.setMemberStatusInContext(actorId, tenantId, userId, status),
+    );
+    await this.syncMembershipDirectory(tenantId, userId, status);
+    return result;
   }
 
   private async setMemberStatusInContext(
@@ -527,7 +649,9 @@ export class TenantsService {
     // Ngữ cảnh platform (HOTFIX #196 vòng 2): platform/tenant admin xem
     // membership của tenant đích từ ngữ cảnh tenant khác — ngoài ngữ
     // cảnh platform RLS trả danh sách rỗng giả. Cổng viewer giữ nguyên.
-    return tenantAls.run({ platform: true }, () => this.listMembersInContext(actorId, tenantId));
+    // Đích kho theo thiết kế A1 (issue #587): tenant đã chuyển kho thì
+    // thân đọc chạy tại kho đích — membership của nó chỉ còn ở đó.
+    return this.runInTenantTargetStore(tenantId, () => this.listMembersInContext(actorId, tenantId));
   }
 
   private async listMembersInContext(actorId: string, tenantId: string): Promise<TenantMembershipDto[]> {
@@ -601,7 +725,7 @@ export class TenantsService {
     if (!spaceTenant) {
       throw new NotFoundException({ message: `Tenant ${slug} is not ready in its own store`, code: 'tenant.not_found' });
     }
-    return this.spaceDb.withSpaceDatabase(slug, async () => {
+    const view = await this.spaceDb.withSpaceDatabase(slug, async () => {
       await this.assertTenantManager(actorId, spaceTenant.id);
       const user = await this.users.createUser({
         username: dto.username,
@@ -615,6 +739,23 @@ export class TenantsService {
       await this.ensureActiveMembership(spaceTenant.id, user.id);
       return toTenantUserView(user);
     });
+    // Ghi thư mục thành viên cho tài khoản vừa sinh ra trong kho
+    // riêng (issue #587, hạng mục 3 — thiết kế B1): tài khoản này
+    // không tồn tại ở kho chung, định danh duy nhất của họ là
+    // định danh tại kho đích, nên cả hai phía của mục thư mục
+    // đều mang định danh đó — bộ chọn tra theo định danh tại kho
+    // đích sẽ thấy trung tâm này. Ghi sau khi phiên kho riêng đã
+    // hoàn tất; lỗi ghi thư mục ném ra nguyên trạng như các điểm
+    // ghi membership khác (xem syncMembershipDirectory).
+    if (this.directory.isConfigured()) {
+      await this.directory.upsertMembershipDirectory({
+        globalUserId: view.id,
+        spaceSlug: slug,
+        spaceUserId: view.id,
+        status: 'active',
+      });
+    }
+    return view;
   }
 
   private async createTenantUserInContext(actorId: string, tenantId: string, dto: CreateTenantUserDto): Promise<TenantUserView> {
@@ -639,8 +780,9 @@ export class TenantsService {
    */
   async listTenantUsers(actorId: string, tenantId: string): Promise<TenantUserView[]> {
     // Ngữ cảnh platform (HOTFIX #196 vòng 2) — đọc membership của
-    // tenant đích, cùng lý do với listMembers.
-    return tenantAls.run({ platform: true }, () => this.listTenantUsersInContext(actorId, tenantId));
+    // tenant đích, cùng lý do với listMembers. Đích kho theo thiết
+    // kế A1 (issue #587) như listMembers.
+    return this.runInTenantTargetStore(tenantId, () => this.listTenantUsersInContext(actorId, tenantId));
   }
 
   private async listTenantUsersInContext(actorId: string, tenantId: string): Promise<TenantUserView[]> {
@@ -675,7 +817,63 @@ export class TenantsService {
         active: tenant.id === activeTenantId,
       });
     }
+    // Hợp nhất thư mục thành viên của các không gian kho riêng
+    // (issue #587, hạng mục 3 — thiết kế B1): membership của
+    // trung tâm đã chuyển chỉ còn ở kho đích nên lượt tra kho
+    // chung ở trên không thấy; thư mục ở control plane cho biết
+    // người này còn là thành viên của không gian kho riêng nào,
+    // và dữ kiện của từng trung tâm được đọc tại chính kho của
+    // nó (xem myTenantFromDirectoryEntry). Slug đã có từ nguồn
+    // kho chung thì không đọc lại từ thư mục.
+    if (this.directory.isConfigured()) {
+      const seenSlugs = new Set(rows.map((r) => r.slug));
+      const entries = await this.directory.listMembershipDirectoryForUser(userId);
+      for (const entry of entries) {
+        if (entry.status !== 'active' || seenSlugs.has(entry.spaceSlug)) continue;
+        const row = await this.myTenantFromDirectoryEntry(entry.spaceSlug, entry.spaceUserId, activeTenantId);
+        if (row) {
+          rows.push(row);
+          seenSlugs.add(entry.spaceSlug);
+        }
+      }
+    }
     return rows;
+  }
+
+  /**
+   * Đọc một trung tâm kho riêng cho bộ chọn từ một mục thư mục
+   * thành viên (issue #587, hạng mục 3 — thiết kế B1): thư mục
+   * chỉ là chỉ mục định tuyến — tên/trạng thái của trung tâm và
+   * trạng thái membership THẬT đều đọc tại kho đích trong
+   * `withSpaceDatabase`, đối chiếu bằng `spaceUserId` của mục.
+   * Trung tâm không còn active hoặc membership ở kho đích
+   * không còn active → trả `null` (không thuộc bộ chọn). Chuẩn
+   * bị kho đích lỗi thì `withSpaceDatabase` ném ra nguyên
+   * trạng: bộ chọn lỗi tường minh thay vì lặng lẽ thiếu một
+   * trung tâm.
+   *
+   * @param spaceSlug - Slug của không gian kho riêng.
+   * @param spaceUserId - Định danh của người dùng trong kho đích.
+   * @param activeTenantId - Tenant hiệu lực của phiên (đánh dấu `active`).
+   */
+  private async myTenantFromDirectoryEntry(
+    spaceSlug: string,
+    spaceUserId: string,
+    activeTenantId?: string,
+  ): Promise<MyTenant | null> {
+    return this.spaceDb.withSpaceDatabase(spaceSlug, async () => {
+      const tenant = await this.repo.getTenantBySlug(spaceSlug);
+      if (!tenant || tenant.status !== 'active') return null;
+      const membership = await this.repo.getMembership(tenant.id, spaceUserId);
+      if (!membership || membership.status !== 'active') return null;
+      return {
+        id: tenant.id,
+        slug: tenant.slug,
+        name: tenant.name,
+        kind: tenant.kind as MyTenant['kind'],
+        active: tenant.id === activeTenantId,
+      };
+    });
   }
 
   /**

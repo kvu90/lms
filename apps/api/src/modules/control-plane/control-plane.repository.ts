@@ -1,16 +1,20 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import {
+  spaceJoinCodeDirectory,
+  spaceMembershipDirectory,
   spaceRegistry,
   spaceRegistryHistory,
   spaceSchemaMigrationRuns,
   spaceSchemaRegistry,
+  type SpaceJoinCodeDirectoryRow,
+  type SpaceMembershipDirectoryRow,
   type SpaceRegistryHistoryRow,
   type SpaceRegistryRow,
   type SpaceRegistrySnapshot,
   type SpaceSchemaMigrationRunRow,
   type SpaceSchemaRegistryRow,
 } from '@lms/db/control-plane';
-import { and, asc, desc, eq, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, ne, or } from 'drizzle-orm';
 import { ControlPlaneConnection, type ControlPlaneDatabase } from './control-plane.connection';
 
 /** Handle transaction của control plane — cùng khuôn `DbTx` của kho nghiệp vụ nhưng trên kết nối riêng. */
@@ -249,5 +253,126 @@ export class ControlPlaneRepository {
       .from(spaceSchemaMigrationRuns)
       .where(eq(spaceSchemaMigrationRuns.spaceId, spaceId))
       .orderBy(asc(spaceSchemaMigrationRuns.startedAt), asc(spaceSchemaMigrationRuns.id));
+  }
+
+  // --- thư mục định tuyến của không gian kho riêng (issue #587, hạng mục 3) ---
+
+  /**
+   * Control plane đã cấu hình hay chưa — các đường đọc thư mục
+   * dùng để tự bỏ qua khi hệ chưa có control plane (thế giới
+   * trước định tuyến theo kho: mọi không gian ở kho chung, thư
+   * mục rỗng theo định nghĩa), thay vì ném `control_plane.not_configured`
+   * vào các luồng nghiệp vụ vốn không cần control plane.
+   */
+  isConfigured(): boolean {
+    return this.connection.isConfigured;
+  }
+
+  /**
+   * Ghi/đè một mục thư mục thành viên cho cặp (tài khoản toàn
+   * cục, không gian): khoá duy nhất của cặp khiến mọi điểm ghi
+   * (thêm thành viên, tạo người dùng trong kho riêng, cấp phát,
+   * lấp thư mục) đều hội tụ về đúng một dòng — chạy lại không
+   * nhân đôi. `spaceUserId` và `status` luôn lấy theo giá trị
+   * mới nhất bên gọi cung cấp (trạng thái ở kho đích tại thời
+   * điểm đồng bộ).
+   */
+  async upsertMembershipDirectory(
+    values: { globalUserId: string; spaceSlug: string; spaceUserId: string; status: string },
+    db: CpDb = this.db(),
+  ): Promise<SpaceMembershipDirectoryRow> {
+    const [row] = await db
+      .insert(spaceMembershipDirectory)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [spaceMembershipDirectory.globalUserId, spaceMembershipDirectory.spaceSlug],
+        set: { spaceUserId: values.spaceUserId, status: values.status, updatedAt: new Date() },
+      })
+      .returning();
+    return row!;
+  }
+
+  /**
+   * Đồng bộ trạng thái của một mục thư mục thành viên đã có
+   * (điểm đổi trạng thái membership): chỉ cập nhật khi mục tồn
+   * tại — trạng thái membership đổi ở nơi chưa từng có mục thư
+   * mục không tự sinh mục mới ở đây, vì mục mới phải mang cả
+   * `spaceUserId` do điểm ghi có đủ dữ kiện quyết định. Trả về
+   * số dòng đã cập nhật (0 = không có mục).
+   */
+  async updateMembershipDirectoryStatus(
+    globalUserId: string,
+    spaceSlug: string,
+    status: string,
+    db: CpDb = this.db(),
+  ): Promise<number> {
+    const updated = await db
+      .update(spaceMembershipDirectory)
+      .set({ status, updatedAt: new Date() })
+      .where(
+        and(eq(spaceMembershipDirectory.globalUserId, globalUserId), eq(spaceMembershipDirectory.spaceSlug, spaceSlug)),
+      )
+      .returning({ id: spaceMembershipDirectory.id });
+    return updated.length;
+  }
+
+  /**
+   * Mọi mục thư mục thành viên của một người: khớp theo định
+   * danh toàn cục (tài khoản ở kho chung tra bộ chọn sau khi
+   * trung tâm đã chuyển) HOẶC theo định danh tại kho đích
+   * (phiên của chính kho riêng gọi bộ chọn — định danh người
+   * gọi lúc đó là `spaceUserId`). Một mục khớp cả hai chiều vẫn
+   * chỉ trả một dòng (điều kiện OR trên cùng một dòng).
+   */
+  async listMembershipDirectoryForUser(userId: string, db: CpDb = this.db()): Promise<SpaceMembershipDirectoryRow[]> {
+    return db
+      .select()
+      .from(spaceMembershipDirectory)
+      .where(or(eq(spaceMembershipDirectory.globalUserId, userId), eq(spaceMembershipDirectory.spaceUserId, userId)))
+      .orderBy(asc(spaceMembershipDirectory.createdAt), asc(spaceMembershipDirectory.id));
+  }
+
+  /** Tra một mã tham gia trong thư mục: trả dòng thư mục hoặc undefined khi mã chưa đăng ký. */
+  async findJoinCodeDirectory(joinCode: string, db: CpDb = this.db()): Promise<SpaceJoinCodeDirectoryRow | undefined> {
+    const [row] = await db.select().from(spaceJoinCodeDirectory).where(eq(spaceJoinCodeDirectory.joinCode, joinCode)).limit(1);
+    return row;
+  }
+
+  /**
+   * Đăng ký một mã tham gia cho một không gian, giữ tính duy
+   * nhất toàn hệ của mã bằng chính ràng buộc duy nhất của bảng:
+   * - `claimed`: mã chưa có — dòng vừa ghi thuộc về không gian này.
+   * - `already`: mã đã đăng ký cho CHÍNH không gian này (ghi lại
+   *   cùng trạng thái — idempotent).
+   * - `conflict`: mã đã thuộc về một không gian khác — bên gọi
+   *   phải từ chối thao tác đặt mã, tuyệt đối không ghi đè.
+   */
+  async claimJoinCodeDirectory(
+    joinCode: string,
+    spaceSlug: string,
+    db: CpDb = this.db(),
+  ): Promise<'claimed' | 'already' | 'conflict'> {
+    const [inserted] = await db
+      .insert(spaceJoinCodeDirectory)
+      .values({ joinCode, spaceSlug })
+      .onConflictDoNothing({ target: spaceJoinCodeDirectory.joinCode })
+      .returning();
+    if (inserted) return 'claimed';
+    const existing = await this.findJoinCodeDirectory(joinCode, db);
+    return existing && existing.spaceSlug === spaceSlug ? 'already' : 'conflict';
+  }
+
+  /** Gỡ một mã khỏi thư mục (mã bị đổi hoặc lớp bị xoá); mã không có trong thư mục thì không làm gì. */
+  async deleteJoinCodeDirectory(joinCode: string, db: CpDb = this.db()): Promise<void> {
+    await db.delete(spaceJoinCodeDirectory).where(eq(spaceJoinCodeDirectory.joinCode, joinCode));
+  }
+
+  /** Mọi mã đã đăng ký cho một không gian (công cụ lấp thư mục đối chiếu sau khi chạy). */
+  async listJoinCodeDirectoryForSpace(spaceSlug: string, db: CpDb = this.db()): Promise<SpaceJoinCodeDirectoryRow[]> {
+    return db
+      .select()
+      .from(spaceJoinCodeDirectory)
+      .where(eq(spaceJoinCodeDirectory.spaceSlug, spaceSlug))
+      .orderBy(asc(spaceJoinCodeDirectory.joinCode));
   }
 }

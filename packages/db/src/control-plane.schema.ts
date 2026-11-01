@@ -186,7 +186,101 @@ export const spaceSchemaMigrationRuns = pgTable(
   (table) => [index('space_schema_migration_runs_space_id_idx').on(table.spaceId)],
 );
 
+/**
+ * Thư mục THÀNH VIÊN của các không gian ở kho riêng (issue #587,
+ * tiền điều kiện Phần B — hạng mục 3, thiết kế B1): một dòng cho
+ * mỗi cặp (tài khoản toàn cục, không gian kho riêng) mà người đó
+ * là thành viên ở kho đích.
+ *
+ * Vì sao bảng này tồn tại: sau khi một trung tâm chuyển sang kho
+ * riêng, các dòng `tenant_memberships` của nó chỉ còn ở kho đích,
+ * và tài khoản vật chất hoá ở kho đích có thể mang `id` khác hẳn
+ * tài khoản toàn cục (hai kho là hai database độc lập, không có
+ * khoá nối xuyên kho theo người dùng). Bộ chọn trung tâm của
+ * thành viên (`listMyTenants`) tra ở kho chung sẽ không còn thấy
+ * membership của trung tâm đã chuyển. Thư mục này là chỉ mục ĐỊNH
+ * TUYẾN để bộ chọn biết người dùng còn là thành viên của những
+ * không gian kho riêng nào — dữ kiện hiển thị và trạng thái
+ * membership THẬT luôn được đọc lại tại kho đích, thư mục không
+ * bao giờ là nguồn sự thật nghiệp vụ.
+ *
+ * Bất biến:
+ * - Chỉ giữ dữ kiện định tuyến tối thiểu: `globalUserId` (định
+ *   danh của tài khoản ở kho chung — hoặc chính định danh ở kho
+ *   đích với tài khoản chỉ sinh ra trong kho riêng, vì đó là định
+ *   danh duy nhất người đó có), `spaceSlug` (khoá định tuyến của
+ *   không gian), `spaceUserId` (định danh của chính người đó
+ *   trong kho đích), `status` (ảnh trạng thái membership ở kho
+ *   đích tại thời điểm đồng bộ gần nhất — chỉ để bộ chọn bỏ qua
+ *   nhanh các mục đã kết thúc; quyết định cuối luôn đối chiếu
+ *   dòng membership thật ở kho đích).
+ * - Duy nhất theo cặp (`globalUserId`, `spaceSlug`): một người
+ *   chỉ có tối đa một tài khoản thành viên trong một không gian.
+ * - Không khoá ngoại sang `space_registry`: khoá của thư mục là
+ *   slug — khoá định tuyến mọi tầng ứng dụng đang dùng — và toàn
+ *   vẹn do tầng service bảo đảm, cùng quy ước của tầng này.
+ * - Các điểm ghi bị chặn và liệt kê được: thêm/bớt/đổi trạng thái
+ *   membership ở tầng service của API, tạo người dùng trong kho
+ *   riêng, cấp phát trung tâm kho riêng, và công cụ lấp thư mục
+ *   (backfill) của từng đợt di trú. Ngoài các điểm đó không đường
+ *   nào khác ghi bảng này.
+ */
+export const spaceMembershipDirectory = pgTable(
+  'space_membership_directory',
+  {
+    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    globalUserId: uuid('global_user_id').notNull(),
+    spaceSlug: text('space_slug').notNull(),
+    spaceUserId: uuid('space_user_id').notNull(),
+    /** active | suspended | ended — khớp trạng thái membership ở kho đích. */
+    status: text('status').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('space_membership_directory_user_space_unique').on(table.globalUserId, table.spaceSlug),
+    index('space_membership_directory_space_user_idx').on(table.spaceUserId),
+  ],
+);
+
+/**
+ * Thư mục MÃ THAM GIA LỚP của các không gian ở kho riêng (issue
+ * #587, tiền điều kiện Phần B — hạng mục 3, thiết kế C1): một
+ * dòng cho mỗi mã tham gia đang hiệu lực của một lớp thuộc không
+ * gian kho riêng, ánh xạ mã → slug của không gian giữ lớp đó.
+ *
+ * Vì sao bảng này tồn tại: mã tham gia là bí mật toàn hệ — học
+ * viên nhập mã ở bất kỳ địa chỉ nào cũng phải tới đúng lớp, mà
+ * sau khi trung tâm chuyển kho, dòng lớp chỉ còn ở kho đích nên
+ * tra mã ở kho chung không còn thấy lớp. Thư mục cho phép phân
+ * giải mã → không gian trước, rồi toàn bộ luồng tham gia (đọc
+ * lớp, ghi yêu cầu/ghi danh/membership) chạy trong kho đích.
+ *
+ * Bất biến:
+ * - `joinCode` DUY NHẤT toàn bảng: tính duy nhất toàn hệ của mã
+ *   tham gia từ nay do ràng buộc này chốt giữ cho mọi mã đã đăng
+ *   ký thư mục; hai không gian không bao giờ giữ cùng một mã.
+ * - Chỉ giữ dữ kiện định tuyến (`joinCode` → `spaceSlug`); dữ
+ *   kiện của lớp luôn đọc tại kho đích.
+ * - Điểm ghi: đặt/đổi mã tham gia và xoá lớp ở tầng service của
+ *   API (chỉ cho lớp thuộc không gian kho riêng), và công cụ lấp
+ *   thư mục của đợt di trú cho lớp có sẵn.
+ */
+export const spaceJoinCodeDirectory = pgTable(
+  'space_join_code_directory',
+  {
+    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    joinCode: text('join_code').notNull().unique(),
+    spaceSlug: text('space_slug').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('space_join_code_directory_space_slug_idx').on(table.spaceSlug)],
+);
+
 export type SpaceRegistryRow = typeof spaceRegistry.$inferSelect;
 export type SpaceRegistryHistoryRow = typeof spaceRegistryHistory.$inferSelect;
 export type SpaceSchemaRegistryRow = typeof spaceSchemaRegistry.$inferSelect;
 export type SpaceSchemaMigrationRunRow = typeof spaceSchemaMigrationRuns.$inferSelect;
+export type SpaceMembershipDirectoryRow = typeof spaceMembershipDirectory.$inferSelect;
+export type SpaceJoinCodeDirectoryRow = typeof spaceJoinCodeDirectory.$inferSelect;

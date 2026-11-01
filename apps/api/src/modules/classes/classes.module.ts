@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
+import { SpaceRoutingModule } from '../../db/routing/space-routing.module';
 import { EventsModule } from '../../infra/events/events.module';
 import { AccessModule } from '../access/access.module';
+import { ControlPlaneModule } from '../control-plane/control-plane.module';
 import { CoursesModule } from '../courses/courses.module';
 import { EnrolModule } from '../enrol/enrol.module';
 import { GroupsModule } from '../groups/groups.module';
@@ -18,7 +20,7 @@ import { ClassesService } from './classes.service';
  * EnrolModule/GroupsModule cung cấp đúng máy móc cohort sync sẵn có.
  */
 @Module({
-  imports: [AccessModule, CoursesModule, GroupsModule, EnrolModule, TenantsModule, UsersModule, EventsModule],
+  imports: [AccessModule, CoursesModule, GroupsModule, EnrolModule, TenantsModule, UsersModule, EventsModule, SpaceRoutingModule, ControlPlaneModule],
   controllers: [ClassesController],
   providers: [ClassesRepository, ClassesService],
   exports: [ClassesService, ClassesRepository],

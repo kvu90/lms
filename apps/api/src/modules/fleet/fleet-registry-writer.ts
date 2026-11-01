@@ -282,6 +282,47 @@ export class FleetRegistryWriter {
     });
   }
 
+  /**
+   * Ghi/ghi đè một mục THƯ MỤC THÀNH VIÊN (issue #587, hạng mục
+   * 3 — thiết kế B1) cho các đường ghi ngoài vòng đời NestJS:
+   * pipeline cấp phát dùng điểm này để ghi mục của quản trị đầu
+   * tiên ngay khi membership của họ được tạo trong kho trung
+   * tâm, cùng bất biến upsert theo cặp (người dùng, không gian)
+   * với điểm ghi của tầng service.
+   *
+   * @param values - Cặp định danh (toàn cục / tại kho đích),
+   *   slug không gian và trạng thái membership của mục.
+   */
+  async upsertMembershipDirectoryEntry(values: {
+    globalUserId: string;
+    spaceSlug: string;
+    spaceUserId: string;
+    status: string;
+  }): Promise<void> {
+    await this.repo.upsertMembershipDirectory(values);
+  }
+
+  /**
+   * Tra một mục THƯ MỤC MÃ THAM GIA theo mã (issue #587, hạng
+   * mục 3 — thiết kế C1) cho các đường vận hành ngoài vòng đời
+   * NestJS: công cụ lấp thư mục dùng để phân biệt "mã đã thuộc
+   * về chính không gian" với "mã đang thuộc về không gian khác"
+   * (va chạm phải báo cáo, cấm ghi đè).
+   */
+  async findJoinCodeDirectoryEntry(joinCode: string): Promise<{ joinCode: string; spaceSlug: string } | undefined> {
+    return this.repo.findJoinCodeDirectory(joinCode);
+  }
+
+  /**
+   * Đăng ký một mã tham gia vào thư mục cho một không gian
+   * (issue #587, hạng mục 3 — thiết kế C1) cho các đường vận
+   * hành ngoài vòng đời NestJS — cùng ngữ nghĩa ba trạng thái
+   * với `ControlPlaneRepository.claimJoinCodeDirectory`.
+   */
+  async claimJoinCodeDirectoryEntry(joinCode: string, spaceSlug: string): Promise<'claimed' | 'already' | 'conflict'> {
+    return this.repo.claimJoinCodeDirectory(joinCode, spaceSlug);
+  }
+
   /** Đóng pool kết nối control plane của bộ ghi. */
   async close(): Promise<void> {
     await this.connection.onModuleDestroy();

@@ -13,6 +13,8 @@ import type { RolesService } from '../access/roles.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
 import type { TenantsService } from '../tenants/tenants.service';
 import type { UsersService } from '../users/users.service';
+import type { SpaceDatabaseService } from '../../db/routing/space-database.service';
+import type { ControlPlaneRepository } from '../control-plane/control-plane.repository';
 import type { ClassesRepository, ClassRow } from './classes.repository';
 import { ClassesService } from './classes.service';
 
@@ -208,6 +210,10 @@ function makeWorld(opts: WorldOptions = {}) {
     tenants as unknown as TenantsService,
     tenantContext as unknown as TenantContextService,
     {} as unknown as OutboxService,
+    {} as unknown as SpaceDatabaseService,
+    // Thư mục control plane chưa cấu hình trong thế giới kiểm
+    // chứng này: các đường mã tham gia giữ hành vi kho chung.
+    { isConfigured: () => false } as unknown as ControlPlaneRepository,
   );
   return { service, evaluator, contextsService, groups, rows };
 }
