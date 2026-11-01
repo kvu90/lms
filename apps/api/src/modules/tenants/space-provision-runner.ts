@@ -224,6 +224,17 @@ async function assertCentreRoleIsClean(admin: Client, role: string): Promise<voi
 }
 
 /**
+ * Khoá của dấu mốc hoàn tất cài bộ vai trong bảng `config` của
+ * chính kho trung tâm (cùng khuôn khoá `siteadmins`): sự hiện
+ * diện của dòng này — với đúng phiên bản dấu mốc — là bằng
+ * chứng một lượt cài đã chạy trọn tới cuối. Phiên bản tăng khi
+ * ngữ nghĩa hoàn tất của cơ chế chuyển tiếp này đổi, để dấu mốc
+ * của bản cũ không bị đọc thành đã cài theo ngữ nghĩa mới.
+ */
+const ROLE_BASELINE_MARKER_KEY = 'rolebaseline';
+const ROLE_BASELINE_MARKER_VERSION = 1;
+
+/**
  * Cài bộ vai mặc định hiện hành vào kho của một trung tâm — cơ chế
  * CHUYỂN TIẾP trong chương trình tenant: trung tâm mới cấp phát
  * phải có sẵn bộ vai để quản trị gán ngay khi trung tâm mở, trong
@@ -242,17 +253,42 @@ async function assertCentreRoleIsClean(admin: Client, role: string): Promise<voi
  * handle nhưng `seedDefaults` không gọi tới chúng.
  *
  * Idempotent theo khuôn các bước còn lại của pipeline (kiểm tra
- * trạng thái trước khi làm): kho đã có ĐỦ bộ vai mặc định thì bỏ
- * qua toàn bộ (`reused`) — lần chạy lại không tạo trùng và không
- * ghi đè thay đổi cục bộ mà quản trị trung tâm đã áp lên bộ vai
- * của kho mình. Kho mới hoặc còn thiếu vai (lượt cài trước chết
- * dở dang) thì `seedDefaults` lấp đủ: nó tự tạo vai còn thiếu và
- * đồng bộ ma trận mặc định tại context hệ thống.
+ * trạng thái trước khi làm), nhưng phán quyết "đã cài" KHÔNG dựa
+ * vào nội dung ma trận: `seedDefaults` không chạy trong
+ * transaction và luôn tạo dòng vai trước ma trận của chính vai
+ * đó, nên một lượt cài chết đúng đoạn ghi ma trận của vai cuối
+ * để lại trạng thái "đủ dòng vai, thiếu một phần ma trận" — mà
+ * một phần ma trận thiếu thì không phân biệt được bằng nội dung
+ * với dòng ma trận do quản trị trung tâm xoá có chủ đích sau
+ * khi cài (trạng thái bắt buộc phải giữ nguyên). Dấu mốc hoàn
+ * tất trong bảng `config` của chính kho đích là bằng chứng duy
+ * nhất tách hai trạng thái này:
+ *
+ * - Kho được coi là đã cài khi có dấu mốc hoàn tất (đúng phiên
+ *   bản) VÀ còn đủ dòng vai mặc định. Điều kiện đủ dòng vai đi
+ *   kèm để một kho bị xoá sạch đường cơ sở vai (trạng thái của
+ *   trung tâm cấp phát trước khi cơ chế này tồn tại — dòng
+ *   config vẫn còn khi chỉ hai bảng vai bị xoá) vẫn được lấp
+ *   lại thay vì tin dấu mốc cũ. Kho đã cài là no-op tuyệt đối:
+ *   không ghi gì, không đọc tới nội dung ma trận — giá trị
+ *   quản trị đã sửa và dòng quản trị đã xoá đều giữ nguyên.
+ * - Mọi trạng thái còn lại (kho mới, thiếu vai, hoặc đủ vai
+ *   nhưng chưa có dấu mốc — tức lượt cài trước chưa chạy trọn,
+ *   kể cả kho đã được cài bởi bản chưa có dấu mốc) đều đi đường
+ *   gieo: `seedDefaults` lấp đủ bộ vai kèm ma trận, rồi dấu
+ *   mốc mới được ghi SAU KHI đường gieo đã chạy trọn. Lượt cài
+ *   chết giữa đường gieo và lúc ghi dấu mốc thì dấu mốc chưa
+ *   có nên lần chạy lại gieo lại từ đầu; tại thời điểm đó
+ *   trung tâm chưa kích hoạt và chưa có tài khoản quản trị nào
+ *   trong kho (bước cài vai chạy trước bước tạo quản trị đầu
+ *   tiên) nên việc đồng bộ lại ma trận không mất thay đổi cục
+ *   bộ nào.
  *
  * @param db - Handle Drizzle của kho đích (kết nối đã mang ngữ
  *   cảnh platform để qua RLS như mọi ghi seed của pipeline).
- * @returns `created` khi lượt này đã chạy đường gieo, `reused`
- *   khi kho đã có đủ bộ vai nên không đổi gì.
+ * @returns `created` khi lượt này đã chạy đường gieo và ghi dấu
+ *   mốc hoàn tất, `reused` khi kho đã cài trọn bộ vai nên không
+ *   đổi gì.
  */
 async function installCentreRoleBaseline(db: Database): Promise<'created' | 'reused'> {
   const accessRepository = new AccessRepository(db);
@@ -266,10 +302,17 @@ async function installCentreRoleBaseline(db: Database): Promise<'created' | 'reu
   );
   const existingRoles = await rolesService.listRoles();
   const presentShortNames = new Set(existingRoles.map((row) => row.shortName));
-  if (DEFAULT_ROLES.every((definition) => presentShortNames.has(definition.shortName))) {
+  const allRolesPresent = DEFAULT_ROLES.every((definition) => presentShortNames.has(definition.shortName));
+  const marker = await accessRepository.getConfigValue(ROLE_BASELINE_MARKER_KEY);
+  const installCompleted =
+    typeof marker === 'object' &&
+    marker !== null &&
+    (marker as { version?: unknown }).version === ROLE_BASELINE_MARKER_VERSION;
+  if (allRolesPresent && installCompleted) {
     return 'reused';
   }
   await rolesService.seedDefaults();
+  await accessRepository.setConfigValue(ROLE_BASELINE_MARKER_KEY, { version: ROLE_BASELINE_MARKER_VERSION });
   return 'created';
 }
 
@@ -761,7 +804,7 @@ export type SpaceRoleBaselineOptions = {
   log?: (message: string) => void;
 };
 
-/** Kết quả lệnh cài bộ vai: `created` = lượt này đã cài, `reused` = kho đã có đủ bộ vai nên không đổi gì. */
+/** Kết quả lệnh cài bộ vai: `created` = lượt này đã cài, `reused` = kho đã cài trọn bộ vai nên không đổi gì. */
 export type SpaceRoleBaselineResult = {
   slug: string;
   outcome: 'created' | 'reused';
@@ -774,8 +817,9 @@ export type SpaceRoleBaselineResult = {
  * có trong pipeline, mà không cấp phát lại. Kết nối lấy từ sổ
  * đăng ký control plane (tham chiếu bí mật `env:` → biến môi
  * trường mang URL của kho trung tâm), cùng khuôn với lệnh cấp lại
- * lời mời. Idempotent như bước trong pipeline: kho đã có đủ bộ
- * vai thì không đổi gì.
+ * lời mời. Idempotent như bước trong pipeline: kho đã cài trọn
+ * bộ vai (có dấu mốc hoàn tất) thì không đổi gì; kho mà lượt
+ * cài trước chưa chạy trọn thì lượt này lấp đủ.
  *
  * @param options - Slug của trung tâm.
  * @returns Kết quả lượt cài (xem `SpaceRoleBaselineResult`).

@@ -324,4 +324,63 @@ describe('Cài bộ vai mặc định cho trung tâm kho riêng (tích hợp)', 
     expect(await countRoleBaselineRows(centreUrlA)).toEqual(countsBefore);
     expect(await readRoleBaseline(centreUrlA)).toEqual(reference);
   });
+
+  it('lệnh cài riêng lấp đủ một kho mà lượt cài trước chết dở dang giữa đoạn ghi ma trận của vai cuối, và sau khi lấp đủ thì chạy lại là no-op', async () => {
+    const centreUrlB = clusterUrl(provisionedB.databaseName, provisionedB.connectionRole, DB_PASSWORD);
+    const envB = provisionEnv({ [deriveCentreSecretEnvVar(SLUG_B)]: centreUrlB });
+
+    // Đưa kho B về một lượt cài trọn sạch do ca này tự dựng:
+    // xoá đường cơ sở vai của các ca trước lẫn dấu mốc hoàn
+    // tất (dòng config mang khoá `rolebaseline` của bước cài),
+    // rồi cài lại bằng chính đường vận hành.
+    await withClient(centreUrlB, async (client) => {
+      await client.query(`SELECT set_config('app.platform', 'on', false)`);
+      await client.query('DELETE FROM role');
+      await client.query('DELETE FROM capabilities');
+      await client.query("DELETE FROM config WHERE key = 'rolebaseline'");
+    });
+    const installed = await installSpaceRoleBaseline({ slug: SLUG_B, env: envB, log: () => undefined });
+    expect(installed.outcome).toBe('created');
+    expect(await readRoleBaseline(centreUrlB)).toEqual(reference);
+
+    // Dựng đúng trạng thái một lượt cài chết dở dang để lại.
+    // Vai `user` được gieo cuối cùng nên dòng vai của nó đã có
+    // nhưng ma trận tại context hệ thống mới ghi được một
+    // phần — xoá 5 dòng của nó. Đồng thời dấu mốc hoàn tất
+    // không tồn tại: dấu mốc chỉ ghi sau khi gieo trọn nên
+    // lượt cài chết không bao giờ ghi được. Hai nửa này cùng
+    // nhau mới là trạng thái chết dở dang thật; chính sự vắng
+    // mặt của dấu mốc tách nó khỏi một kho đã cài trọn rồi bị
+    // quản trị xoá dòng ma trận có chủ đích (ca trước).
+    await withClient(centreUrlB, async (client) => {
+      await client.query(`SELECT set_config('app.platform', 'on', false)`);
+      await client.query(
+        `DELETE FROM role_capabilities WHERE id IN (
+           SELECT rc.id FROM role_capabilities rc
+           JOIN role r ON r.id = rc.role_id
+           JOIN context c ON c.id = rc.context_id
+           WHERE r.short_name = 'user' AND c.context_level = 10 AND c.instance_id IS NULL
+           ORDER BY rc.capability LIMIT 5
+         )`,
+      );
+      await client.query("DELETE FROM config WHERE key = 'rolebaseline'");
+    });
+    const partial = await readRoleBaseline(centreUrlB);
+    expect(partial.roles).toEqual(reference.roles);
+    expect(partial.matrix.length).toBe(reference.matrix.length - 5);
+
+    // Chạy lại đường vận hành: phần ma trận thiếu phải được
+    // lấp đủ tới mức khớp kho tham chiếu, không bị phán quyết
+    // nhầm thành đã cài chỉ vì đủ dòng vai.
+    const recovered = await installSpaceRoleBaseline({ slug: SLUG_B, env: envB, log: () => undefined });
+    expect(recovered.outcome).toBe('created');
+    expect(await readRoleBaseline(centreUrlB)).toEqual(reference);
+
+    // Sau khi đã lấp đủ (dấu mốc hoàn tất đã ghi), chạy lại
+    // là no-op tuyệt đối như mọi kho đã cài trọn.
+    const countsBefore = await countRoleBaselineRows(centreUrlB);
+    const rerun = await installSpaceRoleBaseline({ slug: SLUG_B, env: envB, log: () => undefined });
+    expect(rerun.outcome).toBe('reused');
+    expect(await countRoleBaselineRows(centreUrlB)).toEqual(countsBefore);
+  });
 });
