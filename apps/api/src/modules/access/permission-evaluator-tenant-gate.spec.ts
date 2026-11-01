@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Database } from '../../db/database';
 import { tenantMemberships, tenants } from '../../db/schema';
 import type { FileSigningService } from '../files/file-signing.service';
-import type { FileRow, FilesRepository } from '../files/files.repository';
+import type { FileRow, FilesRepository } from '@lms/db/repositories/files';
 import { FilesService } from '../files/files.service';
 import type { ObjectStorage } from '../files/storage';
 import { tenantAls } from '../tenants/tenant-als';

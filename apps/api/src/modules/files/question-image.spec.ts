@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   FilesService, QUESTION_IMAGE_MAX_BYTES, questionFileContentSrc, sniffImageMimeType,
 } from './files.service';
-import type { FileRow } from './files.repository';
+import type { FileRow } from '@lms/db/repositories/files';
 
 /** PNG 1x1 thật (byte đầy đủ) để kiểm tra đường vui. */
 const PNG_1PX = Buffer.from(
