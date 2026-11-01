@@ -57,11 +57,11 @@ describe('BadgesService.issueBadge — thông báo badge_awarded tôn trọng t�
       getBadge: vi.fn(async () => badgeRow),
       findIssued: vi.fn(async () => undefined),
       listCriteria: vi.fn(async () => [{ id: 'crit-overall', badgeId: 'b', criteriaType: 'overall', method: 1, params: {} }]),
-      dbHandle: { transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb({})) },
+      transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb({})),
       insertIssued: vi.fn(async (v: Record<string, unknown>) => { const row = { id: 'issued-1', ...v }; issuedRows.push(row); return row; }),
       updateIssued: vi.fn(async () => undefined),
     };
-    const outbox = { enqueue: vi.fn(async () => undefined) };
+    const outbox = { enqueueKysely: vi.fn(async () => undefined) };
     const i18n = { t: vi.fn((key: string) => key) };
     const badges = new BadgesService(
       badgesRepo as never, {} as never, {} as never, {} as never, {} as never, {} as never,

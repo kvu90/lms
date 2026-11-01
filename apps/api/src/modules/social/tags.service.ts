@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
-import { SocialRepository, type TagRow } from './social.repository';
+import { SocialRepository, type TagRow } from '@lms/db/repositories/social';
 
 export interface TagAreaDefinition {
   component: string;

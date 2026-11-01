@@ -103,6 +103,31 @@ export class QuestionBanksRepository {
 
   // --- danh mục & câu hỏi của một bank -----------------------------------------
 
+  /**
+   * Điểm ghi CHUYỂN TIẾP của chiến dịch Kysely (ngoại lệ C-7, issue
+   * #642): chèn MỘT dòng category vào transaction Drizzle được
+   * truyền vào — chỉ INSERT, không đọc, không logic thêm.
+   *
+   * Vì sao tồn tại: `buildBank` (QuestionBanksService) phải giữ
+   * bất biến nguyên tử DL-09 trong MỘT transaction — context +
+   * dòng bank + category mặc định + override hai vai + gán vai
+   * lead + dòng outbox — và các phía còn lại trong transaction đó
+   * (context của access, bank, outbox) vẫn ở Drizzle, trong khi
+   * QuestionsRepository đã chuyển hẳn sang Kysely tại packages/db
+   * (issue #642) và không còn nhận handle Drizzle. Điểm ghi tối
+   * thiểu này là cầu nối duy nhất để lời gọi ghi category mặc
+   * định của buildBank ở lại trong transaction Drizzle của nó.
+   *
+   * Điều kiện xoá: PR merge CUỐI trong ba issue #644/#651/#653
+   * chuyển điểm mở transaction của buildBank sang Kysely, dời
+   * lời gọi về `insertCategory` của QuestionsRepository phía
+   * Kysely và xoá phương thức này; issue #663 (gỡ Drizzle) đối
+   * chiếu không còn sót điểm chuyển tiếp nào.
+   */
+  async insertCategoryTx(v: typeof questionCategories.$inferInsert, tx: DbTx): Promise<BankCategoryRow> {
+    const [row] = await tx.insert(questionCategories).values(v).returning(); return row!;
+  }
+
   /** Category thuộc bank (bank_id tường minh), thứ tự tạo. */
   async listCategoriesOfBank(bankId: string): Promise<BankCategoryRow[]> {
     const rows = await this.db.select().from(questionCategories).where(eq(questionCategories.bankId, bankId));

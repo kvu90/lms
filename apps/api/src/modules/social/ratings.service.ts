@@ -3,7 +3,7 @@ import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
 import { GradesService } from '../grades/grades.service';
-import { SocialRepository, type RatingRow } from './social.repository';
+import { SocialRepository, type RatingRow } from '@lms/db/repositories/social';
 
 export interface RatingAggregate {
   component: string;

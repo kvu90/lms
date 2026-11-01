@@ -6,7 +6,7 @@ import { CoursesService } from '../courses/courses.service';
 import { CurriculumRepository, type SubjectRow } from '@lms/db/repositories/curriculum';
 import { programOutcomeDocText } from '../curriculum/program-datasets';
 import { CURRICULUM_MANAGE, CURRICULUM_VIEW } from '../curriculum/curriculum.service';
-import { BookRepository, type BookNodeRow, type BookRow } from './books.repository';
+import { BookRepository, type BookNodeRow, type BookRow } from '@lms/db/repositories/books';
 import {
   loadBookDataset, bookDatasetByKey, bookRecordHash, BOOK_DATASETS, type BookDatasetDef, type BookRecord,
 } from './book-datasets';
@@ -205,7 +205,7 @@ export class BookService implements OnModuleInit {
       const mappingNodeIds = record.programRecords.map((code) => nodeIdByProgramRecord.get(code)!);
       if (!reg) {
         const position = this.takePosition(index, chapter.id);
-        await this.repo.dbHandle.transaction(async (tx) => {
+        await this.repo.transaction(async (tx) => {
           const lesson = await this.repo.insertBookNode({
             bookId: book.id, parentId: chapter.id, title: record.lesson, kind: 'lesson',
             volume: record.volume, lessonNumber: record.lessonNumber, position,
@@ -223,7 +223,7 @@ export class BookService implements OnModuleInit {
         continue;
       }
       // Dataset đã đính chính (hash lệch): cập nhật node bài + thay toàn bộ ánh xạ.
-      await this.repo.dbHandle.transaction(async (tx) => {
+      await this.repo.transaction(async (tx) => {
         const current = await this.repo.getBookNode(reg.nodeId);
         const patch: { title: string; volume: number; lessonNumber: number | null; parentId?: string; position?: number } = {
           title: record.lesson, volume: record.volume, lessonNumber: record.lessonNumber,

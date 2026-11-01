@@ -2,7 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
-import { SocialRepository, type CommentRow } from './social.repository';
+import { SocialRepository, type CommentRow } from '@lms/db/repositories/social';
 
 /**
  * CommentsModule (Moodle core_comment): các bình luận đa hình trên

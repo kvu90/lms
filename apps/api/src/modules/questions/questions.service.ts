@@ -4,9 +4,6 @@ import {
   richTextBlocksHaveContent, toRichTextDocument, TRUE_FALSE_STATEMENT_COUNT, uuidIdSchema,
   type RichTextDocument, type RichTextInput,
 } from '@lms/contracts';
-import type { DbTx } from '../../db/database';
-import { and, eq } from 'drizzle-orm';
-import { systemQuestionImports } from '@lms/db';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
@@ -14,9 +11,9 @@ import { FilesService } from '../files/files.service';
 import { BEHAVIOURS, canTransition, gradeAnswer, gradedStateForFraction, usageState, type GradingData, type GradeOutcome, type QuestionState } from './domain/question-engine';
 import {
   QuestionsRepository, type AnswerKeyRow, type AnswerRow, type AttemptRow, type EntryRow, type EssayOptionsRow,
-  type MultichoiceOptionsRow, type QCategoryRow,
-  type QuestionRow, type ShortanswerOptionsRow, type StepRow, type StimulusRow, type UsageRow, type VersionRow,
-} from './questions.repository';
+  type MultichoiceOptionsRow, type QCategoryRow, type QuestionRow, type QuestionsTx,
+  type ShortanswerOptionsRow, type StepRow, type StimulusRow, type UsageRow, type VersionRow,
+} from '@lms/db/repositories/questions';
 
 /** Một đáp án trong payload cấu trúc theo qtype (đầu vào của API): cờ `correct` đúng/sai NHỊ PHÂN — tỉ trọng fraction đã bỏ hẳn (quyết 12:04 ngày 26/10/2026). */
 export interface QuestionAnswerInput {
@@ -612,7 +609,7 @@ export class QuestionsService {
    * solution — version không có dòng nào thì phía đọc quy về cả hai
    * null (xem `answerKeyOf`).
    */
-  private async writeVersionContent(tx: DbTx, qtype: SupportedQtype, versionId: string, content: NormalisedContent): Promise<void> {
+  private async writeVersionContent(tx: QuestionsTx, qtype: SupportedQtype, versionId: string, content: NormalisedContent): Promise<void> {
     const inserted: AnswerRow[] = [];
     for (const [index, a] of content.answers.entries()) {
       inserted.push(await this.repo.insertAnswer({
@@ -649,7 +646,7 @@ export class QuestionsService {
    * solution) đi cùng answers/options như một khối — bản copy thiếu
    * guidance/solution của bản gốc là mất dữ liệu.
    */
-  private async cloneVersionContent(tx: DbTx, qtype: SupportedQtype, fromVersionId: string, toVersionId: string, skipAnswerKey = false): Promise<void> {
+  private async cloneVersionContent(tx: QuestionsTx, qtype: SupportedQtype, fromVersionId: string, toVersionId: string, skipAnswerKey = false): Promise<void> {
     const answers = await this.repo.listAnswers(fromVersionId);
     const idMap = new Map<string, string>();
     for (const a of answers) {
@@ -697,7 +694,7 @@ export class QuestionsService {
    * caller quản lý — điểm dùng chung cho deep copy của lớp bank (QB-2/QB-4:
    * copy câu hỏi và duyệt đóng góp tạo version mới từ nội dung version nguồn).
    */
-  async cloneVersionContentTx(tx: DbTx, qtype: SupportedQtype, fromVersionId: string, toVersionId: string): Promise<void> {
+  async cloneVersionContentTx(tx: QuestionsTx, qtype: SupportedQtype, fromVersionId: string, toVersionId: string): Promise<void> {
     await this.cloneVersionContent(tx, qtype, fromVersionId, toVersionId);
   }
 
@@ -859,7 +856,7 @@ export class QuestionsService {
    * giao dịch mở).
    */
   private async insertQuestionGraph(
-    tx: DbTx,
+    tx: QuestionsTx,
     actorId: string,
     category: QCategoryRow,
     input: { qtype: string; sourceKind?: string; sourceRef?: string } & QuestionContentInput,
@@ -898,7 +895,7 @@ export class QuestionsService {
     const content = this.normaliseContent(input.qtype, input);
     const stimulus = input.stimulusId ? await this.resolveStimulus(input.stimulusId, category.id) : null;
     let created!: { q: QuestionRow; entry: EntryRow; version: VersionRow };
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       created = await this.insertQuestionGraph(tx, actorId, category, input, content, stimulus?.id ?? null);
     });
     await this.outbox.enqueueStandalone({ aggregate: 'question', type: 'question_created', payload: { questionId: created.q.id, version: 1 } });
@@ -938,7 +935,7 @@ export class QuestionsService {
     });
     let stimulus!: StimulusRow;
     const created: { q: QuestionRow; entry: EntryRow; version: VersionRow }[] = [];
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       stimulus = await this.repo.insertStimulus({
         categoryId: category.id, createdBy: actorId, content: toRichTextDocument(input.content) as never,
       }, tx);
@@ -1129,7 +1126,7 @@ export class QuestionsService {
     }
     const nextVersion = entry.latestVersion + 1;
     let version!: VersionRow;
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       version = await this.repo.insertVersion({
         questionBankEntryId: entry.id, questionId: q.id, version: nextVersion,
         questionText: (input.questionText !== undefined ? toRichTextDocument(input.questionText) : latestVersion.questionText) as never,
@@ -1164,10 +1161,7 @@ export class QuestionsService {
       // tạo version mới — phiên bản nguyên trạng vẫn đọc lại được theo
       // số hiệu version đã nhập, chỉ kind đổi từ `pristine` sang
       // `derived`. Điều kiện kind = 'pristine' giữ tính idempotent.
-      await tx
-        .update(systemQuestionImports)
-        .set({ kind: 'derived' })
-        .where(and(eq(systemQuestionImports.questionId, q.id), eq(systemQuestionImports.kind, 'pristine')));
+      await this.repo.markSystemImportDerived(q.id, tx);
     });
     await this.repo.updateEntry(entry.id, { latestVersion: nextVersion });
     await this.repo.updateQuestion(q.id, { modifiedBy: actorId });
@@ -1568,7 +1562,7 @@ export class QuestionsService {
   private async appendStep(attempt: AttemptRow, userId: string, state: QuestionState, fraction: number | null, data?: Record<string, string>): Promise<void> {
     const steps = await this.repo.listSteps(attempt.id);
     const seq = steps.length;
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       const step = await this.repo.insertStep({
         questionAttemptId: attempt.id, sequenceNumber: seq, state, fraction, userId: userId,
       }, tx);
