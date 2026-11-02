@@ -1,18 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
-import { eq } from 'drizzle-orm';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { tenants, type CentreDb } from '@lms/db';
+import { type CentreDb } from '@lms/db';
 import { SharedDomainError } from '@lms/enrol';
 import { tenantAls } from './db/tenant-als';
-import type { relations } from './db/relations';
 import {
   SpaceRoutingError,
   type ResolvedSpaceConnection,
 } from './db/routing/space-connection-resolver';
 import { SpaceDatabaseService } from './db/routing/space-database.service';
-
-type Database = NodePgDatabase<typeof relations>;
 
 /**
  * Điểm phân giải không gian DUY NHẤT cho các hiệu ứng theo payment
@@ -62,19 +56,16 @@ type Database = NodePgDatabase<typeof relations>;
  *
  * Điều kiện chạy: `SpaceDatabaseService` phải đã được gắn handle
  * kho chung THÔ bởi module sở hữu tiến trình (factory của
- * `DrizzleModule` trong `worker.module.ts` gắn handle Drizzle
- * trên pool kho chung — KHÔNG phải handle định tuyến, vì gắn
- * handle định tuyến làm đích uỷ thác sẽ tự uỷ thác vào chính nó).
- * Lượt đọc thư mục slug ở bước 1 đi qua handle định tuyến được
- * inject ở phạm vi platform nên uỷ thác về đúng handle kho chung
- * đã gắn đó.
+ * `DrizzleModule` trong `worker.module.ts` gắn handle Drizzle và
+ * handle Kysely trên cùng pool kho chung — KHÔNG phải handle định
+ * tuyến, vì gắn handle định tuyến làm đích uỷ thác sẽ tự uỷ thác
+ * vào chính nó). Lượt đọc thư mục slug ở bước 1 đi qua handle
+ * Kysely định tuyến ở phạm vi platform nên uỷ thác về đúng handle
+ * Kysely kho chung đã gắn đó.
  */
 @Injectable()
 export class WorkerPaymentSpaceScope {
-  constructor(
-    @InjectDrizzle() private readonly db: Database,
-    private readonly spaceDatabase: SpaceDatabaseService,
-  ) {}
+  constructor(private readonly spaceDatabase: SpaceDatabaseService) {}
 
   /**
    * Handle Kysely đã định tuyến của khung (cùng instance
@@ -140,8 +131,9 @@ export class WorkerPaymentSpaceScope {
    * `await` nằm trong `tenantAls.run` (bọc hàm async) để GUC
    * platform được gắn đúng khi kết nối checkout — cùng lý do với
    * bọc async trong `SpaceDatabaseService.withSpaceDatabase`:
-   * truy vấn Drizzle là thenable lười, trả thenable ra ngoài
-   * `run` thì ngữ cảnh bị mất trước khi truy vấn thật sự chạy.
+   * điểm thực thi truy vấn phải nằm trong `run`, trả promise ra
+   * ngoài `run` mới thực thi thì ngữ cảnh bị mất trước khi truy
+   * vấn thật sự chạy.
    *
    * @param tenantId - Id của tenant cần tra slug.
    * @returns Slug của tenant trong sổ đăng ký.
@@ -149,8 +141,12 @@ export class WorkerPaymentSpaceScope {
    *   không có dòng thư mục của tenant.
    */
   private async slugForTenant(tenantId: string): Promise<string> {
-    const [row] = await tenantAls.run({ platform: true }, async () =>
-      this.db.select({ slug: tenants.slug }).from(tenants).where(eq(tenants.id, tenantId)),
+    const row = await tenantAls.run({ platform: true }, async () =>
+      this.spaceDatabase.routedKysely
+        .selectFrom('tenants')
+        .select('slug')
+        .where('id', '=', tenantId)
+        .executeTakeFirst(),
     );
     if (!row) {
       throw new SharedDomainError(
