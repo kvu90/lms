@@ -7,7 +7,7 @@ import { v5 as uuidv5 } from 'uuid';
  * Manifest + logic thuần của cơ chế nạp dữ liệu chương trình chuẩn
  * (K0a). Dataset là file bản ghi đã kiểm chứng nguyên văn với văn bản
  * ban hành kèm Thông tư 32/2018/TT-BGDĐT (xem hồ sơ kiểm chứng của dự
- * án: 19 môn có dữ liệu, 2.164 bản ghi, 0 chênh lệch chữ) và được vendor
+ * án: 22 môn có dữ liệu, 2.171 bản ghi, 0 chênh lệch chữ) và được vendor
  * nguyên văn tại thư mục `program-data/` cạnh file này — nạp dữ liệu là
  * chuyển các bản ghi đó vào cây chương trình, TUYỆT ĐỐI không sửa chữ,
  * kể cả lỗi in có thật trong PDF của Bộ.
@@ -90,23 +90,33 @@ export interface ProgramDatasetDef {
 }
 
 /**
- * Toàn bộ dataset đã kiểm chứng (19 môn có dữ liệu, 21 file, 2.164 bản
- * ghi — GDPT-SEED, issue #161; môn thứ 20 GDQP&AN chưa có dataset).
- * Tổng tại thời điểm vendor là 2.126; 11 bản ghi bị công cụ trích xuất
+ * Toàn bộ dataset đã kiểm chứng (22 môn có dữ liệu, 24 file, 2.171
+ * bản ghi — GDPT-SEED, issue #161; GDQP&AN chưa có dataset). Tổng
+ * tại thời điểm vendor là 2.126; 11 bản ghi bị công cụ trích xuất
  * cắt đôi một ô qua ranh trang đã được gộp về bản ghi đầu trong đợt
- * tách YCCĐ của PR #245 (có log từng cặp gộp) nên tổng sau đợt đó là
- * 2.115; đợt khôi phục YCCĐ đợt 1 (issue #480) dựng thêm 49 bản ghi
- * cho các khối mất hẳn nên tổng hiện tại là
- * 2.164 — spec gác `program-datasets.inventory.spec.ts` khoá các
- * con số này, dataset đổi là spec đỏ để buộc cập nhật cùng lượt. Hai cặp file dùng CHUNG một môn đích (slug
+ * tách YCCĐ của PR #245 (có log từng cặp gộp) nên tổng sau đợt đó
+ * là 2.115; đợt khôi phục YCCĐ đợt 1 (issue #480) dựng thêm 49 bản
+ * ghi cho các khối mất hẳn, và các đợt đính chính sau đó đưa tổng
+ * hiện tại lên 2.171 — spec gác
+ * `program-datasets.inventory.spec.ts` khoá các con số này, dataset
+ * đổi là spec đỏ để buộc cập nhật cùng lượt.
+ *
+ * Mỗi dataset ứng đúng MỘT môn đích và `subjectName` của mục
+ * manifest bằng nguyên văn trường `subject` cấp file của dataset
+ * đó. Hai file từng chứa nhiều môn theo cấp đã được tách theo
+ * đúng trường `subject` của từng bản ghi (issue #695):
+ * `program-gdcd.json` tách thành Đạo đức (lớp 1–5), Giáo dục công
+ * dân (lớp 6–9) và Giáo dục kinh tế và pháp luật (lớp 10–12);
+ * `program-hdtn.json` tách thành Hoạt động trải nghiệm (lớp 1–5)
+ * và Hoạt động trải nghiệm, hướng nghiệp (lớp 6–12). Đợt tách chỉ
+ * đổi tổ chức file, không đổi một bản ghi nào (hash của mọi bản
+ * ghi giữ nguyên). Hai cặp file dùng CHUNG một môn đích (slug
  * giống nhau = resolve về đúng một môn ở tầng nạp):
  * - Tiếng Anh: văn bản "Làm quen lớp 1–2" + văn bản lớp 3–12;
  * - Lịch sử và Địa lí: văn bản Tiểu học + văn bản THCS (Lịch sử/Địa lí
  *   THPT là hai môn riêng, hai dataset riêng bên dưới).
  * Ngữ văn bao gồm phần Tiếng Việt cấp tiểu học (cùng một văn bản
- * chương trình theo nguyên văn trang 3 của văn bản Ngữ văn). `subjectName`
- * là tên môn đích trong hệ thống; với các dataset gộp nhiều tên môn theo
- * cấp (GDCD, HDTN) tên đích lấy nguyên văn trường `subject` của dataset.
+ * chương trình theo nguyên văn trang 3 của văn bản Ngữ văn).
  * Ngoài phạm vi theo chốt của dự án: Tiếng dân tộc thiểu số, Ngoại ngữ 2
  * (không có dataset) và GDQP&AN (chưa có PDF chính chủ — issue #74).
  */
@@ -115,7 +125,9 @@ export const PROGRAM_DATASETS: readonly ProgramDatasetDef[] = [
   { key: 'nguvan', subjectName: 'Ngữ văn', slug: 'ngu-van', fileName: 'program-nguvan.json' },
   { key: 'tienganh-1-2', subjectName: 'Tiếng Anh', slug: 'tieng-anh', fileName: 'program-tienganh-1-2.json' },
   { key: 'tienganh-3-12', subjectName: 'Tiếng Anh', slug: 'tieng-anh', fileName: 'program-tienganh-3-12.json' },
-  { key: 'gdcd', subjectName: 'Giáo dục công dân (Đạo đức / GDCD / GD kinh tế và pháp luật)', slug: 'giao-duc-cong-dan', fileName: 'program-gdcd.json' },
+  { key: 'daoduc', subjectName: 'Đạo đức', slug: 'dao-duc', fileName: 'program-daoduc.json' },
+  { key: 'gdcd', subjectName: 'Giáo dục công dân', slug: 'giao-duc-cong-dan', fileName: 'program-gdcd.json' },
+  { key: 'gdktpl', subjectName: 'Giáo dục kinh tế và pháp luật', slug: 'giao-duc-kinh-te-va-phap-luat', fileName: 'program-gdktpl.json' },
   { key: 'tnxh', subjectName: 'Tự nhiên và Xã hội', slug: 'tu-nhien-va-xa-hoi', fileName: 'program-tnxh.json' },
   { key: 'khoahoc', subjectName: 'Khoa học', slug: 'khoa-hoc', fileName: 'program-khoahoc.json' },
   { key: 'lsdl-th', subjectName: 'Lịch sử và Địa lí', slug: 'lich-su-va-dia-li', fileName: 'program-lsdl-th.json' },
@@ -131,7 +143,8 @@ export const PROGRAM_DATASETS: readonly ProgramDatasetDef[] = [
   { key: 'gdtc', subjectName: 'Giáo dục thể chất', slug: 'giao-duc-the-chat', fileName: 'program-gdtc.json' },
   { key: 'amnhac', subjectName: 'Âm nhạc', slug: 'am-nhac', fileName: 'program-amnhac.json' },
   { key: 'mithuat', subjectName: 'Mĩ thuật', slug: 'mi-thuat', fileName: 'program-mithuat.json' },
-  { key: 'hdtn', subjectName: 'Hoạt động trải nghiệm / Hoạt động trải nghiệm, hướng nghiệp', slug: 'hoat-dong-trai-nghiem', fileName: 'program-hdtn.json' },
+  { key: 'hdtn', subjectName: 'Hoạt động trải nghiệm', slug: 'hoat-dong-trai-nghiem', fileName: 'program-hdtn.json' },
+  { key: 'hdtn-hn', subjectName: 'Hoạt động trải nghiệm, hướng nghiệp', slug: 'hoat-dong-trai-nghiem-huong-nghiep', fileName: 'program-hdtn-hn.json' },
 ];
 
 /** Tìm định nghĩa dataset theo khoá; undefined khi khoá không có trong manifest. */

@@ -142,7 +142,7 @@ describe('Định danh chương trình + phân phối dump đã đóng băng (is
     questionsRepo = app.get(QuestionsRepository, { strict: false });
     quizSvc = app.get(QuizService, { strict: false });
     file = loadProgramDataset(programDatasetByKey(DATASET_KEY)!);
-    expect(file.records.length).toBe(116);
+    expect(file.records.length).toBe(40);
     const withOutcomes = file.records.filter((r) => (r.outcomes?.length ?? 0) >= 1);
     recA = withOutcomes.find((r) => (r.outcomes?.length ?? 0) >= 2 && r.topic)!;
     recB = withOutcomes.find((r) => r.id !== recA.id && r.grade === recA.grade)!;
@@ -176,8 +176,8 @@ describe('Định danh chương trình + phân phối dump đã đóng băng (is
 
   it('bản production trung tâm: trình nhập nạp GDCD; id outcome do DB cấp dạng uuidv7, không suy ra từ thuộc tính nào', async () => {
     const res = await svc.importDatasetInternal(DATASET_KEY);
-    expect(res.totalRecords).toBe(116);
-    expect(res.created).toBe(116);
+    expect(res.totalRecords).toBe(40);
+    expect(res.created).toBe(40);
     expect(res.updated).toBe(0);
     expect(res.orphanedNodes).toBe(0);
     expect(res.retiredOutcomes).toBe(0);
@@ -226,8 +226,8 @@ describe('Định danh chương trình + phân phối dump đã đóng băng (is
 
   it('dump đã đóng băng: xuất → xoá → khôi phục tái tạo đúng tập id; khôi phục trên DB đã có dữ liệu thì không làm gì', async () => {
     const before = await snapshotIds();
-    expect(before.nodes.length).toBeGreaterThan(116);
-    expect(before.outcomes.length).toBeGreaterThan(300);
+    expect(before.nodes.length).toBeGreaterThan(80);
+    expect(before.outcomes.length).toBeGreaterThan(150);
 
     // Suite chạy trên DB dùng chung với các spec khác: dump phải
     // giới hạn ở cây của GDCD (đường sản xuất ở trung tâm dùng DB
@@ -255,7 +255,7 @@ describe('Định danh chương trình + phân phối dump đã đóng băng (is
     const res = await svc.importDatasetInternal(DATASET_KEY);
     expect(res.created).toBe(0);
     expect(res.updated).toBe(0);
-    expect(res.skipped).toBe(116);
+    expect(res.skipped).toBe(40);
     expect(res.changes).toEqual([]);
     expect(res.retiredOutcomes).toBe(0);
 
