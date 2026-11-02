@@ -28,6 +28,7 @@ import type {
 import { OutboxService } from '../../infra/events/outbox.service';
 import type { DbTx } from '../../db/database';
 import { SpaceDatabaseService } from '../../db/routing/space-database.service';
+import { type CentreTx } from '@lms/db';
 import { ControlPlaneRepository } from '@lms/db/repositories/control-plane';
 import { tenantAls } from '../tenants/tenant-als';
 import type { ContextRow } from '../access/access.repository';
@@ -1417,7 +1418,7 @@ export class ClassesService implements OnModuleInit {
    *   `notifyPaidClassMemberRemoved` SAU khi transaction của nó
    *   commit. Không truyền `tx` thì hành vi như cũ, trả về null.
    */
-  async suspendPaidClassMember(classId: string, userId: string, tx?: DbTx): Promise<string | null> {
+  async suspendPaidClassMember(classId: string, userId: string, tx?: CentreTx): Promise<string | null> {
     return this.tenantContext.run({ platform: true }, async () => {
       const row = await this.repo.getClass(classId);
       if (!row) return null;
