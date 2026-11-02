@@ -1,17 +1,9 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import type { Job } from 'bullmq';
-import { and, eq, gt, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type { relations } from '../db/relations';
-import {
-  assignments, assignSubmissions, course, courseModules, enrol, guardianDigests, guardianLinks,
-  outboxEvents, examAttempts, examPins, examVersions, userEnrolments, userPreferences,
-} from '@lms/db';
+import { sql, type CentreDB } from '@lms/db';
 import { TaskLogService } from '../task-log.service';
 import { tenantAls } from '../db/tenant-als';
-
-type Database = NodePgDatabase<typeof relations>;
+import { SpaceDatabaseService } from '../db/routing/space-database.service';
 
 /** Một lượt digest/đẩy đã được chốt trong lượt quét này. */
 export interface GuardianDigestQueuedItem {
@@ -37,6 +29,14 @@ export const GUARDIAN_OVERDUE_ALERT_DAYS = 7;
 const SUBMITTED_ATTEMPT_STATES = ['needsgrading', 'finished'];
 
 type Frequency = 'weekly' | 'daily' | 'off';
+
+/** Dòng liên kết tối thiểu mà `sweepLink` cần — đúng các cột select ở `sweep`, không phải toàn bộ dòng guardian_links. */
+interface GuardianLinkRow {
+  guardianUserId: string;
+  studentUserId: string;
+  tenantId: string;
+  createdAt: Date;
+}
 
 /** Đầu ngày UTC chứa `now`. */
 function dayStartUtc(now: Date): Date {
@@ -86,7 +86,7 @@ function weekStartUtc(now: Date): Date {
  * Xử lý job quét digest phụ huynh: chốt các lượt digest/đẩy quá hạn đến hạn và phát sự kiện outbox cho nửa tiêu thụ phía worker tổng hợp + gửi.
  */
 export class GuardianDigestProcessor extends WorkerHost {
-  constructor(@InjectDrizzle() private readonly db: Database, private readonly taskLog: TaskLogService) { super(); }
+  constructor(private readonly spaceDb: SpaceDatabaseService, private readonly taskLog: TaskLogService) { super(); }
 
   /**
    * Xử lý một job của queue tương ứng: chốt các lượt digest/đẩy quá
@@ -110,7 +110,11 @@ export class GuardianDigestProcessor extends WorkerHost {
     const now = new Date();
     const queued: GuardianDigestQueuedItem[] = [];
 
-    const links = await this.db.select().from(guardianLinks).where(eq(guardianLinks.status, 'active'));
+    const links = await this.spaceDb.routedKysely
+      .selectFrom('guardian_links')
+      .select(['guardian_user_id as guardianUserId', 'student_user_id as studentUserId', 'tenant_id as tenantId', 'created_at as createdAt'])
+      .where('status', '=', 'active')
+      .execute();
     if (links.length === 0) return { checkedAt: now.toISOString(), queued };
 
     const frequencyByPair = await this.frequencyMap(links.map((l) => l.guardianUserId));
@@ -139,7 +143,7 @@ export class GuardianDigestProcessor extends WorkerHost {
 
   /** Phần việc của MỘT liên kết giám hộ trong một lượt quét (chạy trong ngữ cảnh tenant của liên kết). */
   private async sweepLink(
-    link: typeof guardianLinks.$inferSelect,
+    link: GuardianLinkRow,
     frequency: Frequency,
     now: Date,
     queued: GuardianDigestQueuedItem[],
@@ -158,13 +162,16 @@ export class GuardianDigestProcessor extends WorkerHost {
           windowStart: window.start, windowEnd: window.end, activityCmId: null, dedupeKey, tenantId: link.tenantId,
         });
         if (digestId) {
-          await this.db.insert(outboxEvents).values({
-            aggregate: 'guardian', type: 'guardian_digest_due', tenantId: link.tenantId,
-            payload: {
+          await this.spaceDb.routedKysely.insertInto('outbox_events').values({
+            aggregate: 'guardian', type: 'guardian_digest_due', tenant_id: link.tenantId,
+            // jsonb: serialize tường minh kèm `::jsonb` theo khuôn
+            // ghi jsonb của `@lms/db`; khoá payload giữ nguyên
+            // camelCase như sự kiện cũ vì nửa tiêu thụ đọc đúng khoá đó.
+            payload: sql<CentreDB['outbox_events']['payload']>`${JSON.stringify({
               guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, digestId, tenantId: link.tenantId,
               kind: frequency, windowStart: window.start.toISOString(), windowEnd: window.end.toISOString(),
-            },
-          });
+            })}::jsonb`,
+          }).execute();
           queued.push({ guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, kind: frequency, dedupeKey });
         }
       }
@@ -178,25 +185,26 @@ export class GuardianDigestProcessor extends WorkerHost {
         windowStart: null, windowEnd: null, activityCmId: item.cmId, dedupeKey, tenantId: link.tenantId,
       });
       if (!digestId) continue;
-      await this.db.insert(outboxEvents).values({
-        aggregate: 'guardian', type: 'guardian_overdue_alert', tenantId: link.tenantId,
-        payload: {
+      await this.spaceDb.routedKysely.insertInto('outbox_events').values({
+        aggregate: 'guardian', type: 'guardian_overdue_alert', tenant_id: link.tenantId,
+        payload: sql<CentreDB['outbox_events']['payload']>`${JSON.stringify({
           guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, digestId, tenantId: link.tenantId,
           cmId: item.cmId, activityKind: item.kind, courseId: item.courseId,
           activityName: item.name, dueAt: item.dueAt.toISOString(),
-        },
-      });
+        })}::jsonb`,
+      }).execute();
       queued.push({ guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, kind: 'overdue_alert', dedupeKey });
     }
   }
 
   /** Tần suất theo từng cặp (phụ huynh, con): đọc một lượt mọi preference digest của các phụ huynh liên quan. */
   private async frequencyMap(guardianIds: string[]): Promise<Map<string, Frequency>> {
-    const rows = await this.db.select().from(userPreferences)
-      .where(and(
-        inArray(userPreferences.userId, [...new Set(guardianIds)]),
-        sql`${userPreferences.name} like 'guardian_digest_frequency:%'`,
-      ));
+    const rows = await this.spaceDb.routedKysely
+      .selectFrom('user_preferences')
+      .select(['user_id as userId', 'name', 'value'])
+      .where('user_id', 'in', [...new Set(guardianIds)])
+      .where(sql<boolean>`${sql.ref('user_preferences.name')} like 'guardian_digest_frequency:%'`)
+      .execute();
     const out = new Map<string, Frequency>();
     for (const row of rows) {
       const studentUserId = row.name.slice('guardian_digest_frequency:'.length);
@@ -215,11 +223,11 @@ export class GuardianDigestProcessor extends WorkerHost {
     windowStart: Date | null; windowEnd: Date | null; activityCmId: string | null; dedupeKey: string;
     tenantId: string;
   }): Promise<string | null> {
-    const [row] = await this.db.insert(guardianDigests).values({
-      guardianUserId: input.guardianUserId, studentUserId: input.studentUserId, kind: input.kind,
-      windowStart: input.windowStart, windowEnd: input.windowEnd, activityCmId: input.activityCmId,
-      dedupeKey: input.dedupeKey, status: 'queued', tenantId: input.tenantId,
-    }).onConflictDoNothing().returning({ id: guardianDigests.id });
+    const row = await this.spaceDb.routedKysely.insertInto('guardian_digests').values({
+      guardian_user_id: input.guardianUserId, student_user_id: input.studentUserId, kind: input.kind,
+      window_start: input.windowStart, window_end: input.windowEnd, activity_cm_id: input.activityCmId,
+      dedupe_key: input.dedupeKey, status: 'queued', tenant_id: input.tenantId,
+    }).onConflict((oc) => oc.doNothing()).returning('id').executeTakeFirst();
     return row?.id ?? null;
   }
 
@@ -236,43 +244,45 @@ export class GuardianDigestProcessor extends WorkerHost {
     const threshold = new Date(now.getTime() - GUARDIAN_OVERDUE_ALERT_DAYS * 24 * 3600_000);
     const out: { cmId: string; courseId: string; kind: 'quiz' | 'assignment'; name: string; dueAt: Date }[] = [];
 
-    const quizRows = await this.db.select({
-      cmId: courseModules.id, courseId: courseModules.course, pinId: examPins.id,
-      name: sql<string>`coalesce(${examPins.name}, ${examVersions.name})`, dueAt: examPins.timeClose,
-    }).from(courseModules)
-      .innerJoin(examPins, eq(examPins.id, courseModules.instanceId))
-      .innerJoin(examVersions, eq(examVersions.id, examPins.examVersionId))
-      .where(and(
-        inArray(courseModules.course, courseIds),
-        eq(courseModules.component, 'mod_quiz'),
-        eq(courseModules.visible, true),
-        eq(courseModules.deletionInProgress, false),
-        isNotNull(examPins.timeClose),
-        lte(examPins.timeClose, threshold),
-      ));
+    const quizRows = await this.spaceDb.routedKysely
+      .selectFrom('course_modules')
+      .innerJoin('exam_pins', 'exam_pins.id', 'course_modules.instance_id')
+      .innerJoin('exam_versions', 'exam_versions.id', 'exam_pins.exam_version_id')
+      .select([
+        'course_modules.id as cmId', 'course_modules.course as courseId', 'exam_pins.id as pinId',
+        sql<string>`coalesce(${sql.ref('exam_pins.name')}, ${sql.ref('exam_versions.name')})`.as('name'),
+        'exam_pins.time_close as dueAt',
+      ])
+      .where('course_modules.course', 'in', courseIds)
+      .where('course_modules.component', '=', 'mod_quiz')
+      .where('course_modules.visible', '=', true)
+      .where('course_modules.deletion_in_progress', '=', false)
+      .where('exam_pins.time_close', 'is not', null)
+      .where('exam_pins.time_close', '<=', threshold)
+      .execute();
     for (const row of quizRows) {
       if (!row.dueAt) continue;
       if (await this.hasSubmittedQuiz(row.pinId, studentUserId)) continue;
       out.push({ cmId: row.cmId, courseId: row.courseId, kind: 'quiz', name: row.name, dueAt: row.dueAt });
     }
 
-    const assignRows = await this.db.select({
-      cmId: courseModules.id, courseId: courseModules.course, name: assignments.name, dueAt: assignments.dueDate,
-      submissionStatus: assignSubmissions.status,
-    }).from(courseModules)
-      .innerJoin(assignments, eq(assignments.id, courseModules.instanceId))
-      .leftJoin(assignSubmissions, and(
-        eq(assignSubmissions.assignmentId, assignments.id),
-        eq(assignSubmissions.userId, studentUserId),
-      ))
-      .where(and(
-        inArray(courseModules.course, courseIds),
-        eq(courseModules.component, 'mod_assign'),
-        eq(courseModules.visible, true),
-        eq(courseModules.deletionInProgress, false),
-        isNotNull(assignments.dueDate),
-        lte(assignments.dueDate, threshold),
-      ));
+    const assignRows = await this.spaceDb.routedKysely
+      .selectFrom('course_modules')
+      .innerJoin('assignments', 'assignments.id', 'course_modules.instance_id')
+      .leftJoin('assign_submissions', (join) => join
+        .onRef('assign_submissions.assignment_id', '=', 'assignments.id')
+        .on('assign_submissions.user_id', '=', studentUserId))
+      .select([
+        'course_modules.id as cmId', 'course_modules.course as courseId', 'assignments.name',
+        'assignments.due_date as dueAt', 'assign_submissions.status as submissionStatus',
+      ])
+      .where('course_modules.course', 'in', courseIds)
+      .where('course_modules.component', '=', 'mod_assign')
+      .where('course_modules.visible', '=', true)
+      .where('course_modules.deletion_in_progress', '=', false)
+      .where('assignments.due_date', 'is not', null)
+      .where('assignments.due_date', '<=', threshold)
+      .execute();
     for (const row of assignRows) {
       if (!row.dueAt) continue;
       if (row.submissionStatus === 'submitted') continue;
@@ -283,30 +293,35 @@ export class GuardianDigestProcessor extends WorkerHost {
 
   /** Đã nộp hoạt động đề = tồn tại attempt không-preview ở trạng thái đã hoàn tất cho pin (khớp N5/PH-1). */
   private async hasSubmittedQuiz(pinId: string, studentUserId: string): Promise<boolean> {
-    const [row] = await this.db.select({ id: examAttempts.id }).from(examAttempts)
-      .where(and(
-        eq(examAttempts.pinId, pinId),
-        eq(examAttempts.userId, studentUserId),
-        eq(examAttempts.preview, false),
-        inArray(examAttempts.state, SUBMITTED_ATTEMPT_STATES),
-      ))
-      .limit(1);
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('exam_attempts')
+      .select('id')
+      .where('pin_id', '=', pinId)
+      .where('user_id', '=', studentUserId)
+      .where('preview', '=', false)
+      .where('state', 'in', SUBMITTED_ATTEMPT_STATES)
+      .limit(1)
+      .executeTakeFirst();
     return row !== undefined;
   }
 
   /** Các khoá học sinh đang ghi danh ACTIVE còn hiệu lực tại thời điểm quét (cùng kỷ luật N5). */
   private async enrolledCourseIds(studentUserId: string, now: Date): Promise<string[]> {
-    const rows = await this.db.select({ courseId: enrol.courseId }).from(userEnrolments)
-      .innerJoin(enrol, eq(enrol.id, userEnrolments.enrolId))
-      .innerJoin(course, eq(course.id, enrol.courseId))
-      .where(and(
-        eq(userEnrolments.userId, studentUserId),
-        eq(userEnrolments.status, 0),
-        eq(enrol.status, 0),
-        eq(course.visible, true),
-        lte(userEnrolments.timeStart, now),
-        or(isNull(userEnrolments.timeEnd), gt(userEnrolments.timeEnd, now)),
-      ));
+    const rows = await this.spaceDb.routedKysely
+      .selectFrom('user_enrolments')
+      .innerJoin('enrol', 'enrol.id', 'user_enrolments.enrol_id')
+      .innerJoin('course', 'course.id', 'enrol.course_id')
+      .select('enrol.course_id as courseId')
+      .where('user_enrolments.user_id', '=', studentUserId)
+      .where('user_enrolments.status', '=', 0)
+      .where('enrol.status', '=', 0)
+      .where('course.visible', '=', true)
+      .where('user_enrolments.time_start', '<=', now)
+      .where((eb) => eb.or([
+        eb('user_enrolments.time_end', 'is', null),
+        eb('user_enrolments.time_end', '>', now),
+      ]))
+      .execute();
     return [...new Set(rows.map((r) => r.courseId))];
   }
 }

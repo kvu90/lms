@@ -1,16 +1,10 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import { Logger } from '@nestjs/common';
 import { I18nService } from '@nestjs/i18n';
 import type { Job } from 'bullmq';
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type { relations } from '../db/relations';
-import { notificationDispatchLog, pluginConfig, userPreferences, users } from '@lms/db';
 import { tenantAls } from '../db/tenant-als';
 import { ResendMailService, type WorkerMailSendResult } from '../resend-mail.service';
-
-type Database = NodePgDatabase<typeof relations>;
+import { SpaceDatabaseService } from '../db/routing/space-database.service';
 
 /**
  * Hai loại bắt buộc (P2) — bản chiếu tối thiểu của `mandatoryInApp`
@@ -91,7 +85,7 @@ export class NotificationDigestProcessor extends WorkerHost {
   private readonly logger = new Logger(NotificationDigestProcessor.name);
 
   constructor(
-    @InjectDrizzle() private readonly db: Database,
+    private readonly spaceDb: SpaceDatabaseService,
     private readonly mail: ResendMailService,
     private readonly i18n: I18nService,
   ) { super(); }
@@ -113,12 +107,13 @@ export class NotificationDigestProcessor extends WorkerHost {
       usersSent: 0, usersDeferred: 0, usersSkipped: 0, usersFailed: 0, itemsSent: 0,
       itemsSuppressedAdmin: 0, itemsSuppressedPreference: 0,
     };
-    const pending = await this.db.select().from(notificationDispatchLog)
-      .where(and(
-        eq(notificationDispatchLog.channel, 'email'),
-        eq(notificationDispatchLog.status, 'digest-queued'),
-      ))
-      .orderBy(asc(notificationDispatchLog.createdAt));
+    const pending = await this.spaceDb.routedKysely
+      .selectFrom('notification_dispatch_log')
+      .select(['id', 'user_id as userId', 'provider', 'subject'])
+      .where('channel', '=', 'email')
+      .where('status', '=', 'digest-queued')
+      .orderBy('created_at', 'asc')
+      .execute();
     if (pending.length === 0) return result;
 
     const byUser = new Map<string, typeof pending>();
@@ -130,14 +125,21 @@ export class NotificationDigestProcessor extends WorkerHost {
 
     for (const [userId, rows] of byUser) {
       const ids = rows.map((r) => r.id);
-      const [user] = await this.db.select().from(users).where(eq(users.id, userId));
+      const user = await this.spaceDb.routedKysely
+        .selectFrom('users')
+        .select(['suspended', 'deleted', 'email'])
+        .where('id', '=', userId)
+        .executeTakeFirst();
       if (!user || user.suspended || user.deleted) {
         // Người nhận không còn hợp lệ tại thời điểm tổng hợp: chốt
         // các dòng chờ thành skipped-suspended như luật ở mọi đường
         // phát khác, không gửi gì.
-        await this.db.update(notificationDispatchLog)
+        await this.spaceDb.routedKysely
+          .updateTable('notification_dispatch_log')
           .set({ status: 'skipped-suspended' })
-          .where(and(inArray(notificationDispatchLog.id, ids), eq(notificationDispatchLog.status, 'digest-queued')));
+          .where('id', 'in', ids)
+          .where('status', '=', 'digest-queued')
+          .execute();
         result.usersSkipped += 1;
         continue;
       }
@@ -145,17 +147,20 @@ export class NotificationDigestProcessor extends WorkerHost {
       // file): nạp tuỳ chọn của người nhận + chính sách site cho các
       // loại có mặt trong nhóm, rồi phân nhóm dòng thành bị chặn bởi
       // admin / bị chặn bởi tuỳ chọn / được gửi.
-      const prefs = await this.db.select().from(userPreferences)
-        .where(eq(userPreferences.userId, userId));
+      const prefs = await this.spaceDb.routedKysely
+        .selectFrom('user_preferences')
+        .select(['name', 'value'])
+        .where('user_id', '=', userId)
+        .execute();
       const prefByName = new Map(prefs.map((p) => [p.name, p.value]));
       const providersInGroup = [...new Set(rows.map((r) => r.provider))];
-      const policyRows = await this.db.select({ name: pluginConfig.name, value: pluginConfig.value })
-        .from(pluginConfig)
-        .where(and(
-          eq(pluginConfig.plugin, 'notifications'),
-          isNull(pluginConfig.tenantId),
-          inArray(pluginConfig.name, providersInGroup.map((p) => `provider_${p}_enabled`)),
-        ));
+      const policyRows = await this.spaceDb.routedKysely
+        .selectFrom('plugin_config')
+        .select(['name', 'value'])
+        .where('plugin', '=', 'notifications')
+        .where('tenant_id', 'is', null)
+        .where('name', 'in', providersInGroup.map((p) => `provider_${p}_enabled`))
+        .execute();
       const adminDisabledProviders = new Set<string>();
       for (const policy of policyRows) {
         let disabled = false;
@@ -180,15 +185,21 @@ export class NotificationDigestProcessor extends WorkerHost {
         sendable.push(row);
       }
       if (suppressedAdmin.length > 0) {
-        await this.db.update(notificationDispatchLog)
+        await this.spaceDb.routedKysely
+          .updateTable('notification_dispatch_log')
           .set({ status: 'skipped-admin-disabled' })
-          .where(and(inArray(notificationDispatchLog.id, suppressedAdmin), eq(notificationDispatchLog.status, 'digest-queued')));
+          .where('id', 'in', suppressedAdmin)
+          .where('status', '=', 'digest-queued')
+          .execute();
         result.itemsSuppressedAdmin += suppressedAdmin.length;
       }
       if (suppressedPreference.length > 0) {
-        await this.db.update(notificationDispatchLog)
+        await this.spaceDb.routedKysely
+          .updateTable('notification_dispatch_log')
           .set({ status: 'skipped-preference' })
-          .where(and(inArray(notificationDispatchLog.id, suppressedPreference), eq(notificationDispatchLog.status, 'digest-queued')));
+          .where('id', 'in', suppressedPreference)
+          .where('status', '=', 'digest-queued')
+          .execute();
         result.itemsSuppressedPreference += suppressedPreference.length;
       }
       if (sendable.length === 0) continue;
@@ -213,9 +224,12 @@ export class NotificationDigestProcessor extends WorkerHost {
         result.usersDeferred += 1;
         continue;
       }
-      await this.db.update(notificationDispatchLog)
+      await this.spaceDb.routedKysely
+        .updateTable('notification_dispatch_log')
         .set({ status: 'digest-sent' })
-        .where(and(inArray(notificationDispatchLog.id, sendable.map((r) => r.id)), eq(notificationDispatchLog.status, 'digest-queued')));
+        .where('id', 'in', sendable.map((r) => r.id))
+        .where('status', '=', 'digest-queued')
+        .execute();
       result.usersSent += 1;
       result.itemsSent += count;
     }

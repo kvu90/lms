@@ -1,17 +1,10 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { I18nService } from '@nestjs/i18n';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import type { Job } from 'bullmq';
-import { and, eq } from 'drizzle-orm';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type { relations } from '../db/relations';
-import { calendarEvents, course, notifications } from '@lms/db';
 import { NotificationDeliveryService } from '../notification-delivery.service';
 import { tenantAls } from '../db/tenant-als';
 import { resolveDefaultTenantId } from '../db/default-tenant';
 import { SpaceDatabaseService } from '../db/routing/space-database.service';
-
-type Database = NodePgDatabase<typeof relations>;
 
 export interface CalendarReminderJobData { eventId: string; userId: string; minutesBefore: number }
 export interface CalendarReminderResult { status: 'notified' | 'duplicate' | 'skipped-suspended' | 'skipped-preference' | 'skipped-admin-disabled' | 'event-missing'; notificationId?: string }
@@ -32,7 +25,6 @@ export interface CalendarReminderResult { status: 'notified' | 'duplicate' | 'sk
  */
 export class CalendarReminderProcessor extends WorkerHost {
   constructor(
-    @InjectDrizzle() private readonly db: Database,
     private readonly i18n: I18nService,
     private readonly delivery: NotificationDeliveryService,
     private readonly spaceDb: SpaceDatabaseService,
@@ -50,13 +42,20 @@ export class CalendarReminderProcessor extends WorkerHost {
 
   private async processInContext(job: Job<CalendarReminderJobData>): Promise<CalendarReminderResult> {
     const { eventId, userId } = job.data;
-    const [event] = await this.db.select().from(calendarEvents).where(eq(calendarEvents.id, eventId));
+    const event = await this.spaceDb.routedKysely
+      .selectFrom('calendar_events')
+      .select(['name', 'course_id as courseId', 'time_start as timeStart'])
+      .where('id', '=', eventId)
+      .executeTakeFirst();
     if (!event) return { status: 'event-missing' };
     const contextUrl = `/calendar/events/${eventId}`;
-    const [existing] = await this.db.select().from(notifications).where(and(
-      eq(notifications.userIdTo, userId), eq(notifications.eventType, 'calendar_reminder'),
-      eq(notifications.contextUrl, contextUrl),
-    ));
+    const existing = await this.spaceDb.routedKysely
+      .selectFrom('notifications')
+      .select('id')
+      .where('user_id_to', '=', userId)
+      .where('event_type', '=', 'calendar_reminder')
+      .where('context_url', '=', contextUrl)
+      .executeTakeFirst();
     if (existing) return { status: 'duplicate', notificationId: existing.id };
     // Text nhắc nhở tra catalog i18n; worker ngoài request context nên
     // truyền locale tường minh (mặc định 'vi' như các processor nền tảng).
@@ -69,8 +68,11 @@ export class CalendarReminderProcessor extends WorkerHost {
     // báo thành "không gắn tenant", user trong tenant không thấy).
     let tenantId: string | null = null;
     if (event.courseId) {
-      const [courseRow] = await this.db.select({ tenantId: course.tenantId }).from(course)
-        .where(eq(course.id, event.courseId));
+      const courseRow = await this.spaceDb.routedKysely
+        .selectFrom('course')
+        .select('tenant_id as tenantId')
+        .where('id', '=', event.courseId)
+        .executeTakeFirst();
       tenantId = courseRow?.tenantId ?? null;
     }
     if (!tenantId) tenantId = await resolveDefaultTenantId(this.spaceDb.routedKysely, userId);
