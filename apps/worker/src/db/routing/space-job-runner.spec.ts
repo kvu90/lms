@@ -9,10 +9,11 @@ import { SpaceJobRunner } from './space-job-runner';
  * định tuyến được thay bằng vật giả ghi lại cách phiên được mở —
  * các ca khoá đúng quyết định phiên cho từng hình job: job của
  * trung tâm ở kho riêng chạy trong phiên theo trung tâm mang cả
- * tenant của job; job ở kho chung và job không mang slug chạy
- * trong ngữ cảnh platform như hiện tại; job mà đích phân giải lỗi
- * thì bị lỗi thay vì chạy trên platform (vòng sửa theo phán quyết
- * điều phối PR #602).
+ * tenant của job, và phiên kho riêng chuẩn bị cả handle Kysely
+ * (bảng chuẩn bị tách riêng với phía Drizzle); job ở kho chung
+ * và job không mang slug chạy trong ngữ cảnh platform như hiện
+ * tại; job mà đích phân giải lỗi thì bị lỗi thay vì chạy trên
+ * platform (vòng sửa theo phán quyết điều phối PR #602).
  */
 
 const DEDICATED_TARGET: ResolvedSpaceConnection = {
@@ -58,6 +59,9 @@ function makeRunner(options?: { target?: ResolvedSpaceConnection; resolveError?:
         );
       },
     ),
+    // Vật giả cho bước chuẩn bị phía Kysely của phiên kho riêng
+    // (runner gọi trước khi mở phiên Drizzle).
+    getKyselyForSpace: vi.fn(async () => ({})),
   };
   const runner = new SpaceJobRunner(spaceDb as unknown as SpaceDatabaseService);
   return { runner, spaceDb, sessions };
@@ -65,12 +69,13 @@ function makeRunner(options?: { target?: ResolvedSpaceConnection; resolveError?:
 
 describe('Bộ chạy job theo trung tâm', () => {
   it('job của trung tâm ở kho riêng chạy trong phiên theo trung tâm: ngữ cảnh mang slug và tenant của job', async () => {
-    const { runner, sessions } = makeRunner();
+    const { runner, sessions, spaceDb } = makeRunner();
     const observed = await runner.runForJob(
       { spaceSlug: 'trung-tam-a', tenantId: 'tenant-a' },
       async () => tenantAls.getStore(),
     );
     expect(sessions).toEqual([{ slug: 'trung-tam-a', context: { tenantId: 'tenant-a' } }]);
+    expect(spaceDb.getKyselyForSpace).toHaveBeenCalledWith('trung-tam-a');
     expect(observed?.spaceSlug).toBe('trung-tam-a');
     expect(observed?.tenantId).toBe('tenant-a');
   });
@@ -82,6 +87,7 @@ describe('Bộ chạy job theo trung tâm', () => {
       async () => tenantAls.getStore(),
     );
     expect(spaceDb.withSpaceDatabase).not.toHaveBeenCalled();
+    expect(spaceDb.getKyselyForSpace).not.toHaveBeenCalled();
     expect(observed?.platform).toBe(true);
     expect(observed?.spaceSlug).toBeUndefined();
   });
