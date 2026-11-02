@@ -1,32 +1,29 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import type { Job } from 'bullmq';
 import { I18nService } from '@nestjs/i18n';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type { relations } from '../db/relations';
-import {
-  analyticsModels, analyticsPredictions, backupIdMappings, backupJobSteps, backupJobs,
-  badge, badgeCriteria, calendarEvents, calendarSubscriptions, competencyUserComp,
-  contentBankContent, context as contextTable, course,
-  courseCompletions, courseModules, courseModulesCompletion, courseSections, enrol,
-  gradeGrades, gradeItems, insights, notifications, outboxEvents, payments, privacyExportFiles,
-  privacyRequests, question, questionBankEntries, questionCategories, questionVersions,
-  reportBuilderReport, reportBuilderSchedule, role, roleAssignments,
-  searchDocuments, userEnrolments, userPreferences, users, badgeIssued, files,
-} from '@lms/db';
+import { sql, type CentreDB } from '@lms/db';
 import { NotificationDeliveryService } from '../notification-delivery.service';
 import { tenantAls } from '../db/tenant-als';
 import { resolveDefaultTenantId } from '../db/default-tenant';
 import { SpaceDatabaseService } from '../db/routing/space-database.service';
-
-type Database = NodePgDatabase<typeof relations>;
 
 /**
  * Các processor platform services của worker. Mỗi processor là bản song sinh (twin) của
  * logic API tương ứng, chạy trên cùng bảng: backup, restore, search reindex,
  * analytics run, report schedule, privacy export/delete, payment
  * reconciliation/webhook. Tất cả đều idempotent theo khoá nghiệp vụ của job.
+ *
+ * @remarks
+ * Mọi truy vấn của các processor trong file này đi qua handle Kysely
+ * định tuyến (`SpaceDatabaseService.routedKysely`): các processor chạy
+ * trong ngữ cảnh platform tường minh (xem TENANT-1 ở từng `process`)
+ * nên handle vào kho chung — cùng đích kho với handle Drizzle định
+ * tuyến trước đây. Các cột jsonb khi ghi (`archive`, `detail`,
+ * `indicators`, `data`, `last_result`, `manifest`, `result`,
+ * payload outbox) đi qua serialize tường minh + `::jsonb` theo khuôn
+ * pilot (driver `pg` hiểu mảng cấp cao nhất là mảng PostgreSQL nếu
+ * không serialize); khoá bên trong các giá trị jsonb là khoá dữ kiện
+ * đã lưu nên giữ nguyên camelCase như trước.
  */
 
 /** Backup: dựng archive (format riêng v1) cho job backup đang pending và ghi các bước contributor. */
@@ -35,7 +32,7 @@ type Database = NodePgDatabase<typeof relations>;
  * Xử lý job sao lưu khoá học nền.
  */
 export class BackupProcessor extends WorkerHost {
-  constructor(@InjectDrizzle() private readonly db: Database) { super(); }
+  constructor(private readonly spaceDb: SpaceDatabaseService) { super(); }
   /**
    * Xử lý một job của queue tương ứng.
    */
@@ -47,36 +44,50 @@ export class BackupProcessor extends WorkerHost {
   }
 
   private async processInContext(job: Job<{ jobId: string }>): Promise<{ status: string; sections?: number; cms?: number }> {
-    const [row] = await this.db.select().from(backupJobs).where(eq(backupJobs.id, job.data.jobId));
+    const db = this.spaceDb.routedKysely;
+    const row = await db
+      .selectFrom('backup_jobs')
+      .select(['id', 'status', 'scope', 'course_id as courseId', 'anonymize'])
+      .where('id', '=', job.data.jobId)
+      .executeTakeFirst();
     if (!row) return { status: 'missing' };
     if (row.status === 'completed') return { status: 'duplicate' };
     const scope = row.scope ?? 'course';
     // Question bank bám context: khoá → context của khoá; site → context hệ thống.
-    const contexts = await this.db.select().from(contextTable);
+    const contexts = await db
+      .selectFrom('context')
+      .select(['id', 'context_level as contextLevel', 'instance_id as instanceId'])
+      .execute();
     const bankCtx = scope === 'site'
       ? contexts.find((c) => c.contextLevel === 10)
       : contexts.find((c) => c.contextLevel === 50 && c.instanceId === row.courseId);
-    const qCategories = bankCtx ? await this.db.select().from(questionCategories).where(eq(questionCategories.contextId, bankCtx.id)) : [];
+    const qCategories = bankCtx ? await db.selectFrom('question_categories').select('id').where('context_id', '=', bankCtx.id).execute() : [];
     const qCatIds = qCategories.map((c) => c.id);
-    const qRows = qCatIds.length ? await this.db.select().from(question).where(inArray(question.category, qCatIds)) : [];
-    const qEntries = qCatIds.length ? await this.db.select().from(questionBankEntries).where(inArray(questionBankEntries.questionCategoryId, qCatIds)) : [];
+    const qRows = qCatIds.length ? await db.selectFrom('question').select('id').where('category', 'in', qCatIds).execute() : [];
+    const qEntries = qCatIds.length ? await db.selectFrom('question_bank_entries').select('id').where('question_category_id', 'in', qCatIds).execute() : [];
     const qEntryIds = qEntries.map((e) => e.id);
-    const qVersions = qEntryIds.length ? await this.db.select().from(questionVersions).where(inArray(questionVersions.questionBankEntryId, qEntryIds)) : [];
+    const qVersions = qEntryIds.length ? await db.selectFrom('question_versions').select('id').where('question_bank_entry_id', 'in', qEntryIds).execute() : [];
     const badges = scope === 'site'
-      ? await this.db.select().from(badge).where(isNull(badge.courseId))
-      : await this.db.select().from(badge).where(eq(badge.courseId, row.courseId!));
-    const criteria = badges.length ? await this.db.select().from(badgeCriteria).where(inArray(badgeCriteria.badgeId, badges.map((b) => b.id))) : [];
+      ? await db.selectFrom('badge').select('id').where('course_id', 'is', null).execute()
+      : await db.selectFrom('badge').select('id').where('course_id', '=', row.courseId!).execute();
+    const criteria = badges.length ? await db.selectFrom('badge_criteria').select('id').where('badge_id', 'in', badges.map((b) => b.id)).execute() : [];
     const calEvents = scope === 'site'
-      ? await this.db.select().from(calendarEvents).where(eq(calendarEvents.eventType, 'site'))
-      : await this.db.select().from(calendarEvents).where(eq(calendarEvents.courseId, row.courseId!));
+      ? await db.selectFrom('calendar_events').select('id').where('event_type', '=', 'site').execute()
+      : await db.selectFrom('calendar_events').select('id').where('course_id', '=', row.courseId!).execute();
     const calSubs = scope === 'site'
-      ? await this.db.select().from(calendarSubscriptions).where(eq(calendarSubscriptions.eventType, 'site'))
-      : await this.db.select().from(calendarSubscriptions).where(eq(calendarSubscriptions.courseId, row.courseId!));
+      ? await db.selectFrom('calendar_subscriptions').select('id').where('event_type', '=', 'site').execute()
+      : await db.selectFrom('calendar_subscriptions').select('id').where('course_id', '=', row.courseId!).execute();
     const contributorNames = scope === 'site'
       ? ['questions', 'badges', 'calendar']
       : ['courses', 'enrol', 'groups', 'grades', 'completion', 'files', 'questions', 'badges', 'calendar'];
     for (const name of contributorNames) {
-      await this.db.insert(backupJobSteps).values({ jobId: row.id, name, status: 'completed', detail: { worker: true } });
+      await db
+        .insertInto('backup_job_steps')
+        .values({
+          job_id: row.id, name, status: 'completed',
+          detail: sql<CentreDB['backup_job_steps']['detail']>`${JSON.stringify({ worker: true })}::jsonb`,
+        })
+        .execute();
     }
     // Archive dùng CHUNG định dạng lms-backup v1 với API: bản tóm
     // tắt của worker mang đủ các section contributor mới (questions/badges/
@@ -90,17 +101,33 @@ export class BackupProcessor extends WorkerHost {
     };
     if (scope === 'site') {
       const archive = { format: 'lms-backup', version: 1, scope, courseId: null, anonymize: row.anonymize, contributors: extended };
-      await this.db.update(backupJobs).set({ status: 'completed', archive, timeFinished: new Date() }).where(eq(backupJobs.id, row.id));
+      await db
+        .updateTable('backup_jobs')
+        .set({
+          status: 'completed',
+          archive: sql<CentreDB['backup_jobs']['archive']>`${JSON.stringify(archive)}::jsonb`,
+          time_finished: new Date(),
+        })
+        .where('id', '=', row.id)
+        .execute();
       return { status: 'completed', sections: 0, cms: 0 };
     }
-    const sections = await this.db.select().from(courseSections).where(eq(courseSections.course, row.courseId!));
-    const cms = await this.db.select().from(courseModules).where(eq(courseModules.course, row.courseId!));
-    const instances = await this.db.select().from(enrol).where(eq(enrol.courseId, row.courseId!));
+    const sections = await db.selectFrom('course_sections').select('id').where('course', '=', row.courseId!).execute();
+    const cms = await db.selectFrom('course_modules').select('id').where('course', '=', row.courseId!).execute();
+    const instances = await db.selectFrom('enrol').select('id').where('course_id', '=', row.courseId!).execute();
     const archive = {
       format: 'lms-backup', version: 1, scope, courseId: row.courseId, anonymize: row.anonymize,
       contributors: { courses: { sections: sections.length, cms: cms.length }, enrol: { instances: instances.length }, ...extended },
     };
-    await this.db.update(backupJobs).set({ status: 'completed', archive, timeFinished: new Date() }).where(eq(backupJobs.id, row.id));
+    await db
+      .updateTable('backup_jobs')
+      .set({
+        status: 'completed',
+        archive: sql<CentreDB['backup_jobs']['archive']>`${JSON.stringify(archive)}::jsonb`,
+        time_finished: new Date(),
+      })
+      .where('id', '=', row.id)
+      .execute();
     return { status: 'completed', sections: sections.length, cms: cms.length };
   }
 }
@@ -111,7 +138,7 @@ export class BackupProcessor extends WorkerHost {
  * Xử lý job khôi phục khoá học nền.
  */
 export class RestoreProcessor extends WorkerHost {
-  constructor(@InjectDrizzle() private readonly db: Database) { super(); }
+  constructor(private readonly spaceDb: SpaceDatabaseService) { super(); }
   async process(job: Job<{ jobId: string }>): Promise<{ status: string; mapped?: number }> {
     // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
     // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
@@ -120,31 +147,56 @@ export class RestoreProcessor extends WorkerHost {
   }
 
   private async processInContext(job: Job<{ jobId: string }>): Promise<{ status: string; mapped?: number }> {
-    const [row] = await this.db.select().from(backupJobs).where(eq(backupJobs.id, job.data.jobId));
+    const db = this.spaceDb.routedKysely;
+    const row = await db
+      .selectFrom('backup_jobs')
+      .select(['id', 'status', 'course_id as courseId', 'target_course_id as targetCourseId'])
+      .where('id', '=', job.data.jobId)
+      .executeTakeFirst();
     if (!row) return { status: 'missing' };
     if (row.status === 'completed') return { status: 'duplicate' };
     const targetId = row.targetCourseId;
     if (!targetId || !row.courseId) {
       // Restore mức site không có khoá nguồn/đích: bản twin này chỉ xử lý
       // restore mức khoá; restore site chạy đồng bộ ở API (không qua queue).
-      await this.db.update(backupJobs).set({ status: 'failed', error: 'restore job has no target course' }).where(eq(backupJobs.id, row.id));
+      await db
+        .updateTable('backup_jobs')
+        .set({ status: 'failed', error: 'restore job has no target course' })
+        .where('id', '=', row.id)
+        .execute();
       return { status: 'failed' };
     }
     let mapped = 0;
-    const sections = await this.db.select().from(courseSections).where(eq(courseSections.course, row.courseId));
-    const existing = await this.db.select().from(courseSections).where(eq(courseSections.course, targetId));
+    const sectionColumns = ['id', 'section', 'name', 'summary', 'visible'] as const;
+    const sections = await db.selectFrom('course_sections').select(sectionColumns).where('course', '=', row.courseId).execute();
+    const existing = await db.selectFrom('course_sections').select(sectionColumns).where('course', '=', targetId).execute();
     const sectionMap = new Map<string, string>();
     for (const s of sections.sort((a, b) => a.section - b.section)) {
       const already = existing.find((e) => e.section === s.section);
       if (already) { sectionMap.set(s.id, already.id); continue; }
-      const [created] = await this.db.insert(courseSections).values({ course: targetId, section: s.section, name: s.name, summary: s.summary, visible: s.visible }).returning();
+      const created = await db
+        .insertInto('course_sections')
+        .values({ course: targetId, section: s.section, name: s.name, summary: s.summary, visible: s.visible })
+        .returning('id')
+        .executeTakeFirst();
       sectionMap.set(s.id, created!.id);
-      await this.db.insert(backupIdMappings).values({ jobId: row.id, itemType: 'section', oldId: s.id, newId: created!.id }).onConflictDoNothing();
+      await db
+        .insertInto('backup_id_mappings')
+        .values({ job_id: row.id, item_type: 'section', old_id: s.id, new_id: created!.id })
+        .onConflict((oc) => oc.doNothing())
+        .execute();
       mapped++;
     }
-    await this.db.insert(backupIdMappings).values({ jobId: row.id, itemType: 'course', oldId: row.courseId, newId: targetId }).onConflictDoNothing();
-    await this.db.update(backupJobs).set({ status: 'completed', timeFinished: new Date() }).where(eq(backupJobs.id, row.id));
-    void courseModules;
+    await db
+      .insertInto('backup_id_mappings')
+      .values({ job_id: row.id, item_type: 'course', old_id: row.courseId, new_id: targetId })
+      .onConflict((oc) => oc.doNothing())
+      .execute();
+    await db
+      .updateTable('backup_jobs')
+      .set({ status: 'completed', time_finished: new Date() })
+      .where('id', '=', row.id)
+      .execute();
     return { status: 'completed', mapped };
   }
 }
@@ -155,7 +207,7 @@ export class RestoreProcessor extends WorkerHost {
  * Xử lý job dựng lại chỉ mục tìm kiếm.
  */
 export class SearchReindexProcessor extends WorkerHost {
-  constructor(@InjectDrizzle() private readonly db: Database) { super(); }
+  constructor(private readonly spaceDb: SpaceDatabaseService) { super(); }
   async process(_job: Job<Record<string, never>>): Promise<{ indexed: number }> {
     // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
     // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
@@ -165,31 +217,66 @@ export class SearchReindexProcessor extends WorkerHost {
 
   private async processInContext(_job: Job<Record<string, never>>): Promise<{ indexed: number }> {
     void _job;
+    const db = this.spaceDb.routedKysely;
     let indexed = 0;
-    const courses = await this.db.select().from(course);
-    const contexts = await this.db.select().from(contextTable);
+    const courses = await db
+      .selectFrom('course')
+      .select(['id', 'visible', 'full_name as fullName', 'short_name as shortName', 'summary'])
+      .execute();
+    const contexts = await db
+      .selectFrom('context')
+      .select(['id', 'context_level as contextLevel', 'instance_id as instanceId'])
+      .execute();
     const ctxFor = (level: number, instance: string) => contexts.find((c) => c.contextLevel === level && c.instanceId === instance);
     for (const c of courses) {
       if (!c.visible) continue;
       const ctx = ctxFor(50, c.id); if (!ctx) continue;
-      await this.db.insert(searchDocuments).values({ area: 'courses', itemId: c.id, contextId: ctx.id, title: c.fullName, content: `${c.shortName} ${c.summary}` })
-        .onConflictDoUpdate({ target: [searchDocuments.area, searchDocuments.itemId], set: { title: c.fullName, content: `${c.shortName} ${c.summary}`, contextId: ctx.id } });
+      await db
+        .insertInto('search_documents')
+        .values({ area: 'courses', item_id: c.id, context_id: ctx.id, title: c.fullName, content: `${c.shortName} ${c.summary}` })
+        .onConflict((oc) => oc
+          .columns(['area', 'item_id'])
+          .doUpdateSet({ title: c.fullName, content: `${c.shortName} ${c.summary}`, context_id: ctx.id }))
+        .execute();
       indexed++;
     }
-    const allUsers = await this.db.select().from(users);
+    const allUsers = await db
+      .selectFrom('users')
+      .select(['id', 'suspended', 'deleted', 'first_name as firstName', 'last_name as lastName', 'username', 'email'])
+      .execute();
     for (const u of allUsers) {
-      if (u.suspended || u.deleted) { await this.db.delete(searchDocuments).where(and(eq(searchDocuments.area, 'users'), eq(searchDocuments.itemId, u.id))); continue; }
+      if (u.suspended || u.deleted) {
+        await db
+          .deleteFrom('search_documents')
+          .where('area', '=', 'users')
+          .where('item_id', '=', u.id)
+          .execute();
+        continue;
+      }
       const ctx = ctxFor(30, u.id) ?? contexts.find((c) => c.contextLevel === 10);
       if (!ctx) continue;
-      await this.db.insert(searchDocuments).values({ area: 'users', itemId: u.id, contextId: ctx.id, title: `${u.firstName} ${u.lastName}`.trim() || u.username, content: `${u.username} ${u.email}`, ownerId: u.id })
-        .onConflictDoUpdate({ target: [searchDocuments.area, searchDocuments.itemId], set: { title: u.username, content: `${u.username} ${u.email}`, contextId: ctx.id, ownerId: u.id } });
+      await db
+        .insertInto('search_documents')
+        .values({ area: 'users', item_id: u.id, context_id: ctx.id, title: `${u.firstName} ${u.lastName}`.trim() || u.username, content: `${u.username} ${u.email}`, owner_id: u.id })
+        .onConflict((oc) => oc
+          .columns(['area', 'item_id'])
+          .doUpdateSet({ title: u.username, content: `${u.username} ${u.email}`, context_id: ctx.id, owner_id: u.id }))
+        .execute();
       indexed++;
     }
-    const contents = await this.db.select().from(contentBankContent);
+    const contents = await db
+      .selectFrom('content_bank_content')
+      .select(['id', 'visibility', 'context_id as contextId', 'name', 'creator_id as creatorId'])
+      .execute();
     for (const c of contents) {
       if (c.visibility !== 'public') continue;
-      await this.db.insert(searchDocuments).values({ area: 'contentbank', itemId: c.id, contextId: c.contextId, title: c.name, content: c.name, ownerId: c.creatorId })
-        .onConflictDoUpdate({ target: [searchDocuments.area, searchDocuments.itemId], set: { title: c.name, content: c.name, contextId: c.contextId } });
+      await db
+        .insertInto('search_documents')
+        .values({ area: 'contentbank', item_id: c.id, context_id: c.contextId, title: c.name, content: c.name, owner_id: c.creatorId })
+        .onConflict((oc) => oc
+          .columns(['area', 'item_id'])
+          .doUpdateSet({ title: c.name, content: c.name, context_id: c.contextId }))
+        .execute();
       indexed++;
     }
     return { indexed };
@@ -202,7 +289,7 @@ export class SearchReindexProcessor extends WorkerHost {
  * Xử lý job chạy mô hình phân tích (insights).
  */
 export class AnalyticsRunProcessor extends WorkerHost {
-  constructor(@InjectDrizzle() private readonly db: Database) { super(); }
+  constructor(private readonly spaceDb: SpaceDatabaseService) { super(); }
   async process(job: Job<{ courseId: string }>): Promise<{ predictions: number; insights: number }> {
     // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
     // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
@@ -211,26 +298,50 @@ export class AnalyticsRunProcessor extends WorkerHost {
   }
 
   private async processInContext(job: Job<{ courseId: string }>): Promise<{ predictions: number; insights: number }> {
+    const db = this.spaceDb.routedKysely;
     const courseId = job.data.courseId;
-    let [model] = await this.db.select().from(analyticsModels).where(eq(analyticsModels.name, 'students_at_risk'));
+    let model = await db
+      .selectFrom('analytics_models')
+      .select('id')
+      .where('name', '=', 'students_at_risk')
+      .executeTakeFirst();
     if (!model) {
-      [model] = await this.db.insert(analyticsModels).values({ name: 'students_at_risk', target: 'at_risk', indicators: ['no_recent_access', 'low_grade'], enabled: true }).returning();
+      model = await db
+        .insertInto('analytics_models')
+        .values({
+          name: 'students_at_risk', target: 'at_risk',
+          indicators: sql<CentreDB['analytics_models']['indicators']>`${JSON.stringify(['no_recent_access', 'low_grade'])}::jsonb`,
+          enabled: true,
+        })
+        .returning('id')
+        .executeTakeFirst();
     }
-    const contexts = await this.db.select().from(contextTable);
+    const contexts = await db
+      .selectFrom('context')
+      .select(['id', 'context_level as contextLevel', 'instance_id as instanceId'])
+      .execute();
     const courseCtx = contexts.find((c) => c.contextLevel === 50 && c.instanceId === courseId);
     if (!courseCtx || !model) return { predictions: 0, insights: 0 };
-    const instances = await this.db.select().from(enrol).where(eq(enrol.courseId, courseId));
-    const ues = instances.length ? await this.db.select().from(userEnrolments).where(inArray(userEnrolments.enrolId, instances.map((i) => i.id))) : [];
-    const items = await this.db.select().from(gradeItems).where(eq(gradeItems.courseId, courseId));
-    const grades = items.length ? await this.db.select().from(gradeGrades).where(inArray(gradeGrades.itemId, items.map((i) => i.id))) : [];
+    const instances = await db.selectFrom('enrol').select('id').where('course_id', '=', courseId).execute();
+    const ues = instances.length
+      ? await db.selectFrom('user_enrolments').select(['user_id as userId', 'status']).where('enrol_id', 'in', instances.map((i) => i.id)).execute()
+      : [];
+    const items = await db.selectFrom('grade_items').select(['id', 'grade_max as gradeMax']).where('course_id', '=', courseId).execute();
+    const grades = items.length
+      ? await db.selectFrom('grade_grades').select(['user_id as userId', 'item_id as itemId', 'final_grade as finalGrade']).where('item_id', 'in', items.map((i) => i.id)).execute()
+      : [];
     // Người nhận: user có assignment với role archetype staff tại course context hoặc tổ tiên.
-    const assignments = await this.db.select().from(roleAssignments);
-    const roles = await this.db.select().from(role);
+    const assignments = await db.selectFrom('role_assignments').select(['role_id as roleId', 'user_id as userId']).execute();
+    const roles = await db.selectFrom('role').select(['id', 'archetype']).execute();
     const staffRoleIds = new Set(roles.filter((r) => ['manager', 'editingteacher', 'teacher'].includes(r.archetype ?? '')).map((r) => r.id));
     const recipients = [...new Set(assignments.filter((a) => staffRoleIds.has(a.roleId)).map((a) => a.userId))];
     let predictions = 0; let insightCount = 0;
     for (const ue of ues.filter((e) => e.status === 0)) {
-      const [u] = await this.db.select().from(users).where(eq(users.id, ue.userId));
+      const u = await db
+        .selectFrom('users')
+        .select(['suspended', 'deleted', 'last_login as lastLogin'])
+        .where('id', '=', ue.userId)
+        .executeTakeFirst();
       if (!u || u.suspended || u.deleted) continue;
       const noAccess = !u.lastLogin || Date.now() - u.lastLogin.getTime() > 14 * 24 * 3600 * 1000 ? 1 : 0;
       const mine = grades.filter((g) => g.userId === ue.userId && g.finalGrade !== null);
@@ -238,17 +349,25 @@ export class AnalyticsRunProcessor extends WorkerHost {
       const lowGrade = pct === null ? 0.5 : pct < 0.5 ? 1 - pct : 0;
       const score = (noAccess + lowGrade) / 2;
       if (score < 0.6) continue;
-      const [prediction] = await this.db.insert(analyticsPredictions).values({
-        modelId: model.id, userId: ue.userId, contextId: courseCtx.id, courseId: courseId, score,
-        data: { no_recent_access: noAccess, low_grade: lowGrade },
-      }).returning();
+      const prediction = await db
+        .insertInto('analytics_predictions')
+        .values({
+          model_id: model.id, user_id: ue.userId, context_id: courseCtx.id, course_id: courseId, score,
+          data: sql<CentreDB['analytics_predictions']['data']>`${JSON.stringify({ no_recent_access: noAccess, low_grade: lowGrade })}::jsonb`,
+        })
+        .returning('id')
+        .executeTakeFirst();
       predictions++;
       for (const recipientId of recipients) {
         if (recipientId === ue.userId) continue;
-        await this.db.insert(insights).values({
-          modelId: model.id, predictionId: prediction!.id, userId: ue.userId, recipientId,
-          contextId: courseCtx.id, courseId: courseId, heading: 'Student at risk', data: { score },
-        });
+        await db
+          .insertInto('insights')
+          .values({
+            model_id: model.id, prediction_id: prediction!.id, user_id: ue.userId, recipient_id: recipientId,
+            context_id: courseCtx.id, course_id: courseId, heading: 'Student at risk',
+            data: sql<CentreDB['insights']['data']>`${JSON.stringify({ score })}::jsonb`,
+          })
+          .execute();
         insightCount++;
       }
     }
@@ -267,7 +386,6 @@ export class AnalyticsRunProcessor extends WorkerHost {
  */
 export class ReportScheduleProcessor extends WorkerHost {
   constructor(
-    @InjectDrizzle() private readonly db: Database,
     private readonly i18n: I18nService,
     private readonly delivery: NotificationDeliveryService,
     private readonly spaceDb: SpaceDatabaseService,
@@ -280,15 +398,30 @@ export class ReportScheduleProcessor extends WorkerHost {
   }
 
   private async processInContext(job: Job<{ scheduleId: string }>): Promise<{ rows: number; status: string }> {
-    const [schedule] = await this.db.select().from(reportBuilderSchedule).where(eq(reportBuilderSchedule.id, job.data.scheduleId));
+    const db = this.spaceDb.routedKysely;
+    const schedule = await db
+      .selectFrom('report_builder_schedule')
+      .select(['id', 'enabled', 'report_id as reportId', 'created_by as createdBy'])
+      .where('id', '=', job.data.scheduleId)
+      .executeTakeFirst();
     if (!schedule || !schedule.enabled) return { rows: 0, status: 'missing-or-disabled' };
-    const [report] = await this.db.select().from(reportBuilderReport).where(eq(reportBuilderReport.id, schedule.reportId));
+    const report = await db
+      .selectFrom('report_builder_report')
+      .select(['id', 'data_source as dataSource', 'name'])
+      .where('id', '=', schedule.reportId)
+      .executeTakeFirst();
     let rows = 0;
-    if (report?.dataSource === 'enrolments') rows = (await this.db.select().from(userEnrolments)).length;
-    else if (report?.dataSource === 'grades') rows = (await this.db.select().from(gradeGrades)).length;
-    else if (report?.dataSource === 'completion') rows = (await this.db.select().from(courseCompletions)).length;
-    await this.db.update(reportBuilderSchedule).set({ lastRun: new Date(), lastResult: { rows, ranAs: schedule.createdBy, worker: true } })
-      .where(eq(reportBuilderSchedule.id, schedule.id));
+    if (report?.dataSource === 'enrolments') rows = (await db.selectFrom('user_enrolments').select('id').execute()).length;
+    else if (report?.dataSource === 'grades') rows = (await db.selectFrom('grade_grades').select('id').execute()).length;
+    else if (report?.dataSource === 'completion') rows = (await db.selectFrom('course_completions').select('id').execute()).length;
+    await db
+      .updateTable('report_builder_schedule')
+      .set({
+        last_run: new Date(),
+        last_result: sql<CentreDB['report_builder_schedule']['last_result']>`${JSON.stringify({ rows, ranAs: schedule.createdBy, worker: true })}::jsonb`,
+      })
+      .where('id', '=', schedule.id)
+      .execute();
     /**
      * Text thông báo tra trong catalog i18n theo ngôn ngữ của người nhận:
      * worker chạy ngoài request context nên truyền `locale` tường minh vào
@@ -320,7 +453,7 @@ export class ReportScheduleProcessor extends WorkerHost {
  * Xử lý job quyền riêng tư (xuất/xoá dữ liệu cá nhân).
  */
 export class PrivacyProcessor extends WorkerHost {
-  constructor(@InjectDrizzle() private readonly db: Database) { super(); }
+  constructor(private readonly spaceDb: SpaceDatabaseService) { super(); }
   async process(job: Job<{ requestId: string }>): Promise<{ status: string; subsystems: string[] }> {
     // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
     // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
@@ -329,7 +462,12 @@ export class PrivacyProcessor extends WorkerHost {
   }
 
   private async processInContext(job: Job<{ requestId: string }>): Promise<{ status: string; subsystems: string[] }> {
-    const [req] = await this.db.select().from(privacyRequests).where(eq(privacyRequests.id, job.data.requestId));
+    const db = this.spaceDb.routedKysely;
+    const req = await db
+      .selectFrom('privacy_requests')
+      .select(['id', 'status', 'type', 'user_id as userId'])
+      .where('id', '=', job.data.requestId)
+      .executeTakeFirst();
     if (!req) return { status: 'missing', subsystems: [] };
     if (req.status === 'completed') return { status: 'duplicate', subsystems: [] };
     if (req.status !== 'approved') return { status: 'not-approved', subsystems: [] };
@@ -337,31 +475,61 @@ export class PrivacyProcessor extends WorkerHost {
     const subsystems = ['users', 'enrol', 'grades', 'completion', 'files', 'messaging', 'calendar', 'badges', 'competencies', 'social', 'search', 'contentbank', 'payments'];
     if (req.type === 'export') {
       const manifest = { requestId: req.id, userId: userId, subsystems, format: 'lms-privacy-export', version: 1, worker: true };
-      await this.db.insert(privacyExportFiles).values({ requestId: req.id, fileId: null, subsystem: 'all', manifest });
-      await this.db.update(privacyRequests).set({ status: 'completed', result: { manifest, subsystems }, updatedAt: new Date() }).where(eq(privacyRequests.id, req.id));
+      await db
+        .insertInto('privacy_export_files')
+        .values({
+          request_id: req.id, file_id: null, subsystem: 'all',
+          manifest: sql<CentreDB['privacy_export_files']['manifest']>`${JSON.stringify(manifest)}::jsonb`,
+        })
+        .execute();
+      await db
+        .updateTable('privacy_requests')
+        .set({
+          status: 'completed',
+          result: sql<CentreDB['privacy_requests']['result']>`${JSON.stringify({ manifest, subsystems })}::jsonb`,
+          updated_at: new Date(),
+        })
+        .where('id', '=', req.id)
+        .execute();
       return { status: 'completed', subsystems };
     }
     const deleted: Record<string, number> = {};
-    deleted.enrol = (await this.db.delete(userEnrolments).where(eq(userEnrolments.userId, userId)).returning()).length;
-    deleted.grades = (await this.db.delete(gradeGrades).where(eq(gradeGrades.userId, userId)).returning()).length;
-    const a = (await this.db.delete(courseModulesCompletion).where(eq(courseModulesCompletion.userId, userId)).returning()).length;
-    const b = (await this.db.delete(courseCompletions).where(eq(courseCompletions.userId, userId)).returning()).length;
+    deleted.enrol = (await db.deleteFrom('user_enrolments').where('user_id', '=', userId).returning('id').execute()).length;
+    deleted.grades = (await db.deleteFrom('grade_grades').where('user_id', '=', userId).returning('id').execute()).length;
+    const a = (await db.deleteFrom('course_modules_completion').where('user_id', '=', userId).returning('id').execute()).length;
+    const b = (await db.deleteFrom('course_completions').where('user_id', '=', userId).returning('id').execute()).length;
     deleted.completion = a + b;
-    deleted.files = (await this.db.delete(files).where(eq(files.userId, userId)).returning()).length;
-    deleted.messaging = (await this.db.delete(notifications).where(eq(notifications.userIdTo, userId)).returning()).length;
-    deleted.calendar = (await this.db.delete(calendarEvents).where(eq(calendarEvents.userId, userId)).returning()).length;
-    deleted.badges = (await this.db.delete(badgeIssued).where(eq(badgeIssued.userId, userId)).returning()).length;
-    deleted.competencies = (await this.db.delete(competencyUserComp).where(eq(competencyUserComp.userId, userId)).returning()).length;
-    deleted.search = (await this.db.delete(searchDocuments).where(eq(searchDocuments.ownerId, userId)).returning()).length;
-    deleted.contentbank = (await this.db.delete(contentBankContent).where(eq(contentBankContent.creatorId, userId)).returning()).length;
-    deleted.payments = (await this.db.update(payments).set({ userId: '00000000-0000-0000-0000-000000000000' }).where(eq(payments.userId, userId)).returning()).length;
-    await this.db.delete(userPreferences).where(eq(userPreferences.userId, userId));
-    const [u] = await this.db.select().from(users).where(eq(users.id, userId));
+    deleted.files = (await db.deleteFrom('files').where('user_id', '=', userId).returning('id').execute()).length;
+    deleted.messaging = (await db.deleteFrom('notifications').where('user_id_to', '=', userId).returning('id').execute()).length;
+    deleted.calendar = (await db.deleteFrom('calendar_events').where('user_id', '=', userId).returning('id').execute()).length;
+    deleted.badges = (await db.deleteFrom('badge_issued').where('user_id', '=', userId).returning('id').execute()).length;
+    deleted.competencies = (await db.deleteFrom('competency_user_comp').where('user_id', '=', userId).returning('id').execute()).length;
+    deleted.search = (await db.deleteFrom('search_documents').where('owner_id', '=', userId).returning('id').execute()).length;
+    deleted.contentbank = (await db.deleteFrom('content_bank_content').where('creator_id', '=', userId).returning('id').execute()).length;
+    deleted.payments = (await db.updateTable('payments').set({ user_id: '00000000-0000-0000-0000-000000000000' }).where('user_id', '=', userId).returning('id').execute()).length;
+    await db.deleteFrom('user_preferences').where('user_id', '=', userId).execute();
+    const u = await db
+      .selectFrom('users')
+      .select(['username', 'email'])
+      .where('id', '=', userId)
+      .executeTakeFirst();
     if (u) {
-      await this.db.update(users).set({ deleted: true, suspended: true, username: `${u.username}.deleted${userId}`, email: `${u.email}.deleted${userId}` }).where(eq(users.id, userId));
+      await db
+        .updateTable('users')
+        .set({ deleted: true, suspended: true, username: `${u.username}.deleted${userId}`, email: `${u.email}.deleted${userId}` })
+        .where('id', '=', userId)
+        .execute();
     }
     deleted.users = 1;
-    await this.db.update(privacyRequests).set({ status: 'completed', result: { deleted, subsystems }, updatedAt: new Date() }).where(eq(privacyRequests.id, req.id));
+    await db
+      .updateTable('privacy_requests')
+      .set({
+        status: 'completed',
+        result: sql<CentreDB['privacy_requests']['result']>`${JSON.stringify({ deleted, subsystems })}::jsonb`,
+        updated_at: new Date(),
+      })
+      .where('id', '=', req.id)
+      .execute();
     return { status: 'completed', subsystems };
   }
 }
@@ -372,7 +540,7 @@ export class PrivacyProcessor extends WorkerHost {
  * Xử lý job đối soát thanh toán.
  */
 export class PaymentReconciliationProcessor extends WorkerHost {
-  constructor(@InjectDrizzle() private readonly db: Database) { super(); }
+  constructor(private readonly spaceDb: SpaceDatabaseService) { super(); }
   async process(job: Job<{ paymentId?: string; externalTransactionId?: string; status?: string }>): Promise<{ status: string; duplicate?: boolean; succeeded?: number }> {
     // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
     // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
@@ -381,24 +549,40 @@ export class PaymentReconciliationProcessor extends WorkerHost {
   }
 
   private async processInContext(job: Job<{ paymentId?: string; externalTransactionId?: string; status?: string }>): Promise<{ status: string; duplicate?: boolean; succeeded?: number }> {
+    const db = this.spaceDb.routedKysely;
     if (job.data.paymentId && job.data.externalTransactionId) {
-      const [existing] = await this.db.select().from(payments)
-        .where(and(eq(payments.gateway, 'manual'), eq(payments.externalTransactionId, job.data.externalTransactionId)));
+      const existing = await db
+        .selectFrom('payments')
+        .select(['id', 'status'])
+        .where('gateway', '=', 'manual')
+        .where('external_transaction_id', '=', job.data.externalTransactionId)
+        .executeTakeFirst();
       if (existing) return { status: existing.status, duplicate: true };
-      const [payment] = await this.db.select().from(payments).where(eq(payments.id, job.data.paymentId));
+      const payment = await db
+        .selectFrom('payments')
+        .select(['id', 'status', 'user_id as userId', 'amount', 'currency', 'component', 'item_id as itemId'])
+        .where('id', '=', job.data.paymentId)
+        .executeTakeFirst();
       if (!payment) return { status: 'missing' };
       if (payment.status === 'succeeded') return { status: 'succeeded', duplicate: true };
       const newStatus = job.data.status === 'succeeded' ? 'succeeded' : 'failed';
-      await this.db.update(payments).set({ status: newStatus, externalTransactionId: job.data.externalTransactionId, updatedAt: new Date() }).where(eq(payments.id, payment.id));
+      await db
+        .updateTable('payments')
+        .set({ status: newStatus, external_transaction_id: job.data.externalTransactionId, updated_at: new Date() })
+        .where('id', '=', payment.id)
+        .execute();
       if (newStatus === 'succeeded') {
-        await this.db.insert(outboxEvents).values({
-          aggregate: 'payment', type: 'payment_succeeded',
-          payload: { paymentId: payment.id, userId: payment.userId, amount: payment.amount, currency: payment.currency, component: payment.component, itemId: payment.itemId, externalTransactionId: job.data.externalTransactionId, worker: true },
-        });
+        await db
+          .insertInto('outbox_events')
+          .values({
+            aggregate: 'payment', type: 'payment_succeeded',
+            payload: sql<CentreDB['outbox_events']['payload']>`${JSON.stringify({ paymentId: payment.id, userId: payment.userId, amount: payment.amount, currency: payment.currency, component: payment.component, itemId: payment.itemId, externalTransactionId: job.data.externalTransactionId, worker: true })}::jsonb`,
+          })
+          .execute();
       }
       return { status: newStatus };
     }
-    const all = await this.db.select().from(payments);
+    const all = await db.selectFrom('payments').select('status').execute();
     return { status: 'reconciled', succeeded: all.filter((p) => p.status === 'succeeded').length };
   }
 }

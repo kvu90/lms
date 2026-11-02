@@ -1,11 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import { Interval } from '@nestjs/schedule';
-import { asc, eq, inArray, isNull } from 'drizzle-orm';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type { relations } from './db/relations';
-import { outboxEvents, tenants } from '@lms/db';
+import type { CentreDb } from '@lms/db';
 import { SpaceDatabaseService } from './db/routing/space-database.service';
 import { mapWithConcurrencyLimit } from './db/routing/space-sweep';
 import { EventLogWriter } from './event-log-writer.service';
@@ -20,9 +16,22 @@ import {
   type OutboxEventQueues,
 } from './outbox-event-routes';
 
-type Database = NodePgDatabase<typeof relations>;
-
-type OutboxRow = typeof outboxEvents.$inferSelect;
+/**
+ * Hình dáng dòng outbox mà relay xử lý — khai tay đúng các cột relay
+ * đọc. `seq` đã chuyển về số từ giá trị int8 thô của kho (Kysely đọc
+ * int8 thành chuỗi; job và payload phản chiếu giữ hợp đồng số như
+ * trước), `payload` thu hẹp về record vì relay chỉ chuyển tiếp
+ * payload dạng object vào job và writer phản chiếu.
+ */
+interface OutboxRow {
+  id: string;
+  seq: number;
+  aggregate: string;
+  type: string;
+  payload: Record<string, unknown> | null;
+  occurredAt: Date;
+  tenantId: string | null;
+}
 
 /**
  * Relay outbox DUY NHẤT của toàn hệ thống, chạy trong tiến trình
@@ -66,7 +75,10 @@ type OutboxRow = typeof outboxEvents.$inferSelect;
  * `SpaceDatabaseService.listRegisteredSpaces`, bỏ qua trung tâm
  * đã `closed` (kho có thể đã dỡ). Mỗi trung tâm được quét trong
  * một phiên theo trung tâm của khung định tuyến
- * (`withSpaceDatabase`), với đúng flow phát → đóng dấu → phản
+ * (`withSpaceKysely` — phiên này chuẩn bị tường minh handle
+ * Kysely của kho trung tâm trước khi thân lượt quét chạy, để
+ * facade Kysely không fail-closed `space_routing.prepared_revoked`),
+ * với đúng flow phát → đóng dấu → phản
  * chiếu như trên nhưng mọi thao tác đều ở kho của chính trung
  * tâm đó; consumer nhận job mang slug của trung tâm và mở đúng
  * kho qua `SpaceJobRunner`. Các lượt theo trung tâm chạy song
@@ -126,7 +138,6 @@ export class OutboxRelayScheduler {
   private readonly sweepConcurrency: number;
 
   constructor(
-    @InjectDrizzle() private readonly db: Database,
     private readonly eventLog: EventLogWriter,
     private readonly taskLog: TaskLogService,
     @Inject(OUTBOX_EVENT_ROUTES) private readonly routes: OutboxEventQueueRoutes,
@@ -208,7 +219,7 @@ export class OutboxRelayScheduler {
    * dòng sau nó chưa được đóng dấu và sẽ được xử lý lại ở lượt sau.
    */
   async publishPending(limit = 50): Promise<number> {
-    return this.publishPendingFrom(this.db, limit);
+    return this.publishPendingFrom(this.spaceDb.routedKysely, limit);
   }
 
   /**
@@ -249,7 +260,7 @@ export class OutboxRelayScheduler {
     const failedSlugs: string[] = [];
     await mapWithConcurrencyLimit(dedicated, this.sweepConcurrency, async (space) => {
       try {
-        published += await this.spaceDb.withSpaceDatabase(space.slug, (db) =>
+        published += await this.spaceDb.withSpaceKysely(space.slug, (db) =>
           this.publishPendingFrom(db, limitPerCentre),
         );
       } catch (err) {
@@ -268,22 +279,39 @@ export class OutboxRelayScheduler {
    * đúng handle `db` được truyền (handle kho chung, hoặc handle
    * của kho trung tâm trong phiên theo trung tâm).
    */
-  private async publishPendingFrom(db: Database, limit: number): Promise<number> {
-    const pending = await db
-      .select()
-      .from(outboxEvents)
-      .where(isNull(outboxEvents.publishedAt))
-      .orderBy(asc(outboxEvents.id))
-      .limit(limit);
+  private async publishPendingFrom(db: CentreDb, limit: number): Promise<number> {
+    const pendingRaw = await db
+      .selectFrom('outbox_events')
+      .select([
+        'id', 'seq', 'aggregate', 'type', 'payload',
+        'occurred_at as occurredAt', 'tenant_id as tenantId',
+      ])
+      .where('published_at', 'is', null)
+      .orderBy('id', 'asc')
+      .limit(limit)
+      .execute();
+    // Cột `seq` là int8: Kysely đọc thành chuỗi nên chuyển về số tại
+    // biên đọc này để job và payload phản chiếu giữ đúng hợp đồng số
+    // như đường Drizzle trước đây.
+    const pending: OutboxRow[] = pendingRaw.map((row) => ({
+      id: row.id,
+      seq: Number(row.seq),
+      aggregate: row.aggregate,
+      type: row.type,
+      payload: row.payload as Record<string, unknown> | null,
+      occurredAt: row.occurredAt,
+      tenantId: row.tenantId,
+    }));
 
     const spaceSlugs = await this.resolveSpaceSlugs(db, pending);
     let published = 0;
     for (const row of pending) {
       await this.dispatchRow(row, spaceSlugs.get(row.tenantId ?? '') ?? null);
       await db
-        .update(outboxEvents)
-        .set({ publishedAt: new Date() })
-        .where(eq(outboxEvents.id, row.id));
+        .updateTable('outbox_events')
+        .set({ published_at: new Date() })
+        .where('id', '=', row.id)
+        .execute();
       // Logstore: phản chiếu sang event_log qua observer duy nhất; việc này
       // không đổi ngữ nghĩa phát hành của relay (writer nuốt lỗi của nó).
       await this.eventLog.record({
@@ -306,14 +334,15 @@ export class OutboxRelayScheduler {
    * tâm là một — xem `OutboxEventJobData.spaceSlug`). Tenant
    * không còn dòng tương ứng thì sự kiện của nó mang slug null.
    */
-  private async resolveSpaceSlugs(db: Database, rows: OutboxRow[]): Promise<Map<string, string>> {
+  private async resolveSpaceSlugs(db: CentreDb, rows: OutboxRow[]): Promise<Map<string, string>> {
     const tenantIds = [...new Set(rows.map((row) => row.tenantId).filter((id): id is string => !!id))];
     const slugs = new Map<string, string>();
     if (tenantIds.length === 0) return slugs;
     const tenantRows = await db
-      .select({ id: tenants.id, slug: tenants.slug })
-      .from(tenants)
-      .where(inArray(tenants.id, tenantIds));
+      .selectFrom('tenants')
+      .select(['id', 'slug'])
+      .where('id', 'in', tenantIds)
+      .execute();
     for (const tenant of tenantRows) slugs.set(tenant.id, tenant.slug);
     return slugs;
   }

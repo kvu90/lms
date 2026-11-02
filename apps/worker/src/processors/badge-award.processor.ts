@@ -1,16 +1,8 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { I18nService } from '@nestjs/i18n';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import type { Job } from 'bullmq';
-import { and, eq } from 'drizzle-orm';
 import { createHash, randomUUID } from 'node:crypto';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type { relations } from '../db/relations';
-import {
-  badge, badgeCriteria, badgeIssued, badgeManualAward, cohortMembers, competencyUserComp,
-  course, courseCompletions, courseModulesCompletion, customFieldCategory, customFieldData, customFieldField,
-  outboxEvents, users,
-} from '@lms/db';
+import { sql, type CentreDB } from '@lms/db';
 import { tenantAls } from '../db/tenant-als';
 import { resolveDefaultTenantId } from '../db/default-tenant';
 import { SpaceDatabaseService } from '../db/routing/space-database.service';
@@ -18,8 +10,6 @@ import { NotificationDeliveryService } from '../notification-delivery.service';
 
 /** Các trường hồ sơ chuẩn mà lá `profile` đọc từ bảng users (khớp phía API; ngoài ra lá nhận custom field theo shortName). */
 const PROFILE_STANDARD_FIELDS = ['username', 'email', 'firstName', 'lastName'] as const;
-
-type Database = NodePgDatabase<typeof relations>;
 
 export interface BadgeAwardJobData { userId: string; trigger?: string }
 export interface BadgeAwardResult { evaluated: number; issued: string[] }
@@ -51,7 +41,6 @@ export interface BadgeAwardResult { evaluated: number; issued: string[] }
  */
 export class BadgeAwardProcessor extends WorkerHost {
   constructor(
-    @InjectDrizzle() private readonly db: Database,
     private readonly i18n: I18nService,
     private readonly delivery: NotificationDeliveryService,
     private readonly spaceDb: SpaceDatabaseService,
@@ -63,8 +52,12 @@ export class BadgeAwardProcessor extends WorkerHost {
       case 'coursecompletion': {
         const courseId = typeof params.courseId === 'string' ? params.courseId : '';
         if (!courseId) return false;
-        const [row] = await this.db.select().from(courseCompletions)
-          .where(and(eq(courseCompletions.course, courseId), eq(courseCompletions.userId, userId)));
+        const row = await this.spaceDb.routedKysely
+          .selectFrom('course_completions')
+          .select(['status', 'time_completed as timeCompleted'])
+          .where('course', '=', courseId)
+          .where('user_id', '=', userId)
+          .executeTakeFirst();
         if (row?.status !== 'complete') return false;
         // By-date (khớp phía API): có `byDate` thì timeCompleted phải ≤ ngày cắt.
         const byDate = typeof params.byDate === 'string' ? params.byDate : undefined;
@@ -82,8 +75,12 @@ export class BadgeAwardProcessor extends WorkerHost {
           : Array.isArray(params.cohortIds) ? params.cohortIds.filter((i): i is string => typeof i === 'string') : [];
         if (!ids.length) return false;
         for (const cohortId of ids) {
-          const [row] = await this.db.select().from(cohortMembers)
-            .where(and(eq(cohortMembers.cohortId, cohortId), eq(cohortMembers.userId, userId)));
+          const row = await this.spaceDb.routedKysely
+            .selectFrom('cohort_members')
+            .select('user_id as userId')
+            .where('cohort_id', '=', cohortId)
+            .where('user_id', '=', userId)
+            .executeTakeFirst();
           if (!row) return false;
         }
         return true;
@@ -96,20 +93,29 @@ export class BadgeAwardProcessor extends WorkerHost {
         if (!field) return false;
         let actual: string | null | undefined;
         if ((PROFILE_STANDARD_FIELDS as readonly string[]).includes(field)) {
-          const [user] = await this.db.select().from(users).where(eq(users.id, userId));
+          const user = await this.spaceDb.routedKysely
+            .selectFrom('users')
+            .select(['username', 'email', 'first_name as firstName', 'last_name as lastName'])
+            .where('id', '=', userId)
+            .executeTakeFirst();
           actual = user ? String(user[field as keyof typeof user] ?? '') : undefined;
         } else {
-          const fields = await this.db.select({ id: customFieldField.id })
-            .from(customFieldField)
-            .innerJoin(customFieldCategory, eq(customFieldField.categoryId, customFieldCategory.id))
-            .where(and(
-              eq(customFieldCategory.component, 'core_user'), eq(customFieldCategory.area, 'user'),
-              eq(customFieldField.shortName, field),
-            ));
+          const fields = await this.spaceDb.routedKysely
+            .selectFrom('custom_field_field')
+            .innerJoin('custom_field_category', 'custom_field_category.id', 'custom_field_field.category_id')
+            .select('custom_field_field.id')
+            .where('custom_field_category.component', '=', 'core_user')
+            .where('custom_field_category.area', '=', 'user')
+            .where('custom_field_field.short_name', '=', field)
+            .execute();
           const fieldId = fields[0]?.id;
           if (!fieldId) return false;
-          const [data] = await this.db.select().from(customFieldData)
-            .where(and(eq(customFieldData.fieldId, fieldId), eq(customFieldData.instanceId, userId)));
+          const data = await this.spaceDb.routedKysely
+            .selectFrom('custom_field_data')
+            .select('value')
+            .where('field_id', '=', fieldId)
+            .where('instance_id', '=', userId)
+            .executeTakeFirst();
           actual = data?.value;
         }
         if (actual === null || actual === undefined) return false;
@@ -118,27 +124,43 @@ export class BadgeAwardProcessor extends WorkerHost {
       case 'activitycompletion': {
         const cmId = typeof params.cmId === 'string' ? params.cmId : '';
         if (!cmId) return false;
-        const [row] = await this.db.select().from(courseModulesCompletion)
-          .where(and(eq(courseModulesCompletion.courseModuleId, cmId), eq(courseModulesCompletion.userId, userId)));
+        const row = await this.spaceDb.routedKysely
+          .selectFrom('course_modules_completion')
+          .select('completion_state as completionState')
+          .where('course_module_id', '=', cmId)
+          .where('user_id', '=', userId)
+          .executeTakeFirst();
         return !!row && row.completionState >= 1;
       }
       case 'competency': {
         const competencyId = typeof params.competencyId === 'string' ? params.competencyId : '';
         if (!competencyId) return false;
-        const rows = await this.db.select().from(competencyUserComp)
-          .where(and(eq(competencyUserComp.userId, userId), eq(competencyUserComp.competencyId, competencyId)));
+        const rows = await this.spaceDb.routedKysely
+          .selectFrom('competency_user_comp')
+          .select('proficiency')
+          .where('user_id', '=', userId)
+          .where('competency_id', '=', competencyId)
+          .execute();
         return rows.some((r) => r.proficiency === true);
       }
       case 'badge': {
         const otherBadgeId = typeof params.badgeId === 'string' ? params.badgeId : '';
         if (!otherBadgeId) return false;
-        const [row] = await this.db.select().from(badgeIssued)
-          .where(and(eq(badgeIssued.badgeId, otherBadgeId), eq(badgeIssued.userId, userId)));
+        const row = await this.spaceDb.routedKysely
+          .selectFrom('badge_issued')
+          .select(['id', 'revoked'])
+          .where('badge_id', '=', otherBadgeId)
+          .where('user_id', '=', userId)
+          .executeTakeFirst();
         return !!row && !row.revoked;
       }
       case 'manual': {
-        const [row] = await this.db.select().from(badgeManualAward)
-          .where(and(eq(badgeManualAward.badgeId, leaf.badgeId), eq(badgeManualAward.recipientId, userId)));
+        const row = await this.spaceDb.routedKysely
+          .selectFrom('badge_manual_award')
+          .select('id')
+          .where('badge_id', '=', leaf.badgeId)
+          .where('recipient_id', '=', userId)
+          .executeTakeFirst();
         return !!row;
       }
       default:
@@ -158,13 +180,28 @@ export class BadgeAwardProcessor extends WorkerHost {
 
   private async processInContext(job: Job<BadgeAwardJobData>): Promise<BadgeAwardResult> {
     const { userId } = job.data;
-    const activeBadges = await this.db.select().from(badge).where(eq(badge.status, 1));
+    const activeBadges = await this.spaceDb.routedKysely
+      .selectFrom('badge')
+      .select([
+        'id', 'name', 'type', 'course_id as courseId', 'issuer_name as issuerName',
+        'expire_date as expireDate', 'expire_period as expirePeriod',
+      ])
+      .where('status', '=', 1)
+      .execute();
     const issuedIds: string[] = [];
     for (const badgeRow of activeBadges) {
-      const [existing] = await this.db.select().from(badgeIssued)
-        .where(and(eq(badgeIssued.badgeId, badgeRow.id), eq(badgeIssued.userId, userId)));
+      const existing = await this.spaceDb.routedKysely
+        .selectFrom('badge_issued')
+        .select('id')
+        .where('badge_id', '=', badgeRow.id)
+        .where('user_id', '=', userId)
+        .executeTakeFirst();
       if (existing) continue;
-      const criteriaRows = await this.db.select().from(badgeCriteria).where(eq(badgeCriteria.badgeId, badgeRow.id));
+      const criteriaRows = await this.spaceDb.routedKysely
+        .selectFrom('badge_criteria')
+        .select(['badge_id as badgeId', 'criteria_type as criteriaType', 'method', 'params'])
+        .where('badge_id', '=', badgeRow.id)
+        .execute();
       const overall = criteriaRows.find((c) => c.criteriaType === 'overall');
       const leaves = criteriaRows.filter((c) => c.criteriaType !== 'overall');
       if (!leaves.length) continue;
@@ -176,15 +213,20 @@ export class BadgeAwardProcessor extends WorkerHost {
       const dateExpire = badgeRow.expireDate ?? (badgeRow.expirePeriod
         ? new Date(Date.now() + badgeRow.expirePeriod * 86400_000) : null);
       const uniqueHash = createHash('sha256').update(`${badgeRow.id}:${userId}:${randomUUID()}`).digest('hex');
-      const [issued] = await this.db.insert(badgeIssued).values({
-        badgeId: badgeRow.id, userId: userId, uniqueHash,
-        snapshot: {
-          badge: { id: badgeRow.id, name: badgeRow.name, type: badgeRow.type, courseId: badgeRow.courseId, issuerName: badgeRow.issuerName },
-          criteria: leaves.map((c) => ({ criteriaType: c.criteriaType, method: c.method, params: c.params })),
-        },
-        evidence: { via: 'worker-badge-award', trigger: job.data.trigger ?? null },
-        dateExpire, issuerNotified: true,
-      }).onConflictDoNothing({ target: [badgeIssued.badgeId, badgeIssued.userId] }).returning();
+      const issued = await this.spaceDb.routedKysely
+        .insertInto('badge_issued')
+        .values({
+          badge_id: badgeRow.id, user_id: userId, unique_hash: uniqueHash,
+          snapshot: sql<CentreDB['badge_issued']['snapshot']>`${JSON.stringify({
+            badge: { id: badgeRow.id, name: badgeRow.name, type: badgeRow.type, courseId: badgeRow.courseId, issuerName: badgeRow.issuerName },
+            criteria: leaves.map((c) => ({ criteriaType: c.criteriaType, method: c.method, params: c.params })),
+          })}::jsonb`,
+          evidence: sql<CentreDB['badge_issued']['evidence']>`${JSON.stringify({ via: 'worker-badge-award', trigger: job.data.trigger ?? null })}::jsonb`,
+          date_expire: dateExpire, issuer_notified: true,
+        })
+        .onConflict((oc) => oc.columns(['badge_id', 'user_id']).doNothing())
+        .returning('id')
+        .executeTakeFirst();
       if (!issued) continue;
       issuedIds.push(issued.id);
       // Text thông báo tra catalog i18n; worker ngoài request context nên
@@ -195,8 +237,11 @@ export class BadgeAwardProcessor extends WorkerHost {
       // mặc định của người nhận theo membership.
       let tenantId: string | null = null;
       if (badgeRow.courseId) {
-        const [courseRow] = await this.db.select({ tenantId: course.tenantId }).from(course)
-          .where(eq(course.id, badgeRow.courseId));
+        const courseRow = await this.spaceDb.routedKysely
+          .selectFrom('course')
+          .select('tenant_id as tenantId')
+          .where('id', '=', badgeRow.courseId)
+          .executeTakeFirst();
         tenantId = courseRow?.tenantId ?? null;
       }
       if (!tenantId) tenantId = await resolveDefaultTenantId(this.spaceDb.routedKysely, userId);
@@ -216,10 +261,13 @@ export class BadgeAwardProcessor extends WorkerHost {
         tenantId,
         courseId: badgeRow.courseId ?? null,
       });
-      await this.db.insert(outboxEvents).values({
-        aggregate: 'badges', type: 'badge_issued', tenantId,
-        payload: { badgeId: badgeRow.id, userId, issuedId: issued.id, via: 'worker-badge-award', tenantId },
-      });
+      await this.spaceDb.routedKysely
+        .insertInto('outbox_events')
+        .values({
+          aggregate: 'badges', type: 'badge_issued', tenant_id: tenantId,
+          payload: sql<CentreDB['outbox_events']['payload']>`${JSON.stringify({ badgeId: badgeRow.id, userId, issuedId: issued.id, via: 'worker-badge-award', tenantId })}::jsonb`,
+        })
+        .execute();
     }
     return { evaluated: activeBadges.length, issued: issuedIds };
   }
