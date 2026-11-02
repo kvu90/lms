@@ -5,6 +5,8 @@ import { sql } from 'kysely';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createCentreKysely, type CentreDb } from '../client';
+import type { LearningOutcomeDoc } from '../curriculum.schema';
+import type { ExamVariant } from '../quiz.schema';
 import {
   question, questionBankContributions, questionBankEntries, questionBanks, questionCategories,
 } from '../questions.schema';
@@ -199,7 +201,7 @@ async function seedData(): Promise<Seed> {
   const nodeChild = await mkNode('Bài con', nodeRoot);
   const nodeGrand = await mkNode('Mục cháu', nodeChild);
   const nodeOther = await mkNode('Chương khác', null);
-  const outcomeDoc = sql`'{"type":"doc","content":[]}'::jsonb`;
+  const outcomeDoc = sql<LearningOutcomeDoc>`'{"type":"doc","content":[]}'::jsonb`;
   const mkOutcome = async (nodeId: string) => {
     const row = await db.insertInto('learning_outcomes')
       .values({ node_id: nodeId, content: outcomeDoc, source_kind: 'program' })
@@ -212,7 +214,7 @@ async function seedData(): Promise<Seed> {
   const oOther = await mkOutcome(nodeOther);
 
   const exam = await db.insertInto('exams')
-    .values({ bank_id: schoolBank.id })
+    .values({ bank_id: schoolBank.id, created_by: u1.id })
     .returning('id').executeTakeFirstOrThrow();
   const mkVersion = async (version: number, name: string, createdAt: string) => {
     const row = await db.insertInto('exam_versions')
@@ -227,7 +229,7 @@ async function seedData(): Promise<Seed> {
   await db.insertInto('exam_slots').values({ exam_version_id: v2, question_id: q1, position: 1 }).execute();
   const mkPin = async (versionId: string) => {
     const row = await db.insertInto('exam_pins')
-      .values({ exam_id: exam.id, exam_version_id: versionId, course_id: COURSE_ID, created_by: u1.id })
+      .values({ exam_id: exam.id, exam_version_id: versionId, course_id: COURSE_ID, created_by: u1.id, variants: sql<ExamVariant[]>`'[]'::jsonb` })
       .returning('id').executeTakeFirstOrThrow();
     return row.id;
   };

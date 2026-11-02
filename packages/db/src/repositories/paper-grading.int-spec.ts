@@ -1,9 +1,11 @@
 import { eq } from 'drizzle-orm';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { sql } from 'kysely';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { PaperQuality, PaperReading, PaperRosterEntry, PaperSlotLayout } from '@lms/contracts';
 import { createCentreKysely, type CentreDb } from '../client';
+import type { ExamVariant } from '../quiz.schema';
 import { examBatches, examScans } from '../paper-grading.schema';
 import { buildTestDatabase, dropTestDatabase, withDatabase } from '../test-support/build-test-database';
 import { PaperGradingRepository } from './paper-grading';
@@ -95,13 +97,13 @@ async function seedData(): Promise<Seed> {
     })
     .returning('id').executeTakeFirstOrThrow();
   const exam = await db.insertInto('exams')
-    .values({ bank_id: bank.id })
+    .values({ bank_id: bank.id, created_by: ACTOR })
     .returning('id').executeTakeFirstOrThrow();
   const version = await db.insertInto('exam_versions')
     .values({ exam_id: exam.id, version: 1, name: 'Đề giấy 1', created_by: ACTOR })
     .returning('id').executeTakeFirstOrThrow();
   const pin = await db.insertInto('exam_pins')
-    .values({ exam_id: exam.id, exam_version_id: version.id, course_id: courseRow.id, created_by: ACTOR })
+    .values({ exam_id: exam.id, exam_version_id: version.id, course_id: courseRow.id, created_by: ACTOR, variants: sql<ExamVariant[]>`'[]'::jsonb` })
     .returning('id').executeTakeFirstOrThrow();
   return { pinId: pin.id };
 }
