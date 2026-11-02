@@ -37,7 +37,7 @@ interface SpaceAwareRequest {
  * cảnh ALS để biết request thuộc kho nào. Chiến lược vì vậy tự
  * phân giải không gian từ địa chỉ request trước khi kiểm chứng:
  * địa chỉ thuộc trung tâm ở kho riêng thì kiểm chứng thông tin
- * đăng nhập CHỈ trong kho của trung tâm đó (`withSpaceDatabase`
+ * đăng nhập CHỈ trong kho của trung tâm đó (`withSpaceKysely`
  * vừa chuẩn bị pool vừa bọc ALS cho lần tra cứu); địa chỉ còn lại
  * giữ nguyên hành vi cũ (kho chung). Tài khoản chỉ tồn tại ở kho
  * chung vì vậy không đăng nhập được tại địa chỉ kho riêng và ngược
@@ -57,7 +57,7 @@ export class LocalAuthStrategy extends PassportStrategy(LocalStrategy, 'local') 
   ): Promise<{ id: string; username: string }> {
     const space = await resolveDedicatedSpace(this.spaceDb, req.headers?.host);
     const user = space
-      ? await this.spaceDb.withSpaceDatabase(space.slug, () => this.auth.validateCredentials(username, password))
+      ? await this.spaceDb.withSpaceKysely(space.slug, () => this.auth.validateCredentials(username, password))
       : await this.auth.validateCredentials(username, password);
     return { id: user.id, username: user.username };
   }
@@ -129,7 +129,7 @@ export class JwtAuthStrategy extends PassportStrategy(JwtStrategy, 'jwt') {
       payload.centre_id === undefined &&
       payload.tid === (await this.tenants.platformTenant()).id;
     const user = space && !isPlatformSession
-      ? await this.spaceDb.withSpaceDatabase(space.slug, () => this.users.getByIdOrUndefined(payload.sub))
+      ? await this.spaceDb.withSpaceKysely(space.slug, () => this.users.getByIdOrUndefined(payload.sub))
       : await this.users.getByIdOrUndefined(payload.sub);
     if (!user || user.deleted || user.suspended) {
       throw new UnauthorizedException({ message: 'Account is not active', code: 'auth.account_inactive' });

@@ -7,7 +7,7 @@ import { TenantAwarePool } from './tenant-pool';
  * đường đi của truy vấn qua `TenantAwarePool` TRƯỚC khi lật RLS
  * fail-closed. Điều kiện tiên quyết của fail-closed là MỌI truy vấn trên
  * pool dùng chung phải mang GUC của ngữ cảnh ALS hiện tại. Mã ứng dụng
- * (Drizzle) không checkout tường minh cho truy vấn thường — nó gọi
+ *  không checkout tường minh cho truy vấn thường — nó gọi
  * `pool.query(...)`, và pg hiện thực `Pool.query` bằng cách gọi nội bộ
  * `this.connect()`. Spec này khoá chặt cả hai đường:
  *

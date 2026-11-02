@@ -9,7 +9,7 @@ import { UsersService } from '../users/users.service';
  * Danh sách cột tường minh có bí danh camelCase cho các bảng mà các
  * provider tích hợp sẵn của module này đọc/xoá (chuyển Kysely, issue
  * #648): bản xuất dữ liệu của chủ thể giữ nguyên hình dạng dòng
- * camelCase như khi còn đọc qua Drizzle. Việc xoá đếm số dòng bằng
+ * camelCase như khi còn đọc qua bộ máy cũ. Việc xoá đếm số dòng bằng
  * `returning('id')` — cùng khuôn đếm với `.returning()` của bản cũ.
  */
 const USER_PREFERENCES_COLUMNS = ['id', 'user_id as userId', 'name', 'value'] as const;

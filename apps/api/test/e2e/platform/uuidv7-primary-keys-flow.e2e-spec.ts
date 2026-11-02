@@ -53,10 +53,10 @@ describe('Khoá chính UUIDv7 (kiểm chứng platform PostgreSQL 18)', () => {
     );
     expect(outbox.rows[0].v).toBe(7);
 
-    const drizzleDir = join(process.cwd(), '..', '..', 'packages', 'db', 'migrations', 'centre');
-    const migrations = readdirSync(drizzleDir, { withFileTypes: true })
+    const migrationsDir = join(process.cwd(), '..', '..', 'packages', 'db', 'migrations', 'centre');
+    const migrations = readdirSync(migrationsDir, { withFileTypes: true })
       .filter((d) => d.isDirectory())
-      .map((d) => join(drizzleDir, d.name, 'migration.sql'));
+      .map((d) => join(migrationsDir, d.name, 'migration.sql'));
     expect(migrations).toHaveLength(1);
     const sqlText = readFileSync(migrations[0]!, 'utf8');
     // 160 bảng nghiệp vụ có PK uuidv7: 109 trước đây + session, account, verification,
@@ -224,8 +224,8 @@ describe('Khoá chính UUIDv7 (kiểm chứng platform PostgreSQL 18)', () => {
           AND c.relname NOT IN ('kysely_migration', 'kysely_migration_lock')`,
     );
     // Hai bảng nhật ký của bộ máy Kysely bị loại khỏi phép đếm này:
-    // chúng nằm ngay trong schema `public` (nhật ký Drizzle trước đây
-    // nằm ở schema `drizzle` riêng nên không bao giờ lọt vào), là bảng
+    // chúng nằm ngay trong schema `public` (nhật ký của bộ máy cũ
+    // trước đây nằm ở schema riêng nên không bao giờ lọt vào), là bảng
     // của bộ máy migration chứ không phải bảng thực thể — riêng
     // `kysely_migration_lock` còn có cột `id` không mặc định, để lọt
     // vào sẽ làm lệch cả số đếm lẫn vòng kiểm mặc định dưới đây.

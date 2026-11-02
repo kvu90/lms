@@ -78,14 +78,14 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
    * Chạy một đoạn xử lý theo kết nối trong kho của trung tâm mà
    * danh tính của kết nối đã được phân giải: kết nối mang
    * `spaceSlug` (gắn ở bước xác thực lúc nối) thì đoạn chạy qua
-   * `withSpaceDatabase` của slug đó — chuẩn bị kho đích rồi nạp
+   * `withSpaceKysely` của slug đó — chuẩn bị kho đích rồi nạp
    * slug vào ngữ cảnh ALS để handle định tuyến của repository đọc
    * đúng kho cho mọi truy vấn trong đoạn. Kết nối không mang slug
    * (đường kho chung) chạy thẳng, không qua lớp bọc.
    */
   private async withConnectionSpace<T>(client: Socket, fn: () => Promise<T>): Promise<T> {
     const slug = client.data.spaceSlug as string | null | undefined;
-    return slug ? this.spaceDb.withSpaceDatabase(slug, fn) : fn();
+    return slug ? this.spaceDb.withSpaceKysely(slug, fn) : fn();
   }
 
   afterInit(server: Server): void {

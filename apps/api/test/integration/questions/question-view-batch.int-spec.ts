@@ -281,7 +281,7 @@ describe('Đặc trưng hoá view của các đường liệt kê câu hỏi (is
     // Trỏ con trỏ version mới nhất tới số version không có dòng nào:
     // dữ kiện hỏng mà cả hai đường đọc đều phải báo cùng một mã lỗi.
     // Ghi thẳng qua handle gốc của repository Kysely (issue #642 —
-    // repository không còn handle Drizzle).
+    // repository chỉ còn handle Kysely).
     await repo.db().updateTable('question_bank_entries').set({ latest_version: 99 })
       .where('id', '=', entry!.id).execute();
     const brokenEntry = await repo.getEntryByQuestion(qid);

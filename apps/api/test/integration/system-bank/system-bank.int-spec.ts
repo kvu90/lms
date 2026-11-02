@@ -1,22 +1,10 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { eq } from 'drizzle-orm';
-import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Client, Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ServiceUnavailableException } from '@nestjs/common';
-import {
-  createCentreKysely,
-  curricula,
-  curriculumNodes,
-  learningOutcomes,
-  subjects,
-  type CentreDb,
-} from '@lms/db';
-import {
-  systemBankEvents,
-  systemQuestionImporters,
-} from '@lms/db/system-bank';
+import { createCentreKysely, type CentreDb } from '@lms/db';
+import { createSystemBankKysely, type SystemBankDb } from '@lms/db/system-bank';
 import { SystemBankCentreRepository } from '@lms/db/repositories/system-bank-centre';
 import { SystemBankRepository } from '@lms/db/repositories/system-bank';
 import { tenantAls } from '../../../src/modules/tenants/tenant-als';
@@ -117,8 +105,8 @@ describe('Kho ngân hàng hệ thống (issue #585)', () => {
   let centreKysely: CentreDb;
   let bankConnection: SystemBankConnection;
   let service: SystemBankService;
-  let bankDb: NodePgDatabase;
-  let centreDb: NodePgDatabase;
+  let bankDb: SystemBankDb;
+  let centreDb: CentreDb;
 
   beforeAll(async () => {
     const adminUrl = clusterUrl('postgres');
@@ -149,8 +137,8 @@ describe('Kho ngân hàng hệ thống (issue #585)', () => {
     );
     bankPool = new Pool({ connectionString: clusterUrl(BANK_DATABASE, BANK_ROLE, BANK_PASSWORD) });
     centrePool = new Pool({ connectionString: clusterUrl(CENTRE_DATABASE, CENTRE_ROLE, CENTRE_PASSWORD) });
-    bankDb = drizzle({ client: bankPool });
-    centreDb = drizzle({ client: centrePool });
+    bankDb = createSystemBankKysely(bankPool);
+    centreDb = createCentreKysely(centrePool);
     bankConnection = new SystemBankConnection({
       get: (key: string) =>
         key === 'SYSTEM_BANK_DATABASE_URL'
@@ -162,7 +150,7 @@ describe('Kho ngân hàng hệ thống (issue #585)', () => {
     // #650): kho ngân hàng nhận handle Kysely của adapter kết nối
     // kèm hàm dựng lỗi 503 chưa-cấu-hình đúng hình dạng module dùng;
     // repository phía trung tâm nhận MỘT handle Kysely trên pool
-    // trung tâm của spec, dùng chung với stub `withPlatformKysely`.
+    // trung tâm của spec, dùng chung với stub `withPlatform`.
     centreKysely = createCentreKysely(centrePool);
     const repo = new SystemBankRepository(connection.kysely, () =>
       new ServiceUnavailableException({
@@ -174,7 +162,7 @@ describe('Kho ngân hàng hệ thống (issue #585)', () => {
     const evaluator = { requireCapability: async () => {}, hasCapability: async () => true };
     const contexts = { ensureSystemContext: async () => ({ id: SYSTEM_ID }) };
     const tenantDb = {
-      withPlatformKysely: async <T>(fn: (tx: never) => Promise<T>) =>
+      withPlatform: async <T>(fn: (tx: never) => Promise<T>) =>
         centreKysely.transaction().execute(fn as never) as Promise<T>,
     };
     service = new SystemBankService(
@@ -187,24 +175,24 @@ describe('Kho ngân hàng hệ thống (issue #585)', () => {
       undefined as never,
       undefined as never,
     );
-    await centreDb.insert(subjects).values({ id: SUBJECT_ID, contextId: SYSTEM_ID, name: 'Toán 585', slug: SUBJECT_SLUG });
-    await centreDb.insert(curricula).values({ id: CURRICULUM_ID, subjectId: SUBJECT_ID, grade: 12 });
-    await centreDb.insert(curriculumNodes).values({
+    await centreDb.insertInto('subjects').values({ id: SUBJECT_ID, context_id: SYSTEM_ID, name: 'Toán 585', slug: SUBJECT_SLUG }).execute();
+    await centreDb.insertInto('curricula').values({ id: CURRICULUM_ID, subject_id: SUBJECT_ID, grade: 12 }).execute();
+    await centreDb.insertInto('curriculum_nodes').values({
       id: NODE_ID,
-      curriculumId: CURRICULUM_ID,
-      parentId: null,
+      curriculum_id: CURRICULUM_ID,
+      parent_id: null,
       title: 'Hàm số',
       kind: 'topic',
       position: 1,
-    });
-    await centreDb.insert(learningOutcomes).values({
+    }).execute();
+    await centreDb.insertInto('learning_outcomes').values({
       id: OUTCOME_ID,
-      nodeId: NODE_ID,
+      node_id: NODE_ID,
       content: doc('YCCĐ v1'),
       position: 1,
-      sourceKind: 'program',
-      sourceRef: 'CT Toán 12',
-    });
+      source_kind: 'program',
+      source_ref: 'CT Toán 12',
+    }).execute();
   // Migrate cả baseline nghiệp vụ (983 statement) nên hook vượt quá
   // hookTimeout 30s mặc định của project int — nới riêng cho hook này.
   }, 180000);
@@ -264,10 +252,10 @@ describe('Kho ngân hàng hệ thống (issue #585)', () => {
     const created = await service.publishQuestion(ADMIN_ID, { qtype: 'multichoice', package: multichoicePackage('Câu sẽ rút') });
     const questionId = created.question.id;
     await service.publishVersion(ADMIN_ID, questionId, { package: multichoicePackage('Câu sẽ rút v2') });
-    await bankDb.insert(systemQuestionImporters).values([
-      { sourceQuestionId: questionId, centreSlug: 'trung-tam-a', importedBy: ADMIN_ID },
-      { sourceQuestionId: questionId, centreSlug: 'trung-tam-b', importedBy: ADMIN_ID },
-    ]);
+    await bankDb.insertInto('system_question_importers').values([
+      { source_question_id: questionId, centre_slug: 'trung-tam-a', imported_by: ADMIN_ID },
+      { source_question_id: questionId, centre_slug: 'trung-tam-b', imported_by: ADMIN_ID },
+    ]).execute();
     const withdrawn = await service.withdrawQuestion(ADMIN_ID, questionId, { reason: 'Nội dung lỗi thời' });
     expect(withdrawn.question.status).toBe('withdrawn');
     expect(withdrawn.notifiedCentres).toEqual(expect.arrayContaining(['trung-tam-a', 'trung-tam-b']));
@@ -277,7 +265,7 @@ describe('Kho ngân hàng hệ thống (issue #585)', () => {
     expect(discovered.items.find((item) => item.id === questionId)).toBeUndefined();
     const stillReadable = await service.getQuestion(ADMIN_ID, questionId);
     expect(stillReadable.status).toBe('withdrawn');
-    const events = await bankDb.select().from(systemBankEvents).where(eq(systemBankEvents.sourceQuestionId, questionId));
+    const events = await bankDb.selectFrom('system_bank_events').selectAll().where('source_question_id', '=', questionId).execute();
     expect(events).toHaveLength(1);
     expect(events[0]!.type).toBe('question_withdrawn');
     const oldVersion = await service.getVersion(ADMIN_ID, questionId, 1);
@@ -287,10 +275,10 @@ describe('Kho ngân hàng hệ thống (issue #585)', () => {
   it('sự kiện chưa ghi nhận: trung tâm thấy sự kiện rút của câu mình đã nhập mà không cần biết trước id, ghi nhận xong thì hết ở trung tâm mình, trung tâm khác vẫn thấy', async () => {
     const created = await service.publishQuestion(ADMIN_ID, { qtype: 'multichoice', package: multichoicePackage('Câu rút để giao thông báo') });
     const questionId = created.question.id;
-    await bankDb.insert(systemQuestionImporters).values([
-      { sourceQuestionId: questionId, centreSlug: 'trung-tam-a', importedBy: ADMIN_ID },
-      { sourceQuestionId: questionId, centreSlug: 'trung-tam-b', importedBy: ADMIN_ID },
-    ]);
+    await bankDb.insertInto('system_question_importers').values([
+      { source_question_id: questionId, centre_slug: 'trung-tam-a', imported_by: ADMIN_ID },
+      { source_question_id: questionId, centre_slug: 'trung-tam-b', imported_by: ADMIN_ID },
+    ]).execute();
     await service.withdrawQuestion(ADMIN_ID, questionId, { reason: 'Nội dung lỗi thời' });
     // Trung tâm A liệt kê mà không biết trước id sự kiện: sự kiện
     // rút của câu vừa nhập hiện ra từ chính danh sách này.
@@ -318,14 +306,15 @@ describe('Kho ngân hàng hệ thống (issue #585)', () => {
     expect(installed.install.packageVersion).toBe('2026.10.31.1');
     expect(installed.install.previousVersion).toBeNull();
     await centreDb
-      .update(learningOutcomes)
+      .updateTable('learning_outcomes')
       .set({ content: doc('YCCĐ v2') })
-      .where(eq(learningOutcomes.id, OUTCOME_ID));
+      .where('id', '=', OUTCOME_ID)
+      .execute();
     const released2 = await service.createOutcomePackage(ADMIN_ID, { version: '2026.10.31.2', scope: SUBJECT_SLUG, mappings: [] });
     expect(released2.counts.outcomes).toBe(1);
     const installed2 = await service.installOutcomePackage(ADMIN_ID, '2026.10.31.2');
     expect(installed2.install.previousVersion).toBe('2026.10.31.1');
-    const outcome = await centreDb.select().from(learningOutcomes).where(eq(learningOutcomes.id, OUTCOME_ID));
+    const outcome = await centreDb.selectFrom('learning_outcomes').selectAll().where('id', '=', OUTCOME_ID).execute();
     expect(outcome).toHaveLength(1);
     expect(outcome[0]!.content).toMatchObject(doc('YCCĐ v2'));
     const packages = await service.listOutcomePackages();
@@ -334,15 +323,15 @@ describe('Kho ngân hàng hệ thống (issue #585)', () => {
 
   it('cài gói khi môn chưa có ở trung tâm thì fail-closed', async () => {
     await service.createOutcomePackage(ADMIN_ID, { version: '2026.10.31.9', scope: SUBJECT_SLUG, mappings: [] });
-    await centreDb.delete(subjects).where(eq(subjects.id, SUBJECT_ID));
+    await centreDb.deleteFrom('subjects').where('id', '=', SUBJECT_ID).execute();
     await expect(service.installOutcomePackage(ADMIN_ID, '2026.10.31.9')).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'system_bank.subject_not_installed' }),
     });
   });
 
   it('cài gói khi trung tâm đã có chương trình (môn, khối) khác id thì fail-closed', async () => {
-    await centreDb.insert(subjects).values({ id: SUBJECT_ID, contextId: SYSTEM_ID, name: 'Toán 585', slug: SUBJECT_SLUG });
-    await centreDb.insert(curricula).values({ id: '01958500-0000-7000-8000-000000000021', subjectId: SUBJECT_ID, grade: 12 });
+    await centreDb.insertInto('subjects').values({ id: SUBJECT_ID, context_id: SYSTEM_ID, name: 'Toán 585', slug: SUBJECT_SLUG }).execute();
+    await centreDb.insertInto('curricula').values({ id: '01958500-0000-7000-8000-000000000021', subject_id: SUBJECT_ID, grade: 12 }).execute();
     await expect(service.installOutcomePackage(ADMIN_ID, '2026.10.31.1')).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'system_bank.curriculum_conflict' }),
     });

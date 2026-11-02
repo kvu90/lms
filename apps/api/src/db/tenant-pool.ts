@@ -5,7 +5,7 @@ import { tenantAls } from '../modules/tenants/tenant-als';
  * Pool PostgreSQL gắn ngữ cảnh tenant vào mọi kết nối (TENANT-1, #196).
  *
  * Vì sao ở tầng pool: 102 điểm inject `Database` trong API dùng chung
- * một pool của Drizzle và chạy truy vấn trực tiếp trên pool (không qua
+ * một pool của bộ máy cũ và chạy truy vấn trực tiếp trên pool (không qua
  * transaction bọc theo request). RLS fail-closed đòi hỏi MỌI truy vấn
  * trên các bảng mang `tenant_id` phải chạy với GUC đã đặt; đặt GUC ở
  * đây — một điểm duy nhất — là cơ chế tương đương wrapper: khi một kết
@@ -20,7 +20,7 @@ import { tenantAls } from '../modules/tenants/tenant-als';
  *     (fail-closed: chỉ thấy dòng platform ở các bảng cho phép)
  *
  * GUC mức phiên (tham số thứ ba = false) vì một checkout không đồng
- * nghĩa một transaction: các truy vấn thường của Drizzle chạy ngoài
+ * nghĩa một transaction: các truy vấn thường của bộ máy cũ chạy ngoài
  * transaction tường minh. Client trả về pool rồi được checkout lại chỉ
  * CẬP NHẬT state gắn GUC (không bọc chồng hàm query) và gắn lại trước
  * câu truy vấn đầu tiên, nên GUC của ngữ cảnh trước không bao giờ rò

@@ -1,30 +1,27 @@
 /**
- * Ca tích hợp của các wrapper Kysely trong `TenantDbService`
- * (issue #639 dựng ba wrapper giao dịch ở mức pilot cần, issue
- * #655 hoàn thiện nốt hai runner ngữ cảnh ALS): các wrapper phải
- * giữ cùng ngữ nghĩa transaction + GUC như bản Drizzle, nhưng chạy
- * trên handle Kysely định tuyến — và GIỮ `spaceSlug` của ngữ cảnh
- * cha (điểm khác biệt có chủ đích so với bản Drizzle, vốn thay
- * toàn bộ store ALS nên làm rơi slug định tuyến kho). Hai runner
- * (`runInTenantContextKysely` / `runInPlatformContextKysely`)
+ * Ca tích hợp của các wrapper trong `TenantDbService` (issue #639
+ * dựng ba wrapper giao dịch ở mức pilot cần, issue #655 hoàn
+ * thiện nốt hai runner ngữ cảnh ALS; bản song song phía bộ máy cũ
+ * đã xoá ở issue #663): các wrapper giữ ngữ nghĩa transaction +
+ * GUC trên handle Kysely định tuyến — và GIỮ `spaceSlug` của ngữ
+ * cảnh cha khi hợp ngữ cảnh ALS (wrapper thay toàn bộ store ALS
+ * sẽ làm rơi slug định tuyến kho). Hai runner
+ * (`runInTenantContext` / `runInPlatformContext`)
  * không mở transaction: GUC đi theo đường pool gắn theo ngữ cảnh
  * ALS ở mức phiên.
  *
  * Ca dựng `TenantDbService` trực tiếp với một `SpaceDatabaseService`
- * giả chỉ mang `routedKysely` thật (các wrapper Kysely chỉ dùng
- * đúng thuộc tính này của khung định tuyến) trên pool kho trung tâm
+ * giả chỉ mang `routedKysely` thật (các wrapper chỉ dùng đúng
+ * thuộc tính này của khung định tuyến) trên pool kho trung tâm
  * gắn ngữ cảnh tenant — đủ để chứng minh GUC/transaction mà không
  * cần dựng cả khung định tuyến.
  *
  * Môi trường: một database trung tâm dựng từ rỗng bằng harness của
  * `@lms/db`.
  */
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createCentreKysely, sql as kyselySql, type CentreDb } from '@lms/db';
 import { buildTestDatabase, dropTestDatabase, withDatabase } from '@lms/db/test-support';
-import type { Database } from '../../../src/db/database';
-import { relations } from '../../../src/db/relations';
 import { TenantAwarePool } from '../../../src/db/tenant-pool';
 import type { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
 import { tenantAls } from '../../../src/modules/tenants/tenant-als';
@@ -44,7 +41,7 @@ async function currentSetting(db: CentreDb, key: string): Promise<string> {
   return (rows.rows[0] as { v: string } | undefined)?.v ?? '';
 }
 
-describe('Wrapper Kysely của TenantDbService (integration)', () => {
+describe('Wrapper của TenantDbService (integration)', () => {
   let pool: TenantAwarePool;
   let kysely: CentreDb;
   let service: TenantDbService;
@@ -54,11 +51,10 @@ describe('Wrapper Kysely của TenantDbService (integration)', () => {
     dbUrl = await buildTestDatabase({ adminUrl, database: TEST_DATABASE, store: 'centre' });
     pool = new TenantAwarePool({ connectionString: dbUrl });
     kysely = createCentreKysely(pool);
-    const drizzleDb = drizzle({ client: pool, relations }) as Database;
-    // Các wrapper Kysely chỉ đọc `spaceDb.routedKysely` — giả này
+    // Các wrapper chỉ đọc `spaceDb.routedKysely` — giả này
     // đủ, không cần khung định tuyến thật.
     const spaceDb = { routedKysely: kysely } as unknown as SpaceDatabaseService;
-    service = new TenantDbService(drizzleDb, new TenantContextService(), spaceDb);
+    service = new TenantDbService(new TenantContextService(), spaceDb);
   }, 180_000);
 
   afterAll(async () => {
@@ -66,8 +62,8 @@ describe('Wrapper Kysely của TenantDbService (integration)', () => {
     await dropTestDatabase(adminUrl, TEST_DATABASE).catch(() => undefined);
   });
 
-  it('withTenantKysely gắn GUC tenant và commit dữ kiện trong transaction', async () => {
-    await service.withTenantKysely(TENANT_ID, async (trx) => {
+  it('withTenant gắn GUC tenant và commit dữ kiện trong transaction', async () => {
+    await service.withTenant(TENANT_ID, async (trx) => {
       expect(await currentSetting(trx, 'app.tenant_id')).toBe(TENANT_ID);
       expect(await currentSetting(trx, 'app.platform')).toBe('off');
       await trx
@@ -79,9 +75,9 @@ describe('Wrapper Kysely của TenantDbService (integration)', () => {
     expect(rows).toHaveLength(1);
   });
 
-  it('withTenantKysely rollback khi callback ném lỗi', async () => {
+  it('withTenant rollback khi callback ném lỗi', async () => {
     await expect(
-      service.withTenantKysely(TENANT_ID, async (trx) => {
+      service.withTenant(TENANT_ID, async (trx) => {
         await trx
           .insertInto('tenants')
           .values({ id: ROW_ROLLBACK_ID, slug: 'tenant-kysely-rb-639', name: 'Tenant Kysely RB 639', kind: 'center' })
@@ -93,50 +89,50 @@ describe('Wrapper Kysely của TenantDbService (integration)', () => {
     expect(rows).toHaveLength(0);
   });
 
-  it('withPlatformKysely gắn cờ platform và withCurrentKysely điều phối theo ngữ cảnh', async () => {
-    await service.withPlatformKysely(async (trx) => {
+  it('withPlatform gắn cờ platform và withCurrent điều phối theo ngữ cảnh', async () => {
+    await service.withPlatform(async (trx) => {
       expect(await currentSetting(trx, 'app.platform')).toBe('on');
     });
     await tenantAls.run({ tenantId: TENANT_ID }, async () => {
-      await service.withCurrentKysely(async (trx) => {
+      await service.withCurrent(async (trx) => {
         expect(await currentSetting(trx, 'app.tenant_id')).toBe(TENANT_ID);
       });
     });
     await tenantAls.run({ platform: true }, async () => {
-      await service.withCurrentKysely(async (trx) => {
+      await service.withCurrent(async (trx) => {
         expect(await currentSetting(trx, 'app.platform')).toBe('on');
       });
     });
   });
 
-  it('wrapper Kysely giữ spaceSlug của ngữ cảnh cha (khác bản Drizzle)', async () => {
+  it('wrapper giữ spaceSlug của ngữ cảnh cha khi hợp ngữ cảnh ALS', async () => {
     await tenantAls.run({ spaceSlug: 'slug-cha-639', tenantId: TENANT_ID }, async () => {
-      await service.withTenantKysely(TENANT_ID, async () => {
+      await service.withTenant(TENANT_ID, async () => {
         expect(tenantAls.getStore()?.spaceSlug).toBe('slug-cha-639');
       });
-      await service.withPlatformKysely(async () => {
+      await service.withPlatform(async () => {
         expect(tenantAls.getStore()?.spaceSlug).toBe('slug-cha-639');
       });
     });
   });
 
-  it('runner ngữ cảnh Kysely gắn GUC theo ngữ cảnh ALS qua pool cho truy vấn ngoài transaction', async () => {
-    await service.runInTenantContextKysely(TENANT_ID, async () => {
+  it('runner ngữ cảnh gắn GUC theo ngữ cảnh ALS qua pool cho truy vấn ngoài transaction', async () => {
+    await service.runInTenantContext(TENANT_ID, async () => {
       expect(await currentSetting(kysely, 'app.tenant_id')).toBe(TENANT_ID);
       expect(await currentSetting(kysely, 'app.platform')).toBe('off');
     });
-    await service.runInPlatformContextKysely(async () => {
+    await service.runInPlatformContext(async () => {
       expect(await currentSetting(kysely, 'app.platform')).toBe('on');
     });
   });
 
-  it('runner ngữ cảnh Kysely giữ spaceSlug của ngữ cảnh cha', async () => {
+  it('runner ngữ cảnh giữ spaceSlug của ngữ cảnh cha', async () => {
     await tenantAls.run({ spaceSlug: 'slug-cha-639', tenantId: TENANT_ID }, async () => {
-      await service.runInTenantContextKysely(TENANT_ID, async () => {
+      await service.runInTenantContext(TENANT_ID, async () => {
         expect(tenantAls.getStore()?.spaceSlug).toBe('slug-cha-639');
         expect(tenantAls.getStore()?.tenantId).toBe(TENANT_ID);
       });
-      await service.runInPlatformContextKysely(async () => {
+      await service.runInPlatformContext(async () => {
         expect(tenantAls.getStore()?.spaceSlug).toBe('slug-cha-639');
         expect(tenantAls.getStore()?.platform).toBe(true);
       });

@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Client, Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createCentreKysely } from '@lms/db';
+import { applyStoreMigrations } from '@lms/db/migrate';
 import { checkFleetBackups, runFleetBackup } from '../../../src/modules/fleet/fleet-backup';
 import { backupFileName, dumpDatabaseToFile, readDatabaseSchemaVersion } from '../../../src/modules/fleet/fleet-common';
 import { runFleetMigration } from '../../../src/modules/fleet/fleet-migration-runner';
@@ -762,7 +762,7 @@ describe('Đội kho: tách role, migration theo đợt, sao lưu, khôi phục 
         connectionString: clusterUrl('lms_test_fx595_stale', MIGRATOR_ROLE, MIGRATOR_PASSWORD),
       });
       try {
-        await migrate(drizzle({ client: stalePool }), { migrationsFolder: FX_MIGRATIONS_TARGET_ONLY });
+        await applyStoreMigrations(createCentreKysely(stalePool), 'centre', FX_MIGRATIONS_TARGET_ONLY);
       } finally {
         await stalePool.end();
       }

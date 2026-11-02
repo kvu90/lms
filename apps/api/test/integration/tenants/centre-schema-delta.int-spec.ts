@@ -57,7 +57,7 @@ async function withClient<T>(connectionString: string, fn: (client: Client) => P
   }
 }
 
-/** Áp một file migration SQL (tách theo dấu phân đoạn của Drizzle) lên một database qua kết nối cho trước. */
+/** Áp một file migration SQL (tách theo dấu phân đoạn statement-breakpoint) lên một database qua kết nối cho trước. */
 async function applySqlFile(connectionString: string, filePath: string): Promise<void> {
   await withClient(connectionString, async (client) => {
     const version = await client.query<{ server_version_num: string }>('SHOW server_version_num');
@@ -73,7 +73,7 @@ async function applySqlFile(connectionString: string, filePath: string): Promise
   });
 }
 
-/** Tìm đúng một thư mục baseline trong `drizzle/` (luật: chỉ một thư mục `*_baseline`). */
+/** Tìm đúng một thư mục baseline trong thư mục migration của kho trung tâm (luật: chỉ một thư mục `*_baseline`). */
 function findBaselineFile(): string {
   const outDir = join(__dirname, '..', '..', '..', '..', '..', 'packages', 'db', 'migrations', 'centre');
   const baselines = readdirSync(outDir, { withFileTypes: true })

@@ -27,7 +27,7 @@ import { McpRateLimiter } from './mcp-rate-limit';
  * export và được Nest inject như mọi module khác: QuestionsService +
  * QuestionBanksService (facade của QuestionsModule), UsersService,
  * OutboxService, và McpIdempotencyRepository của chính McpModule
- * (inject Drizzle trực tiếp). Bootstrap chỉ còn `app.get(McpDepsService)`
+ * (inject bộ máy cũ trực tiếp). Bootstrap chỉ còn `app.get(McpDepsService)`
  * như tiền lệ BetterAuthService.
  *
  * Lát MCP-1 (issue #163) thêm đường RS OAuth: khi BetterAuthService báo

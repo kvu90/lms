@@ -101,7 +101,7 @@ export class TwoFactorCompletionService {
    * chiếu tới facade là an toàn — facade tự phân giải kho đích theo
    * ngữ cảnh ALS tại mỗi lần gọi, không phải ảnh chụp kho tại thời
    * điểm dựng service. Bảng `verification` của codegen CentreDB thay
-   * cho bảng bóng Drizzle đã xoá (cùng cột: identifier, value,
+   * cho bảng bóng bộ máy cũ đã xoá (cùng cột: identifier, value,
    * expires_at; id do DB sinh — các lần chèn ở đây không khai id).
    */
   private readonly db: CentreDb;

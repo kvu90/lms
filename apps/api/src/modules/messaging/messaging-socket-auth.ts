@@ -34,7 +34,7 @@ export interface MessagingSocketIdentity {
    * phiên vận hành platform được tra ở kho chung ngay tại địa chỉ
    * kho riêng). Gateway gắn slug này lên kết nối để mọi lượt đọc
    * dữ kiện theo kết nối (vào room lúc nối, join/sync/typing)
-   * chạy trong đúng kho của trung tâm qua `withSpaceDatabase` —
+   * chạy trong đúng kho của trung tâm qua `withSpaceKysely` —
    * danh tính đã phân giải ở kho riêng mà các lượt đọc đó rơi về
    * kho chung thì hội thoại/membership của trung tâm vô hình với
    * socket dù xác thực đã qua.
@@ -77,7 +77,7 @@ const SESSION_COOKIE_PATTERN = new RegExp(`(?:^|;\\s*)(?:__Secure-)?${BETTER_AUT
  * HTTP: địa chỉ thuộc trung tâm ở kho riêng thì mọi lượt đọc danh
  * tính của handshake đó — phiên, tài khoản và tenant mặc định của
  * đường cookie; lượt tra tài khoản của đường token — đều chạy
- * trong CHÍNH kho của trung tâm qua `withSpaceDatabase`. Sau khi
+ * trong CHÍNH kho của trung tâm qua `withSpaceKysely`. Sau khi
  * một trung tâm lật định tuyến, phiên/tài khoản của thành viên chỉ
  * còn tồn tại ở kho riêng: đọc ở kho chung sẽ không thấy gì và
  * realtime chết lặng trong khi REST vẫn chạy trên kho riêng. Lỗi
@@ -126,7 +126,7 @@ export class MessagingSocketAuth {
    * đường đều không dùng được — gateway ngắt kết nối ngay, không
    * lộ lý do ra client.
    *
-   * Bước chuẩn bị kho đích (`getDatabaseForSpace`) chạy tại đây,
+   * Bước chuẩn bị kho đích (`getKyselyForSpace`) chạy tại đây,
    * trước cả hai đường, đúng bước PREPARE của khung định tuyến:
    * lỗi phân giải/chuẩn bị ném ra ngoài (gateway ngắt kết nối kèm
    * log) thay vì được nuốt thành null — một handshake thuộc trung
@@ -141,7 +141,7 @@ export class MessagingSocketAuth {
    */
   async authenticateHandshake(handshake: MessagingHandshake): Promise<MessagingSocketIdentity | null> {
     const space = await resolveDedicatedSpace(this.spaceDb, handshake.headers['host']);
-    if (space) await this.spaceDb.getDatabaseForSpace(space.slug);
+    if (space) await this.spaceDb.getKyselyForSpace(space.slug);
     const routingNotConfigured = space ? false : await this.isRoutingNotConfiguredForHost(handshake.headers['host']);
     const viaCookie = await this.authenticateCookie(handshake.headers, space);
     if (viaCookie) return viaCookie;
@@ -199,7 +199,7 @@ export class MessagingSocketAuth {
    *
    * Khi địa chỉ thuộc trung tâm ở kho riêng (`space` khác null),
    * cả ba lượt đọc — phiên, tài khoản, tenant mặc định — chạy
-   * trong kho của trung tâm đó qua `withSpaceDatabase`: phiên
+   * trong kho của trung tâm đó qua `withSpaceKysely`: phiên
    * Better Auth của thành viên chỉ tồn tại ở kho riêng nên đọc ở
    * kho chung trả rỗng, và phiên chỉ tồn tại ở kho chung mang tới
    * địa chỉ này cũng không được phục vụ lặng lẽ từ kho chung.
@@ -220,7 +220,7 @@ export class MessagingSocketAuth {
     const readSession = () => auth.api.getSession({ headers: fromNodeHeaders(headers) });
     let resolved: Awaited<ReturnType<typeof readSession>> = null;
     try {
-      resolved = space ? await this.spaceDb.withSpaceDatabase(space.slug, readSession) : await readSession();
+      resolved = space ? await this.spaceDb.withSpaceKysely(space.slug, readSession) : await readSession();
     } catch {
       // Cookie hỏng chữ ký/định dạng: coi như không có phiên Better
       // Auth, để đường token quyết định — như BetterAuthSessionGuard.
@@ -230,7 +230,7 @@ export class MessagingSocketAuth {
     const readUser = () => this.users.getByIdOrUndefined(resolved.session.userId);
     let user: Awaited<ReturnType<typeof readUser>>;
     try {
-      user = space ? await this.spaceDb.withSpaceDatabase(space.slug, readUser) : await readUser();
+      user = space ? await this.spaceDb.withSpaceKysely(space.slug, readUser) : await readUser();
     } catch {
       // Tài khoản không đọc được trong kho của phiên: không đặt
       // danh tính từ cookie, để đường token quyết định — như
@@ -239,7 +239,7 @@ export class MessagingSocketAuth {
     }
     if (!user || user.suspended || user.deleted) return null;
     const tenantId = space
-      ? await this.spaceDb.withSpaceDatabase(space.slug, () =>
+      ? await this.spaceDb.withSpaceKysely(space.slug, () =>
           tenantAls.run({ platform: true, spaceSlug: space.slug }, () =>
             this.repo.getUserDefaultTenantId(user.id),
           ),
@@ -306,7 +306,7 @@ export class MessagingSocketAuth {
     if (space) {
       if (payload.centre_id !== undefined) {
         if (payload.centre_id !== space.spaceId) return null;
-        user = await this.spaceDb.withSpaceDatabase(space.slug, () => this.users.getByIdOrUndefined(sub));
+        user = await this.spaceDb.withSpaceKysely(space.slug, () => this.users.getByIdOrUndefined(sub));
         resolvedInSpace = true;
       } else if (tid !== undefined && tid === (await this.tenants.platformTenant()).id) {
         user = await this.users.getByIdOrUndefined(sub);

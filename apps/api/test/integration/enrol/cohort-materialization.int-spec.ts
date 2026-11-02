@@ -526,7 +526,7 @@ describe('Vật chất hoá cohort dùng chung — đặc tả hoá hành vi ở
         if (prop === 'transaction') {
           // Kysely: `db.transaction()` trả về builder, callback chạy
           // ở `.execute()` — quan sát đặt SAU execute (transaction
-          // đã commit) như bản Drizzle cũ đặt sau `transaction(cb)`.
+          // đã commit) như khuôn cũ đặt sau `transaction(cb)`.
           return () => ({
             execute: async (callback: (trx: unknown) => Promise<unknown>): Promise<unknown> => {
               const result = await target.transaction().execute(callback as never) as unknown;
@@ -551,13 +551,11 @@ describe('Vật chất hoá cohort dùng chung — đặc tả hoá hành vi ở
     const realOutbox = app.get(OutboxService);
     const surface = new CohortMaterializationSurface({
       db: wrappedDb,
-      // Cổng outbox của bề mặt phải đi qua bộ điều hợp Kysely như
-      // `EnrolService` vẫn dựng cho bề mặt của nó: phương thức
-      // `enqueue` của `OutboxService` là đường ghi Drizzle chuyển
-      // tiếp (chỉ nhận transaction Drizzle), trong khi bề mặt này
-      // chạy trên transaction Kysely — truyền thẳng service vào
-      // cổng thì lượt ghi đầu tiên gãy vì transaction Kysely
-      // không có `insert` của Drizzle.
+      // Cổng outbox của bề mặt đi qua `enqueueKysely` của
+      // `OutboxService` như `EnrolService` vẫn dựng cho bề mặt của
+      // nó: bề mặt này chạy trên transaction Kysely, nên cổng được
+      // điều hợp về đúng phương thức Kysely của service (cổng của
+      // bề mặt giữ tên `enqueue` theo hợp đồng của chính nó).
       outbox: {
         enqueue: (tx, input) => realOutbox.enqueueKysely(tx, input),
         enqueueStandalone: (input) => app.get(SpaceDatabaseService).routedKysely.transaction().execute((trx) => realOutbox.enqueueKysely(trx, input)),

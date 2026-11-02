@@ -25,7 +25,7 @@ import { ControlPlaneRegistryService } from './control-plane.service';
  * provider: handle lấy từ adapter `ControlPlaneConnection`, và hàm
  * dựng lỗi chưa-cấu-hình là `ServiceUnavailableException` mang mã
  * `control_plane.not_configured` — đúng hình dạng lỗi 503 mà đường
- * Drizzle trước đây ném từ trong repository.
+ * bộ máy cũ trước đây ném từ trong repository.
  */
 @Module({
   // forwardRef ở cạnh AccessModule: module này thuộc vòng module

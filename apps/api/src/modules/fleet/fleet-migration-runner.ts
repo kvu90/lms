@@ -13,18 +13,19 @@
  *    đợt có kho hỏng thì các đợt SAU không chạy — lỗi ở canary phải
  *    dừng đội kho lại cho người vận hành xem, không lan tiếp.
  * 3. Với mỗi kho: đối chiếu TOÀN TẬP tên migration đã áp trong
- *    database của kho (nhật ký `drizzle.__drizzle_migrations` là
+ *    database của kho (nhật ký `kysely_migration` là
  *    nguồn sự thật) với tập thư mục migration cục bộ. Tập còn
  *    thiếu RỖNG thì kho đã đạt đích: bỏ qua hẳn — không chụp sao
  *    lưu, không ghi lượt chạy; chỉ khi sổ lệch sự thật mới đồng bộ
  *    lại sổ (không bịa lượt chạy). Căn cứ là toàn tập chứ không
  *    phải migration mới nhất: một kho đã có migration mới nhất
  *    nhưng thiếu một migration cũ ở giữa vẫn còn thiếu và phải
- *    được áp đúng phần thiếu đó (bộ máy Drizzle áp theo hiệu tập
+ *    được áp đúng phần thiếu đó (bộ máy migration áp theo hiệu tập
  *    tên). Còn thiếu thì: chụp BẢN SAO LƯU CHỐT gắn mã lượt chạy
  *    (điểm khôi phục của riêng kho đó — chụp hỏng thì kho bị đánh
  *    dấu hỏng và KHÔNG áp migration), áp migration bằng bộ máy
- *    Drizzle, đọc lại toàn tập đã áp để đối chiếu, rồi ghi kết
+ *    migration của `@lms/db` (`applyStoreMigrations`), đọc lại
+ *    toàn tập đã áp để đối chiếu, rồi ghi kết
  *    quả (phiên bản đầu/đích, từng bước, lỗi) vào registry.
  *    Migration hỏng KHÔNG tự khôi phục từ bản chốt: khôi phục là
  *    một hành động vận hành riêng có ghi nhận (xem
@@ -49,9 +50,9 @@
  * hoạt rõ ràng để đối chiếu với cửa sổ bảo trì.
  */
 import { basename, join } from 'node:path';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Client, Pool } from 'pg';
+import { createCentreKysely } from '@lms/db';
+import { applyStoreMigrations } from '@lms/db/migrate';
 import type { SchemaMigrationStep } from '@lms/db/control-plane';
 import {
   dumpDatabaseToFile,
@@ -71,7 +72,7 @@ import { FleetRegistryWriter } from './fleet-registry-writer';
 /** Tuỳ chọn của một lượt chạy runner; mặc định đọc từ biến môi trường của tiến trình. */
 export type FleetMigrationOptions = {
   env?: NodeJS.ProcessEnv;
-  /** Thư mục chứa các thư mục migration nghiệp vụ; mặc định `FLEET_MIGRATIONS_DIR` hoặc `drizzle/` ở thư mục làm việc. */
+  /** Thư mục chứa các thư mục migration nghiệp vụ; mặc định `FLEET_MIGRATIONS_DIR` hoặc thư mục carrier trong package `@lms/db`. */
   migrationsDir?: string;
   /** Thư mục gốc chứa các bản sao lưu theo kho; mặc định `FLEET_BACKUP_DIR` (bắt buộc có). */
   backupDir?: string;
@@ -190,8 +191,15 @@ async function migrateSpace(
 
     const pool = new Pool({ connectionString: url });
     try {
-      const db = drizzle({ client: pool });
-      await migrate(db, { migrationsFolder: context.migrationsDir });
+      // Áp bằng trình tự dùng chung của bộ máy migration `@lms/db`
+      // (shim tiền-migration + `migrateToLatest()` + tự kiểm lỗi —
+      // xem `apply.ts` của package): cùng một trình tự với CLI
+      // migrate của compose và runner cấp phát. Riêng runner đội
+      // kho bật `allowUnorderedMigrations`: kho đã có migration mới
+      // nhất mà thiếu migration cũ thì áp đúng phần thiếu, không
+      // kẹt cả đợt vì một kho lệch nhịp.
+      const db = createCentreKysely(pool);
+      await applyStoreMigrations(db, 'centre', context.migrationsDir, { allowUnorderedMigrations: true });
       steps.push({ name: 'apply-migrations', status: 'success' });
     } catch (error) {
       const detail = errorDetail(error);

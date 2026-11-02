@@ -77,7 +77,7 @@ const LEGACY_AUTH_SEGMENTS = new Set([
  * phân giải đích và chuẩn bị kho — mount không tự mở pool hay đọc
  * sổ đăng ký trực tiếp.
  */
-export type BetterAuthSpaceRouting = Pick<SpaceDatabaseService, 'resolveTarget' | 'getDatabaseForSpace'>;
+export type BetterAuthSpaceRouting = Pick<SpaceDatabaseService, 'resolveTarget' | 'getKyselyForSpace'>;
 
 /**
  * Mount handler của Better Auth (xem chú thích ở đầu file về thứ tự
@@ -137,7 +137,7 @@ export function mountBetterAuth(
       return;
     }
     try {
-      await spaceDb.getDatabaseForSpace(space.slug);
+      await spaceDb.getKyselyForSpace(space.slug);
     } catch (err) {
       next(err);
       return;

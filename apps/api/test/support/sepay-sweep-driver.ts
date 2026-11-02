@@ -1,8 +1,5 @@
 import 'reflect-metadata';
-import { and, asc, gt, inArray } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { createCentreKysely, outboxEvents, type CentreDb } from '@lms/db';
+import { createCentreKysely, type CentreDb } from '@lms/db';
 import {
   OutboxWriterService,
   PaymentsRepository,
@@ -14,7 +11,6 @@ import { CohortSyncService } from '../../../worker/src/cohort-sync.service';
 import { SepayMatchingScheduler } from '../../../worker/src/sepay-matching.scheduler';
 import { SpaceDatabaseService } from '../../../worker/src/db/routing/space-database.service';
 import { TenantAwarePool } from '../../../worker/src/db/tenant-pool';
-import { relations } from '../../../worker/src/db/relations';
 import { WorkerEnrolOutboxService } from '../../../worker/src/worker-enrol-outbox.service';
 import { WorkerPaidClassEnrolActivationService } from '../../../worker/src/worker-paid-class-enrol-activation.service';
 import { WorkerPaidEnrolActivationService } from '../../../worker/src/worker-paid-enrol-activation.service';
@@ -36,11 +32,11 @@ import { WorkerPaymentSpaceScope } from '../../../worker/src/worker-payment-spac
  * (không qua Nest, không boot WorkerModule — e2e shard chỉ build
  * `@lms/api`, không có tiến trình worker chạy kèm): handle Kysely
  * trên `TenantAwarePool` của worker (gắn GUC theo ALS như module
- * thật) cho repository + writer của `@lms/payments` và cho toàn
+ * thật) cho repository + writer của `@lms/payments`, cho lượt đọc
+ * polling đồng bộ cohort của chính cầu dẫn này, và cho toàn
  * bộ adapter của worker qua khung định tuyến theo không gian
- * (tay cầm Drizzle trên cùng pool chỉ còn được gắn vào khung
- * định tuyến như factory của module thật làm, và phục vụ lượt
- * đọc polling đồng bộ cohort của chính cầu dẫn này), ba adapter
+ * (handle Kysely được gắn vào khung
+ * định tuyến như factory của module thật làm), ba adapter
  * cổng của worker, `SepayMatchingService`, rồi
  * `SepayMatchingScheduler`. Mỗi vòng thăm dò của spec gọi một nhịp
  * `sweepTick()` rồi mới đọc trạng thái — giữ nguyên hình thăm dò
@@ -75,27 +71,18 @@ import { WorkerPaymentSpaceScope } from '../../../worker/src/worker-payment-spac
  */
 let scheduler: SepayMatchingScheduler | null = null;
 let pool: TenantAwarePool | null = null;
-let sharedDb: NodePgDatabase<typeof relations> | null = null;
 let sharedKysely: CentreDb | null = null;
 let spaceDatabase: SpaceDatabaseService | null = null;
 let cohortSync: CohortSyncService | null = null;
-let cohortWatermark = 0;
-
-function getSharedDb(): NodePgDatabase<typeof relations> {
-  if (!sharedDb) {
-    pool ??= new TenantAwarePool({ connectionString: process.env.DATABASE_URL });
-    sharedDb = drizzle({ client: pool, relations });
-  }
-  return sharedDb;
-}
+/** Watermark theo `seq` của outbox (kiểu Int8 — đọc về là chuỗi). */
+let cohortWatermark = '0';
 
 /**
- * Handle Kysely kho trung tâm trên CÙNG pool với handle Drizzle ở
- * trên (không mở thêm pool — vòng đời của nó đi theo pool chung,
- * không `destroy()` riêng): repository và writer của
- * `@lms/payments` cùng toàn bộ adapter của worker đều chạy trên
- * handle Kysely (qua khung định tuyến gắn handle này làm đích kho
- * chung), nên mọi điểm dựng đều lấy handle từ đây.
+ * Handle Kysely kho trung tâm trên pool của cầu dẫn (vòng đời của
+ * nó đi theo pool chung, không `destroy()` riêng): repository và
+ * writer của `@lms/payments` cùng toàn bộ adapter của worker đều
+ * chạy trên handle Kysely (qua khung định tuyến gắn handle này làm
+ * đích kho chung), nên mọi điểm dựng đều lấy handle từ đây.
  */
 function getSharedKysely(): CentreDb {
   if (!sharedKysely) {
@@ -110,18 +97,16 @@ function getSharedKysely(): CentreDb {
  * quét matching và nhịp đồng bộ cohort): không cấu hình control
  * plane (`ConfigService` rỗng, không gọi `onModuleInit`) nên mọi
  * phân giải cho `not_configured` và kích hoạt chạy platform ở kho
- * chung — đúng hành vi của cầu dẫn trước hạng mục này. Handle kho
- * chung THÔ được gắn vào khung định tuyến đúng như factory của
- * module worker làm lúc khởi động, kèm handle Kysely dùng chung
- * trên CÙNG pool (`getSharedKysely()` — D5 #657: cổng outbox
+ * chung — đúng hành vi của cầu dẫn trước hạng mục này. Handle
+ * Kysely dùng chung được gắn vào khung định tuyến đúng như factory
+ * của module worker làm lúc khởi động, trên CÙNG pool
+ * (`getSharedKysely()` — D5 #657: cổng outbox
  * Kysely của bề mặt enrol và điểm phân giải không gian theo
  * payment cần facade `routedKysely` của khung).
  */
 function getSpaceDatabase(): SpaceDatabaseService {
   if (!spaceDatabase) {
-    const db = getSharedDb();
     spaceDatabase = new SpaceDatabaseService({ get: () => undefined } as unknown as ConfigService);
-    spaceDatabase.bindSharedDatabase(db);
     spaceDatabase.bindSharedKysely(getSharedKysely());
   }
   return spaceDatabase;
@@ -170,12 +155,14 @@ const COHORT_SYNC_TYPES = ['cohort_member_added', 'cohort_member_removed'] as co
  */
 export async function driveCohortSync(): Promise<void> {
   if (!cohortSync) cohortSync = new CohortSyncService(getSpaceDatabase());
-  const rows = await getSharedDb()
-    .select({ seq: outboxEvents.seq, type: outboxEvents.type, payload: outboxEvents.payload })
-    .from(outboxEvents)
-    .where(and(gt(outboxEvents.seq, cohortWatermark), inArray(outboxEvents.type, [...COHORT_SYNC_TYPES])))
-    .orderBy(asc(outboxEvents.seq))
-    .limit(200);
+  const rows = await getSharedKysely()
+    .selectFrom('outbox_events')
+    .select(['seq', 'type', 'payload'])
+    .where('seq', '>', cohortWatermark)
+    .where('type', 'in', [...COHORT_SYNC_TYPES])
+    .orderBy('seq', 'asc')
+    .limit(200)
+    .execute();
   for (const row of rows) {
     try {
       const payload = row.payload as Record<string, unknown>;
@@ -197,8 +184,7 @@ export async function driveCohortSync(): Promise<void> {
 export async function closeSepaySweepDriver(): Promise<void> {
   scheduler = null;
   cohortSync = null;
-  cohortWatermark = 0;
-  sharedDb = null;
+  cohortWatermark = '0';
   sharedKysely = null;
   spaceDatabase = null;
   if (pool) {

@@ -19,7 +19,7 @@ export interface TenantAlsStore {
    * Slug của không gian (trung tâm) trong sổ đăng ký control plane
    * mà ngữ cảnh này thuộc về — khoá định tuyến của khung kết nối
    * theo trung tâm (issue #581): handle định tuyến ở tầng dữ kiện
-   * (`SpaceDatabaseService.routedDatabase`) đọc trường này để chọn
+   * (`SpaceDatabaseService.routedKysely`) đọc trường này để chọn
    * kho của trung tâm khi trung tâm đã ở kho riêng. Đường gắn ngữ
    * cảnh của request (SpaceContextGuard + TenantContextInterceptor,
    * issue #582) và của job (bộ chạy job theo trung tâm phía worker,

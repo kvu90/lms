@@ -8,8 +8,8 @@
  * Mô hình role của một kho (áp cho kho nghiệp vụ hiện tại và là
  * khuôn cho mọi kho riêng của trung tâm về sau):
  * - Role MIGRATION: role duy nhất được sở hữu database và mọi đối
- *   tượng trong đó; chỉ các bước áp migration (drizzle-kit, runner
- *   migration của đội kho) dùng role này. Mọi thay đổi schema vì vậy
+ *   tượng trong đó; chỉ các bước áp migration (bộ máy migration,
+ *   runner migration của đội kho) dùng role này. Mọi thay đổi schema vì vậy
  *   đi qua đúng một danh tính có ghi nhận, không lẫn với đường đọc
  *   ghi thường ngày.
  * - Role RUNTIME: role của tầng ứng dụng (api + worker) — KHÔNG

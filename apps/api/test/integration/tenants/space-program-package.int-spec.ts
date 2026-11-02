@@ -2,10 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { INestApplication } from '@nestjs/common';
-import { Client } from 'pg';
+import { Client, Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { spaceRegistry } from '@lms/db/control-plane';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { createControlPlaneKysely } from '@lms/db/control-plane';
 import { createTestApp } from '../../support/identity-access-helpers';
 import { SpaceProgramPackageService } from '../../../src/modules/tenants/space-program-package.service';
 import { CENTRE_PROGRAM_PACKAGE_KEY } from '../../../src/modules/tenants/centre-provision';
@@ -151,33 +150,36 @@ describe('Bước cài gói YCCĐ vào kho đích (tích hợp)', () => {
     process.env.CONTROL_PLANE_DATABASE_URL = clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD);
     process.env.SPACE_TEST_A_587B_URL = clusterUrl('postgres', CENTRE_A_ROLE, CENTRE_A_PASSWORD);
 
-    await withClient(clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD), async (client) => {
-      const cpDb = drizzle({ client });
-      await cpDb.insert(spaceRegistry).values([
+    const cpPool = new Pool({ connectionString: clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD) });
+    const cpDb = createControlPlaneKysely(cpPool);
+    try {
+      await cpDb.insertInto('space_registry').values([
         {
           slug: CENTRE_A_SLUG,
           name: 'Trung tâm A 587b',
           kind: 'center',
           status: 'active',
-          databaseName: CENTRE_A_DATABASE,
-          storageMode: 'dedicated',
-          connectionRoleRef: CENTRE_A_ROLE,
-          secretRef: 'env:SPACE_TEST_A_587B_URL',
-          schemaVersion: 'v1',
+          database_name: CENTRE_A_DATABASE,
+          storage_mode: 'dedicated',
+          connection_role_ref: CENTRE_A_ROLE,
+          secret_ref: 'env:SPACE_TEST_A_587B_URL',
+          schema_version: 'v1',
         },
         {
           slug: SHARED_SLUG,
           name: 'Trung tâm chung 587b',
           kind: 'center',
           status: 'active',
-          databaseName: 'lms_test_api',
-          storageMode: 'shared',
-          connectionRoleRef: 'postgres',
-          secretRef: 'env:SPACE_TEST_A_587B_URL',
-          schemaVersion: 'v1',
+          database_name: 'lms_test_api',
+          storage_mode: 'shared',
+          connection_role_ref: 'postgres',
+          secret_ref: 'env:SPACE_TEST_A_587B_URL',
+          schema_version: 'v1',
         },
-      ]);
-    });
+      ]).execute();
+    } finally {
+      await cpDb.destroy();
+    }
 
     // Dòng tenant có ở cả hai kho (trạng thái sau di trú phần
     // tenant); sổ nguồn chỉ có ở kho chung.

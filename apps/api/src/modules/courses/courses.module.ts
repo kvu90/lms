@@ -20,7 +20,7 @@ import { CoursesService } from './courses.service';
       // (issue #645): provider dựng bằng factory với handle kho
       // trung tâm ĐÃ ĐỊNH TUYẾN THEO KHÔNG GIAN (`routedKysely`
       // của SpaceDatabaseService — cùng pool dùng chung có gắn
-      // ngữ cảnh tenant mà tầng Drizzle đang chạy trên đó), không
+      // ngữ cảnh tenant mà tầng bộ máy cũ đang chạy trên đó), không
       // phải handle tĩnh theo một database cố định.
       provide: CoursesRepository,
       useFactory: (spaceDb: SpaceDatabaseService) => new CoursesRepository(spaceDb.routedKysely),

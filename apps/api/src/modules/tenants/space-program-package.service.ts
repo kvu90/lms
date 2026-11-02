@@ -156,10 +156,10 @@ export class SpaceProgramPackageService {
     // Toàn bộ việc trong kho đích chạy trong ngữ cảnh platform +
     // slug (khuôn kết nối seed của pipeline cấp phát): platform
     // để qua RLS FORCE của các bảng sổ, slug để handle định tuyến
-    // chọn đúng kho đích. `withSpaceDatabase` giữ nguyên trường
+    // chọn đúng kho đích. `withSpaceKysely` giữ nguyên trường
     // platform của ngữ cảnh cha khi không truyền `tenantId`.
     const result = await tenantAls.run({ platform: true }, () =>
-      this.spaceDb.withSpaceDatabase(slug, async () => {
+      this.spaceDb.withSpaceKysely(slug, async () => {
         const system = await this.contexts.ensureSystemContext();
         const before = await this.spaceDb.routedKysely
           .selectFrom('program_package_installs')

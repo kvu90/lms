@@ -30,7 +30,7 @@ function buildGuard(input: {
 }): {
   guard: BetterAuthSessionGuard;
   getSession: ReturnType<typeof vi.fn>;
-  withSpaceDatabase: ReturnType<typeof vi.fn>;
+  withSpaceKysely: ReturnType<typeof vi.fn>;
 } {
   const getSession = vi.fn(input.getSession ?? (async () => null));
   const betterAuth = {
@@ -41,7 +41,7 @@ function buildGuard(input: {
     getByIdOrUndefined: vi.fn(async () => input.user),
   } as unknown as UsersService;
   const reflector = { getAllAndOverride: () => false } as unknown as Reflector;
-  const withSpaceDatabase = vi.fn(async (_slug: string, fn: () => Promise<unknown>) => fn());
+  const withSpaceKysely = vi.fn(async (_slug: string, fn: () => Promise<unknown>) => fn());
   const spaceDb = {
     resolveTarget: vi.fn(async (slug: string) => {
       if (input.dedicatedSlug && slug === input.dedicatedSlug) {
@@ -49,9 +49,9 @@ function buildGuard(input: {
       }
       throw new SpaceRoutingError('space_routing.space_not_found', 'not registered');
     }),
-    withSpaceDatabase,
+    withSpaceKysely,
   } as unknown as SpaceDatabaseService;
-  return { guard: new BetterAuthSessionGuard(reflector, betterAuth, users, spaceDb), getSession, withSpaceDatabase };
+  return { guard: new BetterAuthSessionGuard(reflector, betterAuth, users, spaceDb), getSession, withSpaceKysely };
 }
 
 const COOKIE = 'better-auth.session_token=tok.abc; other=1';
@@ -122,7 +122,7 @@ describe('Khối BetterAuthSessionGuard', () => {
   });
 
   it('địa chỉ trung tâm ở kho riêng thì đọc phiên và tài khoản trong kho của trung tâm đó', async () => {
-    const { guard, withSpaceDatabase } = buildGuard({
+    const { guard, withSpaceKysely } = buildGuard({
       enabled: true,
       getSession: async () => ({ session: { id: 'session-id', userId: 'user-id' }, user: { id: 'user-id' } }),
       user: { id: 'user-id', username: 'teacher1', deleted: false, suspended: false },
@@ -132,7 +132,7 @@ describe('Khối BetterAuthSessionGuard', () => {
     await expect(guard.canActivate(contextOf(req))).resolves.toBe(true);
     expect(req.user).toEqual({ id: 'user-id', username: 'teacher1', sessionId: 'session-id' });
     expect(req[AUTHENTICATED_VIA_BETTER_AUTH]).toBe(true);
-    expect(withSpaceDatabase).toHaveBeenCalledWith('trung-tam-a', expect.any(Function));
+    expect(withSpaceKysely).toHaveBeenCalledWith('trung-tam-a', expect.any(Function));
   });
 
   it('phiên không có trong kho riêng của địa chỉ thì không đặt danh tính, để đường JWT quyết định', async () => {

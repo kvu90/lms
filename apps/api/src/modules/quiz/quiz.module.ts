@@ -48,7 +48,7 @@ import { QuizService } from './quiz.service';
   providers: [
     // Repository nay thuộc package @lms/db (issue #643): dựng trên
     // handle Kysely định tuyến theo trung tâm — cùng pool
-    // TenantAwarePool với đường Drizzle trước đây nên ngữ cảnh
+    // TenantAwarePool với đường cũ trước đây nên ngữ cảnh
     // GUC/RLS giữ nguyên. Token lớp giữ nguyên để các điểm tiêm và
     // `app.get(QuizRepository)` không đổi.
     { provide: QuizRepository, useFactory: (spaceDb: SpaceDatabaseService) => new QuizRepository(spaceDb.routedKysely), inject: [SpaceDatabaseService] },

@@ -24,7 +24,7 @@ import { MessagingGateway } from './messaging.gateway';
  *
  * Và: phạm vi kho theo kết nối (tiền điều kiện Phần B, issue #587,
  * hạng mục 1) — danh tính mang slug của trung tâm ở kho riêng thì
- * toàn bộ lượt đọc lúc nối phải chạy qua `withSpaceDatabase` của
+ * toàn bộ lượt đọc lúc nối phải chạy qua `withSpaceKysely` của
  * slug đó; đầu dò trong fake ghi lại trạng thái phạm vi tại thời
  * điểm đọc nên bỏ lớp bọc là ca này đỏ.
  */
@@ -47,7 +47,7 @@ describe('MessagingGateway.handleConnection — danh sách chặn tải một l�
       'conv-open-b': 'user-b',
     };
     // Đầu dò phạm vi kho của kết nối: bật trong lúc callback của
-    // `withSpaceDatabase` chạy, các fake repository ghi lại trạng
+    // `withSpaceKysely` chạy, các fake repository ghi lại trạng
     // thái tại thời điểm được gọi.
     const spaceProbe = { insideSpace: false, slugs: [] as string[], listInsideSpace: [] as boolean[] };
     const repo = {
@@ -74,7 +74,7 @@ describe('MessagingGateway.handleConnection — danh sách chặn tải một l�
       listOnlineCoMemberIds: vi.fn(async () => ['user-a']),
     };
     const spaceDb = {
-      withSpaceDatabase: vi.fn(async (slug: string, fn: () => Promise<unknown>) => {
+      withSpaceKysely: vi.fn(async (slug: string, fn: () => Promise<unknown>) => {
         spaceProbe.slugs.push(slug);
         spaceProbe.insideSpace = true;
         try {
@@ -141,7 +141,7 @@ describe('MessagingGateway.handleConnection — danh sách chặn tải một l�
     expect(client.disconnect).not.toHaveBeenCalled();
     // Lớp bọc kho được mở đúng slug của danh tính và lượt đọc danh
     // sách hội thoại lúc nối chạy BÊN TRONG lớp bọc đó.
-    expect(spaceDb.withSpaceDatabase).toHaveBeenCalled();
+    expect(spaceDb.withSpaceKysely).toHaveBeenCalled();
     expect(spaceProbe.slugs.every((slug) => slug === 'trung-tam-a')).toBe(true);
     expect(spaceProbe.listInsideSpace).toEqual([true]);
     // Tập room không đổi so với đường kho chung.
@@ -155,7 +155,7 @@ describe('MessagingGateway.handleConnection — danh sách chặn tải một l�
     await gateway.handleConnection(client as never);
 
     expect(client.disconnect).not.toHaveBeenCalled();
-    expect(spaceDb.withSpaceDatabase).not.toHaveBeenCalled();
+    expect(spaceDb.withSpaceKysely).not.toHaveBeenCalled();
     expect(spaceProbe.listInsideSpace).toEqual([false]);
   });
 });

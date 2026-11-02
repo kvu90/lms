@@ -67,7 +67,7 @@ export class EventLogWriter {
    * facade định tuyến theo không gian).
    * @param resolveDb - Hàm phân giải handle theo ngữ cảnh, tuỳ
    * chọn — cùng lý do với đường standalone của `OutboxService`:
-   * phiên mở bằng đường chuẩn bị phía Drizzle chưa chuẩn bị phía
+   * phiên mở bằng đường chuẩn bị phía bộ máy cũ chưa chuẩn bị phía
    * Kysely, nên tầng wiring cấp hàm này để chuẩn bị phía Kysely
    * cho slug đang hiệu lực trước khi ghi; điểm dựng tay trên
    * handle của đúng kho đích thì không cần.

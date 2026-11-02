@@ -13,20 +13,20 @@ import { GradeItemsController, GradeRecordsController } from './grade-items.cont
 import { CourseGradeExportsController, CourseGradeItemsController, CourseGradebookController } from './grades.controller';
 import { LegacyGradesCourseController, LegacyGradesPhantomController } from './legacy-grades.controller';
 import { GradesService } from './grades.service';
-import { GradesTransitionalRepository } from './grades-transitional.repository';
 
 /**
  * GradesModule facade: GradesService (điểm theo từng bài). Depends on
  * Courses, Enrol, Access, Completion (chỉ qua facade). Đăng ký các
  * evaluator của nó vào Completion/Courses lúc khởi động.
  *
- * GradesRepository nay là repository Kysely của `@lms/db` (issue
+ * GradesRepository là repository Kysely của `@lms/db` (issue
  * #644): provider dựng bằng factory với handle kho trung tâm đã
  * định tuyến theo không gian (`routedKysely` của
- * SpaceDatabaseService). Riêng ba luồng ghi điểm còn giữ phía
- * Drizzle vì chung giao dịch với outbox (điểm chuyển tiếp cùng họ
- * C-7/C-8, chủ đóng là đợt D1 #653) nên module đăng ký thêm
- * `GradesTransitionalRepository` phía Drizzle cho các luồng đó.
+ * SpaceDatabaseService). Ba luồng ghi điểm (`setGrade`,
+ * `recordActivityGrade`, `updateGrade`) chạy trọn trong
+ * transaction Kysely của repository này kèm `enqueueKysely` của
+ * OutboxService — repository chuyển tiếp phía bộ máy cũ của chúng
+ * đã xoá ở issue #663 khi bộ máy cũ rời khỏi cây.
  */
 @Module({
   imports: [
@@ -39,7 +39,7 @@ import { GradesTransitionalRepository } from './grades-transitional.repository';
       useFactory: (spaceDb: SpaceDatabaseService) => new GradesRepository(spaceDb.routedKysely),
       inject: [SpaceDatabaseService],
     },
-    GradesTransitionalRepository, GradesService,
+    GradesService,
   ],
   exports: [GradesService],
 })

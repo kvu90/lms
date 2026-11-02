@@ -1,7 +1,7 @@
 /**
  * `KyselyModule` — wiring NestJS tự dựng cho các handle Kysely, thay
- * vai trò mà `DrizzleModule.forRootAsync` của `@nestjs/drizzle` đang
- * giữ cho phía Drizzle.
+ * vai trò mà module kết nối cơ sở dữ liệu của NestJS từng giữ cho
+ * phía bộ máy cũ.
  *
  * Vì sao tự dựng: Kysely không phát hành module NestJS chính thức;
  * pattern được nhà phát hành tài liệu hoá là tự tạo provider giữ
@@ -22,12 +22,11 @@
  *     `destroy()` đóng luôn pool đã truyền vào, nên pool truyền cho
  *     `forRoot` thuộc quyền sở hữu của module từ thời điểm đăng ký.
  *
- * Trạng thái ở hạng mục nền: module và decorator đã dựng xong và có
- * spec tích hợp kiểm chứng, nhưng `AppModule` chưa đăng ký module
- * này — kho đầu tiên có consumer (kho control plane ở pilot) sẽ
- * đăng ký khi chuyển đổi, và handle định tuyến của kho trung tâm
- * thuộc hạng mục nền tiếp theo. Chưa đăng ký nghĩa là hành vi khởi
- * động hiện tại không đổi: không pool phụ nào được mở thêm.
+ * Trạng thái hiện hành: module và decorator có spec tích hợp kiểm
+ * chứng (`kysely-foundation.int-spec.ts`) và sẵn sàng cho phía tiêu
+ * thụ cần inject handle theo kho; đường khởi động của ứng dụng
+ * chính nối handle kho trung tâm qua khung định tuyến
+ * (`SpaceDatabaseService`) ở `AppModule`, không qua module này.
  */
 import {
   Inject,

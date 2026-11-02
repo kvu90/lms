@@ -53,7 +53,7 @@ describe('Khối BetterAuthService', () => {
     // NODE_ENV=test nếu không khai — xem báo cáo Giai đoạn 0.
     expect(auth.options.advanced?.disableOriginCheck).toBe(false);
     // BA-1: generateId ghim "uuid" thay cho false trước đây. Id
-    // thường vẫn do PostgreSQL sinh UUIDv7 (adapter drizzle khai
+    // thường vẫn do PostgreSQL sinh UUIDv7 (adapter khai
     // supportsUUIDs cho pg nên shouldGenerateId = false); "uuid" chỉ
     // đổi dạng id tất định của verification lock sang UUID để hết
     // lỗi 22P02 (xem ghi chú tại advanced.database trong instance).

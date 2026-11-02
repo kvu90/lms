@@ -119,10 +119,10 @@ describe('Seed bootstrap trên DB trống bằng role thường dưới RLS fail
     }
     const scratchAdmin = await pg(urlFor(SCRATCH_DB));
     try {
-      const drizzleDir = join(process.cwd(), '..', '..', 'packages', 'db', 'migrations', 'centre');
-      const baselines = readdirSync(drizzleDir, { withFileTypes: true })
+      const migrationsDir = join(process.cwd(), '..', '..', 'packages', 'db', 'migrations', 'centre');
+      const baselines = readdirSync(migrationsDir, { withFileTypes: true })
         .filter((d) => d.isDirectory() && d.name.endsWith('_baseline'))
-        .map((d) => join(drizzleDir, d.name, 'migration.sql'));
+        .map((d) => join(migrationsDir, d.name, 'migration.sql'));
       expect(baselines).toHaveLength(1);
       await scratchAdmin.query(readFileSync(baselines[0]!, 'utf8'));
       // Role ứng dụng: thường tuyệt đối — không superuser, không

@@ -68,11 +68,10 @@ function makeGuard(options?: {
       if (options?.resolveError) throw options.resolveError;
       return options?.target ?? DEDICATED_TARGET;
     }),
-    getDatabaseForSpace: vi.fn(async () => ({})),
     getKyselyForSpace: vi.fn(async () => ({})),
     // Nhánh cookie đọc tenant hiệu lực qua kho riêng (Phần A,
     // issue #587): mock chạy thẳng callback như kho đích thật.
-    withSpaceDatabase: vi.fn(async (_slug: string, fn: () => Promise<unknown>) => fn()),
+    withSpaceKysely: vi.fn(async (_slug: string, fn: () => Promise<unknown>) => fn()),
   };
   const repo = {
     getPlatformTenant: vi.fn(async () =>
@@ -117,7 +116,7 @@ describe('Guard gắn ngữ cảnh trung tâm theo địa chỉ', () => {
     } as unknown as ExecutionContext;
     expect(await guard.canActivate(context)).toBe(true);
     expect(spaceDb.resolveTarget).not.toHaveBeenCalled();
-    expect(spaceDb.getDatabaseForSpace).not.toHaveBeenCalled();
+    expect(spaceDb.getKyselyForSpace).not.toHaveBeenCalled();
   });
 
   it('địa chỉ không mang tên miền con của trung tâm thì cho qua và không phân giải gì', async () => {
@@ -134,7 +133,7 @@ describe('Guard gắn ngữ cảnh trung tâm theo địa chỉ', () => {
     });
     const request: FakeRequest = { headers: { host: 'slug-la.he-thong.example' } };
     await expect(guard.canActivate(httpContext(request))).resolves.toBe(true);
-    expect(spaceDb.getDatabaseForSpace).not.toHaveBeenCalled();
+    expect(spaceDb.getKyselyForSpace).not.toHaveBeenCalled();
   });
 
   it('tầng định tuyến chưa cấu hình control plane thì cho qua như địa chỉ thường', async () => {
@@ -143,7 +142,7 @@ describe('Guard gắn ngữ cảnh trung tâm theo địa chỉ', () => {
     });
     const request: FakeRequest = { headers: { host: HOST_A } };
     await expect(guard.canActivate(httpContext(request))).resolves.toBe(true);
-    expect(spaceDb.getDatabaseForSpace).not.toHaveBeenCalled();
+    expect(spaceDb.getKyselyForSpace).not.toHaveBeenCalled();
   });
 
   it('tầng định tuyến chưa cấu hình control plane nhưng phiên mang centre_id thì fail-closed thay vì cho qua', async () => {
@@ -155,7 +154,7 @@ describe('Guard gắn ngữ cảnh trung tâm theo địa chỉ', () => {
       user: { id: 'u1', username: 'gv1', centreId: 'id-dang-ky-a' },
     };
     await expect(guard.canActivate(httpContext(request))).rejects.toBe(failure);
-    expect(spaceDb.getDatabaseForSpace).not.toHaveBeenCalled();
+    expect(spaceDb.getKyselyForSpace).not.toHaveBeenCalled();
   });
 
   it('lỗi phân giải do cấu hình kho riêng lệch sổ thì ném ra nguyên trạng thay vì rơi về đường thường', async () => {
@@ -175,7 +174,7 @@ describe('Guard gắn ngữ cảnh trung tâm theo địa chỉ', () => {
     const err = await guard.canActivate(httpContext(request)).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ForbiddenException);
     expect((err as ForbiddenException).getResponse()).toMatchObject({ code: 'space.not_active' });
-    expect(spaceDb.getDatabaseForSpace).not.toHaveBeenCalled();
+    expect(spaceDb.getKyselyForSpace).not.toHaveBeenCalled();
   });
 
   it('quản trị viên site chính đứng ở tenant platform thì đi qua cả khi trung tâm bị đình chỉ, không bị ghim vào kho của trung tâm', async () => {
@@ -190,7 +189,7 @@ describe('Guard gắn ngữ cảnh trung tâm theo địa chỉ', () => {
       user: { id: 'admin', username: 'admin' },
     };
     await expect(guard.canActivate(httpContext(request))).resolves.toBe(true);
-    expect(spaceDb.getDatabaseForSpace).not.toHaveBeenCalled();
+    expect(spaceDb.getKyselyForSpace).not.toHaveBeenCalled();
     expect(request.spaceSlug).toBeUndefined();
   });
 
@@ -204,7 +203,7 @@ describe('Guard gắn ngữ cảnh trung tâm theo địa chỉ', () => {
     const err = await guard.canActivate(httpContext(request)).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(UnauthorizedException);
     expect((err as UnauthorizedException).getResponse()).toMatchObject({ code: 'auth.centre_mismatch' });
-    expect(spaceDb.getDatabaseForSpace).not.toHaveBeenCalled();
+    expect(spaceDb.getKyselyForSpace).not.toHaveBeenCalled();
   });
 
   it('token mang centre_id khớp trung tâm tại địa chỉ thì bước chuẩn bị chạy và slug được ghim lên request', async () => {
@@ -215,7 +214,7 @@ describe('Guard gắn ngữ cảnh trung tâm theo địa chỉ', () => {
       user: { id: 'u1', username: 'gv1', centreId: 'id-dang-ky-a' },
     };
     await expect(guard.canActivate(httpContext(request))).resolves.toBe(true);
-    expect(spaceDb.getDatabaseForSpace).toHaveBeenCalledWith('trung-tam-a');
+    expect(spaceDb.getKyselyForSpace).toHaveBeenCalledWith('trung-tam-a');
     expect(request.spaceSlug).toBe('trung-tam-a');
   });
 
@@ -231,12 +230,12 @@ describe('Guard gắn ngữ cảnh trung tâm theo địa chỉ', () => {
     // Lượt đọc tenant phải mang tenantId làm ngữ cảnh kho đích:
     // thiếu nó, RLS của bảng `tenants` giấu dòng và nhánh này
     // từ chối oan mọi phiên cookie hợp lệ (lỗi A2).
-    expect(spaceDb.withSpaceDatabase).toHaveBeenCalledWith(
+    expect(spaceDb.withSpaceKysely).toHaveBeenCalledWith(
       'trung-tam-a',
       expect.any(Function),
       { tenantId: 'tenant-a' },
     );
-    expect(spaceDb.getDatabaseForSpace).toHaveBeenCalledWith('trung-tam-a');
+    expect(spaceDb.getKyselyForSpace).toHaveBeenCalledWith('trung-tam-a');
     expect(request.spaceSlug).toBe('trung-tam-a');
   });
 
@@ -251,7 +250,7 @@ describe('Guard gắn ngữ cảnh trung tâm theo địa chỉ', () => {
     const err = await guard.canActivate(httpContext(request)).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(UnauthorizedException);
     expect((err as UnauthorizedException).getResponse()).toMatchObject({ code: 'auth.centre_mismatch' });
-    expect(spaceDb.getDatabaseForSpace).not.toHaveBeenCalled();
+    expect(spaceDb.getKyselyForSpace).not.toHaveBeenCalled();
   });
 
   it('phiên JWT cũ không mang centre_id tại địa chỉ kho riêng thì bị từ chối 401 fail-closed, không cho qua theo slug khớp và không chuẩn bị kho', async () => {
@@ -264,14 +263,14 @@ describe('Guard gắn ngữ cảnh trung tâm theo địa chỉ', () => {
     const err = await guard.canActivate(httpContext(request)).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(UnauthorizedException);
     expect((err as UnauthorizedException).getResponse()).toMatchObject({ code: 'auth.centre_mismatch' });
-    expect(spaceDb.getDatabaseForSpace).not.toHaveBeenCalled();
+    expect(spaceDb.getKyselyForSpace).not.toHaveBeenCalled();
   });
 
   it('request ẩn danh tới địa chỉ kho riêng đang hoạt động vẫn được chuẩn bị kho để đường đăng nhập đọc đúng kho của trung tâm', async () => {
     const { guard, spaceDb } = makeGuard();
     const request: FakeRequest = { headers: { host: HOST_A }, tenantId: 'tenant-zero' };
     await expect(guard.canActivate(httpContext(request))).resolves.toBe(true);
-    expect(spaceDb.getDatabaseForSpace).toHaveBeenCalledWith('trung-tam-a');
+    expect(spaceDb.getKyselyForSpace).toHaveBeenCalledWith('trung-tam-a');
     expect(request.spaceSlug).toBe('trung-tam-a');
   });
 
@@ -283,7 +282,7 @@ describe('Guard gắn ngữ cảnh trung tâm theo địa chỉ', () => {
       user: { id: 'u3', username: 'gv3' },
     };
     await expect(guard.canActivate(httpContext(request))).resolves.toBe(true);
-    expect(spaceDb.getDatabaseForSpace).toHaveBeenCalledWith('truong-mac-dinh');
+    expect(spaceDb.getKyselyForSpace).toHaveBeenCalledWith('truong-mac-dinh');
     expect(request.spaceSlug).toBe('truong-mac-dinh');
   });
 });

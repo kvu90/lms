@@ -32,14 +32,14 @@ import { QuestionsService } from './questions.service';
  * #642): provider dựng bằng factory với handle kho trung tâm ĐÃ
  * ĐỊNH TUYẾN THEO KHÔNG GIAN (`routedKysely` của
  * SpaceDatabaseService — cùng pool dùng chung có gắn ngữ cảnh
- * tenant mà tầng Drizzle đang chạy trên đó), không phải handle
+ * tenant mà tầng bộ máy cũ đang chạy trên đó), không phải handle
  * tĩnh theo một database cố định.
  *
  * QuestionBanksRepository cũng là repository Kysely của `@lms/db`
  * (issue #644), dựng bằng cùng khuôn factory. Giao dịch
  * `buildBank` đã lật sang Kysely cùng đợt access (#651) khi điểm
  * chuyển tiếp C-7 được hấp thụ — không còn repository chuyển
- * tiếp phía Drizzle cho luồng này.
+ * tiếp phía bộ máy cũ cho luồng này.
  */
 @Module({
   imports: [AccessModule, EventsModule, GroupsModule, TenantsModule, FilesModule, SpaceRoutingModule, forwardRef(() => QuizModule)],

@@ -2,11 +2,8 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module, type ExecutionContext, type MiddlewareConsumer, type NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { DrizzleModule } from '@nestjs/drizzle';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { createCentreKysely } from '@lms/db';
 import { databaseConnectionFromEnv, redisConnectionFromUrl, validateEnv } from './config/env';
-import { relations } from './db/relations';
 import { SpaceDatabaseService } from './db/routing/space-database.service';
 import { SpaceRoutingModule } from './db/routing/space-routing.module';
 import { TenantAwarePool } from './db/tenant-pool';
@@ -76,51 +73,17 @@ import { SecurityHeadersMiddleware } from './common/security-headers.middleware'
  */
 const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|change-password|platform\/login)$/;
 
+/**
+ * Token của provider gắn handle kho chung (xem khai báo trong
+ * `providers` của AppModule): giá trị của provider không được
+ * inject ở đâu — provider tồn tại vì hành động gắn lúc khởi tạo.
+ */
+const SHARED_CENTRE_KYSELY = 'SHARED_CENTRE_KYSELY';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     I18nFoundationModule,
-    DrizzleModule.forRootAsync({
-      imports: [ConfigModule, SpaceRoutingModule],
-      inject: [ConfigService, SpaceDatabaseService],
-      useFactory: (config: ConfigService, spaceDatabase: SpaceDatabaseService) => {
-        const connection = databaseConnectionFromEnv(
-          config.getOrThrow<string>('DATABASE_URL'),
-          config.get<boolean>('DATABASE_SSL') ?? false,
-        );
-        const poolConfig = typeof connection === 'string' ? { connectionString: connection } : connection;
-        // Ngân sách kết nối (issue #586): trần `DATABASE_POOL_MAX`
-        // khi được cấu hình; chưa cấu hình thì giữ nguyên cấu hình
-        // pool như trước.
-        const poolMax = config.get<number>('DATABASE_POOL_MAX');
-        const pool = new TenantAwarePool(poolMax ? { ...poolConfig, max: poolMax } : poolConfig);
-        const sharedDb = drizzle({ client: pool, relations });
-        // Khung định tuyến theo trung tâm (issue #581): handle kho
-        // chung vừa dựng được gắn vào khung làm đích mặc định, và
-        // handle mà mọi điểm inject nhận là handle ĐỊNH TUYẾN của
-        // khung — uỷ thác về kho chung cho mọi ngữ cảnh chưa mang
-        // trung tâm ở kho riêng (toàn bộ đường hiện hành), và về
-        // kho của trung tâm khi ngữ cảnh đã được chuẩn bị theo
-        // trung tâm đó. Các điểm inject vì vậy không đổi cách gọi.
-        spaceDatabase.bindSharedDatabase(sharedDb);
-        // Đường Kysely (issue #639): gắn handle Kysely kho chung
-        // dựng trên CÙNG pool kho chung (không mở thêm pool, không
-        // đổi ngân sách kết nối) để `routedKysely` có đích kho
-        // chung mà uỷ thác. Instance này không được `destroy()`
-        // riêng — vòng đời của nó đi theo vòng đời pool chung.
-        spaceDatabase.bindSharedKysely(createCentreKysely(pool));
-        return {
-          // TENANT-1 (#196): pool tự dựng có gắn GUC tenant theo ngữ
-          // cảnh ALS ở mọi checkout. Kiểu options của @nestjs/drizzle
-          // chỉ mô hình hoá biến thể `connection` (driver tự tạo pool
-          // thường — sai ý đồ), nên dùng biến thể `db`: tự gọi
-          // drizzle() với chính pool này, hành vi tương đương đường
-          // `client` mà runtime của module vốn chuyển thẳng vào
-          // drizzle(config).
-          db: spaceDatabase.routedDatabase,
-        };
-      },
-    }),
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -217,6 +180,38 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
     SeedModule,
   ],
   providers: [
+    /**
+     * Gắn handle Kysely kho chung vào khung định tuyến theo trung
+     * tâm (issue #581): dựng pool kho chung rồi gắn handle Kysely
+     * dựng trên chính pool đó (không mở thêm pool, không đổi ngân
+     * sách kết nối). Handle mà mọi điểm tiêu thụ dùng là handle
+     * ĐỊNH TUYẾN của khung (`routedKysely`) — uỷ thác về kho chung
+     * cho mọi ngữ cảnh chưa mang trung tâm ở kho riêng (toàn bộ
+     * đường mặc định), và về kho của trung tâm khi ngữ cảnh đã
+     * được chuẩn bị theo trung tâm đó. Instance này không được
+     * `destroy()` riêng — vòng đời của nó đi theo vòng đời pool
+     * chung.
+     * - Pool là `TenantAwarePool` (TENANT-1, #196): pool tự gắn
+     *   GUC tenant theo ngữ cảnh ALS ở mọi checkout.
+     * - Ngân sách kết nối (issue #586): trần `DATABASE_POOL_MAX`
+     *   khi được cấu hình; chưa cấu hình thì giữ nguyên cấu hình
+     *   pool như trước.
+     */
+    {
+      provide: SHARED_CENTRE_KYSELY,
+      inject: [ConfigService, SpaceDatabaseService],
+      useFactory: (config: ConfigService, spaceDatabase: SpaceDatabaseService) => {
+        const connection = databaseConnectionFromEnv(
+          config.getOrThrow<string>('DATABASE_URL'),
+          config.get<boolean>('DATABASE_SSL') ?? false,
+        );
+        const poolConfig = typeof connection === 'string' ? { connectionString: connection } : connection;
+        const poolMax = config.get<number>('DATABASE_POOL_MAX');
+        const pool = new TenantAwarePool(poolMax ? { ...poolConfig, max: poolMax } : poolConfig);
+        spaceDatabase.bindSharedKysely(createCentreKysely(pool));
+        return pool;
+      },
+    },
     // ThrottlerGuard chạy đầu tiên: từ chối sớm request vượt hạn mức
     // trước mọi guard tốn kém hơn (xác thực JWT, đánh giá capability).
     { provide: APP_GUARD, useClass: ThrottlerGuard },

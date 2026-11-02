@@ -4,14 +4,14 @@
  *
  * Các interface này là hình dạng camelCase của một dòng dữ kiện khi
  * nằm trong archive (và khi contributor đọc lại để khôi phục): trước
- * đây chúng là `typeof <bảng>.$inferSelect` của schema Drizzle. Khi
+ * đây chúng là `typeof <bảng>.$inferSelect` của schema bộ máy cũ. Khi
  * tầng dữ liệu chuyển sang Kysely, hình dạng archive phải giữ
  * NGUYÊN — archive cũ vẫn khôi phục được và archive mới vẫn mang
  * đúng các khoá camelCase như trước — nên các interface được khai
  * tường minh tại đây, thuộc về chính định dạng archive của module
  * backup. Cột jsonb được khôi phục bằng insert mang kiểu
  * `ArchiveJsonValue` (khớp kiểu `Json` mà codegen sinh cho các cột
- * đó — hình dạng cũ phía Drizzle là `unknown` vì jsonb không khai
+ * đó — hình dạng cũ phía bộ máy cũ là `unknown` vì jsonb không khai
  * `$type<>`); các cột jsonb chỉ đọc trong archive giữ `unknown`.
  * `seq`/int8 không xuất hiện trong các bảng này (size_bytes của
  * content bank không thuộc phạm vi contributor của backup).

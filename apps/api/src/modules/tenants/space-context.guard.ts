@@ -73,8 +73,8 @@ import { TenantsRepository } from '@lms/db/repositories/tenants';
  *      đã kiểm chứng trong CHÍNH kho riêng: slug của tenant đó
  *      phải đúng slug của địa chỉ.
  * 6. Bước CHUẨN BỊ theo hợp đồng của khung (issue #581): gọi
- *    `getDatabaseForSpace(slug)` và `getKyselyForSpace(slug)` để
- *    phân giải + mở pool của kho đích cho cả hai facade TRƯỚC khi
+ *    `getKyselyForSpace(slug)` để
+ *    phân giải + mở pool của kho đích TRƯỚC khi
  *    request được xử lý, rồi ghim slug lên
  *    `request.spaceSlug` — `TenantContextInterceptor` đọc lại từ
  *    đây và nạp vào ngữ cảnh ALS quanh handler, để handle định
@@ -173,7 +173,7 @@ export class SpaceContextGuard implements CanActivate {
         // đối chiếu bằng tenant hiệu lực đã được TenantGuard kiểm
         // chứng trong CHÍNH kho riêng — tenant của phiên phải chính
         // là tenant mang slug của địa chỉ này. PHẢI đọc qua
-        // `withSpaceDatabase(slug)`: đọc trong ngữ cảnh platform
+        // `withSpaceKysely(slug)`: đọc trong ngữ cảnh platform
         // không mang slug sẽ rơi về kho chung, nơi tenant chỉ sống
         // ở kho riêng không tồn tại, và từ chối oan phiên cookie
         // hợp lệ tại chính địa chỉ của trung tâm đó (lỗi A2).
@@ -189,7 +189,7 @@ export class SpaceContextGuard implements CanActivate {
         // ở TenantGuard, và phép đối chiếu slug ngay dưới đây mới
         // là quyết định cho phép.
         const effectiveTenant = tenantId
-          ? await this.spaceDb.withSpaceDatabase(
+          ? await this.spaceDb.withSpaceKysely(
               slug,
               () => this.repo.getTenant(tenantId),
               { tenantId },
@@ -217,13 +217,6 @@ export class SpaceContextGuard implements CanActivate {
     // Bước chuẩn bị (PREPARE) của khung định tuyến: phân giải đích
     // + mở pool của kho đích phải xong trước khi handler chạy, vì
     // đường đồng bộ của handle định tuyến chỉ tra bảng đã-chuẩn-bị.
-    // Chuẩn bị phải đủ CẢ HAI facade: bảng `dedicatedSlugs` là
-    // dùng chung, nên một module đã chuyển Kysely trong request mà
-    // facade Kysely chưa được chuẩn bị sẽ fail-closed
-    // (`space_routing.prepared_revoked`) dù facade Drizzle đã sẵn
-    // sàng — chuẩn bị Drizzle xong thì chuẩn bị luôn Kysely tại
-    // đây, đúng hợp đồng song song của khung (issue #639).
-    await this.spaceDb.getDatabaseForSpace(slug);
     await this.spaceDb.getKyselyForSpace(slug);
     request.spaceSlug = slug;
     const store = tenantAls.getStore();

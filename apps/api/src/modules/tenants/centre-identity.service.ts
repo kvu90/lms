@@ -29,7 +29,7 @@ import { TenantsRepository } from '@lms/db/repositories/tenants';
  *    chung khi người gọi đã chỉ đích danh một trung tâm. NGOẠI LỆ:
  *    đọc nhận diện (GET) bỏ qua bước này khi trung tâm đã chuẩn bị
  *    trong tiến trình — xem `getIdentity`.
- * 2. Chuẩn bị kho đích (`getDatabaseForSpace`) TRƯỚC mọi truy vấn —
+ * 2. Chuẩn bị kho đích (`getKyselyForSpace`) TRƯỚC mọi truy vấn —
  *    kho chung cho trung tâm ở kho chung, kho riêng cho trung tâm ở
  *    kho riêng.
  * 3. Chạy truy vấn trong ngữ cảnh ALS `{ platform: true, spaceSlug }`:
@@ -162,7 +162,7 @@ export class CentreIdentityService {
       // cảnh chạy trong kho của trung tâm có thể chạm module đã
       // chuyển Kysely, mà facade Kysely chưa chuẩn bị thì
       // fail-closed theo hợp đồng dùng chung `dedicatedSlugs`.
-      await this.spaceDb.getDatabaseForSpace(slug);
+      await this.spaceDb.getKyselyForSpace(slug);
       await this.spaceDb.getKyselyForSpace(slug);
     } catch (err) {
       throw this.mapRoutingError(err);
