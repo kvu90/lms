@@ -6,7 +6,7 @@ import { CohortMaterializationSurface } from '@lms/enrol';
 import { type CentreTx } from '@lms/db';
 import { EnrolRepository, type EnrolRow, type UserEnrolmentRow } from '@lms/db/repositories/enrol';
 import { OutboxService } from '../../infra/events/outbox.service';
-import type { Database, DbTx } from '../../db/database';
+import type { Database } from '../../db/database';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { isRoleContextConflictError, RoleSeparationService } from '../access/role-separation.service';
 import { ENROL_ASSIGNMENT_COMPONENT, RolesService } from '../access/roles.service';
@@ -16,7 +16,6 @@ import { GroupsService } from '../groups/groups.service';
 import { MessagingService } from '../messaging/messaging.service';
 import { tenantAls } from '../tenants/tenant-als';
 import { TenantsService } from '../tenants/tenants.service';
-import { EnrolTransitionalRepository } from './enrol-transitional.repository';
 
 /** Dòng gán vai thuộc về một enrol instance: đúng dòng này (và chỉ dòng này) bị gỡ khi instance rút/đổi vai (issue #157). */
 interface EnrolAssignmentRow { id: string; roleId: string; component: string; itemId: string | null }
@@ -93,7 +92,6 @@ export class EnrolService implements OnModuleInit {
     private readonly i18n: I18nService,
     private readonly tenants: TenantsService,
     private readonly roleSeparation: RoleSeparationService,
-    private readonly txRepo: EnrolTransitionalRepository,
     @InjectDrizzle() private readonly db: Database,
   ) {
     this.materialization = new CohortMaterializationSurface({
@@ -500,7 +498,7 @@ export class EnrolService implements OnModuleInit {
    * `tx` thì hàm ghi bằng transaction đó thay vì tự mở transaction
    * riêng như đường quản trị thường lệ.
    */
-  async setSuspended(actorId: string, instanceId: string, userId: string, suspended: boolean, tx?: DbTx): Promise<UserEnrolmentRow> {
+  async setSuspended(actorId: string, instanceId: string, userId: string, suspended: boolean, tx?: CentreTx): Promise<UserEnrolmentRow> {
     const instance = await this.getInstance(instanceId);
     await this.requireManage(actorId, instance.courseId);
     const ue = await this.repo.getUserEnrolment(instanceId, userId);
@@ -517,17 +515,16 @@ export class EnrolService implements OnModuleInit {
       payload: { courseId: instance.courseId, userId, instanceId, actorId },
     };
     if (tx) {
-      // Bên gọi đang ở trong transaction của nó (settle hoàn tiền —
-      // issue #490): ghi bằng ĐÚNG transaction đó để rollback của
-      // settle cũng huỷ việc đình chỉ này. Điểm nối C-8/C: chữ ký
-      // transaction Drizzle của điểm vào này giữ nguyên cho tới
-      // khi D4 (#656) chuyển payments — lệnh ghi chạy qua
-      // repository chuyển tiếp Drizzle, dòng outbox qua `enqueue`
-      // Drizzle như cũ. Dòng trả về dựng từ dữ kiện đã biết vì đọc
-      // lại qua pool sẽ không thấy thay đổi chưa commit; bên gọi
-      // đường này (payments) không dùng dòng trả về.
-      await this.txRepo.updateUserEnrolment(ue.id, { status: suspended ? ENROL_SUSPENDED : ENROL_ACTIVE, modifierId: actorId }, tx);
-      await this.outbox.enqueue(tx, eventInput);
+      // Bên gọi đang ở trong transaction Kysely của nó (settle hoàn
+      // tiền — issue #490): ghi bằng ĐÚNG transaction đó để rollback
+      // của settle cũng huỷ việc đình chỉ này (điểm nối C-8/C đã
+      // đóng ở #656: lệnh ghi chạy qua repository Kysely của cụm,
+      // dòng outbox qua `enqueueKysely`). Dòng trả về dựng từ dữ
+      // kiện đã biết vì đọc lại qua pool sẽ không thấy thay đổi
+      // chưa commit; bên gọi đường này (payments) không dùng dòng
+      // trả về.
+      await this.repo.updateUserEnrolment(ue.id, { status: suspended ? ENROL_SUSPENDED : ENROL_ACTIVE, modifierId: actorId }, tx);
+      await this.outbox.enqueueKysely(tx, eventInput);
       return { ...ue, status: suspended ? ENROL_SUSPENDED : ENROL_ACTIVE, modifierId: actorId };
     }
     // Đường tự mở transaction: transaction Kysely của repository

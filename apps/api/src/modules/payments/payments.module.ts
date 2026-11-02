@@ -3,6 +3,8 @@ import {
   PaymentsRepository,
   PlanEntitlementsService,
 } from '@lms/payments';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
+import { SpaceRoutingModule } from '../../db/routing/space-routing.module';
 import { EventsModule } from '../../infra/events/events.module';
 import { AccessModule } from '../access/access.module';
 import { ClassesModule } from '../classes/classes.module';
@@ -36,10 +38,15 @@ import { ManualPaymentGateway, PAYMENT_GATEWAY, PaymentsService } from './paymen
  * tiếp (PaymentsRepository, PlanEntitlementsService) cho các đường
  * webhook manual, duyệt hoàn và hàng đợi `needs_review`. */
 @Module({
-  imports: [AccessModule, EnrolModule, EventsModule, TenantsModule, ClassesModule, SiteConfigModule],
+  imports: [AccessModule, EnrolModule, EventsModule, TenantsModule, ClassesModule, SiteConfigModule, SpaceRoutingModule],
   controllers: [PaymentsController],
   providers: [
-    PaymentsRepository, PaymentsService, ManualPaymentGateway, PlanEntitlementsService,
+    {
+      provide: PaymentsRepository,
+      useFactory: (spaceDb: SpaceDatabaseService) => new PaymentsRepository(spaceDb.routedKysely),
+      inject: [SpaceDatabaseService],
+    },
+    PaymentsService, ManualPaymentGateway, PlanEntitlementsService,
     { provide: PAYMENT_GATEWAY, useClass: ManualPaymentGateway },
   ],
   exports: [PaymentsService],

@@ -11,6 +11,7 @@ import {
   PlanEntitlementsService,
   SepayMatchingService,
 } from '@lms/payments';
+import { createCentreKysely } from '@lms/db';
 import { spaceRegistry } from '@lms/db/control-plane';
 import { relations } from '../../../src/db/relations';
 import { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
@@ -21,6 +22,7 @@ import { WorkerPaidClassEnrolActivationService } from '../../../src/worker-paid-
 import { WorkerPaidEnrolActivationService } from '../../../src/worker-paid-enrol-activation.service';
 import { WorkerPaymentSettlementService } from '../../../src/worker-payment-settlement.service';
 import { WorkerPaymentSpaceScope } from '../../../src/worker-payment-space-scope.service';
+import { WorkerPaymentsTransitionalRepository } from '../../../src/worker-payments-transitional.repository';
 
 /**
  * Đặc tả tiền điều kiện Phần B của issue #587 — hạng mục 2: nhịp
@@ -390,12 +392,20 @@ describe('Kích hoạt ghi danh trả phí theo không gian của payment (integ
     sharedPool = new TenantAwarePool({ connectionString: process.env.DATABASE_URL! });
     const rawShared = drizzle({ client: sharedPool, relations });
     spaceDb.bindSharedDatabase(rawShared);
+    // Handle Kysely trên CÙNG pool (đúng như factory của module
+    // worker) cho repository + writer của `@lms/payments` đã chuyển
+    // Kysely ở #656; các adapter kích hoạt vẫn dùng handle Drizzle
+    // cho tới khi W2b (#661) chuyển chúng — cùng khuôn đó, service
+    // outbox enrol và settlement dùng repository chuyển tiếp Drizzle
+    // của cầu nối PR #683 (chủ đóng #661) trên handle định tuyến.
+    spaceDb.bindSharedKysely(createCentreKysely(sharedPool));
     const routed = spaceDb.routedDatabase;
 
-    const repo = new PaymentsRepository(routed as never);
-    const writer = new OutboxWriterService(routed as never);
+    const repo = new PaymentsRepository(spaceDb.routedKysely);
+    const writer = new OutboxWriterService(spaceDb.routedKysely);
     const plans = new PlanEntitlementsService(repo);
-    const enrolOutbox = new WorkerEnrolOutboxService(writer);
+    const bridge = new WorkerPaymentsTransitionalRepository(routed);
+    const enrolOutbox = new WorkerEnrolOutboxService(routed);
     const scope = new WorkerPaymentSpaceScope(routed, spaceDb);
     matching = new SepayMatchingService(
       repo,
@@ -403,7 +413,7 @@ describe('Kích hoạt ghi danh trả phí theo không gian của payment (integ
       new WorkerPaidEnrolActivationService(routed, enrolOutbox, scope),
       new WorkerPaidClassEnrolActivationService(routed, enrolOutbox, scope),
       plans,
-      new WorkerPaymentSettlementService(routed, repo, plans, enrolOutbox, scope),
+      new WorkerPaymentSettlementService(routed, repo, bridge, enrolOutbox, scope),
     );
 
     sharedPg = new Client({ connectionString: process.env.DATABASE_URL });

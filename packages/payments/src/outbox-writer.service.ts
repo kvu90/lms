@@ -1,7 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
-import { outboxEvents } from '@lms/db';
-import type { Database } from './database';
+import { sql, type CentreDB, type CentreDb, type CentreTx } from '@lms/db';
+
+/**
+ * Kiểu JSON của cột jsonb theo codegen (xem chú thích tương ứng
+ * trong `payments.repository.ts`); helper này cũng giữ private
+ * trong file vì cùng lý do TS2883.
+ */
+type CentreJson = NonNullable<CentreDB['payments']['data']>;
+
+/** Xâu hoá một giá trị jsonb để ghi qua Kysely (xem `payments.repository.ts`). */
+function jsonbValue(value: unknown) {
+  return sql<CentreJson>`${JSON.stringify(value)}::jsonb`;
+}
 
 /** Một sự kiện outbox cần phát: aggregate, loại sự kiện và payload. */
 export interface OutboxEventInput {
@@ -10,11 +20,6 @@ export interface OutboxEventInput {
   payload: Record<string, unknown>;
   /** Tenant của ngữ cảnh phát sinh sự kiện; bỏ trống = platform/không gian chung. */
   tenantId?: string | null;
-}
-
-/** Bề mặt transaction tối thiểu mà OutboxWriterService cần (một tx của Drizzle). */
-export interface OutboxTx {
-  insert: Database['insert'];
 }
 
 /**
@@ -41,30 +46,30 @@ export interface OutboxTx {
  */
 @Injectable()
 export class OutboxWriterService {
-  constructor(@InjectDrizzle() private readonly db: Database) {}
+  constructor(private readonly db: CentreDb) {}
 
   /**
    * Ghi một dòng sự kiện trong transaction `tx` do nơi gọi mở — nếu
    * transaction bị rollback thì không tồn tại dòng sự kiện nào và
    * không gì có thể được phát đi (khuôn outbox giao dịch).
    */
-  async enqueue(tx: OutboxTx, input: OutboxEventInput): Promise<void> {
+  async enqueue(tx: CentreTx, input: OutboxEventInput): Promise<void> {
     const tenantId = input.tenantId ?? null;
     const payload = tenantId && input.payload['tenantId'] === undefined
       ? { ...input.payload, tenantId }
       : input.payload;
-    await tx.insert(outboxEvents).values({
+    await tx.insertInto('outbox_events').values({
       aggregate: input.aggregate,
       type: input.type,
-      payload,
-      tenantId,
-    });
+      payload: jsonbValue(payload),
+      tenant_id: tenantId,
+    }).execute();
   }
 
   /** Hàm tiện ích: phát sự kiện trong một transaction ngắn riêng. */
   async enqueueStandalone(input: OutboxEventInput): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      await this.enqueue(tx as OutboxTx, input);
+    await this.db.transaction().execute(async (tx) => {
+      await this.enqueue(tx, input);
     });
   }
 }
