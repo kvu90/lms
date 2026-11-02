@@ -1,14 +1,9 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import type { Job } from 'bullmq';
-import { and, eq, gt, inArray, isNull, lte, or, sql } from 'drizzle-orm';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type { relations } from '../db/relations';
-import { assignments, assignSubmissions, course, courseModules, enrol, examAttempts, examPins, examVersions, outboxEvents, userEnrolments } from '@lms/db';
+import { sql, type CentreDB } from '@lms/db';
 import { TaskLogService } from '../task-log.service';
 import { tenantAls } from '../db/tenant-als';
-
-type Database = NodePgDatabase<typeof relations>;
+import { SpaceDatabaseService } from '../db/routing/space-database.service';
 
 export interface ActivityDueReminderPair { userId: string; pinId?: string; assignmentId?: string }
 export interface ActivityDueReminderResult { checkedAt: string; reminded: ActivityDueReminderPair[] }
@@ -55,7 +50,7 @@ const SUBMITTED_ATTEMPT_STATES = ['needsgrading', 'finished'];
  * Xử lý job nhắc hạn nộp: quét các quiz sắp đóng và phát sự kiện nhắc cho học sinh chưa nộp.
  */
 export class ActivityDueReminderProcessor extends WorkerHost {
-  constructor(@InjectDrizzle() private readonly db: Database, private readonly taskLog: TaskLogService) { super(); }
+  constructor(private readonly spaceDb: SpaceDatabaseService, private readonly taskLog: TaskLogService) { super(); }
 
   /**
    * Xử lý một job của queue tương ứng: quét các quiz sắp đóng + bài
@@ -77,19 +72,24 @@ export class ActivityDueReminderProcessor extends WorkerHost {
   private async sweep(): Promise<ActivityDueReminderResult> {
     const now = new Date();
     const windowEnd = new Date(now.getTime() + ACTIVITY_DUE_REMINDER_WINDOW_HOURS * 3600_000);
-    const due = await this.db.select({
-      pinId: examPins.id, pinName: sql<string>`coalesce(${examPins.name}, ${examVersions.name})`, timeClose: examPins.timeClose, courseId: examPins.courseId,
-      tenantId: course.tenantId,
-      cmVisible: courseModules.visible, cmDeletionInProgress: courseModules.deletionInProgress,
-    }).from(examPins)
-      .innerJoin(examVersions, eq(examVersions.id, examPins.examVersionId))
-      .innerJoin(course, eq(course.id, examPins.courseId))
-      .leftJoin(courseModules, eq(courseModules.id, examPins.cmId))
-      .where(and(
-        eq(course.visible, true),
-        gt(examPins.timeClose, now),
-        lte(examPins.timeClose, windowEnd),
-      ));
+    const due = await this.spaceDb.routedKysely
+      .selectFrom('exam_pins')
+      .innerJoin('exam_versions', 'exam_versions.id', 'exam_pins.exam_version_id')
+      .innerJoin('course', 'course.id', 'exam_pins.course_id')
+      .leftJoin('course_modules', 'course_modules.id', 'exam_pins.cm_id')
+      .select([
+        'exam_pins.id as pinId',
+        sql<string>`coalesce(${sql.ref('exam_pins.name')}, ${sql.ref('exam_versions.name')})`.as('pinName'),
+        'exam_pins.time_close as timeClose',
+        'exam_pins.course_id as courseId',
+        'course.tenant_id as tenantId',
+        'course_modules.visible as cmVisible',
+        'course_modules.deletion_in_progress as cmDeletionInProgress',
+      ])
+      .where('course.visible', '=', true)
+      .where('exam_pins.time_close', '>', now)
+      .where('exam_pins.time_close', '<=', windowEnd)
+      .execute();
     const reminded: ActivityDueReminderPair[] = [];
     // Nạp theo lô thay cho kiểm tra từng cặp (học sinh × hoạt động):
     // học sinh của một khoá chỉ nạp một lần cho cả lượt quét (nhiều
@@ -121,14 +121,17 @@ export class ActivityDueReminderProcessor extends WorkerHost {
         if (submitted.has(userId)) continue;
         const remindedKey = `${userId}|${timeCloseIso}`;
         if (remindedKeys.has(remindedKey)) continue;
-        await this.db.insert(outboxEvents).values({
-          aggregate: 'activity', type: 'activity_due_reminder', tenantId: row.tenantId,
-          payload: {
+        await this.spaceDb.routedKysely.insertInto('outbox_events').values({
+          aggregate: 'activity', type: 'activity_due_reminder', tenant_id: row.tenantId,
+          // jsonb: serialize tường minh kèm `::jsonb` theo khuôn
+          // ghi jsonb của `@lms/db`; khoá payload giữ nguyên
+          // camelCase như sự kiện cũ vì consumer đọc đúng khoá đó.
+          payload: sql<CentreDB['outbox_events']['payload']>`${JSON.stringify({
             userId, courseId: row.courseId, pinId: row.pinId, tenantId: row.tenantId,
             activityType: 'quiz', activityName: row.pinName,
             timeClose: timeCloseIso,
-          },
-        });
+          })}::jsonb`,
+        }).execute();
         remindedKeys.add(remindedKey);
         reminded.push({ userId, pinId: row.pinId });
       }
@@ -136,17 +139,20 @@ export class ActivityDueReminderProcessor extends WorkerHost {
     // Bài tập (NB-1, issue #174): cùng cửa sổ/dedupe theo
     // (userId, assignmentId, dueDate), "chưa nộp" theo trạng thái
     // bản nộp hiện hành của học sinh.
-    const dueAssignments = await this.db.select({
-      assignmentId: assignments.id, assignmentName: assignments.name, dueDate: assignments.dueDate, courseId: assignments.course,
-      cmVisible: courseModules.visible, cmDeletionInProgress: courseModules.deletionInProgress,
-    }).from(assignments)
-      .innerJoin(course, eq(course.id, assignments.course))
-      .leftJoin(courseModules, eq(courseModules.id, assignments.cmId))
-      .where(and(
-        eq(course.visible, true),
-        gt(assignments.dueDate, now),
-        lte(assignments.dueDate, windowEnd),
-      ));
+    const dueAssignments = await this.spaceDb.routedKysely
+      .selectFrom('assignments')
+      .innerJoin('course', 'course.id', 'assignments.course')
+      .leftJoin('course_modules', 'course_modules.id', 'assignments.cm_id')
+      .select([
+        'assignments.id as assignmentId', 'assignments.name as assignmentName',
+        'assignments.due_date as dueDate', 'assignments.course as courseId',
+        'course_modules.visible as cmVisible',
+        'course_modules.deletion_in_progress as cmDeletionInProgress',
+      ])
+      .where('course.visible', '=', true)
+      .where('assignments.due_date', '>', now)
+      .where('assignments.due_date', '<=', windowEnd)
+      .execute();
     for (const row of dueAssignments) {
       if (!row.dueDate) continue;
       if (row.cmVisible === false || row.cmDeletionInProgress === true) continue;
@@ -159,14 +165,18 @@ export class ActivityDueReminderProcessor extends WorkerHost {
         if (submitted.has(userId)) continue;
         const remindedKey = `${userId}|${dueDateIso}`;
         if (remindedKeys.has(remindedKey)) continue;
-        await this.db.insert(outboxEvents).values({
+        await this.spaceDb.routedKysely.insertInto('outbox_events').values({
           aggregate: 'activity', type: 'activity_due_reminder',
-          payload: {
+          // Bản Drizzle cũ bỏ hẳn cột tenant_id ở dòng này (giá trị
+          // lưu là NULL vì cột không có default); Kysely bắt ghi
+          // tường minh cột nullable không default nên ghi `null`.
+          tenant_id: null,
+          payload: sql<CentreDB['outbox_events']['payload']>`${JSON.stringify({
             userId, courseId: row.courseId, assignmentId: row.assignmentId,
             activityType: 'assign', activityName: row.assignmentName,
             timeClose: dueDateIso,
-          },
-        });
+          })}::jsonb`,
+        }).execute();
         remindedKeys.add(remindedKey);
         reminded.push({ userId, assignmentId: row.assignmentId });
       }
@@ -181,16 +191,24 @@ export class ActivityDueReminderProcessor extends WorkerHost {
    * qua mọi instance ghi danh đang bật của khoá.
    */
   private async enrolledStudentIds(courseId: string, now: Date): Promise<string[]> {
-    const instances = await this.db.select({ id: enrol.id }).from(enrol)
-      .where(and(eq(enrol.courseId, courseId), eq(enrol.status, 0)));
+    const instances = await this.spaceDb.routedKysely
+      .selectFrom('enrol')
+      .select('id')
+      .where('course_id', '=', courseId)
+      .where('status', '=', 0)
+      .execute();
     if (instances.length === 0) return [];
-    const rows = await this.db.select({ userId: userEnrolments.userId }).from(userEnrolments)
-      .where(and(
-        inArray(userEnrolments.enrolId, instances.map((i) => i.id)),
-        eq(userEnrolments.status, 0),
-        lte(userEnrolments.timeStart, now),
-        or(isNull(userEnrolments.timeEnd), gt(userEnrolments.timeEnd, now)),
-      ));
+    const rows = await this.spaceDb.routedKysely
+      .selectFrom('user_enrolments')
+      .select('user_id as userId')
+      .where('enrol_id', 'in', instances.map((i) => i.id))
+      .where('status', '=', 0)
+      .where('time_start', '<=', now)
+      .where((eb) => eb.or([
+        eb('time_end', 'is', null),
+        eb('time_end', '>', now),
+      ]))
+      .execute();
     return [...new Set(rows.map((r) => r.userId))];
   }
 
@@ -201,13 +219,14 @@ export class ActivityDueReminderProcessor extends WorkerHost {
    * trước đây.
    */
   private async submittedUserIdsForPin(pinId: string, studentIds: string[]): Promise<Set<string>> {
-    const rows = await this.db.select({ userId: examAttempts.userId }).from(examAttempts)
-      .where(and(
-        eq(examAttempts.pinId, pinId),
-        inArray(examAttempts.userId, studentIds),
-        eq(examAttempts.preview, false),
-        inArray(examAttempts.state, SUBMITTED_ATTEMPT_STATES),
-      ));
+    const rows = await this.spaceDb.routedKysely
+      .selectFrom('exam_attempts')
+      .select('user_id as userId')
+      .where('pin_id', '=', pinId)
+      .where('user_id', 'in', studentIds)
+      .where('preview', '=', false)
+      .where('state', 'in', SUBMITTED_ATTEMPT_STATES)
+      .execute();
     return new Set(rows.map((r) => r.userId));
   }
 
@@ -222,11 +241,15 @@ export class ActivityDueReminderProcessor extends WorkerHost {
    * được nhắc lại.
    */
   private async remindedKeysForPin(pinId: string): Promise<Set<string>> {
-    const rows = await this.db.select({ payload: outboxEvents.payload }).from(outboxEvents)
-      .where(and(
-        eq(outboxEvents.type, 'activity_due_reminder'),
-        sql`${outboxEvents.payload}->>'pinId' = ${pinId}`,
-      ));
+    // Toán tử JSON giữ nguyên văn như bản Drizzle cũ, chỉ đổi cách
+    // tham chiếu cột sang `sql.ref` của Kysely; payload đọc ra giữ
+    // kiểu Json của cột và đi thẳng vào helper nhận `unknown`.
+    const rows = await this.spaceDb.routedKysely
+      .selectFrom('outbox_events')
+      .select('payload')
+      .where('type', '=', 'activity_due_reminder')
+      .where(sql<boolean>`${sql.ref('outbox_events.payload')}->>'pinId' = ${pinId}`)
+      .execute();
     return new Set(rows.map((r) => remindedKeyOf(r.payload)));
   }
 
@@ -237,22 +260,24 @@ export class ActivityDueReminderProcessor extends WorkerHost {
    * hoặc đã mở lại) tính là CHƯA nộp.
    */
   private async submittedUserIdsForAssignment(assignmentId: string, studentIds: string[]): Promise<Set<string>> {
-    const rows = await this.db.select({ userId: assignSubmissions.userId }).from(assignSubmissions)
-      .where(and(
-        eq(assignSubmissions.assignmentId, assignmentId),
-        inArray(assignSubmissions.userId, studentIds),
-        eq(assignSubmissions.status, 'submitted'),
-      ));
+    const rows = await this.spaceDb.routedKysely
+      .selectFrom('assign_submissions')
+      .select('user_id as userId')
+      .where('assignment_id', '=', assignmentId)
+      .where('user_id', 'in', studentIds)
+      .where('status', '=', 'submitted')
+      .execute();
     return new Set(rows.map((r) => r.userId));
   }
 
   /** Tập khoá "đã nhắc" của một bài tập: đúng khuôn bản quiz, khoá theo (userId, assignmentId, mốc hạn). */
   private async remindedKeysForAssignment(assignmentId: string): Promise<Set<string>> {
-    const rows = await this.db.select({ payload: outboxEvents.payload }).from(outboxEvents)
-      .where(and(
-        eq(outboxEvents.type, 'activity_due_reminder'),
-        sql`${outboxEvents.payload}->>'assignmentId' = ${assignmentId}`,
-      ));
+    const rows = await this.spaceDb.routedKysely
+      .selectFrom('outbox_events')
+      .select('payload')
+      .where('type', '=', 'activity_due_reminder')
+      .where(sql<boolean>`${sql.ref('outbox_events.payload')}->>'assignmentId' = ${assignmentId}`)
+      .execute();
     return new Set(rows.map((r) => remindedKeyOf(r.payload)));
   }
 }

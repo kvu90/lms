@@ -10,7 +10,6 @@ import {
 } from '@lms/enrol';
 import {
   PaymentsRepository,
-  PlanEntitlementsService,
   planChargedAmountOf,
   type PaymentRow,
   type ProviderEventRow,
@@ -21,6 +20,7 @@ import { tenantAls } from './db/tenant-als';
 import type { relations } from './db/relations';
 import { WorkerEnrolOutboxService } from './worker-enrol-outbox.service';
 import { WorkerPaymentSpaceScope } from './worker-payment-space-scope.service';
+import { WorkerPaymentsTransitionalRepository } from './worker-payments-transitional.repository';
 
 type Database = NodePgDatabase<typeof relations>;
 /** Handle của một transaction Drizzle đang mở trên tay cầm của worker. */
@@ -102,7 +102,7 @@ export class WorkerPaymentSettlementService implements PaymentSettlementPort {
   constructor(
     @InjectDrizzle() private readonly db: Database,
     private readonly repo: PaymentsRepository,
-    private readonly plans: PlanEntitlementsService,
+    private readonly bridge: WorkerPaymentsTransitionalRepository,
     private readonly enrolOutbox: WorkerEnrolOutboxService,
     private readonly spaceScope: WorkerPaymentSpaceScope,
   ) {}
@@ -280,9 +280,13 @@ export class WorkerPaymentSettlementService implements PaymentSettlementPort {
       await this.suspendPaidClassMember(payment.itemId, payment.userId, tx);
       return;
     }
-    // Hoàn đủ gói → đình chỉ quyền lợi gói của chính payment đó.
+    // Hoàn đủ gói → đình chỉ quyền lợi gói của chính payment đó
+    // (qua repository chuyển tiếp Drizzle: transaction settle còn
+    // mở bằng Drizzle — chủ đóng W2b #661; đường worker đã gác
+    // component gói trước nên nối trực tiếp giữ nguyên ngữ nghĩa
+    // của `plans.suspendForPayment`).
     if (payment.component === 'tenant_plan' || payment.component === 'teacher_plan') {
-      await this.plans.suspendForPayment(payment, tx);
+      await this.bridge.suspendEntitlementsByPayment(payment.id, tx);
     }
   }
 
@@ -391,12 +395,12 @@ export class WorkerPaymentSettlementService implements PaymentSettlementPort {
     const now = new Date();
     return this.db.transaction(async (tx) => {
       await tx.execute(sql`select id from payments where id = ${payment.id} for update`);
-      const fresh = await this.repo.getRefund(refund.id, tx);
+      const fresh = await this.bridge.getRefund(refund.id, tx);
       if (!fresh || fresh.status === 'settled') return fresh ?? refund;
       if (fresh.status !== 'approved') {
         throw new SharedDomainError('payment.refund_not_approved', 'Refund is not approved for settlement');
       }
-      const settledSum = await this.repo.sumRefundsByStatuses(payment.id, ['settled'], tx);
+      const settledSum = await this.bridge.sumRefundsByStatuses(payment.id, ['settled'], tx);
       const full = settledSum + fresh.amount === payment.amount;
       if (full) {
         // Đình chỉ trước mọi ghi sổ, theo đúng tổng đã khoá ở trên
@@ -405,12 +409,12 @@ export class WorkerPaymentSettlementService implements PaymentSettlementPort {
         await this.suspendEntitlementForFullRefund(input.suspensionActorId, payment, tx);
       }
       const data = { ...((fresh.data ?? {}) as Record<string, unknown>), reversal: { applied: full, at: now.toISOString() } };
-      const updated = await this.repo.updateRefund(fresh.id, {
+      const updated = await this.bridge.updateRefund(fresh.id, {
         status: 'settled', settledAt: now,
         settledBy: input.settledBy, settledEventId: input.settledEventId,
         externalTransactionId: input.externalTransactionId, data,
       }, tx);
-      if (full) await this.repo.updatePayment(payment.id, { status: 'refunded' }, tx);
+      if (full) await this.bridge.updatePayment(payment.id, { status: 'refunded' }, tx);
       return updated;
     });
   }

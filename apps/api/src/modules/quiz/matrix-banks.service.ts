@@ -6,7 +6,7 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { QuestionBanksService } from '../questions/question-banks.service';
 import type { QuestionBankRow } from '@lms/db/repositories/question-banks';
 import type { CopyExamMatrixDto, CreateMatrixContributionDto, RejectMatrixContributionDto } from './dto/quiz.dto';
-import { QuizRepository, type ExamMatrixCellRow, type ExamMatrixContributionRow, type ExamMatrixRow } from './quiz.repository';
+import { QuizRepository, type ExamMatrixCellRow, type ExamMatrixContributionRow, type ExamMatrixRow } from '@lms/db/repositories/quiz';
 import { QuizService } from './quiz.service';
 import { isMatrixContentSignatureConflict, matrixContentSignature } from './matrix-content-signature';
 
@@ -145,7 +145,7 @@ export class MatrixBanksService {
       cells,
     });
     try {
-      return await this.repo.dbHandle.transaction(async (tx) => {
+      return await this.repo.transaction(async (tx) => {
         const copy = await this.repo.insertMatrix({
           tenantId: targetBank.tenantId,
           name: opts.name ?? source.name,

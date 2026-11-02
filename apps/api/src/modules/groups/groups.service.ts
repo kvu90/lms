@@ -10,9 +10,8 @@ import { AvailabilityService } from '../availability/availability.service';
 import { CoursesService, GROUPMODE_SEPARATEGROUPS } from '../courses/courses.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsService } from '../tenants/tenants.service';
+import { type CentreTx } from '@lms/db';
 import { GroupsRepository, type CohortRow, type GroupRow, type GroupingRow } from '@lms/db/repositories/groups';
-import type { DbTx } from '../../db/database';
-import { GroupsTransitionalRepository } from './groups-transitional.repository';
 
 /**
  * Facade của GroupsModule (core_group + cohort của Moodle).
@@ -49,7 +48,6 @@ export class GroupsService implements OnModuleInit {
     private readonly tenantContext: TenantContextService,
     private readonly tenants: TenantsService,
     private readonly roleSeparation: RoleSeparationService,
-    private readonly txRepo: GroupsTransitionalRepository,
   ) {}
 
   /** Tenant hiệu lực cho cohort mới: category (nếu có) quyết định, không thì tenant của request, ngoài request rơi về tenant-zero. */
@@ -579,16 +577,16 @@ export class GroupsService implements OnModuleInit {
    * nó commit xong. Không truyền `tx` thì hành vi như cũ và hàm trả
    * về chỉ cho biết có xoá được dòng thành viên hay không.
    */
-  async removeCohortMemberInternal(cohortId: string, userId: string, tx?: DbTx): Promise<boolean> {
+  async removeCohortMemberInternal(cohortId: string, userId: string, tx?: CentreTx): Promise<boolean> {
     await this.getCohort(cohortId);
     if (tx) {
-      // Điểm nối C-8/C: bên gọi truyền transaction Drizzle của
-      // settle hoàn tiền (DL-10) — lệnh xoá chạy qua repository
-      // chuyển tiếp Drizzle và dòng outbox ghi bằng đúng
-      // transaction đó; chủ đóng D4 #656.
-      const removed = await this.txRepo.removeCohortMember(cohortId, userId, tx);
+      // Điểm nối C-8/C (đã đóng ở #656): bên gọi truyền transaction
+      // Kysely của settle hoàn tiền (DL-10) — lệnh xoá chạy qua
+      // repository Kysely của cụm với đúng transaction đó và dòng
+      // outbox ghi bằng `enqueueKysely`.
+      const removed = await this.repo.removeCohortMember(cohortId, userId, tx);
       if (!removed) return false;
-      await this.outbox.enqueue(tx, { aggregate: 'cohort', type: 'cohort_member_removed', payload: { cohortId, userId } });
+      await this.outbox.enqueueKysely(tx, { aggregate: 'cohort', type: 'cohort_member_removed', payload: { cohortId, userId } });
       return true;
     }
     const removed = await this.repo.removeCohortMember(cohortId, userId);

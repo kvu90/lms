@@ -2,6 +2,8 @@ import { forwardRef, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { AuthRepository } from '@lms/db/repositories/auth';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { SpaceRoutingModule } from '../../db/routing/space-routing.module';
 import { CacheInfraModule } from '../../infra/cache/cache-infra.module';
 import { EventsModule } from '../../infra/events/events.module';
@@ -9,7 +11,6 @@ import { AccessModule } from '../access/access.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
-import { AuthRepository } from './auth.repository';
 import { BetterAuthModule } from './better-auth/better-auth.module';
 import { AuthService } from './auth.service';
 import { LoginLockoutService } from './login-lockout.service';
@@ -41,7 +42,18 @@ import { JwtAuthStrategy, LocalAuthStrategy } from './strategies';
     }),
   ],
   controllers: [AuthController, OAuthController],
-  providers: [AuthRepository, AuthService, SessionService, TotpService, OAuthService, LoginLockoutService, LocalAuthStrategy, JwtAuthStrategy],
+  providers: [
+    // AuthRepository sống ở `@lms/db` (lớp thuần trên Kysely, issue
+    // #641) nên module lắp nó bằng factory provider: handle là
+    // facade định tuyến theo không gian `routedKysely` — cùng khuôn
+    // lắp ráp với ControlPlaneRepository ở ControlPlaneModule.
+    {
+      provide: AuthRepository,
+      useFactory: (spaceDb: SpaceDatabaseService) => new AuthRepository(spaceDb.routedKysely),
+      inject: [SpaceDatabaseService],
+    },
+    AuthService, SessionService, TotpService, OAuthService, LoginLockoutService, LocalAuthStrategy, JwtAuthStrategy,
+  ],
   // AuthRepository được export để UsersService dùng cơ chế thu hồi
   // family refresh mỗi lần đặt mật khẩu qua đường sửa hồ sơ — cạnh
   // này làm UsersModule ↔ AuthModule thành vòng module tường minh,

@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/
 import { ConfigService } from '@nestjs/config';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { generateSecret, generateURI, verify } from 'otplib';
-import { AuthRepository } from './auth.repository';
+import { AuthRepository } from '@lms/db/repositories/auth';
 
 /** Nhãn issuer trong otpauth URL — tên hệ thống hiển thị trong ứng dụng authenticator. */
 const TOTP_ISSUER = 'LMS';

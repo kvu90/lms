@@ -1,8 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
 import { NotificationDeliveryService } from './notification-delivery.service';
-import {
-  notifications, outboxEvents, pluginConfig, userPreferences, users,
-} from '@lms/db';
+
+/**
+ * Trích payload JSON từ mẫu `sql` của Kysely: mẫu ghi jsonb chỉ có
+ * một tham số là chuỗi JSON đã serialize, bọc trong nút giá trị của
+ * cây thao tác — đọc đúng tham số service sẽ gửi đi, không đoán.
+ * Hình nút giá trị thuộc API cây thao tác công khai của Kysely.
+ */
+function sqlPayloadOf(value: unknown): Record<string, unknown> {
+  const node = (value as { toOperationNode: () => { parameters: readonly { value?: unknown }[] } }).toOperationNode();
+  const param = node.parameters[0];
+  const raw = typeof param === 'string' ? param : param?.value;
+  return JSON.parse(String(raw)) as Record<string, unknown>;
+}
 
 /**
  * Bề mặt phát thông báo TRỌN của worker — `NotificationDeliveryService.notify`
@@ -26,11 +36,17 @@ import {
  * - Thiếu cặp nội dung ngoài ở môi trường test → ném lỗi
  *   `messaging.external_minimization_required` như phía API.
  *
- * DB giả theo từng bảng như khuôn spec parity (notification-parity.spec.ts);
- * các lần đọc user_preferences được cấp theo hàng đợi vì thứ tự đọc của
- * luật là xác định (popup v2 → cũ loggedin → loggedoff, rồi email v2 →
- * cũ loggedin → loggedoff). Tín hiệu badge qua Redis được stub: hành vi
- * cần khẳng định là luật phân phối, không phải đường tín hiệu.
+ * Handle Kysely giả theo từng bảng như khuôn spec parity
+ * (notification-parity.spec.ts): chỉ mô phỏng đúng chuỗi builder mà
+ * service dùng (selectFrom → select → where… → executeTakeFirst;
+ * insertInto → values → onConflict/returning → execute/
+ * executeTakeFirst). Điều kiện where được bỏ qua như fake cũ — mỗi
+ * kịch bản tối đa một dòng có nghĩa cho mỗi bảng nên hàng trả về chỉ
+ * phụ thuộc bảng; các lần đọc user_preferences được cấp theo hàng
+ * đợi vì thứ tự đọc của luật là xác định (popup v2 → cũ loggedin →
+ * loggedoff, rồi email v2 → cũ loggedin → loggedoff). Tín hiệu badge
+ * qua Redis được stub: hành vi cần khẳng định là luật phân phối,
+ * không phải đường tín hiệu.
  */
 function buildNotify(scenario: {
   user?: { id: string; suspended: boolean; deleted: boolean };
@@ -41,35 +57,47 @@ function buildNotify(scenario: {
   const insertedLogs: Record<string, unknown>[] = [];
   const insertedOutbox: Record<string, unknown>[] = [];
   const preferenceReads = [...(scenario.preferenceReads ?? [])];
-  const rowsFor = (table: unknown): Record<string, unknown>[] => {
-    if (table === users) return scenario.user ? [scenario.user] : [];
-    if (table === pluginConfig) return scenario.sitePolicyValue === undefined ? [] : [{ value: scenario.sitePolicyValue }];
-    if (table === userPreferences) {
+  const rowFor = (table: string): Record<string, unknown> | undefined => {
+    if (table === 'users') return scenario.user as unknown as Record<string, unknown> | undefined;
+    if (table === 'plugin_config') return scenario.sitePolicyValue === undefined ? undefined : { value: scenario.sitePolicyValue };
+    if (table === 'user_preferences') {
       const value = preferenceReads.shift();
-      return value === undefined ? [] : [{ value }];
+      return value === undefined ? undefined : { value };
     }
-    return [];
+    return undefined;
   };
-  const db = {
-    select: () => ({
-      from: (table: unknown) => ({ where: async () => rowsFor(table) }),
-    }),
-    insert: (table: unknown) => ({
-      values: (v: Record<string, unknown>) => {
-        if (table === notifications) insertedNotifications.push(v);
-        else if (table === outboxEvents) insertedOutbox.push(v);
-        else insertedLogs.push(v);
-        return {
-          returning: async () => [{ id: 'notif-notify-1' }],
-          onConflictDoNothing: async () => [],
-        };
+  const selectBuilder = (table: string) => {
+    const builder = {
+      select: () => builder,
+      where: () => builder,
+      executeTakeFirst: async () => rowFor(table),
+      execute: async () => {
+        const row = rowFor(table);
+        return row ? [row] : [];
       },
-    }),
+    };
+    return builder;
+  };
+  const insertBuilder = (table: string) => ({
+    values: (v: Record<string, unknown>) => {
+      if (table === 'notifications') insertedNotifications.push(v);
+      else if (table === 'outbox_events') insertedOutbox.push(v);
+      else insertedLogs.push(v);
+      return {
+        onConflict: () => ({ execute: async () => [] }),
+        returning: () => ({ executeTakeFirst: async () => ({ id: 'notif-notify-1' }) }),
+        execute: async () => [],
+      };
+    },
+  });
+  const routedKysely = {
+    selectFrom: (table: string) => selectBuilder(table),
+    insertInto: (table: string) => insertBuilder(table),
   };
   const config = { getOrThrow: () => 'redis://localhost:6379' };
   const queue = { add: vi.fn(async () => ({})) };
   const i18n = { t: (key: string) => key };
-  const delivery = new NotificationDeliveryService(db as never, config as never, queue as never, i18n as never);
+  const delivery = new NotificationDeliveryService({ routedKysely } as never, config as never, queue as never, i18n as never);
   (delivery as unknown as { signalUnreadCountChanged: (userId: string) => Promise<void> })
     .signalUnreadCountChanged = vi.fn(async () => undefined);
   return { delivery, queue, insertedNotifications, insertedLogs, insertedOutbox };
@@ -93,8 +121,8 @@ describe('NotificationDeliveryService.notify — bề mặt phát trọn phía w
     expect(result).toEqual({ notificationId: 'notif-notify-1', channels: { popup: 'delivered', email: 'queued' } });
     expect(insertedNotifications).toHaveLength(1);
     expect(insertedNotifications[0]).toMatchObject({
-      eventType: 'guardian_digest', component: 'core_guardian', tenantId: 'tenant-1',
-      smallMessage: LONG_BODY.slice(0, 200),
+      event_type: 'guardian_digest', component: 'core_guardian', tenant_id: 'tenant-1',
+      small_message: LONG_BODY.slice(0, 200),
     });
     expect(queue.add).toHaveBeenCalledTimes(1);
     const [jobName, jobData, jobOptions] = queue.add.mock.calls[0]! as unknown as [string, Record<string, unknown>, Record<string, unknown>];
@@ -109,8 +137,10 @@ describe('NotificationDeliveryService.notify — bề mặt phát trọn phía w
     expect(jobOptions).toEqual({ jobId: 'tenant-1-dispatch-guardian_digest-user-guardian-email-notif-notify-1', attempts: 3 });
     expect(insertedOutbox).toHaveLength(1);
     expect(insertedOutbox[0]).toMatchObject({
-      aggregate: 'messaging', type: 'notification_created', tenantId: 'tenant-1',
-      payload: { userId: 'user-guardian', provider: 'guardian_digest', notificationId: 'notif-notify-1', tenantId: 'tenant-1' },
+      aggregate: 'messaging', type: 'notification_created', tenant_id: 'tenant-1',
+    });
+    expect(sqlPayloadOf(insertedOutbox[0]?.payload)).toEqual({
+      userId: 'user-guardian', provider: 'guardian_digest', notificationId: 'notif-notify-1', tenantId: 'tenant-1',
     });
   });
 
@@ -124,8 +154,8 @@ describe('NotificationDeliveryService.notify — bề mặt phát trọn phía w
     expect(result.channels).toEqual({ popup: 'delivered', email: 'skipped-preference' });
     expect(queue.add).not.toHaveBeenCalled();
     const emailLog = insertedLogs.find((l) => l.channel === 'email');
-    expect(emailLog).toMatchObject({ provider: 'guardian_digest', status: 'skipped-preference', tenantId: 'tenant-1' });
-    expect(String(emailLog!.dedupeKey)).toMatch(/^tenant-1-email-off-guardian_digest-user-guardian-/);
+    expect(emailLog).toMatchObject({ provider: 'guardian_digest', status: 'skipped-preference', tenant_id: 'tenant-1' });
+    expect(String(emailLog!.dedupe_key)).toMatch(/^tenant-1-email-off-guardian_digest-user-guardian-/);
     expect(insertedOutbox).toHaveLength(1);
   });
 
@@ -152,7 +182,7 @@ describe('NotificationDeliveryService.notify — bề mặt phát trọn phía w
     const [, jobData] = queue.add.mock.calls[0]! as unknown as [string, Record<string, unknown>];
     expect(jobData.notificationId).toBeNull();
     expect(String(jobData.dedupeKey)).toMatch(/^tenant-1-dispatch-guardian_digest-user-guardian-email-[0-9a-f-]{36}$/);
-    expect(insertedOutbox[0]).toMatchObject({ payload: { notificationId: null } });
+    expect(sqlPayloadOf(insertedOutbox[0]?.payload)).toMatchObject({ notificationId: null });
   });
 
   it('thiếu cặp nội dung ngoài tối thiểu hoá ở môi trường test: ném lỗi messaging.external_minimization_required như phía API', async () => {
@@ -197,7 +227,7 @@ describe('NotificationDeliveryService.notify — chín provider sự kiện thô
       body: 'Bạn có điểm mới cho mục "Bài 1" trong khoá học "Toán".',
     });
     expect(jobOptions).toMatchObject({ attempts: 3 });
-    expect(insertedOutbox[0]).toMatchObject({ payload: { provider: 'grade_updated' } });
+    expect(sqlPayloadOf(insertedOutbox[0]?.payload)).toMatchObject({ provider: 'grade_updated' });
   });
 
   it('provider original-ok ngoài nhóm learning (message_new): tần suất email mặc định là immediate như phía API', async () => {

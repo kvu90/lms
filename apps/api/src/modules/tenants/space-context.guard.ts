@@ -14,7 +14,7 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { SKIP_SPACE_CONTEXT_KEY } from './skip-space-context.decorator';
 import { extractSpaceSlugFromHost } from './space-resolution';
 import { tenantAls } from './tenant-als';
-import { TenantsRepository } from './tenants.repository';
+import { TenantsRepository } from '@lms/db/repositories/tenants';
 
 /**
  * SpaceContextGuard (issue #582): gắn ngữ cảnh trung tâm vào

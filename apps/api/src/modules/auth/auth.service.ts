@@ -8,8 +8,8 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { PasswordService } from '../users/password.service';
 import { UsersService } from '../users/users.service';
-import type { UserRow } from '../users/users.repository';
-import { AuthRepository } from './auth.repository';
+import type { UserRow } from '@lms/db/repositories/users';
+import { AuthRepository } from '@lms/db/repositories/auth';
 import {
   AUTH_LOCKED_OUT_CODE,
   AUTH_LOCKED_OUT_MESSAGE,

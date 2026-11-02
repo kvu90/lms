@@ -430,12 +430,12 @@ describe('Định tuyến job theo trung tâm phía worker (integration)', () =>
     const fakeI18n = { t: (key: string) => key } as never;
     const dispatchQueue = { add: async () => ({}) };
     const delivery = new NotificationDeliveryService(
-      spaceDb.routedDatabase,
+      spaceDb,
       config,
       dispatchQueue as never,
       fakeI18n,
     );
-    const handler = new NotificationEventsHandlerService(spaceDb.routedDatabase, delivery, fakeI18n);
+    const handler = new NotificationEventsHandlerService(spaceDb, delivery, fakeI18n);
     const processor = new NotificationEventsProcessor(handler, marker, new SpaceJobRunner(spaceDb));
 
     const outcome = await processor.process({ data: jobData } as Job<OutboxEventJobData>);

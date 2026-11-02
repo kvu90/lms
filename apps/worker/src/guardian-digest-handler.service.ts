@@ -1,17 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import { I18nService } from '@nestjs/i18n';
-import { and, asc, eq, gt, gte, inArray, isNotNull, lt, lte, or, sql } from 'drizzle-orm';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type { relations } from './db/relations';
-import {
-  assignments, assignSubmissions, courseModules, enrol, examAttempts, examPins, examVersions,
-  gradeGrades, gradeItems, gradePublications, guardianDigests, guardianLinks, notifications,
-  outboxEvents, userEnrolments, users,
-} from '@lms/db';
+import { sql, type CentreDB } from '@lms/db';
 import { NotificationDeliveryService } from './notification-delivery.service';
-
-type Database = NodePgDatabase<typeof relations>;
+import { SpaceDatabaseService } from './db/routing/space-database.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -87,7 +78,7 @@ export class GuardianDigestHandlerService {
   private readonly logger = new Logger(GuardianDigestHandlerService.name);
 
   constructor(
-    @InjectDrizzle() private readonly db: Database,
+    private readonly spaceDb: SpaceDatabaseService,
     private readonly delivery: NotificationDeliveryService,
     private readonly i18n: I18nService,
   ) {}
@@ -273,9 +264,13 @@ export class GuardianDigestHandlerService {
 
     // Vết công bố theo item: vết mới nhất quyết định hiệu lực hiện tại
     // và, với item manual, thời điểm điểm TRỞ NÊN hiển thị.
-    const itemPubs = await this.db.select().from(gradePublications)
-      .where(and(inArray(gradePublications.courseId, courseIds), eq(gradePublications.scope, 'item')))
-      .orderBy(asc(gradePublications.createdAt));
+    const itemPubs = await this.spaceDb.routedKysely
+      .selectFrom('grade_publications')
+      .select(['item_id as itemId', 'action', 'created_at as createdAt'])
+      .where('course_id', 'in', courseIds)
+      .where('scope', '=', 'item')
+      .orderBy('created_at', 'asc')
+      .execute();
     const latestPubByItem = new Map<string, (typeof itemPubs)[number]>();
     for (const p of itemPubs) {
       if (p.itemId) latestPubByItem.set(p.itemId, p); // rows tăng dần theo createdAt → cuối là mới nhất
@@ -286,34 +281,37 @@ export class GuardianDigestHandlerService {
       if (p.action === 'publish' && p.createdAt > windowStart) publishedAfterSince.add(itemId);
     }
 
-    const gradeCandidate = {
-      gradeId: gradeGrades.id,
-      courseId: gradeItems.courseId,
-      itemId: gradeItems.id,
-      itemType: gradeItems.itemType,
-      updatedAt: gradeGrades.updatedAt,
-    };
     type GradeCandidate = { gradeId: string; courseId: string; itemId: string; itemType: string; updatedAt: Date };
-    const nonEmptyGrade = sql`(${gradeGrades.finalGrade} is not null or (${gradeGrades.feedback} is not null and ${gradeGrades.feedback} <> ''))`;
+    // Mảnh điều kiện "có điểm hoặc phản hồi" giữ nguyên văn như bản
+    // Drizzle cũ, chỉ đổi cách tham chiếu cột sang `sql.ref`.
+    const nonEmptyGrade = sql<boolean>`(${sql.ref('grade_grades.final_grade')} is not null or (${sql.ref('grade_grades.feedback')} is not null and ${sql.ref('grade_grades.feedback')} <> ''))`;
     const candidateByGradeId = new Map<string, GradeCandidate>();
-    const rowsSince = await this.db.select(gradeCandidate).from(gradeGrades)
-      .innerJoin(gradeItems, eq(gradeItems.id, gradeGrades.itemId))
-      .where(and(
-        eq(gradeGrades.userId, studentId),
-        inArray(gradeItems.courseId, courseIds),
-        gt(gradeGrades.updatedAt, windowStart),
-        nonEmptyGrade,
-      ))
-      .orderBy(asc(gradeGrades.updatedAt));
+    const rowsSince = await this.spaceDb.routedKysely
+      .selectFrom('grade_grades')
+      .innerJoin('grade_items', 'grade_items.id', 'grade_grades.item_id')
+      .select([
+        'grade_grades.id as gradeId', 'grade_items.course_id as courseId', 'grade_items.id as itemId',
+        'grade_items.item_type as itemType', 'grade_grades.updated_at as updatedAt',
+      ])
+      .where('grade_grades.user_id', '=', studentId)
+      .where('grade_items.course_id', 'in', courseIds)
+      .where('grade_grades.updated_at', '>', windowStart)
+      .where(nonEmptyGrade)
+      .orderBy('grade_grades.updated_at', 'asc')
+      .execute();
     for (const row of rowsSince) candidateByGradeId.set(row.gradeId, row);
     if (publishedAfterSince.size) {
-      const rowsForItems = await this.db.select(gradeCandidate).from(gradeGrades)
-        .innerJoin(gradeItems, eq(gradeItems.id, gradeGrades.itemId))
-        .where(and(
-          eq(gradeGrades.userId, studentId),
-          inArray(gradeGrades.itemId, [...publishedAfterSince]),
-          nonEmptyGrade,
-        ));
+      const rowsForItems = await this.spaceDb.routedKysely
+        .selectFrom('grade_grades')
+        .innerJoin('grade_items', 'grade_items.id', 'grade_grades.item_id')
+        .select([
+          'grade_grades.id as gradeId', 'grade_items.course_id as courseId', 'grade_items.id as itemId',
+          'grade_items.item_type as itemType', 'grade_grades.updated_at as updatedAt',
+        ])
+        .where('grade_grades.user_id', '=', studentId)
+        .where('grade_grades.item_id', 'in', [...publishedAfterSince])
+        .where(nonEmptyGrade)
+        .execute();
       for (const row of rowsForItems) candidateByGradeId.set(row.gradeId, row);
     }
 
@@ -353,11 +351,18 @@ export class GuardianDigestHandlerService {
    * grade_publications (scope item) là 'publish'.
    */
   private async publicationStatesForCourse(courseId: string): Promise<Map<string, { published: boolean }>> {
-    const items = await this.db.select({ id: gradeItems.id, postingPolicy: gradeItems.postingPolicy })
-      .from(gradeItems).where(eq(gradeItems.courseId, courseId));
-    const publications = await this.db.select().from(gradePublications)
-      .where(eq(gradePublications.courseId, courseId))
-      .orderBy(asc(gradePublications.createdAt), asc(gradePublications.id));
+    const items = await this.spaceDb.routedKysely
+      .selectFrom('grade_items')
+      .select(['id', 'posting_policy as postingPolicy'])
+      .where('course_id', '=', courseId)
+      .execute();
+    const publications = await this.spaceDb.routedKysely
+      .selectFrom('grade_publications')
+      .select(['scope', 'item_id as itemId', 'action'])
+      .where('course_id', '=', courseId)
+      .orderBy('created_at', 'asc')
+      .orderBy('id', 'asc')
+      .execute();
     const latestByItem = new Map<string, string>();
     for (const p of publications) {
       if (p.scope === 'item' && p.itemId) latestByItem.set(p.itemId, p.action);
@@ -372,79 +377,77 @@ export class GuardianDigestHandlerService {
 
   /** Khoá học sinh đang ghi danh hiệu lực (user_enrolments active, chưa hết hạn) — bản phía worker của `DashboardRepository.enrolledCourseIds` phía API. */
   private async enrolledCourseIds(userId: string, now: Date): Promise<string[]> {
-    const rows = await this.db
-      .selectDistinct({ courseId: enrol.courseId })
-      .from(userEnrolments)
-      .innerJoin(enrol, eq(enrol.id, userEnrolments.enrolId))
-      .where(and(
-        eq(userEnrolments.userId, userId),
-        eq(userEnrolments.status, 0),
-        or(sql`${userEnrolments.timeEnd} is null`, gt(userEnrolments.timeEnd, now)),
-      ));
+    const rows = await this.spaceDb.routedKysely
+      .selectFrom('user_enrolments')
+      .innerJoin('enrol', 'enrol.id', 'user_enrolments.enrol_id')
+      .select('enrol.course_id as courseId')
+      .distinct()
+      .where('user_enrolments.user_id', '=', userId)
+      .where('user_enrolments.status', '=', 0)
+      .where((eb) => eb.or([
+        eb('user_enrolments.time_end', 'is', null),
+        eb('user_enrolments.time_end', '>', now),
+      ]))
+      .execute();
     return rows.map((r) => r.courseId);
   }
 
   /** Quiz có hạn nộp không muộn hơn `until` trong tập khoá kèm các attempt của học sinh — bản phía worker của `GuardianViewRepository.quizDueRows` phía API. */
   private async quizDueRows(courseIds: string[], studentUserId: string, until: Date) {
     if (!courseIds.length) return [];
-    return this.db
-      .select({
-        cmId: courseModules.id,
-        courseId: courseModules.course,
-        name: sql<string>`coalesce(${examPins.name}, ${examVersions.name})`,
-        dueAt: examPins.timeClose,
-        attemptState: examAttempts.state,
-      })
-      .from(courseModules)
-      .innerJoin(examPins, eq(examPins.id, courseModules.instanceId))
-      .innerJoin(examVersions, eq(examVersions.id, examPins.examVersionId))
-      .leftJoin(examAttempts, and(
-        eq(examAttempts.pinId, examPins.id),
-        eq(examAttempts.userId, studentUserId),
-        eq(examAttempts.preview, false),
-      ))
-      .where(and(
-        inArray(courseModules.course, courseIds),
-        eq(courseModules.component, 'mod_quiz'),
-        eq(courseModules.visible, true),
-        eq(courseModules.deletionInProgress, false),
-        isNotNull(examPins.timeClose),
-        lte(examPins.timeClose, until),
-      ))
-      .orderBy(asc(examPins.timeClose));
+    return this.spaceDb.routedKysely
+      .selectFrom('course_modules')
+      .innerJoin('exam_pins', 'exam_pins.id', 'course_modules.instance_id')
+      .innerJoin('exam_versions', 'exam_versions.id', 'exam_pins.exam_version_id')
+      .leftJoin('exam_attempts', (join) => join
+        .onRef('exam_attempts.pin_id', '=', 'exam_pins.id')
+        .on('exam_attempts.user_id', '=', studentUserId)
+        .on('exam_attempts.preview', '=', false))
+      .select([
+        'course_modules.id as cmId', 'course_modules.course as courseId',
+        sql<string>`coalesce(${sql.ref('exam_pins.name')}, ${sql.ref('exam_versions.name')})`.as('name'),
+        'exam_pins.time_close as dueAt', 'exam_attempts.state as attemptState',
+      ])
+      .where('course_modules.course', 'in', courseIds)
+      .where('course_modules.component', '=', 'mod_quiz')
+      .where('course_modules.visible', '=', true)
+      .where('course_modules.deletion_in_progress', '=', false)
+      .where('exam_pins.time_close', 'is not', null)
+      .where('exam_pins.time_close', '<=', until)
+      .orderBy('exam_pins.time_close', 'asc')
+      .execute();
   }
 
   /** Bài tập C2 có hạn nộp không muộn hơn `until` trong tập khoá kèm bài nộp hiện hành của học sinh — bản phía worker của `GuardianViewRepository.assignmentDueRows` phía API. */
   private async assignmentDueRows(courseIds: string[], studentUserId: string, until: Date) {
     if (!courseIds.length) return [];
-    return this.db
-      .select({
-        cmId: courseModules.id,
-        courseId: courseModules.course,
-        name: assignments.name,
-        dueAt: assignments.dueDate,
-        submissionStatus: assignSubmissions.status,
-      })
-      .from(courseModules)
-      .innerJoin(assignments, eq(assignments.id, courseModules.instanceId))
-      .leftJoin(assignSubmissions, and(
-        eq(assignSubmissions.assignmentId, assignments.id),
-        eq(assignSubmissions.userId, studentUserId),
-      ))
-      .where(and(
-        inArray(courseModules.course, courseIds),
-        eq(courseModules.component, 'mod_assign'),
-        eq(courseModules.visible, true),
-        eq(courseModules.deletionInProgress, false),
-        isNotNull(assignments.dueDate),
-        lte(assignments.dueDate, until),
-      ))
-      .orderBy(asc(assignments.dueDate));
+    return this.spaceDb.routedKysely
+      .selectFrom('course_modules')
+      .innerJoin('assignments', 'assignments.id', 'course_modules.instance_id')
+      .leftJoin('assign_submissions', (join) => join
+        .onRef('assign_submissions.assignment_id', '=', 'assignments.id')
+        .on('assign_submissions.user_id', '=', studentUserId))
+      .select([
+        'course_modules.id as cmId', 'course_modules.course as courseId', 'assignments.name',
+        'assignments.due_date as dueAt', 'assign_submissions.status as submissionStatus',
+      ])
+      .where('course_modules.course', 'in', courseIds)
+      .where('course_modules.component', '=', 'mod_assign')
+      .where('course_modules.visible', '=', true)
+      .where('course_modules.deletion_in_progress', '=', false)
+      .where('assignments.due_date', 'is not', null)
+      .where('assignments.due_date', '<=', until)
+      .orderBy('assignments.due_date', 'asc')
+      .execute();
   }
 
   /** Vết lượt digest theo id (lượt quét đã chốt khi phát sự kiện) — bản phía worker của `GuardianDigestRepository.getDigest` phía API. */
   private async getDigest(id: string) {
-    const [row] = await this.db.select().from(guardianDigests).where(eq(guardianDigests.id, id));
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('guardian_digests')
+      .select(['id', 'status'])
+      .where('id', '=', id)
+      .executeTakeFirst();
     return row;
   }
 
@@ -458,9 +461,23 @@ export class GuardianDigestHandlerService {
     notificationId?: string | null;
     sentAt?: Date | null;
   }): Promise<void> {
-    await this.db.update(guardianDigests)
-      .set({ ...patch, updatedAt: new Date() })
-      .where(eq(guardianDigests.id, id));
+    // Kysely loại cột mang `undefined` khỏi câu lệnh biên dịch như
+    // Drizzle (khuôn T-4 của pilot): chỉ các trường patch có mặt
+    // mới vào mệnh đề SET, `updated_at` luôn được chốt.
+    await this.spaceDb.routedKysely
+      .updateTable('guardian_digests')
+      .set({
+        status: patch.status,
+        new_results_count: patch.newResultsCount,
+        announcements_count: patch.announcementsCount,
+        overdue_count: patch.overdueCount,
+        upcoming_count: patch.upcomingCount,
+        notification_id: patch.notificationId,
+        sent_at: patch.sentAt,
+        updated_at: new Date(),
+      })
+      .where('id', '=', id)
+      .execute();
   }
 
   /**
@@ -469,35 +486,36 @@ export class GuardianDigestHandlerService {
    * đúng quy tắc PH-1 (loại thông báo điểm).
    */
   private async notificationsInWindow(studentUserId: string, start: Date, end: Date) {
-    return this.db
-      .select({
-        id: notifications.id,
-        eventType: notifications.eventType,
-        contextUrl: notifications.contextUrl,
-        createdAt: notifications.createdAt,
-      })
-      .from(notifications)
-      .where(and(
-        eq(notifications.userIdTo, studentUserId),
-        gte(notifications.createdAt, start),
-        lt(notifications.createdAt, end),
-      ));
+    return this.spaceDb.routedKysely
+      .selectFrom('notifications')
+      .select([
+        'id', 'event_type as eventType', 'context_url as contextUrl', 'created_at as createdAt',
+      ])
+      .where('user_id_to', '=', studentUserId)
+      .where('created_at', '>=', start)
+      .where('created_at', '<', end)
+      .execute();
   }
 
-  /** Liên kết giám hộ ĐANG hiệu lực của cặp (phụ huynh, con) — cổng kiểm lại tại thời điểm gửi; không có → undefined. */
+  /** Liên kết giám hộ ĐANG hiệu lực của cặp (phụ huynh, con) — cổng kiểm lại tại thời điểm gửi; không có → undefined. Chỉ lấy tenantId vì đó là trường duy nhất phía gửi dùng. */
   private async findActiveLink(guardianUserId: string, studentUserId: string) {
-    const [row] = await this.db.select().from(guardianLinks).where(and(
-      eq(guardianLinks.guardianUserId, guardianUserId),
-      eq(guardianLinks.studentUserId, studentUserId),
-      eq(guardianLinks.status, 'active'),
-    ));
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('guardian_links')
+      .select('tenant_id as tenantId')
+      .where('guardian_user_id', '=', guardianUserId)
+      .where('student_user_id', '=', studentUserId)
+      .where('status', '=', 'active')
+      .executeTakeFirst();
     return row;
   }
 
   /** Các trường trạng thái tài khoản của một user (đình chỉ/đã xoá) — cổng người nhận của lượt gửi. */
   private async getUserBasics(userId: string) {
-    const [row] = await this.db.select({ id: users.id, suspended: users.suspended, deleted: users.deleted })
-      .from(users).where(eq(users.id, userId));
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('users')
+      .select(['id', 'suspended', 'deleted'])
+      .where('id', '=', userId)
+      .executeTakeFirst();
     return row;
   }
 
@@ -508,8 +526,11 @@ export class GuardianDigestHandlerService {
    * phía API khi `getUser` không tìm thấy.
    */
   private async studentDisplayName(studentId: string): Promise<string> {
-    const [row] = await this.db.select({ firstName: users.firstName, lastName: users.lastName })
-      .from(users).where(eq(users.id, studentId));
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('users')
+      .select(['first_name as firstName', 'last_name as lastName'])
+      .where('id', '=', studentId)
+      .executeTakeFirst();
     if (!row) throw new Error(`Không tìm thấy học sinh ${studentId} của lượt digest`);
     return `${row.lastName} ${row.firstName}`.trim();
   }
@@ -523,10 +544,12 @@ export class GuardianDigestHandlerService {
    * luật phản chiếu của enqueue phía API.
    */
   private async enqueueAuditEvent(type: string, tenantId: string, payload: Record<string, unknown>): Promise<void> {
-    await this.db.insert(outboxEvents).values({
-      aggregate: 'guardian', type, tenantId,
-      payload: { ...payload, tenantId },
-    });
+    await this.spaceDb.routedKysely.insertInto('outbox_events').values({
+      aggregate: 'guardian', type, tenant_id: tenantId,
+      // jsonb: serialize tường minh kèm `::jsonb` theo khuôn ghi
+      // jsonb của `@lms/db`; khoá payload giữ nguyên như sự kiện cũ.
+      payload: sql<CentreDB['outbox_events']['payload']>`${JSON.stringify({ ...payload, tenantId })}::jsonb`,
+    }).execute();
   }
 
   /**

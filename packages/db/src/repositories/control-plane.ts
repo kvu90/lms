@@ -502,7 +502,25 @@ export class ControlPlaneRepository {
     return db.selectFrom('space_registry').select(SPACE_REGISTRY_COLUMNS).orderBy('slug', 'asc').execute();
   }
 
-  /** Ghi một dòng lịch sử quản trị (gọi trong cùng transaction với thay đổi trên sổ). */
+  /**
+   * Ghi một dòng lịch sử quản trị (gọi trong cùng transaction với thay đổi trên sổ).
+   *
+   * `created_at` được đóng dấu TƯỜNG MINH bằng `clock_timestamp()` —
+   * mốc thời gian thực mà PostgreSQL tính tại thời điểm câu INSERT
+   * thực thi, khi transaction của thao tác ghi đang giữ khoá dòng
+   * của sổ. Điểm đóng dấu này là bắt buộc của bất biến chuỗi lịch
+   * sử: ảnh before/after nối chuỗi theo thứ tự chiếm khoá, nên khoá
+   * sắp xếp lúc đọc (`listHistory` sắp theo `created_at`) cũng phải
+   * là mốc đóng tại cùng điểm nối tiếp hoá đó. Nếu để cột lấy mặc
+   * định `now()` thì mốc là thời điểm BẮT ĐẦU transaction — đóng
+   * dấu trước khi thao tác chờ khoá — thứ tự của nó lệch với thứ tự
+   * chiếm khoá khi nhiều thao tác ghi đồng thời trên cùng một
+   * dòng, làm chuỗi lịch sử đọc ra đứt ở điểm nối. Giá trị thời
+   * gian phía JavaScript (ví dụ `new Date()`) sai cùng một cách —
+   * cũng đóng dấu trước khi chiếm khoá — nên cấm dùng ở đây. Mặc
+   * định của cột trong database cũng đã đổi sang
+   * `clock_timestamp()` để mọi đường ghi khác giữ cùng ngữ nghĩa.
+   */
   async insertHistory(
     values: { spaceId: string; actorId: string; action: string; before: SpaceRegistrySnapshot | null; after: SpaceRegistrySnapshot },
     db: CpDb = this.db(),
@@ -515,6 +533,7 @@ export class ControlPlaneRepository {
         action: values.action,
         before: values.before === null ? null : jsonbValue(values.before),
         after: jsonbValue(values.after),
+        created_at: sql<Date>`clock_timestamp()`,
       })
       .returning(SPACE_REGISTRY_HISTORY_COLUMNS)
       .execute();

@@ -15,6 +15,7 @@ import { ContextsService } from '../../../src/modules/access/contexts.service';
 import { RolesService } from '../../../src/modules/access/roles.service';
 import { PlanLimitsService } from '../../../src/modules/access/plan-limits.service';
 import { RoleSeparationService } from '../../../src/modules/access/role-separation.service';
+import { createCentreKysely } from '@lms/db';
 import { OutboxService } from '../../../src/infra/events/outbox.service';
 import { relations } from '../../../src/db/relations';
 import { DEFAULT_ROLES } from '../../../src/modules/access/domain/capabilities';
@@ -177,7 +178,11 @@ async function seedSharedStoreDefaults(connectionString: string): Promise<void> 
     const rolesService = new RolesService(
       accessRepository,
       new ContextsService(accessRepository),
-      new OutboxService(db),
+      // OutboxService đã chuyển sang handle Kysely (D1, issue
+      // #653): handle trỏ đúng kho đang gieo; `seedDefaults`
+      // không phát sự kiện qua outbox nên pool lười này không
+      // mở kết nối nào.
+      new OutboxService(createCentreKysely(new Pool({ connectionString }))),
       new PlanLimitsService(db),
       new RoleSeparationService(db),
     );

@@ -1,11 +1,10 @@
 import { BadRequestException, ConflictException, ForbiddenException, forwardRef, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { MyAccessView } from '@lms/contracts';
-import { and, eq } from 'drizzle-orm';
-import { badgeIssued, learningPlans } from '../../db/schema';
+import { AuthRepository } from '@lms/db/repositories/auth';
+import { UsersRepository, type UserListFilter, type UserRow } from '@lms/db/repositories/users';
 import { OutboxService } from '../../infra/events/outbox.service';
 import type { ContextRow } from '../access/access.repository';
 import { ContextsService } from '../access/contexts.service';
-import { AuthRepository } from '../auth/auth.repository';
 import { CredentialBridgeService } from '../auth/better-auth/credential-bridge.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
@@ -13,7 +12,6 @@ import { PlanLimitsService } from '../access/plan-limits.service';
 import { RolesService } from '../access/roles.service';
 import { CustomFieldsService } from '../custom-fields/custom-fields.service';
 import { PasswordService } from './password.service';
-import { UsersRepository, type UserListFilter, type UserRow } from './users.repository';
 
 export const USER_COMPONENT = 'core_user';
 export const USER_AREA = 'user';
@@ -175,12 +173,24 @@ export class UsersService {
     // hai EXISTS qua index sẵn có — badge_issued_user_id_idx (chỉ tính
     // huy hiệu chưa thu hồi) và learning_plans_user_id_idx — không thêm
     // schema, không thêm request phía web (cờ đi kèm ảnh chụp quyền).
-    const [liveBadge] = await this.repo.dbHandle
-      .select({ id: badgeIssued.id }).from(badgeIssued)
-      .where(and(eq(badgeIssued.userId, userId), eq(badgeIssued.revoked, false))).limit(1);
-    const [ownPlan] = await this.repo.dbHandle
-      .select({ id: learningPlans.id }).from(learningPlans)
-      .where(eq(learningPlans.userId, userId)).limit(1);
+    // Hai bảng này thuộc module khác (huy hiệu/kế hoạch học tập chưa
+    // chuyển đổi) nhưng đường đọc đi qua handle Kysely của repository
+    // người dùng kể từ issue #641: handle đó là handle kho trung tâm
+    // được định tuyến theo không gian, đọc bảng nào trong kho cũng
+    // đúng đích và đúng ngữ cảnh tenant như đường Drizzle trước đây.
+    const liveBadge = await this.repo.dbHandle
+      .selectFrom('badge_issued')
+      .select(['id'])
+      .where('user_id', '=', userId)
+      .where('revoked', '=', false)
+      .limit(1)
+      .executeTakeFirst();
+    const ownPlan = await this.repo.dbHandle
+      .selectFrom('learning_plans')
+      .select(['id'])
+      .where('user_id', '=', userId)
+      .limit(1)
+      .executeTakeFirst();
     const hasLearnerArtifacts = !!liveBadge || !!ownPlan;
     return { userId, isSiteAdmin, assignments, contexts, hasLearnerArtifacts };
   }
@@ -197,13 +207,13 @@ export class UsersService {
     const policyErrors = this.passwords.validatePolicy(input.password);
     if (policyErrors.length) throw new BadRequestException({ message: policyErrors.join('; '), code: 'user.password_policy' });
     const passwordHash = await this.passwords.hash(input.password);
-    const user = await this.repo.dbHandle.transaction(async (tx) => {
+    const user = await this.repo.transaction(async (tx) => {
       const created = await this.repo.insertUser({
         username, email, passwordHash,
         firstName: input.firstName ?? '', lastName: input.lastName ?? '',
         forcePasswordChange: input.forcePasswordChange ?? false,
       }, tx);
-      await this.outbox.enqueue(tx, { aggregate: 'user', type: 'user_created', payload: { userId: created.id, username } });
+      await this.outbox.enqueueKysely(tx, { aggregate: 'user', type: 'user_created', payload: { userId: created.id, username } });
       return created;
     });
     await this.contexts.createContext(CONTEXT_LEVELS.USER, user.id, (await this.contexts.ensureSystemContext()).id);
@@ -250,13 +260,13 @@ export class UsersService {
     const base = email.split('@')[0]!.replace(/[^a-z0-9._-]+/g, '.').replace(/^\.+|\.+$/g, '') || 'user';
     let username = base;
     for (let suffix = 2; await this.repo.getByUsername(username); suffix += 1) username = `${base}${suffix}`;
-    const user = await this.repo.dbHandle.transaction(async (tx) => {
+    const user = await this.repo.transaction(async (tx) => {
       const created = await this.repo.insertUser({
         username, email, passwordHash: null,
         firstName: input.firstName ?? '', lastName: input.lastName ?? '',
         forcePasswordChange: false,
       }, tx);
-      await this.outbox.enqueue(tx, { aggregate: 'user', type: 'user_created', payload: { userId: created.id, username } });
+      await this.outbox.enqueueKysely(tx, { aggregate: 'user', type: 'user_created', payload: { userId: created.id, username } });
       return created;
     });
     await this.contexts.createContext(CONTEXT_LEVELS.USER, user.id, (await this.contexts.ensureSystemContext()).id);
@@ -340,9 +350,9 @@ export class UsersService {
       patch.passwordHash = await this.passwords.hash(input.password);
       patch.forcePasswordChange = false;
     }
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       await this.repo.updateUser(id, patch, tx);
-      await this.outbox.enqueue(tx, { aggregate: 'user', type: 'user_updated', payload: { userId: id } });
+      await this.outbox.enqueueKysely(tx, { aggregate: 'user', type: 'user_updated', payload: { userId: id } });
     });
     // Chặng 2.6 (issue #7): mật khẩu vừa đặt lại ở hệ cũ cũng là mật
     // khẩu của dòng credential — hai hệ không bao giờ lệch mật khẩu.
@@ -374,9 +384,9 @@ export class UsersService {
     if (!suspended && user.suspended) {
       await this.planLimits.assertUserReactivationWithinSlotLimits(id);
     }
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       await this.repo.updateUser(id, { suspended }, tx);
-      await this.outbox.enqueue(tx, { aggregate: 'user', type: suspended ? 'user_suspended' : 'user_unsuspended', payload: { userId: id } });
+      await this.outbox.enqueueKysely(tx, { aggregate: 'user', type: suspended ? 'user_suspended' : 'user_unsuspended', payload: { userId: id } });
     });
     return this.getUser(id);
   }
@@ -389,12 +399,12 @@ export class UsersService {
     const user = await this.getUser(id);
     if (user.isGuest) throw new BadRequestException({ message: 'The guest account cannot be deleted', code: 'user.guest_immutable' });
     if (user.deleted) return user;
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       await this.repo.updateUser(id, {
         deleted: true, suspended: true,
         username: `${user.username}.deleted${id}`, email: `${user.email}.deleted${id}`,
       }, tx);
-      await this.outbox.enqueue(tx, { aggregate: 'user', type: 'user_deleted', payload: { userId: id } });
+      await this.outbox.enqueueKysely(tx, { aggregate: 'user', type: 'user_deleted', payload: { userId: id } });
     });
     return this.getUser(id);
   }

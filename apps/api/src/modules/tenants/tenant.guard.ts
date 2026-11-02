@@ -9,7 +9,7 @@ import type { AuthenticatedUser } from '../../common/current-user.decorator';
 import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { resolveDedicatedSpace } from './space-resolution';
-import { TenantsRepository } from './tenants.repository';
+import { TenantsRepository } from '@lms/db/repositories/tenants';
 import { tenantAls } from './tenant-als';
 import { TenantsService } from './tenants.service';
 import { TenantContextService } from './tenant-context.service';

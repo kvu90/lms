@@ -28,9 +28,10 @@ ngữ" trong `AGENTS.md` ở thư mục gốc của repo.
 
 - 1 issue = 1 feat = 1 PR.
 - Package này là bề mặt DÙNG CHUNG cho nhiều tiến trình: cấm import
-  bất cứ thứ gì từ `apps/*`. Phụ thuộc cho phép: schema dùng chung
-  `@lms/db`, khung NestJS (`@nestjs/common`, `@nestjs/drizzle`) và
-  `drizzle-orm`.
+  bất cứ thứ gì từ `apps/*`. Phụ thuộc cho phép: kho trung tâm và
+  handle Kysely qua `@lms/db`, khung NestJS (`@nestjs/common`). Cấm
+  import trực tiếp `kysely` — mọi kiểu handle và `sql` đều lấy qua
+  `@lms/db`.
 - Ba hiệu ứng xuyên module của luồng matching (kích hoạt ghi danh,
   kích hoạt ghi danh cấp lớp, đối chiếu đích và xác nhận chi) chỉ
   được gọi qua các cổng ở `src/sepay-matching-ports.ts` — cấm import

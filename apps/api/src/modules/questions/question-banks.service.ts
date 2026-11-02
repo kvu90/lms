@@ -12,7 +12,7 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { RolesService } from '../access/roles.service';
 import { GroupsService } from '../groups/groups.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
-import { TenantsRepository } from '../tenants/tenants.repository';
+import { TenantsRepository } from '@lms/db/repositories/tenants';
 import { TenantsService } from '../tenants/tenants.service';
 import { truefalseHashAnswers } from './domain/question-engine';
 import {

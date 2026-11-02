@@ -72,6 +72,7 @@ import { WorkerPaidClassEnrolActivationService } from './worker-paid-class-enrol
 import { WorkerPaidEnrolActivationService } from './worker-paid-enrol-activation.service';
 import { WorkerPaymentSettlementService } from './worker-payment-settlement.service';
 import { WorkerPaymentSpaceScope } from './worker-payment-space-scope.service';
+import { WorkerPaymentsTransitionalRepository } from './worker-payments-transitional.repository';
 import {
   AnalyticsRunProcessor, BackupProcessor, PaymentReconciliationProcessor, PrivacyProcessor,
   ReportScheduleProcessor, RestoreProcessor, SearchReindexProcessor,
@@ -247,8 +248,18 @@ const outboxRouteQueueNames: string[] = allQueueNamesOfRoutes(OUTBOX_EVENT_QUEUE
     // vật chất hoá cohort dùng chung của `@lms/enrol`. Không đăng ký
     // hàng đợi BullMQ nào cho nhịp quét: đây là quét bảng, không
     // phải đường relay outbox.
-    PaymentsRepository, OutboxWriterService, PlanEntitlementsService, SepayMatchingService,
-    WorkerEnrolOutboxService, WorkerPaymentSpaceScope, WorkerPaidEnrolActivationService, WorkerPaidClassEnrolActivationService, WorkerPaymentSettlementService,
+    {
+      provide: PaymentsRepository,
+      useFactory: (spaceDb: SpaceDatabaseService) => new PaymentsRepository(spaceDb.routedKysely),
+      inject: [SpaceDatabaseService],
+    },
+    {
+      provide: OutboxWriterService,
+      useFactory: (spaceDb: SpaceDatabaseService) => new OutboxWriterService(spaceDb.routedKysely),
+      inject: [SpaceDatabaseService],
+    },
+    PlanEntitlementsService, SepayMatchingService,
+    WorkerEnrolOutboxService, WorkerPaymentSpaceScope, WorkerPaidEnrolActivationService, WorkerPaidClassEnrolActivationService, WorkerPaymentSettlementService, WorkerPaymentsTransitionalRepository,
     { provide: PAID_ENROL_ACTIVATION_PORT, useExisting: WorkerPaidEnrolActivationService },
     { provide: PAID_CLASS_ENROL_ACTIVATION_PORT, useExisting: WorkerPaidClassEnrolActivationService },
     { provide: PAYMENT_SETTLEMENT_PORT, useExisting: WorkerPaymentSettlementService },

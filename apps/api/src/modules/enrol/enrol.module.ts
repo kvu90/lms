@@ -10,7 +10,6 @@ import { MessagingModule } from '../messaging/messaging.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { CourseEnrolmentsController, EnrolController } from './enrol.controller';
 import { EnrolService } from './enrol.service';
-import { EnrolTransitionalRepository } from './enrol-transitional.repository';
 
 /**
  * Facade của EnrolModule: EnrolService. Phụ thuộc Courses, Groups, Access
@@ -34,10 +33,6 @@ import { EnrolTransitionalRepository } from './enrol-transitional.repository';
       useFactory: (spaceDb: SpaceDatabaseService) => new EnrolRepository(spaceDb.routedKysely),
       inject: [SpaceDatabaseService],
     },
-    // Repository chuyển tiếp Drizzle của điểm nối C-8/C (điểm vào
-    // `setSuspended` giữ chữ ký transaction của payments) — chủ
-    // đóng D4 #656, xem file của nó.
-    EnrolTransitionalRepository,
     EnrolService,
   ],
   exports: [EnrolService],

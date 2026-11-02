@@ -12,10 +12,10 @@ import { SpaceRoutingError } from '../../db/routing/space-connection-resolver';
 import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import type { ActivateCentreInviteDto, UpdateCentreIdentityDto } from './dto/centres.dto';
 import { UsersService } from '../users/users.service';
-import { CentreIdentityRepository } from './centre-identity.repository';
+import { CentreIdentityRepository } from '@lms/db/repositories/centre-identity';
 import { extractSpaceSlugFromHost } from './space-resolution';
 import { tenantAls } from './tenant-als';
-import { TenantsRepository } from './tenants.repository';
+import { TenantsRepository } from '@lms/db/repositories/tenants';
 
 /**
  * Nhận diện riêng của trung tâm + kích hoạt lời mời quản trị đầu

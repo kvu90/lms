@@ -107,7 +107,7 @@ import { RoleSeparationService } from '../access/role-separation.service';
 import { OutboxService } from '../../infra/events/outbox.service';
 import type { Database } from '../../db/database';
 import { CONTEXT_LEVELS, DEFAULT_ROLES } from '../access/domain/capabilities';
-import { createCentreKysely, sql as kyselySql } from '@lms/db';
+import { createCentreKysely, sql as kyselySql, type CentreDb } from '@lms/db';
 import { isDedicatedDatabaseNameConflict } from '@lms/db/repositories/control-plane';
 import {
   loadProgramDumpSql,
@@ -288,17 +288,23 @@ const ROLE_BASELINE_MARKER_VERSION = 1;
  *
  * @param db - Handle Drizzle của kho đích (kết nối đã mang ngữ
  *   cảnh platform để qua RLS như mọi ghi seed của pipeline).
+ * @param outboxDb - Handle Kysely của đúng kho đích cho
+ *   `OutboxService` (service đã chuyển sang Kysely ở D1, issue
+ *   #653). Closure này chỉ gọi `listRoles`/`seedDefaults` — cả
+ *   hai đều không phát sự kiện qua outbox — nên handle chỉ để
+ *   dựng service đúng hợp đồng; pool của nó lười, không mở kết
+ *   nối nào trong lượt cài này.
  * @returns `created` khi lượt này đã chạy đường gieo và ghi dấu
  *   mốc hoàn tất, `reused` khi kho đã cài trọn bộ vai nên không
  *   đổi gì.
  */
-async function installCentreRoleBaseline(db: Database): Promise<'created' | 'reused'> {
+async function installCentreRoleBaseline(db: Database, outboxDb: CentreDb): Promise<'created' | 'reused'> {
   const accessRepository = new AccessRepository(db);
   const contextsService = new ContextsService(accessRepository);
   const rolesService = new RolesService(
     accessRepository,
     contextsService,
-    new OutboxService(db),
+    new OutboxService(outboxDb),
     new PlanLimitsService(db),
     new RoleSeparationService(db),
   );
@@ -637,7 +643,7 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
       // xem `installCentreRoleBaseline`): cài sau khi context hệ
       // thống và dòng tenant đã có, vì ma trận mặc định neo vào
       // context hệ thống của chính kho này.
-      step('role-baseline', await installCentreRoleBaseline(db));
+      step('role-baseline', await installCentreRoleBaseline(db, createCentreKysely(new Pool({ connectionString: centreUrl }))));
       // Nhận diện của trung tâm (một dòng cho mỗi tenant).
       const [existingIdentity] = await db.select().from(centreIdentity).where(eq(centreIdentity.tenantId, tenantId)).limit(1);
       if (!existingIdentity) {
@@ -876,7 +882,7 @@ export async function installSpaceRoleBaseline(options: SpaceRoleBaselineOptions
       const db = drizzle({ client, relations });
       const [tenant] = await db.select().from(tenants).where(eq(tenants.slug, slug)).limit(1);
       if (!tenant) throw new Error(`Tenant ${slug} does not exist in the centre database yet`);
-      const outcome = await installCentreRoleBaseline(db);
+      const outcome = await installCentreRoleBaseline(db, createCentreKysely(new Pool({ connectionString: centreUrl })));
       log(`[install-roles:${slug}] role-baseline: ${outcome}`);
       return { slug, outcome };
     } finally {
