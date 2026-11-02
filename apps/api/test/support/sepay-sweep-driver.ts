@@ -20,7 +20,6 @@ import { WorkerPaidClassEnrolActivationService } from '../../../worker/src/worke
 import { WorkerPaidEnrolActivationService } from '../../../worker/src/worker-paid-enrol-activation.service';
 import { WorkerPaymentSettlementService } from '../../../worker/src/worker-payment-settlement.service';
 import { WorkerPaymentSpaceScope } from '../../../worker/src/worker-payment-space-scope.service';
-import { WorkerPaymentsTransitionalRepository } from '../../../worker/src/worker-payments-transitional.repository';
 
 /**
  * Cầu dẫn nhịp quét matching SePay ở worker cho các suite e2e
@@ -35,11 +34,14 @@ import { WorkerPaymentsTransitionalRepository } from '../../../worker/src/worker
  *
  * Cách dẫn: dựng ĐÚNG ngăn xếp production của worker bằng `new`
  * (không qua Nest, không boot WorkerModule — e2e shard chỉ build
- * `@lms/api`, không có tiến trình worker chạy kèm): tay cầm Drizzle
+ * `@lms/api`, không có tiến trình worker chạy kèm): handle Kysely
  * trên `TenantAwarePool` của worker (gắn GUC theo ALS như module
- * thật) cho các adapter của worker, handle Kysely trên CÙNG pool
- * cho repository + writer của `@lms/payments` (đã chuyển Kysely ở
- * #656), ba adapter cổng của worker, `SepayMatchingService`, rồi
+ * thật) cho repository + writer của `@lms/payments` và cho toàn
+ * bộ adapter của worker qua khung định tuyến theo không gian
+ * (tay cầm Drizzle trên cùng pool chỉ còn được gắn vào khung
+ * định tuyến như factory của module thật làm, và phục vụ lượt
+ * đọc polling đồng bộ cohort của chính cầu dẫn này), ba adapter
+ * cổng của worker, `SepayMatchingService`, rồi
  * `SepayMatchingScheduler`. Mỗi vòng thăm dò của spec gọi một nhịp
  * `sweepTick()` rồi mới đọc trạng thái — giữ nguyên hình thăm dò
  * cũ, chỉ thêm bước dẫn nhịp vào đầu mỗi vòng.
@@ -91,9 +93,9 @@ function getSharedDb(): NodePgDatabase<typeof relations> {
  * Handle Kysely kho trung tâm trên CÙNG pool với handle Drizzle ở
  * trên (không mở thêm pool — vòng đời của nó đi theo pool chung,
  * không `destroy()` riêng): repository và writer của
- * `@lms/payments` đã chuyển sang Kysely (#656) nên dựng trên handle
- * này, trong khi các adapter của worker (kích hoạt, settlement)
- * vẫn dùng handle Drizzle cho tới khi W2b (#661) chuyển chúng.
+ * `@lms/payments` cùng toàn bộ adapter của worker đều chạy trên
+ * handle Kysely (qua khung định tuyến gắn handle này làm đích kho
+ * chung), nên mọi điểm dựng đều lấy handle từ đây.
  */
 function getSharedKysely(): CentreDb {
   if (!sharedKysely) {
@@ -127,29 +129,23 @@ function getSpaceDatabase(): SpaceDatabaseService {
 
 function getScheduler(): SepayMatchingScheduler {
   if (!scheduler) {
-    const db = getSharedDb();
     const repo = new PaymentsRepository(getSharedKysely());
     const writer = new OutboxWriterService(getSharedKysely());
     const plans = new PlanEntitlementsService(repo);
-    // Cầu nối PR #683 (chủ đóng W2b #661): settlement dùng
-    // repository chuyển tiếp Drizzle trên handle Drizzle, như
-    // điểm dựng của int-spec worker — các adapter vẫn dùng
-    // handle Drizzle cho tới khi #661 chuyển chúng. Service
-    // outbox enrol dựng trên khung định tuyến dùng chung ở trên:
-    // đường Kysely của nó ghi qua facade của khung, đường
-    // Drizzle (`enqueueInDrizzleTx`) ghi trực tiếp trên
-    // transaction của nơi gọi.
-    const bridge = new WorkerPaymentsTransitionalRepository(db);
+    // Mọi adapter của worker chạy trên handle Kysely định tuyến
+    // của khung dùng chung ở trên: điểm phân giải không gian chỉ
+    // cần khung định tuyến, hai adapter kích hoạt và settlement
+    // nhận điểm phân giải đó cùng repository/outbox Kysely.
     const spaceDatabase = getSpaceDatabase();
     const enrolOutbox = new WorkerEnrolOutboxService(spaceDatabase);
-    const spaceScope = new WorkerPaymentSpaceScope(db, spaceDatabase);
+    const spaceScope = new WorkerPaymentSpaceScope(spaceDatabase);
     const matching = new SepayMatchingService(
       repo,
       writer,
-      new WorkerPaidEnrolActivationService(db, enrolOutbox, spaceScope),
-      new WorkerPaidClassEnrolActivationService(db, enrolOutbox, spaceScope),
+      new WorkerPaidEnrolActivationService(enrolOutbox, spaceScope),
+      new WorkerPaidClassEnrolActivationService(enrolOutbox, spaceScope),
       plans,
-      new WorkerPaymentSettlementService(db, repo, bridge, enrolOutbox, spaceScope),
+      new WorkerPaymentSettlementService(repo, enrolOutbox, spaceScope),
     );
     scheduler = new SepayMatchingScheduler(matching);
   }

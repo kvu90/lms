@@ -19,10 +19,10 @@ import { WorkerEnrolOutboxService } from '../../../src/worker-enrol-outbox.servi
  *
  * Cách tiêm lỗi: bọc mọi cổng ghi outbox của adapter bằng cùng
  * một bộ đếm — ném lỗi ở lần gọi thứ N. Các cổng hiện hữu của
- * `WorkerEnrolOutboxService`: `enqueueInDrizzleTx` (đường adapter
- * dùng hiện nay — cả hai dòng outbox ghi trong transaction
- * Drizzle của adapter qua cổng này, điểm nối chuyển tiếp của D5),
- * `enqueue` và `enqueueStandalone` (hai cổng của bề mặt Kysely).
+ * `WorkerEnrolOutboxService`: `enqueue` (đường adapter dùng —
+ * cả hai dòng outbox ghi trong transaction Kysely của adapter
+ * qua cổng này) và `enqueueStandalone` (cổng ghi trong
+ * transaction ngắn riêng của bề mặt enrol).
  * Nhờ đó cùng một ca kiểm chứng được cả hai phía: trên code cũ,
  * lỗi ở lần ghi thứ hai để lại thành viên + dòng outbox đầu đã
  * commit, và lần chạy lại gặp roster đã có nên return sớm, vĩnh
@@ -87,14 +87,13 @@ describe('Kích hoạt ghi danh cấp lớp ở worker — chèn thành viên v�
 
   /**
    * Tiêm lỗi vào lần ghi outbox thứ `failOnCall` (đếm chung cho
-   * mọi cổng ghi outbox của adapter: `enqueueInDrizzleTx`,
-   * `enqueue` và `enqueueStandalone`); trả hàm khôi phục.
+   * mọi cổng ghi outbox của adapter: `enqueue` và
+   * `enqueueStandalone`); trả hàm khôi phục.
    */
   function armFault(failOnCall: number): () => void {
     let calls = 0;
     const origEnqueue = enrolOutbox.enqueue.bind(enrolOutbox);
     const origStandalone = enrolOutbox.enqueueStandalone.bind(enrolOutbox);
-    const origInDrizzleTx = enrolOutbox.enqueueInDrizzleTx.bind(enrolOutbox);
     const fail = (): never => {
       throw new Error('lỗi tiêm giữa chừng');
     };
@@ -108,15 +107,9 @@ describe('Kích hoạt ghi danh cấp lớp ở worker — chèn thành viên v�
       if (calls === failOnCall) fail();
       return origStandalone(...args);
     }) as typeof origStandalone;
-    enrolOutbox.enqueueInDrizzleTx = (async (...args: Parameters<typeof origInDrizzleTx>) => {
-      calls += 1;
-      if (calls === failOnCall) fail();
-      return origInDrizzleTx(...args);
-    }) as typeof origInDrizzleTx;
     return () => {
       enrolOutbox.enqueue = origEnqueue;
       enrolOutbox.enqueueStandalone = origStandalone;
-      enrolOutbox.enqueueInDrizzleTx = origInDrizzleTx;
     };
   }
 
