@@ -1,10 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { AnalyticsRepository, type InsightRow, type ModelRow } from '@lms/db/repositories/analytics';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
 import { EnrolService } from '../enrol/enrol.service';
-import { AnalyticsRepository, type InsightRow, type ModelRow } from './analytics.repository';
-import { gradeGrades, gradeItems, users } from '../../db/schema';
 
 /** Một indicator đăng ký trong code: tính một tín hiệu cho (user, course). */
 export interface AnalyticsIndicator {
@@ -52,7 +50,11 @@ export class AnalyticsService {
     this.registerIndicator({
       name: 'no_recent_access',
       calculate: async (userId) => {
-        const [u] = await db.select().from(users).where(eq(users.id, userId));
+        const u = await db
+          .selectFrom('users')
+          .select(['id', 'last_login as lastLogin'])
+          .where('id', '=', userId)
+          .executeTakeFirst();
         if (!u || !u.lastLogin) return 1;
         return Date.now() - u.lastLogin.getTime() > 14 * 24 * 3600 * 1000 ? 1 : 0;
       },
@@ -61,9 +63,16 @@ export class AnalyticsService {
     this.registerIndicator({
       name: 'low_grade',
       calculate: async (userId, courseId) => {
-        const items = await db.select().from(gradeItems).where(eq(gradeItems.courseId, courseId));
+        const items = await db
+          .selectFrom('grade_items')
+          .select(['id', 'grade_max as gradeMax'])
+          .where('course_id', '=', courseId)
+          .execute();
         if (!items.length) return 0;
-        const grades = await db.select().from(gradeGrades);
+        const grades = await db
+          .selectFrom('grade_grades')
+          .select(['user_id as userId', 'item_id as itemId', 'final_grade as finalGrade'])
+          .execute();
         const mine = grades.filter((g) => g.userId === userId && items.some((i) => i.id === g.itemId) && g.finalGrade !== null);
         if (!mine.length) return 0.5; // chưa có điểm: tín hiệu trung bình
         const pct = mine.reduce((sum, g) => {
@@ -108,7 +117,10 @@ export class AnalyticsService {
     const activeUserIds = [...new Set(enrolments.filter((e) => e.status === 0).map((e) => e.userId))];
     // Recipients: mọi user (không suspended/deleted) có analytics:viewinsights ở course context.
     const recipients: string[] = [];
-    const allUsers = await db.select().from(users);
+    const allUsers = await db
+      .selectFrom('users')
+      .select(['id', 'suspended', 'deleted', 'is_guest as isGuest'])
+      .execute();
     for (const u of allUsers) {
       if (u.suspended || u.deleted || u.isGuest) continue;
       if (await this.evaluator.hasCapability(u.id, 'analytics:viewinsights', ctxId)) recipients.push(u.id);

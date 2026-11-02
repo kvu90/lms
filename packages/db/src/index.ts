@@ -64,6 +64,11 @@ export {
  * thụ (api, worker) phụ thuộc `@lms/db`, không phụ thuộc trực tiếp
  * package `kysely` — mọi bề mặt Kysely mà app cần (kể cả mẫu SQL
  * thô để gắn GUC trong transaction) đều đi qua điểm vào này, giữ
- * nguyên kỷ luật phụ thuộc đã chốt ở PR-N1.
+ * nguyên kỷ luật phụ thuộc đã chốt ở PR-N1. Từ issue #648, barrel
+ * còn re-export ba kiểu thuần của Kysely (`RawBuilder`,
+ * `Selectable`, `SqlBool`) cho các service phía app còn giữ truy
+ * vấn qua handle của repository package (backup, search): kiểu
+ * đi qua cùng một điểm vào, app vẫn không khai phụ thuộc trực
+ * tiếp vào `kysely` ở cả tầng runtime lẫn tầng kiểu.
  */
-export { sql } from 'kysely';
+export { sql, type RawBuilder, type Selectable, type SqlBool } from 'kysely';
