@@ -2,7 +2,8 @@ import { BadRequestException, ForbiddenException, NotFoundException } from '@nes
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { UsersService } from '../users/users.service';
-import { blankRecalledContent, MessagingRepository, type ConversationRow, type MessageRow, type MessageWithQuoteRow } from './messaging.repository';
+import { MessagingRepository, type ConversationRow, type MessageRow, type MessageWithQuoteRow } from '@lms/db/repositories/messaging';
+import { blankRecalledContent } from '@lms/messaging';
 import { tenantAls } from '../tenants/tenant-als';
 import { MessagingContactsService, type PersonSummaryView } from './messaging-contacts.service';
 import { MessagingMembershipSyncService } from './messaging-membership-sync.service';
@@ -139,7 +140,7 @@ export class MessagingConversationsService {
         });
       }
     }
-    const conversation = await this.repo.dbHandle.transaction(async (tx) => {
+    const conversation = await this.repo.transaction(async (tx) => {
       const created = await this.repo.insertConversation({ type, name: input.name ?? null, createdBy: actorId, tenantId: tenantAls.getStore()?.tenantId ?? null }, tx);
       for (const id of memberIds) await this.repo.addMember(created.id, id, tx);
       return created;
@@ -208,7 +209,7 @@ export class MessagingConversationsService {
     const courseCtx = await this.contexts.getByLevelInstance(50, group.courseId);
     // TENANT-1 (#196): conversation của group thuộc tenant của khoá chứa group.
     const tenantId = (await this.repo.getCourseTenantId(group.courseId)) ?? tenantAls.getStore()?.tenantId ?? null;
-    const conversation = await this.repo.dbHandle.transaction(async (tx) => {
+    const conversation = await this.repo.transaction(async (tx) => {
       const created = await this.repo.insertConversation({
         type: 2, name: input.name ?? group.name,
         component: 'core_group', itemType: 'groups', itemId: group.id,
@@ -256,7 +257,7 @@ export class MessagingConversationsService {
     } else {
       const courseCtx = await this.contexts.getByLevelInstance(50, courseId);
       const memberIds = await this.repo.listCourseConversationMemberIds(courseId);
-      const ensured = await this.repo.dbHandle.transaction(async (tx) => {
+      const ensured = await this.repo.transaction(async (tx) => {
         // Khoá advisory TRƯỚC, re-check SAU — trong cùng transaction:
         // lượt ensure song song đến sau phải chờ lượt trước commit xong
         // mới qua được khoá, và re-check lúc đó thấy conversation đã
@@ -362,7 +363,7 @@ export class MessagingConversationsService {
     } else {
       const classCtx = await this.contexts.getByLevelInstance(45, classId);
       const memberIds = await this.repo.listClassConversationMemberIds(classId);
-      const ensured = await this.repo.dbHandle.transaction(async (tx) => {
+      const ensured = await this.repo.transaction(async (tx) => {
         await this.repo.acquireClassConversationLock(tx, classId);
         const rechecked = await this.repo.findClassConversation(classId, tx);
         if (rechecked) return { conversation: rechecked, created: false as const };

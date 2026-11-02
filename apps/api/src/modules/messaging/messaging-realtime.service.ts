@@ -6,7 +6,7 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import Redis from 'ioredis';
 import type { Server } from 'socket.io';
 import { redisTlsFromUrl } from '../../config/env';
-import { MessagingRepository } from './messaging.repository';
+import { MessagingRepository } from '@lms/db/repositories/messaging';
 
 const PRESENCE_KEY_PREFIX = 'lms:messaging:presence:';
 const TYPING_KEY_PREFIX = 'lms:messaging:typing:';

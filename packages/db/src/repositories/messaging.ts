@@ -1,35 +1,194 @@
-import { Injectable } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, notInArray, or, sql } from 'drizzle-orm';
 import {
-  attachQuotesToRows,
-  countUnreadForConversation as countUnreadForConversationShared,
-  getConversationById,
-  getConversationTenantId as getConversationTenantIdShared,
-  getMemberLastReadSeq as getMemberLastReadSeqShared,
-  getMessageById,
-  getMessagesByIds as getMessagesByIdsShared,
-  listBlockedCounterpartIds as listBlockedCounterpartIdsShared,
-  listBlockedUserIds,
-  listBlockerUserIds,
-  listConversationMemberIds,
-  listDeletedForUserIds as listDeletedForUserIdsShared,
-  listMessagesPage,
-  quoteExcerptOf,
-  QUOTE_EXCERPT_MAX_CHARS,
-  type MessageWindowOptions,
-  type MessageWithQuoteRow,
-} from '@lms/messaging';
-import type { Database, DbTx } from '../../db/database';
-import { tenantAls } from '../tenants/tenant-als';
-import {
-  assignments, assignGrades, assignSubmissions, classes, cohortMembers, context, course, courseGroups, courseModules, enrol, gradeGrades, gradeItems, groupsMembers, guardianLinks,
-  message, messageContacts, messageContactRequests, messageConversationMembers, messageConversationReports, messageConversations, messageModeratorActions, messageUserDeletions, messageUsersBlocked,
-  notificationDispatchLog, notifications, examAttempts, examPins, examVersions, role, roleAssignments, tenantMemberships, tenants, userEnrolments, users,
-} from '../../db/schema';
+  sql,
+  type Expression,
+  type Insertable,
+  type RawBuilder,
+  type SqlBool,
+} from 'kysely';
+import type { CentreDb, CentreTx, CentreDB } from '../client';
 
-export type ConversationRow = typeof messageConversations.$inferSelect;
-export type MessageRow = typeof message.$inferSelect;
+/**
+ * Kho dữ liệu nhắn tin và thông báo trên Kysely (issue #658, nhóm
+ * G11 — nhóm cuối của chiến dịch chuyển tầng dữ liệu sang Kysely):
+ * chuyển nguyên vẹn bề mặt của `MessagingRepository` cũ ở
+ * `apps/api` (Drizzle, 2.250 dòng) sang đây — conversation, thành
+ * viên, message, block, notification, nhật ký dispatch, cùng các
+ * phép đọc bảng dùng chung (role/context/enrol/ghi danh/lớp/khoá)
+ * mà các cổng nghiệp vụ của messaging cần.
+ *
+ * Khuôn truy vấn theo đúng pilot kho control plane và các
+ * repository đã chuyển trước đó:
+ * - Cột đọc khai tường minh kèm bí danh camelCase dùng chung cho
+ *   select và returning — KHÔNG bật CamelCasePlugin.
+ * - Kiểu dòng công khai khai tay trong file này, khớp hình dạng
+ *   `$inferSelect` của repository cũ để phía tiêu thụ không đổi
+ *   hợp đồng.
+ * - Ghi qua hàm ánh xạ Insert loại `undefined` tường minh từng
+ *   trường (thử nghiệm T-4).
+ * - Khoá chính `uuidv7()` do database sinh (phụ lục U): insert bỏ
+ *   qua `id` khi phía gọi không cấp và lấy id qua `returning`.
+ * - `count(*)` ép `::int` tường minh để giữ kiểu `number` của hợp
+ *   đồng cũ (T-7).
+ * - Điều kiện động dựng theo mẫu T-13: mọi điều kiện đều là biểu
+ *   thức có giá trị bắt buộc, hợp bằng `eb.and(conds)`; KHÔNG bao
+ *   giờ truyền `undefined` vào `where`.
+ * - Ba điểm ghép đoạn động bằng `sql.join` của bản cũ (danh sách
+ *   IN, WHERE, HAVING của `listNotificationGroups`) viết lại bằng
+ *   `sql.join` của Kysely theo khuôn T-11, có spec riêng ở
+ *   `messaging.spec.ts` (tầng biên dịch) và
+ *   `messaging.int-spec.ts` (kết quả thật).
+ *
+ * GỠ VÒNG PHỤ THUỘC `@lms/db` ↔ `@lms/messaging`: bề mặt đọc dùng
+ * chung của messaging (luật đọc tin/hội thoại cho cả đường REST
+ * phía API và consumer phân phối phía worker) vẫn cài đặt tại
+ * `@lms/messaging` dưới dạng hàm thuần nhận handle Kysely. File
+ * này KHAI cổng {@link MessagingStorePort} cho đúng bề mặt đó;
+ * repository nhận cài đặt của cổng qua constructor và uỷ quyền
+ * mọi phép đọc dùng chung qua cổng — `@lms/db` không import
+ * `@lms/messaging` ở bất kỳ dạng nào, còn `@lms/messaging` chỉ
+ * import type-only từ file này (kiểu dòng + cổng), nên đồ thị
+ * phụ thuộc là DAG. Các helper thuần chuỗi của họ excerpt
+ * (`quoteExcerptOf`, `searchExcerptOf`) ở lại `@lms/messaging`
+ * vì chúng là logic hình dạng wire, không phải truy cập dữ liệu.
+ *
+ * RANH GIỚI NGỮ CẢNH: repository này KHÔNG đọc ALS hay bất kỳ
+ * ngữ cảnh app nào. Chín method của cụm notification nhận tham
+ * số `tenantId` tường minh do tầng service phía app truyền
+ * xuống (service đọc ngữ cảnh tenant của request hiện hành) —
+ * đúng luật của issue: đổi chỗ đọc ALS trong repository thành
+ * tham số tường minh, giữ nguyên ngữ nghĩa lọc (có tenant thì
+ * lọc theo tenant đó, không có thì không lọc thêm ở tầng này;
+ * RLS fail-closed là lưới cứng phía sau).
+ *
+ * Mọi truy vấn thuần dữ liệu; quy tắc nghiệp vụ nằm ở tầng
+ * service phía ứng dụng.
+ */
+
+/** Handle kho trung tâm mà repository chấp nhận: thường hoặc trong giao dịch. */
+export type MessagingDb = CentreDb | CentreTx;
+/** Handle giao dịch kho trung tâm. */
+export type MessagingTx = CentreTx;
+
+// ---------------------------------------------------------------------------
+// Kiểu dòng đọc (hợp đồng công khai — khớp `$inferSelect` của repository cũ)
+// ---------------------------------------------------------------------------
+
+/** Dòng `message_conversations`. */
+export interface ConversationRow {
+  id: string;
+  type: number;
+  name: string | null;
+  component: string | null;
+  itemType: string | null;
+  itemId: string | null;
+  contextId: string | null;
+  enabled: boolean;
+  createdBy: string | null;
+  tenantId: string | null;
+  lastMessageSeq: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** Dòng `message`. */
+export interface MessageRow {
+  id: string;
+  conversationId: string;
+  userIdFrom: string;
+  subject: string;
+  fullMessage: string;
+  smallMessage: string;
+  seq: number;
+  clientMessageId: string | null;
+  replyToMessageId: string | null;
+  deletedAt: Date | null;
+  deletedBy: string | null;
+  recalledAt: Date | null;
+  recalledBy: string | null;
+  createdAt: Date;
+}
+
+/** Dòng `notifications`. */
+export interface NotificationRow {
+  id: string;
+  userIdFrom: string | null;
+  userIdTo: string;
+  tenantId: string | null;
+  subject: string;
+  fullMessage: string;
+  smallMessage: string;
+  component: string;
+  eventType: string;
+  contextUrl: string | null;
+  contextUrlName: string | null;
+  createdAt: Date;
+  timeRead: Date | null;
+}
+
+/** Dòng `notification_dispatch_log`. */
+export interface DispatchLogRow {
+  id: string;
+  notificationId: string | null;
+  userId: string;
+  tenantId: string | null;
+  provider: string;
+  channel: string;
+  status: string;
+  subject: string;
+  dedupeKey: string | null;
+  createdAt: Date;
+}
+
+/** Dòng `message_contacts`. */
+export interface ContactRow {
+  userId: string;
+  contactId: string;
+  createdAt: Date;
+}
+
+/** Dòng `message_contact_requests`. */
+export interface ContactRequestRow {
+  userIdFrom: string;
+  userIdTo: string;
+  createdAt: Date;
+}
+
+/** Dòng `message_conversation_reports`. */
+export interface ReportRow {
+  id: string;
+  conversationId: string;
+  reporterId: string;
+  reason: string;
+  status: string;
+  resolvedBy: string | null;
+  resolvedAt: Date | null;
+  createdAt: Date;
+}
+
+/** Dòng `message_moderator_actions`. */
+export interface ModeratorActionRow {
+  id: string;
+  messageId: string;
+  conversationId: string;
+  actorId: string;
+  authorId: string;
+  action: string;
+  reason: string | null;
+  messageSeq: number | null;
+  createdAt: Date;
+}
+
+/** Dòng `course_groups`. */
+export interface CourseGroupRow {
+  id: string;
+  courseId: string;
+  name: string;
+  idNumber: string;
+  description: string;
+  enrolmentKey: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 /**
  * Một dòng của danh sách conversation cho một user: conversation + mốc
@@ -73,7 +232,6 @@ export interface MessageSearchOptions {
    */
   excludedAuthorIds?: string[];
 }
-export type NotificationRow = typeof notifications.$inferSelect;
 
 /**
  * Một dòng GỘP thô của trung tâm thông báo v2 (issue #51) từ truy vấn
@@ -108,49 +266,47 @@ export interface NotificationItemsOptions {
   cursor?: { createdAt: Date; id: string };
   limit: number;
 }
-export type DispatchLogRow = typeof notificationDispatchLog.$inferSelect;
-export type ContactRow = typeof messageContacts.$inferSelect;
-export type ModeratorActionRow = typeof messageModeratorActions.$inferSelect;
 
-/**
- * Các luật thuần về nội dung/trích dẫn của tin nhắn (vô hiệu nội dung
- * tin đã thu hồi, dựng khối trích dẫn, rút gọn excerpt) sống ở
- * package dùng chung `@lms/messaging` để repository phía API, tầng
- * realtime phía API và consumer phân phối phía worker dùng chung một
- * bản cài đặt (issue #521); các tên dưới đây được re-export để mọi
- * điểm nhập hiện hữu qua repository giữ nguyên.
- */
-export { blankRecalledContent, messageQuoteOf, quoteExcerptOf, QUOTE_EXCERPT_MAX_CHARS } from '@lms/messaging';
-export type { MessageQuoteView, MessageWithQuoteRow } from '@lms/messaging';
-
-/** Trần độ dài của excerpt kết quả tìm tin (lát M4): cùng trần với excerpt trích dẫn. */
-export const SEARCH_EXCERPT_MAX_CHARS = QUOTE_EXCERPT_MAX_CHARS;
-
-/**
- * Rút gọn nội dung quanh CHỖ KHỚP cho một kết quả tìm tin (lát M4,
- * issue #237): cửa sổ tối đa {@link SEARCH_EXCERPT_MAX_CHARS} ký tự
- * (theo code point) đặt chỗ khớp gần giữa, thêm … ở phía bị cắt.
- * Khớp theo chuỗi con không phân biệt hoa thường — cùng ngữ nghĩa
- * với truy vấn ILIKE ở repository. Không tìm thấy chỗ khớp (không
- * xảy ra với hàng lấy từ truy vấn khớp) thì lùi về rút gọn từ đầu
- * như excerpt trích dẫn.
- */
-export function searchExcerptOf(text: string, query: string): string {
-  const chars = Array.from(text);
-  if (chars.length <= SEARCH_EXCERPT_MAX_CHARS) return text;
-  const at = text.toLocaleLowerCase('vi').indexOf(query.toLocaleLowerCase('vi'));
-  if (at < 0) return quoteExcerptOf(text);
-  const matchStart = Array.from(text.slice(0, at)).length;
-  const matchLength = Array.from(query).length;
-  const before = Math.max(0, Math.floor((SEARCH_EXCERPT_MAX_CHARS - matchLength) / 2));
-  const start = Math.max(0, matchStart - before);
-  const end = Math.min(chars.length, start + SEARCH_EXCERPT_MAX_CHARS);
-  const slice = chars.slice(start, end).join('');
-  return `${start > 0 ? '…' : ''}${slice}${end < chars.length ? '…' : ''}`;
+/** Tuỳ chọn cửa sổ tin theo cursor seq (bề mặt đọc dùng chung của `@lms/messaging`). */
+export interface MessageWindowOptions {
+  /** Chỉ lấy tin có seq nhỏ hơn mốc này (tải lịch sử cũ hơn). */
+  beforeSeq?: number;
+  /** Chỉ lấy tin có seq lớn hơn mốc này (đồng bộ phần thiếu). */
+  afterSeq?: number;
+  /** Số tin tối đa trong cửa sổ (mặc định 50, trần 100). */
+  limit?: number;
+  /**
+   * Kèm cả tin đã xoá mềm (mặc định KHÔNG): chỉ các cửa sổ truy vết của
+   * người có thẩm quyền (giáo viên phụ trách/quản trị) mới bật — mọi
+   * đường đọc thường của thành viên luôn lọc bỏ tin đã xoá.
+   */
+  includeDeleted?: boolean;
+  /**
+   * Người đang xem (vòng đời tin nhắn theo vai): khi có mặt và KHÔNG
+   * ở chế độ truy vết (includeDeleted), cửa sổ lọc bỏ thêm các tin
+   * người này đã XOÁ-PHÍA-MÌNH (bảng `message_user_deletions`) — cờ
+   * cá nhân chỉ áp cho đúng chủ nhân của nó, không ai khác bị ảnh
+   * hưởng. Chế độ truy vết bỏ qua cờ này: dấu vết phải đầy đủ.
+   */
+  viewerId?: string;
 }
-export type ContactRequestRow = typeof messageContactRequests.$inferSelect;
-export type ReportRow = typeof messageConversationReports.$inferSelect;
-export type CourseGroupRow = typeof courseGroups.$inferSelect;
+
+/**
+ * Khối tóm tắt TRÍCH DẪN của một tin gốc (lát M3, issue #229) — hình
+ * dạng khớp `messageQuoteSchema` của @lms/contracts (khai báo ở đây
+ * để tầng dữ liệu là nguồn định nghĩa duy nhất của hình dạng dòng;
+ * `@lms/messaging` re-export cho các phía tiêu thụ hiện hữu).
+ */
+export interface MessageQuoteView {
+  id: string;
+  seq: number;
+  userIdFrom: string;
+  excerpt: string;
+  unavailable: boolean;
+}
+
+/** Một dòng tin kèm khối trích dẫn đã dựng sẵn cho người nhận (`replyTo = null` khi không trích dẫn). */
+export type MessageWithQuoteRow = MessageRow & { replyTo: MessageQuoteView | null };
 
 /**
  * Các archetype vai trò được coi là "staff" cho các cổng nghiệp vụ của
@@ -160,67 +316,442 @@ export type CourseGroupRow = typeof courseGroups.$inferSelect;
  */
 export const STAFF_ARCHETYPES = ['manager', 'coursecreator', 'editingteacher', 'teacher'] as const;
 
-@Injectable()
+// ---------------------------------------------------------------------------
+// Cổng bề mặt đọc dùng chung (gỡ vòng @lms/db ↔ @lms/messaging)
+// ---------------------------------------------------------------------------
+
 /**
- * Kho dữ liệu nhắn tin và thông báo: conversation, thành viên, message, block, notification, tuỳ chọn kênh và nhật ký dispatch.
+ * Cổng của tầng store đọc dùng chung: đúng 13 phép đọc mà repository
+ * uỷ quyền sang cài đặt tại `@lms/messaging` (hàm thuần nhận handle
+ * Kysely, xem `distribution-store.ts` của package đó). Phía app gắn
+ * cài đặt qua `createMessagingStore(handle)` khi dựng repository;
+ * phía worker tiêu thụ cùng các hàm thuần qua bề mặt phân phối hẹp
+ * hơn của nó. Repository KHÔNG tự import cài đặt — chiều phụ thuộc
+ * duy nhất là `@lms/messaging` → (type-only) file này.
  */
+export interface MessagingStorePort {
+  /** Lấy conversation theo id. */
+  getConversationById(id: string): Promise<ConversationRow | undefined>;
+  /** Thành viên của conversation. */
+  listConversationMemberIds(conversationId: string): Promise<string[]>;
+  /** Tenant của một conversation — nguồn tenant cho notification tin nhắn mới. */
+  getConversationTenantId(conversationId: string): Promise<string | null>;
+  /** Lấy tin nhắn theo id. */
+  getMessageById(id: string): Promise<MessageRow | undefined>;
+  /** Lấy nhiều dòng tin theo id (kiểm tra thẩm quyền hàng loạt trước khi gỡ). */
+  getMessagesByIds(ids: string[]): Promise<MessageRow[]>;
+  /** Trong tập id này, các tin user đã đặt cờ xoá-phía-mình. */
+  listDeletedForUserIds(messageIds: string[], userId: string): Promise<Set<string>>;
+  /** Gắn khối trích dẫn cho một lô tin theo quyền của người nhận. */
+  attachQuotesToRows(rows: MessageRow[], opts: { privileged: boolean; viewerId?: string }): Promise<MessageWithQuoteRow[]>;
+  /** Mốc đã đọc của một thành viên (undefined nếu không phải thành viên). */
+  getMemberLastReadSeq(conversationId: string, userId: string): Promise<number | undefined>;
+  /** Số tin chưa đọc của MỘT user trong MỘT conversation theo vũ trụ đếm chuẩn. */
+  countUnreadForConversation(conversationId: string, userId: string): Promise<number>;
+  /** Một cửa sổ tin của conversation theo cursor seq, luôn trả tăng dần theo seq. */
+  listMessagesPage(conversationId: string, opts?: MessageWindowOptions): Promise<MessageRow[]>;
+  /** Danh sách user bị chặn bởi user này. */
+  listBlockedUserIds(userId: string): Promise<string[]>;
+  /** Danh sách user ĐÃ CHẶN user này (chiều ngược). */
+  listBlockerUserIds(userId: string): Promise<string[]>;
+  /** Mọi user đang có quan hệ chặn với user này ở bất kỳ chiều nào. */
+  listBlockedCounterpartIds(userId: string): Promise<string[]>;
+}
+
+// ---------------------------------------------------------------------------
+// Kiểu ghi vào (khớp `$inferInsert` của repository cũ)
+// ---------------------------------------------------------------------------
+
+/** Giá trị chèn `message_conversations` (id do database sinh bằng uuidv7 khi không cấp). */
+export interface NewConversation {
+  id?: string;
+  type?: number;
+  name?: string | null;
+  component?: string | null;
+  itemType?: string | null;
+  itemId?: string | null;
+  contextId?: string | null;
+  enabled?: boolean;
+  createdBy?: string | null;
+  tenantId?: string | null;
+  lastMessageSeq?: number;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+}
+
+/** Giá trị chèn `message` (id do database sinh bằng uuidv7 khi không cấp). */
+export interface NewMessage {
+  id?: string;
+  conversationId: string;
+  userIdFrom: string;
+  subject?: string;
+  fullMessage?: string;
+  smallMessage?: string;
+  seq: number;
+  clientMessageId?: string | null;
+  replyToMessageId?: string | null;
+  deletedAt?: Date | string | null;
+  deletedBy?: string | null;
+  recalledAt?: Date | string | null;
+  recalledBy?: string | null;
+  createdAt?: Date | string;
+}
+
+/** Giá trị chèn `notifications` (id do database sinh bằng uuidv7 khi không cấp). */
+export interface NewNotification {
+  id?: string;
+  userIdFrom?: string | null;
+  userIdTo: string;
+  tenantId?: string | null;
+  subject?: string;
+  fullMessage?: string;
+  smallMessage?: string;
+  component?: string;
+  eventType?: string;
+  contextUrl?: string | null;
+  contextUrlName?: string | null;
+  createdAt?: Date | string;
+  timeRead?: Date | string | null;
+}
+
+/** Giá trị chèn `message_conversation_reports` (id do database sinh bằng uuidv7 khi không cấp). */
+export interface NewReport {
+  id?: string;
+  conversationId: string;
+  reporterId: string;
+  reason?: string;
+  status?: string;
+  resolvedBy?: string | null;
+  resolvedAt?: Date | string | null;
+  createdAt?: Date | string;
+}
+
+/** Giá trị chèn `notification_dispatch_log` (id do database sinh bằng uuidv7 khi không cấp). */
+export interface NewDispatchLog {
+  id?: string;
+  notificationId?: string | null;
+  userId: string;
+  tenantId?: string | null;
+  provider: string;
+  channel: string;
+  status: string;
+  subject?: string;
+  dedupeKey?: string | null;
+  createdAt?: Date | string;
+}
+
+/** Giá trị chèn một dòng dấu vết hành động kiểm duyệt (`message_moderator_actions`). */
+export interface NewModeratorAction {
+  messageId: string;
+  conversationId: string;
+  actorId: string;
+  authorId: string;
+  action: 'recall' | 'hard_delete' | 'bulk_hard_delete';
+  reason?: string | null;
+  messageSeq?: number | null;
+}
+
+// ---------------------------------------------------------------------------
+// Danh sách cột đọc (dùng chung cho select và returning)
+// ---------------------------------------------------------------------------
+
+const CONVERSATION_COLUMNS = [
+  'id',
+  'type',
+  'name',
+  'component',
+  'item_type as itemType',
+  'item_id as itemId',
+  'context_id as contextId',
+  'enabled',
+  'created_by as createdBy',
+  'tenant_id as tenantId',
+  'last_message_seq as lastMessageSeq',
+  'created_at as createdAt',
+  'updated_at as updatedAt',
+] as const;
+
+/** Như {@link CONVERSATION_COLUMNS} nhưng đủ tiền tố bảng — dùng ở truy vấn có join với bảng thành viên. */
+const CONVERSATION_COLUMNS_QUALIFIED = [
+  'message_conversations.id as id',
+  'message_conversations.type as type',
+  'message_conversations.name as name',
+  'message_conversations.component as component',
+  'message_conversations.item_type as itemType',
+  'message_conversations.item_id as itemId',
+  'message_conversations.context_id as contextId',
+  'message_conversations.enabled as enabled',
+  'message_conversations.created_by as createdBy',
+  'message_conversations.tenant_id as tenantId',
+  'message_conversations.last_message_seq as lastMessageSeq',
+  'message_conversations.created_at as createdAt',
+  'message_conversations.updated_at as updatedAt',
+] as const;
+
+const MESSAGE_COLUMNS = [
+  'id',
+  'conversation_id as conversationId',
+  'user_id_from as userIdFrom',
+  'subject',
+  'full_message as fullMessage',
+  'small_message as smallMessage',
+  'seq',
+  'client_message_id as clientMessageId',
+  'reply_to_message_id as replyToMessageId',
+  'deleted_at as deletedAt',
+  'deleted_by as deletedBy',
+  'recalled_at as recalledAt',
+  'recalled_by as recalledBy',
+  'created_at as createdAt',
+] as const;
+
+const NOTIFICATION_COLUMNS = [
+  'id',
+  'user_id_from as userIdFrom',
+  'user_id_to as userIdTo',
+  'tenant_id as tenantId',
+  'subject',
+  'full_message as fullMessage',
+  'small_message as smallMessage',
+  'component',
+  'event_type as eventType',
+  'context_url as contextUrl',
+  'context_url_name as contextUrlName',
+  'created_at as createdAt',
+  'time_read as timeRead',
+] as const;
+
+const DISPATCH_LOG_COLUMNS = [
+  'id',
+  'notification_id as notificationId',
+  'user_id as userId',
+  'tenant_id as tenantId',
+  'provider',
+  'channel',
+  'status',
+  'subject',
+  'dedupe_key as dedupeKey',
+  'created_at as createdAt',
+] as const;
+
+const CONTACT_REQUEST_COLUMNS = [
+  'user_id_from as userIdFrom',
+  'user_id_to as userIdTo',
+  'created_at as createdAt',
+] as const;
+
+const REPORT_COLUMNS = [
+  'id',
+  'conversation_id as conversationId',
+  'reporter_id as reporterId',
+  'reason',
+  'status',
+  'resolved_by as resolvedBy',
+  'resolved_at as resolvedAt',
+  'created_at as createdAt',
+] as const;
+
+const MODERATOR_ACTION_COLUMNS = [
+  'id',
+  'message_id as messageId',
+  'conversation_id as conversationId',
+  'actor_id as actorId',
+  'author_id as authorId',
+  'action',
+  'reason',
+  'message_seq as messageSeq',
+  'created_at as createdAt',
+] as const;
+
+const COURSE_GROUP_COLUMNS = [
+  'id',
+  'course_id as courseId',
+  'name',
+  'id_number as idNumber',
+  'description',
+  'enrolment_key as enrolmentKey',
+  'created_at as createdAt',
+  'updated_at as updatedAt',
+] as const;
+
+// ---------------------------------------------------------------------------
+// Ánh xạ ghi: loại `undefined` tường minh từng trường (T-4).
+// ---------------------------------------------------------------------------
+
+function conversationInsertValues(v: NewConversation): Insertable<CentreDB['message_conversations']> {
+  const row: Insertable<CentreDB['message_conversations']> = {};
+  if (v.id !== undefined) row.id = v.id;
+  if (v.type !== undefined) row.type = v.type;
+  if (v.name !== undefined) row.name = v.name;
+  if (v.component !== undefined) row.component = v.component;
+  if (v.itemType !== undefined) row.item_type = v.itemType;
+  if (v.itemId !== undefined) row.item_id = v.itemId;
+  if (v.contextId !== undefined) row.context_id = v.contextId;
+  if (v.enabled !== undefined) row.enabled = v.enabled;
+  if (v.createdBy !== undefined) row.created_by = v.createdBy;
+  if (v.tenantId !== undefined) row.tenant_id = v.tenantId;
+  if (v.lastMessageSeq !== undefined) row.last_message_seq = v.lastMessageSeq;
+  if (v.createdAt !== undefined) row.created_at = v.createdAt;
+  if (v.updatedAt !== undefined) row.updated_at = v.updatedAt;
+  return row;
+}
+
+function messageInsertValues(v: NewMessage): Insertable<CentreDB['message']> {
+  const row: Insertable<CentreDB['message']> = {
+    conversation_id: v.conversationId,
+    user_id_from: v.userIdFrom,
+    seq: v.seq,
+  };
+  if (v.id !== undefined) row.id = v.id;
+  if (v.subject !== undefined) row.subject = v.subject;
+  if (v.fullMessage !== undefined) row.full_message = v.fullMessage;
+  if (v.smallMessage !== undefined) row.small_message = v.smallMessage;
+  if (v.clientMessageId !== undefined) row.client_message_id = v.clientMessageId;
+  if (v.replyToMessageId !== undefined) row.reply_to_message_id = v.replyToMessageId;
+  if (v.deletedAt !== undefined) row.deleted_at = v.deletedAt;
+  if (v.deletedBy !== undefined) row.deleted_by = v.deletedBy;
+  if (v.recalledAt !== undefined) row.recalled_at = v.recalledAt;
+  if (v.recalledBy !== undefined) row.recalled_by = v.recalledBy;
+  if (v.createdAt !== undefined) row.created_at = v.createdAt;
+  return row;
+}
+
+function notificationInsertValues(v: NewNotification): Insertable<CentreDB['notifications']> {
+  const row: Insertable<CentreDB['notifications']> = {
+    user_id_to: v.userIdTo,
+  };
+  if (v.id !== undefined) row.id = v.id;
+  if (v.userIdFrom !== undefined) row.user_id_from = v.userIdFrom;
+  if (v.tenantId !== undefined) row.tenant_id = v.tenantId;
+  if (v.subject !== undefined) row.subject = v.subject;
+  if (v.fullMessage !== undefined) row.full_message = v.fullMessage;
+  if (v.smallMessage !== undefined) row.small_message = v.smallMessage;
+  if (v.component !== undefined) row.component = v.component;
+  if (v.eventType !== undefined) row.event_type = v.eventType;
+  if (v.contextUrl !== undefined) row.context_url = v.contextUrl;
+  if (v.contextUrlName !== undefined) row.context_url_name = v.contextUrlName;
+  if (v.createdAt !== undefined) row.created_at = v.createdAt;
+  if (v.timeRead !== undefined) row.time_read = v.timeRead;
+  return row;
+}
+
+function reportInsertValues(v: NewReport): Insertable<CentreDB['message_conversation_reports']> {
+  const row: Insertable<CentreDB['message_conversation_reports']> = {
+    conversation_id: v.conversationId,
+    reporter_id: v.reporterId,
+  };
+  if (v.id !== undefined) row.id = v.id;
+  if (v.reason !== undefined) row.reason = v.reason;
+  if (v.status !== undefined) row.status = v.status;
+  if (v.resolvedBy !== undefined) row.resolved_by = v.resolvedBy;
+  if (v.resolvedAt !== undefined) row.resolved_at = v.resolvedAt;
+  if (v.createdAt !== undefined) row.created_at = v.createdAt;
+  return row;
+}
+
+function dispatchLogInsertValues(v: NewDispatchLog): Insertable<CentreDB['notification_dispatch_log']> {
+  const row: Insertable<CentreDB['notification_dispatch_log']> = {
+    user_id: v.userId,
+    provider: v.provider,
+    channel: v.channel,
+    status: v.status,
+  };
+  if (v.id !== undefined) row.id = v.id;
+  if (v.notificationId !== undefined) row.notification_id = v.notificationId;
+  if (v.tenantId !== undefined) row.tenant_id = v.tenantId;
+  if (v.subject !== undefined) row.subject = v.subject;
+  if (v.dedupeKey !== undefined) row.dedupe_key = v.dedupeKey;
+  if (v.createdAt !== undefined) row.created_at = v.createdAt;
+  return row;
+}
+
+// ---------------------------------------------------------------------------
+// Repository
+// ---------------------------------------------------------------------------
+
+/** Kho dữ liệu nhắn tin và thông báo: conversation, thành viên, message, block, notification, tuỳ chọn kênh và nhật ký dispatch. */
 export class MessagingRepository {
-  constructor(@InjectDrizzle() private readonly db: Database) {}
-  get dbHandle(): Database { return this.db; }
+  constructor(
+    private readonly handle: CentreDb,
+    private readonly store: MessagingStorePort,
+  ) {}
+
+  /** Mở một transaction trên kho trung tâm (thay `dbHandle.transaction` của bản Drizzle). */
+  async transaction<T>(fn: (tx: MessagingTx) => Promise<T>): Promise<T> {
+    return this.handle.transaction().execute(fn);
+  }
 
   /**
    * Chèn conversation.
    */
-  async insertConversation(v: typeof messageConversations.$inferInsert, tx?: DbTx): Promise<ConversationRow> {
-    const [row] = await (tx ?? this.db).insert(messageConversations).values(v).returning(); return row!;
+  async insertConversation(v: NewConversation, tx?: MessagingDb): Promise<ConversationRow> {
+    const db = tx ?? this.handle;
+    return db
+      .insertInto('message_conversations')
+      .values(conversationInsertValues(v))
+      .returning(CONVERSATION_COLUMNS)
+      .executeTakeFirstOrThrow() as Promise<ConversationRow>;
   }
   /**
    * Lấy conversation theo id. Cài đặt truy vấn ở bề mặt đọc dùng
-   * chung `@lms/messaging` — repository chỉ uỷ quyền trên kết nối
-   * của API (issue #521).
+   * chung `@lms/messaging` — repository chỉ uỷ quyền qua cổng
+   * {@link MessagingStorePort} (issue #521).
    */
   async getConversation(id: string): Promise<ConversationRow | undefined> {
-    return getConversationById(this.db, id);
+    return this.store.getConversationById(id);
   }
   /**
    * Thêm thành viên conversation.
    */
-  async addMember(conversationId: string, userId: string, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).insert(messageConversationMembers).values({ conversationId, userId }).onConflictDoNothing();
+  async addMember(conversationId: string, userId: string, tx?: MessagingDb): Promise<void> {
+    const db = tx ?? this.handle;
+    await db
+      .insertInto('message_conversation_members')
+      .values({ conversation_id: conversationId, user_id: userId })
+      .onConflict((oc) => oc.doNothing())
+      .execute();
   }
   /**
    * Gỡ một thành viên khỏi conversation (dùng cho đồng bộ group conversation:
    * người rời group thì rời conversation, tin nhắn cũ giữ nguyên).
    */
   async removeMember(conversationId: string, userId: string): Promise<void> {
-    await this.db.delete(messageConversationMembers)
-      .where(and(eq(messageConversationMembers.conversationId, conversationId), eq(messageConversationMembers.userId, userId)));
+    await this.handle
+      .deleteFrom('message_conversation_members')
+      .where('conversation_id', '=', conversationId)
+      .where('user_id', '=', userId)
+      .execute();
   }
   /**
    * Thành viên của conversation. Cài đặt truy vấn ở bề mặt đọc dùng
    * chung `@lms/messaging` — repository chỉ uỷ quyền (issue #521).
    */
   async listMembers(conversationId: string): Promise<string[]> {
-    return listConversationMemberIds(this.db, conversationId);
+    return this.store.listConversationMemberIds(conversationId);
   }
   /**
    * User có thuộc conversation hay không.
    */
   async isMember(conversationId: string, userId: string): Promise<boolean> {
-    const rows = await this.db.select().from(messageConversationMembers)
-      .where(and(eq(messageConversationMembers.conversationId, conversationId), eq(messageConversationMembers.userId, userId)));
+    const rows = await this.handle
+      .selectFrom('message_conversation_members')
+      .select('user_id')
+      .where('conversation_id', '=', conversationId)
+      .where('user_id', '=', userId)
+      .execute();
     return rows.length > 0;
   }
   /**
    * Conversation của user, mới nhất trước (một truy vấn join).
    */
   async listConversationsForUser(userId: string): Promise<ConversationRow[]> {
-    return this.db.select({ conversation: messageConversations })
-      .from(messageConversationMembers)
-      .innerJoin(messageConversations, eq(messageConversations.id, messageConversationMembers.conversationId))
-      .where(eq(messageConversationMembers.userId, userId))
-      .orderBy(desc(messageConversations.updatedAt))
-      .then((rows) => rows.map((r) => r.conversation));
+    return this.handle
+      .selectFrom('message_conversation_members')
+      .innerJoin('message_conversations', 'message_conversations.id', 'message_conversation_members.conversation_id')
+      .select(CONVERSATION_COLUMNS_QUALIFIED)
+      .where('message_conversation_members.user_id', '=', userId)
+      .orderBy('message_conversations.updated_at', 'desc')
+      .execute() as Promise<ConversationRow[]>;
   }
   /**
    * Danh sách conversation kèm số chưa đọc + tin cuối cho một user —
@@ -246,7 +777,7 @@ export class MessagingRepository {
     const archivedClause = opts.archivedOnly
       ? sql`AND mine.archived_at IS NOT NULL`
       : sql`AND mine.archived_at IS NULL`;
-    const executed = await this.db.execute(sql`
+    const executed = await sql<Record<string, unknown>>`
       SELECT c.id AS conversation_id, c.type AS conversation_type, c.name AS conversation_name,
         c.component AS conversation_component, c.item_type AS conversation_item_type,
         c.item_id AS conversation_item_id, c.context_id AS conversation_context_id,
@@ -306,11 +837,8 @@ export class MessagingRepository {
           WHERE other_m.conversation_id = c.id AND other_m.user_id <> mine.user_id
         ))
       ORDER BY (mine.pinned_at IS NOT NULL) DESC, c.updated_at DESC
-    `);
-    // drizzle trả QueryResult (hoặc mảng QueryResult với nhiều câu lệnh).
-    const rows = (Array.isArray(executed) ? executed[0] : executed)?.rows ?? [];
-    return rows.map((r) => {
-      const raw = r as Record<string, unknown>;
+    `.execute(this.handle);
+    return executed.rows.map((raw) => {
       const lastMessageRaw = raw.last_message as Record<string, unknown> | null;
       return {
         conversation: {
@@ -355,7 +883,6 @@ export class MessagingRepository {
       };
     });
   }
-  /** Tìm cuộc trò chuyện cá nhân có tập thành viên đúng bằng {a, b}. */
   /**
    * Tìm conversation 1-1 giữa hai user.
    */
@@ -375,38 +902,46 @@ export class MessagingRepository {
    * xếp hàng trên dòng này, seq không bao giờ trùng hay nhảy cóc.
    * Phải gọi trong transaction sẽ chèn tin (seq và tin commit cùng lúc).
    */
-  async allocateNextSeq(conversationId: string, tx: DbTx): Promise<number> {
-    const [row] = await tx.update(messageConversations)
-      .set({ lastMessageSeq: sql`${messageConversations.lastMessageSeq} + 1`, updatedAt: new Date() })
-      .where(eq(messageConversations.id, conversationId))
-      .returning({ seq: messageConversations.lastMessageSeq });
-    return row!.seq;
+  async allocateNextSeq(conversationId: string, tx: MessagingTx): Promise<number> {
+    const row = await tx
+      .updateTable('message_conversations')
+      .set({ last_message_seq: sql<number>`last_message_seq + 1`, updated_at: new Date() })
+      .where('id', '=', conversationId)
+      .returning('last_message_seq as seq')
+      .executeTakeFirstOrThrow();
+    return row.seq;
   }
 
   /**
    * Chèn tin nhắn.
    */
-  async insertMessage(v: typeof message.$inferInsert, tx?: DbTx): Promise<MessageRow> {
-    const [row] = await (tx ?? this.db).insert(message).values(v).returning(); return row!;
+  async insertMessage(v: NewMessage, tx?: MessagingDb): Promise<MessageRow> {
+    const db = tx ?? this.handle;
+    return db
+      .insertInto('message')
+      .values(messageInsertValues(v))
+      .returning(MESSAGE_COLUMNS)
+      .executeTakeFirstOrThrow() as Promise<MessageRow>;
   }
   /**
-   * Lấy tin nhắn theo id. Cài đặt truy vấn ở bề mặt đọc dùng chung
-   * `@lms/messaging` — repository chỉ uỷ quyền (issue #521).
+   * Lấy tin nhắn theo id. Cài đặt truy vấn ở bề mặt đọc dùng
+   * chung `@lms/messaging` — repository chỉ uỷ quyền (issue #521).
    */
   async getMessage(id: string): Promise<MessageRow | undefined> {
-    return getMessageById(this.db, id);
+    return this.store.getMessageById(id);
   }
   /**
    * Tin đã lưu với khoá chống trùng (conversation, người gửi,
    * clientMessageId) — đường tra cứu cho gửi lại idempotent.
    */
   async getMessageByClientId(conversationId: string, userIdFrom: string, clientMessageId: string): Promise<MessageRow | undefined> {
-    const [row] = await this.db.select().from(message).where(and(
-      eq(message.conversationId, conversationId),
-      eq(message.userIdFrom, userIdFrom),
-      eq(message.clientMessageId, clientMessageId),
-    ));
-    return row;
+    return this.handle
+      .selectFrom('message')
+      .select(MESSAGE_COLUMNS)
+      .where('conversation_id', '=', conversationId)
+      .where('user_id_from', '=', userIdFrom)
+      .where('client_message_id', '=', clientMessageId)
+      .executeTakeFirst() as Promise<MessageRow | undefined>;
   }
   /**
    * Một cửa sổ tin của conversation theo cursor seq, luôn trả tăng dần
@@ -416,7 +951,7 @@ export class MessagingRepository {
    * repository chỉ uỷ quyền (issue #521).
    */
   async listMessages(conversationId: string, opts: MessageWindowOptions = {}): Promise<MessageRow[]> {
-    return listMessagesPage(this.db, conversationId, opts);
+    return this.store.listMessagesPage(conversationId, opts);
   }
   /**
    * Tìm nội dung tin trong MỘT conversation (lát M4, issue #237):
@@ -434,34 +969,52 @@ export class MessagingRepository {
   async searchMessages(conversationId: string, opts: MessageSearchOptions): Promise<MessageRow[]> {
     const limit = Math.min(Math.max(opts.limit ?? 20, 1), 50);
     const escaped = opts.query.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
-    const where = [
-      eq(message.conversationId, conversationId),
-      sql`${message.fullMessage} ILIKE ${`%${escaped}%`}`,
-    ];
-    if (!opts.privileged) {
-      where.push(isNull(message.deletedAt));
-      where.push(isNull(message.recalledAt));
-      if (opts.viewerId) {
-        where.push(sql`not exists (select 1 from ${messageUserDeletions} d where d.message_id = ${message.id} and d.user_id = ${opts.viewerId})`);
-      }
-      if (opts.excludedAuthorIds && opts.excludedAuthorIds.length > 0) {
-        where.push(notInArray(message.userIdFrom, opts.excludedAuthorIds));
-      }
-    }
-    return this.db.select().from(message).where(and(...where)).orderBy(desc(message.seq)).limit(limit);
+    const pattern = `%${escaped}%`;
+    return this.handle
+      .selectFrom('message')
+      .select(MESSAGE_COLUMNS)
+      .where((eb) => {
+        const conds: Expression<SqlBool>[] = [
+          eb('conversation_id', '=', conversationId),
+          sql<SqlBool>`full_message ilike ${pattern}`,
+        ];
+        if (!opts.privileged) {
+          conds.push(eb('deleted_at', 'is', null));
+          conds.push(eb('recalled_at', 'is', null));
+          if (opts.viewerId) {
+            const viewerId = opts.viewerId;
+            conds.push(sql<SqlBool>`not exists (select 1 from message_user_deletions d where d.message_id = message.id and d.user_id = ${viewerId})`);
+          }
+          if (opts.excludedAuthorIds && opts.excludedAuthorIds.length > 0) {
+            conds.push(eb('user_id_from', 'not in', opts.excludedAuthorIds));
+          }
+        }
+        return eb.and(conds);
+      })
+      .orderBy('seq', 'desc')
+      .limit(limit)
+      .execute() as Promise<MessageRow[]>;
   }
   /** Còn tin cũ hơn seq này trong conversation hay không (cho nút tải thêm). */
   async hasMessagesBefore(conversationId: string, seq: number, includeDeleted = false, viewerId?: string): Promise<boolean> {
-    const conditions = [eq(message.conversationId, conversationId), lt(message.seq, seq)];
-    if (!includeDeleted) conditions.push(isNull(message.deletedAt));
-    // Cùng luật lọc xoá-phía-mình như listMessages: nếu không, mốc
-    // "còn tin cũ hơn" sẽ đúng giả khi mọi tin cũ hơn đã bị chính
-    // người xem ẩn đi (client tải thêm một trang rỗng vô ích).
-    if (viewerId && !includeDeleted) {
-      conditions.push(sql`not exists (select 1 from ${messageUserDeletions} d where d.message_id = ${message.id} and d.user_id = ${viewerId})`);
-    }
-    const [row] = await this.db.select({ value: sql<number>`count(*)::int` }).from(message)
-      .where(and(...conditions));
+    const row = await this.handle
+      .selectFrom('message')
+      .select(sql<number>`count(*)::int`.as('value'))
+      .where((eb) => {
+        const conds: Expression<SqlBool>[] = [
+          eb('conversation_id', '=', conversationId),
+          eb('seq', '<', seq),
+        ];
+        if (!includeDeleted) conds.push(eb('deleted_at', 'is', null));
+        // Cùng luật lọc xoá-phía-mình như listMessages: nếu không, mốc
+        // "còn tin cũ hơn" sẽ đúng giả khi mọi tin cũ hơn đã bị chính
+        // người xem ẩn đi (client tải thêm một trang rỗng vô ích).
+        if (viewerId && !includeDeleted) {
+          conds.push(sql<SqlBool>`not exists (select 1 from message_user_deletions d where d.message_id = message.id and d.user_id = ${viewerId})`);
+        }
+        return eb.and(conds);
+      })
+      .executeTakeFirst();
     return (row?.value ?? 0) > 0;
   }
   /**
@@ -471,11 +1024,12 @@ export class MessagingRepository {
    * tầng service).
    */
   async softDeleteMessage(id: string, deletedBy: string): Promise<MessageRow | undefined> {
-    const [row] = await this.db.update(message)
-      .set({ deletedAt: new Date(), deletedBy })
-      .where(eq(message.id, id))
-      .returning();
-    return row;
+    return this.handle
+      .updateTable('message')
+      .set({ deleted_at: new Date(), deleted_by: deletedBy })
+      .where('id', '=', id)
+      .returning(MESSAGE_COLUMNS)
+      .executeTakeFirst() as Promise<MessageRow | undefined>;
   }
   /**
    * Đặt cờ XOÁ-PHÍA-MÌNH cho một user trên một tin (lớp (a) của vòng
@@ -484,14 +1038,21 @@ export class MessagingRepository {
    * user đó; không đụng tới dòng tin.
    */
   async markDeletedForUser(messageId: string, userId: string): Promise<void> {
-    await this.db.insert(messageUserDeletions).values({ messageId, userId }).onConflictDoNothing();
+    await this.handle
+      .insertInto('message_user_deletions')
+      .values({ message_id: messageId, user_id: userId })
+      .onConflict((oc) => oc.doNothing())
+      .execute();
   }
   /** User này đã đặt cờ xoá-phía-mình trên tin này chưa. */
   async isDeletedForUser(messageId: string, userId: string): Promise<boolean> {
-    const rows = await this.db.select({ messageId: messageUserDeletions.messageId })
-      .from(messageUserDeletions)
-      .where(and(eq(messageUserDeletions.messageId, messageId), eq(messageUserDeletions.userId, userId)))
-      .limit(1);
+    const rows = await this.handle
+      .selectFrom('message_user_deletions')
+      .select('message_id as messageId')
+      .where('message_id', '=', messageId)
+      .where('user_id', '=', userId)
+      .limit(1)
+      .execute();
     return rows.length > 0;
   }
   /**
@@ -500,11 +1061,12 @@ export class MessagingRepository {
    * về đường đọc (người xem thường) và đường phân phối realtime.
    */
   async applyRecall(id: string, recalledBy: string): Promise<MessageRow | undefined> {
-    const [row] = await this.db.update(message)
-      .set({ recalledAt: new Date(), recalledBy })
-      .where(eq(message.id, id))
-      .returning();
-    return row;
+    return this.handle
+      .updateTable('message')
+      .set({ recalled_at: new Date(), recalled_by: recalledBy })
+      .where('id', '=', id)
+      .returning(MESSAGE_COLUMNS)
+      .executeTakeFirst() as Promise<MessageRow | undefined>;
   }
   /**
    * Xoá CỨNG một dòng tin (lớp (c)): xoá vật lý; các cờ xoá-phía-mình
@@ -512,30 +1074,30 @@ export class MessagingRepository {
    * khoá ngoại) nên vẫn còn để truy vết.
    */
   async hardDeleteMessage(id: string): Promise<void> {
-    await this.db.delete(message).where(eq(message.id, id));
+    await this.handle.deleteFrom('message').where('id', '=', id).execute();
   }
   /**
    * Lấy nhiều dòng tin theo id (kiểm tra thẩm quyền hàng loạt trước
    * khi gỡ). Cài đặt truy vấn ở bề mặt đọc dùng chung `@lms/messaging`.
    */
   async getMessagesByIds(ids: string[]): Promise<MessageRow[]> {
-    return getMessagesByIdsShared(this.db, ids);
+    return this.store.getMessagesByIds(ids);
   }
   /**
    * Trong tập id này, các tin user đã đặt cờ xoá-phía-mình. Cài đặt
    * truy vấn ở bề mặt đọc dùng chung `@lms/messaging`.
    */
   async listDeletedForUserIds(messageIds: string[], userId: string): Promise<Set<string>> {
-    return listDeletedForUserIdsShared(this.db, messageIds, userId);
+    return this.store.listDeletedForUserIds(messageIds, userId);
   }
   /**
    * Gắn khối trích dẫn (lát M3, issue #229) cho một lô tin: tra lô
    * các tin gốc một lần (không N+1), dựng quote theo quyền của người
-   * nhận bằng {@link messageQuoteOf}. Tin gốc tra không thấy (chỉ
-   * còn xảy ra khi khoá ngoại chưa kịp set null sau xoá cứng) hoặc
-   * thuộc conversation khác (dữ liệu không thể sinh qua đường gửi —
-   * gác ở service) thì `replyTo = null`: hiển thị như tin thường,
-   * không dựng khối trích dẫn rỗng.
+   * nhận bằng `messageQuoteOf` của `@lms/messaging`. Tin gốc tra
+   * không thấy (chỉ còn xảy ra khi khoá ngoại chưa kịp set null
+   * sau xoá cứng) hoặc thuộc conversation khác (dữ liệu không thể
+   * sinh qua đường gửi — gác ở service) thì `replyTo = null`: hiển
+   * thị như tin thường, không dựng khối trích dẫn rỗng.
    *
    * `viewerId` chỉ áp khi KHÔNG privileged: tin gốc bị chính người
    * xem xoá-phía-mình thì quote thành unavailable như đã xoá. Đường
@@ -546,74 +1108,73 @@ export class MessagingRepository {
    * viên nên đây không phải kênh lộ nội dung mới).
    */
   async attachQuotes(rows: MessageRow[], opts: { privileged: boolean; viewerId?: string }): Promise<MessageWithQuoteRow[]> {
-    return attachQuotesToRows(this.db, rows, opts);
+    return this.store.attachQuotesToRows(rows, opts);
   }
   /**
    * Ghi một dòng dấu vết hành động kiểm duyệt. Gọi TRƯỚC khi trạng
    * thái tin thay đổi (nhất là trước xoá cứng) để dấu vết không bao
    * giờ thiếu cho một thay đổi đã xảy ra.
    */
-  async insertModeratorAction(values: {
-    messageId: string;
-    conversationId: string;
-    actorId: string;
-    authorId: string;
-    action: 'recall' | 'hard_delete' | 'bulk_hard_delete';
-    reason?: string | null;
-    messageSeq?: number | null;
-  }): Promise<void> {
-    await this.db.insert(messageModeratorActions).values({
-      messageId: values.messageId,
-      conversationId: values.conversationId,
-      actorId: values.actorId,
-      authorId: values.authorId,
-      action: values.action,
-      reason: values.reason ?? null,
-      messageSeq: values.messageSeq ?? null,
-    });
+  async insertModeratorAction(values: NewModeratorAction): Promise<void> {
+    await this.handle
+      .insertInto('message_moderator_actions')
+      .values({
+        message_id: values.messageId,
+        conversation_id: values.conversationId,
+        actor_id: values.actorId,
+        author_id: values.authorId,
+        action: values.action,
+        reason: values.reason ?? null,
+        message_seq: values.messageSeq ?? null,
+      })
+      .execute();
   }
   /** Dấu vết kiểm duyệt của một tin (đường truy vết/test đối chiếu). */
   async listModeratorActionsForMessage(messageId: string): Promise<ModeratorActionRow[]> {
-    return this.db.select().from(messageModeratorActions)
-      .where(eq(messageModeratorActions.messageId, messageId))
-      .orderBy(asc(messageModeratorActions.createdAt));
+    return this.handle
+      .selectFrom('message_moderator_actions')
+      .select(MODERATOR_ACTION_COLUMNS)
+      .where('message_id', '=', messageId)
+      .orderBy('created_at', 'asc')
+      .execute() as Promise<ModeratorActionRow[]>;
   }
   /** Bật/tắt chat của một conversation (giáo viên phụ trách tắt chat nhóm lớp). */
   async setConversationEnabled(id: string, enabled: boolean): Promise<ConversationRow | undefined> {
-    const [row] = await this.db.update(messageConversations)
-      .set({ enabled, updatedAt: new Date() })
-      .where(eq(messageConversations.id, id))
-      .returning();
-    return row;
+    return this.handle
+      .updateTable('message_conversations')
+      .set({ enabled, updated_at: new Date() })
+      .where('id', '=', id)
+      .returning(CONVERSATION_COLUMNS)
+      .executeTakeFirst() as Promise<ConversationRow | undefined>;
   }
   /**
    * Mốc đã đọc của một thành viên (undefined nếu không phải thành
    * viên). Cài đặt truy vấn ở bề mặt đọc dùng chung `@lms/messaging`.
    */
   async getMemberLastReadSeq(conversationId: string, userId: string): Promise<number | undefined> {
-    return getMemberLastReadSeqShared(this.db, conversationId, userId);
+    return this.store.getMemberLastReadSeq(conversationId, userId);
   }
   /**
    * Mốc đã đọc của mọi thành viên — cho client hiển thị biên "đã xem".
    */
   async listMemberReadMarkers(conversationId: string): Promise<{ userId: string; lastReadSeq: number }[]> {
-    return this.db.select({ userId: messageConversationMembers.userId, lastReadSeq: messageConversationMembers.lastReadSeq })
-      .from(messageConversationMembers)
-      .where(eq(messageConversationMembers.conversationId, conversationId));
+    return this.handle
+      .selectFrom('message_conversation_members')
+      .select(['user_id as userId', 'last_read_seq as lastReadSeq'])
+      .where('conversation_id', '=', conversationId)
+      .execute();
   }
   /**
    * Ba trạng thái cá nhân của MỘT thành viên trên MỘT conversation
    * (lát M5, issue #240) — undefined nếu user không phải thành viên.
    */
   async getMemberConversationState(conversationId: string, userId: string): Promise<{ pinnedAt: Date | null; archivedAt: Date | null; muted: boolean } | undefined> {
-    const [row] = await this.db.select({
-      pinnedAt: messageConversationMembers.pinnedAt,
-      archivedAt: messageConversationMembers.archivedAt,
-      muted: messageConversationMembers.muted,
-    })
-      .from(messageConversationMembers)
-      .where(and(eq(messageConversationMembers.conversationId, conversationId), eq(messageConversationMembers.userId, userId)));
-    return row;
+    return this.handle
+      .selectFrom('message_conversation_members')
+      .select(['pinned_at as pinnedAt', 'archived_at as archivedAt', 'muted'])
+      .where('conversation_id', '=', conversationId)
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
   }
   /**
    * Đặt trạng thái cá nhân của CHÍNH một thành viên (lát M5): chỉ các
@@ -627,20 +1188,18 @@ export class MessagingRepository {
     userId: string,
     patch: { pinned?: boolean; archived?: boolean; muted?: boolean },
   ): Promise<{ pinnedAt: Date | null; archivedAt: Date | null; muted: boolean } | undefined> {
-    const set: Partial<{ pinnedAt: Date | null; archivedAt: Date | null; muted: boolean }> = {};
-    if (patch.pinned !== undefined) set.pinnedAt = patch.pinned ? new Date() : null;
-    if (patch.archived !== undefined) set.archivedAt = patch.archived ? new Date() : null;
+    const set: { pinned_at?: Date | null; archived_at?: Date | null; muted?: boolean } = {};
+    if (patch.pinned !== undefined) set.pinned_at = patch.pinned ? new Date() : null;
+    if (patch.archived !== undefined) set.archived_at = patch.archived ? new Date() : null;
     if (patch.muted !== undefined) set.muted = patch.muted;
     if (Object.keys(set).length === 0) return this.getMemberConversationState(conversationId, userId);
-    const [row] = await this.db.update(messageConversationMembers)
+    return this.handle
+      .updateTable('message_conversation_members')
       .set(set)
-      .where(and(eq(messageConversationMembers.conversationId, conversationId), eq(messageConversationMembers.userId, userId)))
-      .returning({
-        pinnedAt: messageConversationMembers.pinnedAt,
-        archivedAt: messageConversationMembers.archivedAt,
-        muted: messageConversationMembers.muted,
-      });
-    return row;
+      .where('conversation_id', '=', conversationId)
+      .where('user_id', '=', userId)
+      .returning(['pinned_at as pinnedAt', 'archived_at as archivedAt', 'muted'])
+      .executeTakeFirst();
   }
   /**
    * Các thành viên đã TẮT TIẾNG một conversation (lát M5) — consumer
@@ -648,9 +1207,12 @@ export class MessagingRepository {
    * các thành viên trong tập khi sinh `message_new`.
    */
   async listMutedMemberIds(conversationId: string): Promise<string[]> {
-    const rows = await this.db.select({ userId: messageConversationMembers.userId })
-      .from(messageConversationMembers)
-      .where(and(eq(messageConversationMembers.conversationId, conversationId), eq(messageConversationMembers.muted, true)));
+    const rows = await this.handle
+      .selectFrom('message_conversation_members')
+      .select('user_id as userId')
+      .where('conversation_id', '=', conversationId)
+      .where('muted', '=', true)
+      .execute();
     return rows.map((r) => r.userId);
   }
   /**
@@ -660,14 +1222,15 @@ export class MessagingRepository {
    * trong CÙNG transaction với lần chèn tin — danh sách của người
    * nhận không bao giờ ở trạng thái "có tin mới nhưng vẫn ẩn vì lưu".
    */
-  async clearArchivedForIncomingMessage(conversationId: string, senderId: string, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).update(messageConversationMembers)
-      .set({ archivedAt: null })
-      .where(and(
-        eq(messageConversationMembers.conversationId, conversationId),
-        ne(messageConversationMembers.userId, senderId),
-        isNotNull(messageConversationMembers.archivedAt),
-      ));
+  async clearArchivedForIncomingMessage(conversationId: string, senderId: string, tx?: MessagingDb): Promise<void> {
+    const db = tx ?? this.handle;
+    await db
+      .updateTable('message_conversation_members')
+      .set({ archived_at: null })
+      .where('conversation_id', '=', conversationId)
+      .where('user_id', '<>', senderId)
+      .where('archived_at', 'is not', null)
+      .execute();
   }
   /**
    * Đánh dấu một thành viên đã đọc tới tin mới nhất hiện có: nâng mốc
@@ -676,28 +1239,41 @@ export class MessagingRepository {
    * trên mốc cũ) và mốc mới.
    */
   async markConversationRead(conversationId: string, readerId: string): Promise<{ marked: number; lastReadSeq: number }> {
-    const [member] = await this.db.select().from(messageConversationMembers)
-      .where(and(eq(messageConversationMembers.conversationId, conversationId), eq(messageConversationMembers.userId, readerId)));
+    const member = await this.handle
+      .selectFrom('message_conversation_members')
+      .select(['conversation_id as conversationId', 'user_id as userId', 'last_read_seq as lastReadSeq', 'pinned_at as pinnedAt', 'archived_at as archivedAt', 'muted', 'created_at as createdAt'])
+      .where('conversation_id', '=', conversationId)
+      .where('user_id', '=', readerId)
+      .executeTakeFirst();
     if (!member) return { marked: 0, lastReadSeq: 0 };
-    const [conversation] = await this.db.select({ lastMessageSeq: messageConversations.lastMessageSeq })
-      .from(messageConversations).where(eq(messageConversations.id, conversationId));
+    const conversation = await this.handle
+      .selectFrom('message_conversations')
+      .select('last_message_seq as lastMessageSeq')
+      .where('id', '=', conversationId)
+      .executeTakeFirst();
     const target = conversation?.lastMessageSeq ?? member.lastReadSeq;
-    const [unread] = await this.db.select({ value: sql<number>`count(*)::int` }).from(message)
-      .where(and(
-        eq(message.conversationId, conversationId),
-        gt(message.seq, member.lastReadSeq),
-        lte(message.seq, target),
-        ne(message.userIdFrom, readerId),
-        isNull(message.deletedAt),
+    const unread = await this.handle
+      .selectFrom('message')
+      .select(sql<number>`count(*)::int`.as('value'))
+      .where((eb) => eb.and([
+        eb('conversation_id', '=', conversationId),
+        eb('seq', '>', member.lastReadSeq),
+        eb('seq', '<=', target),
+        eb('user_id_from', '<>', readerId),
+        eb('deleted_at', 'is', null),
         // Tin đã thu hồi/đã xoá-phía-mình không tính là "vừa đánh dấu
         // đọc" — nhất quán với mọi bộ đếm chưa đọc khác của vòng đời.
-        isNull(message.recalledAt),
-        sql`not exists (select 1 from ${messageUserDeletions} d where d.message_id = ${message.id} and d.user_id = ${readerId})`,
-      ));
+        eb('recalled_at', 'is', null),
+        sql<SqlBool>`not exists (select 1 from message_user_deletions d where d.message_id = message.id and d.user_id = ${readerId})`,
+      ]))
+      .executeTakeFirst();
     if (target > member.lastReadSeq) {
-      await this.db.update(messageConversationMembers)
-        .set({ lastReadSeq: target })
-        .where(and(eq(messageConversationMembers.conversationId, conversationId), eq(messageConversationMembers.userId, readerId)));
+      await this.handle
+        .updateTable('message_conversation_members')
+        .set({ last_read_seq: target })
+        .where('conversation_id', '=', conversationId)
+        .where('user_id', '=', readerId)
+        .execute();
     }
     return { marked: unread?.value ?? 0, lastReadSeq: target };
   }
@@ -709,49 +1285,50 @@ export class MessagingRepository {
    * uỷ quyền (issue #521).
    */
   async countUnreadForConversation(conversationId: string, userId: string): Promise<number> {
-    return countUnreadForConversationShared(this.db, conversationId, userId);
+    return this.store.countUnreadForConversation(conversationId, userId);
   }
-  /** Các cuộc trò chuyện chưa đọc của một người dùng (Moodle count_unread_conversations): các cuộc trò chuyện có ≥1 tin nhắn chưa đọc từ người khác. */
   /**
    * Số conversation có tin chưa đọc của user — một truy vấn EXISTS theo
    * mốc đã đọc của từng thành viên, không tải lịch sử về đếm.
    */
   async countUnreadConversations(userId: string): Promise<number> {
-    const [row] = await this.db.select({ value: sql<number>`count(*)::int` })
-      .from(messageConversationMembers)
-      .where(and(
-        eq(messageConversationMembers.userId, userId),
+    const row = await this.handle
+      .selectFrom('message_conversation_members')
+      .select(sql<number>`count(*)::int`.as('value'))
+      .where((eb) => eb.and([
+        eb('user_id', '=', userId),
         // Conversation đã TẮT TIẾNG không tính vào huy hiệu điều
         // hướng (lát M5) và cũng không tính ở bất kỳ bề mặt nào
         // khác theo vũ trụ chuẩn duy nhất (issue #592): tin vẫn
         // tới, mốc đã đọc và tin cuối không đổi, nhưng số chưa
         // đọc trả về bằng 0 ở mọi nơi cho tới khi bật lại tiếng.
-        eq(messageConversationMembers.muted, false),
-        sql`exists (
-          select 1 from ${message} msg
-          where msg.conversation_id = ${messageConversationMembers.conversationId}
-            and msg.seq > ${messageConversationMembers.lastReadSeq}
+        eb('muted', '=', false),
+        sql<SqlBool>`exists (
+          select 1 from message msg
+          where msg.conversation_id = message_conversation_members.conversation_id
+            and msg.seq > message_conversation_members.last_read_seq
             and msg.user_id_from <> ${userId}
             and msg.deleted_at is null
             and msg.recalled_at is null
             and not exists (
-              select 1 from ${messageUserDeletions} d
+              select 1 from message_user_deletions d
               where d.message_id = msg.id and d.user_id = ${userId}
             )
         )`,
         // Conversation 1–1 đang bị ẩn vì quan hệ chặn (xem
         // listConversationSummaries) cũng không đếm vào huy hiệu chưa
         // đọc — danh sách không thấy thì huy hiệu không được lộ.
-        sql`not exists (
-          select 1 from ${messageConversations} c
-          join ${messageConversationMembers} other_m
+        sql<SqlBool>`not exists (
+          select 1 from message_conversations c
+          join message_conversation_members other_m
             on other_m.conversation_id = c.id and other_m.user_id <> ${userId}
-          join ${messageUsersBlocked} b
+          join message_users_blocked b
             on (b.user_id = ${userId} and b.blocked_user_id = other_m.user_id)
             or (b.user_id = other_m.user_id and b.blocked_user_id = ${userId})
-          where c.id = ${messageConversationMembers.conversationId} and c.type = 1
+          where c.id = message_conversation_members.conversation_id and c.type = 1
         )`,
-      ));
+      ]))
+      .executeTakeFirst();
     return row?.value ?? 0;
   }
 
@@ -759,21 +1336,32 @@ export class MessagingRepository {
    * Chặn liên lạc từ một user.
    */
   async block(userId: string, blockedUserId: string): Promise<void> {
-    await this.db.insert(messageUsersBlocked).values({ userId, blockedUserId }).onConflictDoNothing();
+    await this.handle
+      .insertInto('message_users_blocked')
+      .values({ user_id: userId, blocked_user_id: blockedUserId })
+      .onConflict((oc) => oc.doNothing())
+      .execute();
   }
   /**
    * Bỏ chặn.
    */
   async unblock(userId: string, blockedUserId: string): Promise<void> {
-    await this.db.delete(messageUsersBlocked)
-      .where(and(eq(messageUsersBlocked.userId, userId), eq(messageUsersBlocked.blockedUserId, blockedUserId)));
+    await this.handle
+      .deleteFrom('message_users_blocked')
+      .where('user_id', '=', userId)
+      .where('blocked_user_id', '=', blockedUserId)
+      .execute();
   }
   /**
    * A có chặn B hay không.
    */
   async isBlocked(userId: string, blockedUserId: string): Promise<boolean> {
-    const rows = await this.db.select().from(messageUsersBlocked)
-      .where(and(eq(messageUsersBlocked.userId, userId), eq(messageUsersBlocked.blockedUserId, blockedUserId)));
+    const rows = await this.handle
+      .selectFrom('message_users_blocked')
+      .select('user_id')
+      .where('user_id', '=', userId)
+      .where('blocked_user_id', '=', blockedUserId)
+      .execute();
     return rows.length > 0;
   }
   /**
@@ -781,7 +1369,7 @@ export class MessagingRepository {
    * `@lms/messaging` — repository chỉ uỷ quyền (issue #521).
    */
   async listBlocked(userId: string): Promise<string[]> {
-    return listBlockedUserIds(this.db, userId);
+    return this.store.listBlockedUserIds(userId);
   }
   /**
    * Danh sách user ĐÃ CHẶN user này (chiều ngược của listBlocked) —
@@ -790,7 +1378,7 @@ export class MessagingRepository {
    * bề mặt đọc dùng chung `@lms/messaging` (issue #521).
    */
   async listBlockerIds(userId: string): Promise<string[]> {
-    return listBlockerUserIds(this.db, userId);
+    return this.store.listBlockerUserIds(userId);
   }
   /**
    * Mọi user đang có quan hệ chặn với user này ở BẤT KỲ chiều nào
@@ -799,7 +1387,7 @@ export class MessagingRepository {
    * vấn ở bề mặt đọc dùng chung `@lms/messaging` (issue #521).
    */
   async listBlockedCounterpartIds(userId: string): Promise<string[]> {
-    return listBlockedCounterpartIdsShared(this.db, userId);
+    return this.store.listBlockedCounterpartIds(userId);
   }
 
   /**
@@ -818,25 +1406,27 @@ export class MessagingRepository {
    */
   async sharesConversation(viewerId: string, targetId: string): Promise<boolean> {
     if (viewerId === targetId) return true;
-    const [row] = await this.db.select({ value: sql<number>`1` })
-      .from(messageConversationMembers)
-      .innerJoin(messageConversations, eq(messageConversations.id, messageConversationMembers.conversationId))
-      .where(and(
-        eq(messageConversationMembers.userId, viewerId),
-        sql`exists (
-          select 1 from ${messageConversationMembers} other_m
-          where other_m.conversation_id = ${messageConversationMembers.conversationId}
+    const row = await this.handle
+      .selectFrom('message_conversation_members')
+      .innerJoin('message_conversations', 'message_conversations.id', 'message_conversation_members.conversation_id')
+      .select(sql<number>`1`.as('value'))
+      .where((eb) => eb.and([
+        eb('message_conversation_members.user_id', '=', viewerId),
+        sql<SqlBool>`exists (
+          select 1 from message_conversation_members other_m
+          where other_m.conversation_id = message_conversation_members.conversation_id
             and other_m.user_id = ${targetId}
         )`,
-        sql`not (
-          ${messageConversations.type} = 1 and exists (
-            select 1 from ${messageUsersBlocked} b
+        sql<SqlBool>`not (
+          message_conversations.type = 1 and exists (
+            select 1 from message_users_blocked b
             where (b.user_id = ${viewerId} and b.blocked_user_id = ${targetId})
                or (b.user_id = ${targetId} and b.blocked_user_id = ${viewerId})
           )
         )`,
-      ))
-      .limit(1);
+      ]))
+      .limit(1)
+      .executeTakeFirst();
     return Boolean(row);
   }
 
@@ -853,24 +1443,26 @@ export class MessagingRepository {
    */
   async sharesDirectConversation(viewerId: string, targetId: string): Promise<boolean> {
     if (viewerId === targetId) return true;
-    const [row] = await this.db.select({ value: sql<number>`1` })
-      .from(messageConversationMembers)
-      .innerJoin(messageConversations, eq(messageConversations.id, messageConversationMembers.conversationId))
-      .where(and(
-        eq(messageConversationMembers.userId, viewerId),
-        eq(messageConversations.type, 1),
-        sql`exists (
-          select 1 from ${messageConversationMembers} other_m
-          where other_m.conversation_id = ${messageConversationMembers.conversationId}
+    const row = await this.handle
+      .selectFrom('message_conversation_members')
+      .innerJoin('message_conversations', 'message_conversations.id', 'message_conversation_members.conversation_id')
+      .select(sql<number>`1`.as('value'))
+      .where((eb) => eb.and([
+        eb('message_conversation_members.user_id', '=', viewerId),
+        eb('message_conversations.type', '=', 1),
+        sql<SqlBool>`exists (
+          select 1 from message_conversation_members other_m
+          where other_m.conversation_id = message_conversation_members.conversation_id
             and other_m.user_id = ${targetId}
         )`,
-        sql`not (exists (
-          select 1 from ${messageUsersBlocked} b
+        sql<SqlBool>`not (exists (
+          select 1 from message_users_blocked b
           where (b.user_id = ${viewerId} and b.blocked_user_id = ${targetId})
              or (b.user_id = ${targetId} and b.blocked_user_id = ${viewerId})
         ))`,
-      ))
-      .limit(1);
+      ]))
+      .limit(1)
+      .executeTakeFirst();
     return Boolean(row);
   }
 
@@ -881,20 +1473,27 @@ export class MessagingRepository {
    * quan hệ được chấp nhận là hai phía theo đúng mô hình Moodle.
    */
   async addContactPair(a: string, b: string): Promise<void> {
-    await this.db.insert(messageContacts).values([
-      { userId: a, contactId: b },
-      { userId: b, contactId: a },
-    ]).onConflictDoNothing();
+    await this.handle
+      .insertInto('message_contacts')
+      .values([
+        { user_id: a, contact_id: b },
+        { user_id: b, contact_id: a },
+      ])
+      .onConflict((oc) => oc.doNothing())
+      .execute();
   }
   /**
    * Gỡ quan hệ liên hệ ở cả hai chiều, đồng thời dọn mọi yêu cầu đang
    * chờ giữa hai người (quan hệ đã chấm dứt thì hàng chờ cũng hết nghĩa).
    */
   async removeContactPair(a: string, b: string): Promise<void> {
-    await this.db.delete(messageContacts).where(or(
-      and(eq(messageContacts.userId, a), eq(messageContacts.contactId, b)),
-      and(eq(messageContacts.userId, b), eq(messageContacts.contactId, a)),
-    ));
+    await this.handle
+      .deleteFrom('message_contacts')
+      .where((eb) => eb.or([
+        eb.and([eb('user_id', '=', a), eb('contact_id', '=', b)]),
+        eb.and([eb('user_id', '=', b), eb('contact_id', '=', a)]),
+      ]))
+      .execute();
     await this.deleteContactRequestsBetween(a, b);
   }
   /**
@@ -904,14 +1503,18 @@ export class MessagingRepository {
    * nhắn tin; hàng quan hệ trong DB giữ nguyên — bỏ chặn là hiện lại.
    */
   async listContacts(userId: string): Promise<string[]> {
-    const rows = await this.db.select().from(messageContacts).where(and(
-      eq(messageContacts.userId, userId),
-      sql`not exists (
-        select 1 from ${messageUsersBlocked} b
-        where (b.user_id = ${userId} and b.blocked_user_id = ${messageContacts.contactId})
-           or (b.user_id = ${messageContacts.contactId} and b.blocked_user_id = ${userId})
-      )`,
-    ));
+    const rows = await this.handle
+      .selectFrom('message_contacts')
+      .select('contact_id as contactId')
+      .where((eb) => eb.and([
+        eb('user_id', '=', userId),
+        sql<SqlBool>`not exists (
+          select 1 from message_users_blocked b
+          where (b.user_id = ${userId} and b.blocked_user_id = message_contacts.contact_id)
+             or (b.user_id = message_contacts.contact_id and b.blocked_user_id = ${userId})
+        )`,
+      ]))
+      .execute();
     return rows.map((r) => r.contactId);
   }
   /**
@@ -921,43 +1524,66 @@ export class MessagingRepository {
    * hệ đã chấp nhận của nhau. Yêu cầu đang chờ KHÔNG nằm ở bảng này.
    */
   async isContact(ownerId: string, contactId: string): Promise<boolean> {
-    const rows = await this.db.select().from(messageContacts)
-      .where(and(eq(messageContacts.userId, ownerId), eq(messageContacts.contactId, contactId)));
+    const rows = await this.handle
+      .selectFrom('message_contacts')
+      .select('user_id')
+      .where('user_id', '=', ownerId)
+      .where('contact_id', '=', contactId)
+      .execute();
     return rows.length > 0;
   }
   /** Tạo một yêu cầu kết bạn (trùng cặp thì bỏ qua). */
   async createContactRequest(fromId: string, toId: string): Promise<void> {
-    await this.db.insert(messageContactRequests).values({ userIdFrom: fromId, userIdTo: toId }).onConflictDoNothing();
+    await this.handle
+      .insertInto('message_contact_requests')
+      .values({ user_id_from: fromId, user_id_to: toId })
+      .onConflict((oc) => oc.doNothing())
+      .execute();
   }
   /** Một yêu cầu kết bạn theo đúng hướng (from → to), nếu đang chờ. */
   async getContactRequest(fromId: string, toId: string): Promise<ContactRequestRow | undefined> {
-    const [row] = await this.db.select().from(messageContactRequests)
-      .where(and(eq(messageContactRequests.userIdFrom, fromId), eq(messageContactRequests.userIdTo, toId)));
-    return row;
+    return this.handle
+      .selectFrom('message_contact_requests')
+      .select(CONTACT_REQUEST_COLUMNS)
+      .where('user_id_from', '=', fromId)
+      .where('user_id_to', '=', toId)
+      .executeTakeFirst() as Promise<ContactRequestRow | undefined>;
   }
   /** Xoá một yêu cầu theo hướng (from → to): chấp nhận/từ chối đều qua đây. */
   async deleteContactRequest(fromId: string, toId: string): Promise<void> {
-    await this.db.delete(messageContactRequests)
-      .where(and(eq(messageContactRequests.userIdFrom, fromId), eq(messageContactRequests.userIdTo, toId)));
+    await this.handle
+      .deleteFrom('message_contact_requests')
+      .where('user_id_from', '=', fromId)
+      .where('user_id_to', '=', toId)
+      .execute();
   }
   /** Xoá mọi yêu cầu đang chờ giữa hai người (cả hai hướng). */
   async deleteContactRequestsBetween(a: string, b: string): Promise<void> {
-    await this.db.delete(messageContactRequests).where(or(
-      and(eq(messageContactRequests.userIdFrom, a), eq(messageContactRequests.userIdTo, b)),
-      and(eq(messageContactRequests.userIdFrom, b), eq(messageContactRequests.userIdTo, a)),
-    ));
+    await this.handle
+      .deleteFrom('message_contact_requests')
+      .where((eb) => eb.or([
+        eb.and([eb('user_id_from', '=', a), eb('user_id_to', '=', b)]),
+        eb.and([eb('user_id_from', '=', b), eb('user_id_to', '=', a)]),
+      ]))
+      .execute();
   }
   /** Các yêu cầu ĐẾN user này đang chờ (người gửi → chờ user duyệt). */
   async listIncomingContactRequests(userId: string): Promise<ContactRequestRow[]> {
-    return this.db.select().from(messageContactRequests)
-      .where(eq(messageContactRequests.userIdTo, userId))
-      .orderBy(asc(messageContactRequests.createdAt));
+    return this.handle
+      .selectFrom('message_contact_requests')
+      .select(CONTACT_REQUEST_COLUMNS)
+      .where('user_id_to', '=', userId)
+      .orderBy('created_at', 'asc')
+      .execute() as Promise<ContactRequestRow[]>;
   }
   /** Các yêu cầu user này ĐÃ GỬI đang chờ phía kia duyệt. */
   async listOutgoingContactRequests(userId: string): Promise<ContactRequestRow[]> {
-    return this.db.select().from(messageContactRequests)
-      .where(eq(messageContactRequests.userIdFrom, userId))
-      .orderBy(asc(messageContactRequests.createdAt));
+    return this.handle
+      .selectFrom('message_contact_requests')
+      .select(CONTACT_REQUEST_COLUMNS)
+      .where('user_id_from', '=', userId)
+      .orderBy('created_at', 'asc')
+      .execute() as Promise<ContactRequestRow[]>;
   }
 
   // --- staff (cho các cổng nghiệp vụ Lớp B) -----------------------------------
@@ -971,11 +1597,14 @@ export class MessagingRepository {
    * giáo viên của bất kỳ khoá nào cũng qua được.
    */
   async hasStaffRoleAssignment(userId: string): Promise<boolean> {
-    const rows = await this.db.select({ id: roleAssignments.id })
-      .from(roleAssignments)
-      .innerJoin(role, eq(role.id, roleAssignments.roleId))
-      .where(and(eq(roleAssignments.userId, userId), inArray(role.archetype, [...STAFF_ARCHETYPES])))
-      .limit(1);
+    const rows = await this.handle
+      .selectFrom('role_assignments')
+      .innerJoin('role', 'role.id', 'role_assignments.role_id')
+      .select('role_assignments.id as id')
+      .where('role_assignments.user_id', '=', userId)
+      .where('role.archetype', 'in', [...STAFF_ARCHETYPES])
+      .limit(1)
+      .execute();
     return rows.length > 0;
   }
 
@@ -994,23 +1623,31 @@ export class MessagingRepository {
    */
   async hasStudentContext(userId: string): Promise<boolean> {
     const now = new Date();
-    const enrolled = await this.db.select({ id: userEnrolments.id })
-      .from(userEnrolments)
-      .innerJoin(enrol, eq(userEnrolments.enrolId, enrol.id))
-      .where(and(
-        eq(userEnrolments.userId, userId),
-        eq(userEnrolments.status, 0),
-        eq(enrol.status, 0),
-        lte(userEnrolments.timeStart, now),
-        or(isNull(userEnrolments.timeEnd), gte(userEnrolments.timeEnd, now)),
-      ))
-      .limit(1);
+    const enrolled = await this.handle
+      .selectFrom('user_enrolments')
+      .innerJoin('enrol', 'enrol.id', 'user_enrolments.enrol_id')
+      .select('user_enrolments.id as id')
+      .where((eb) => eb.and([
+        eb('user_enrolments.user_id', '=', userId),
+        eb('user_enrolments.status', '=', 0),
+        eb('enrol.status', '=', 0),
+        eb('user_enrolments.time_start', '<=', now),
+        eb.or([
+          eb('user_enrolments.time_end', 'is', null),
+          eb('user_enrolments.time_end', '>=', now),
+        ]),
+      ]))
+      .limit(1)
+      .execute();
     if (enrolled.length > 0) return true;
-    const assigned = await this.db.select({ id: roleAssignments.id })
-      .from(roleAssignments)
-      .innerJoin(role, eq(role.id, roleAssignments.roleId))
-      .where(and(eq(roleAssignments.userId, userId), eq(role.archetype, 'student')))
-      .limit(1);
+    const assigned = await this.handle
+      .selectFrom('role_assignments')
+      .innerJoin('role', 'role.id', 'role_assignments.role_id')
+      .select('role_assignments.id as id')
+      .where('role_assignments.user_id', '=', userId)
+      .where('role.archetype', '=', 'student')
+      .limit(1)
+      .execute();
     return assigned.length > 0;
   }
 
@@ -1026,10 +1663,13 @@ export class MessagingRepository {
    * thành vòng).
    */
   async hasActiveGuardianLink(userId: string): Promise<boolean> {
-    const rows = await this.db.select({ id: guardianLinks.id })
-      .from(guardianLinks)
-      .where(and(eq(guardianLinks.guardianUserId, userId), eq(guardianLinks.status, 'active')))
-      .limit(1);
+    const rows = await this.handle
+      .selectFrom('guardian_links')
+      .select('id')
+      .where('guardian_user_id', '=', userId)
+      .where('status', '=', 'active')
+      .limit(1)
+      .execute();
     return rows.length > 0;
   }
   /**
@@ -1039,54 +1679,69 @@ export class MessagingRepository {
    * báo về conversation của khoá.
    */
   async listCourseStaffUserIds(courseId: string): Promise<string[]> {
-    const [courseCtx] = await this.db.select().from(context)
-      .where(and(eq(context.contextLevel, 50), eq(context.instanceId, courseId)));
+    const courseCtx = await this.handle
+      .selectFrom('context')
+      .select(['id', 'path'])
+      .where('context_level', '=', 50)
+      .where('instance_id', '=', courseId)
+      .executeTakeFirst();
     if (!courseCtx) return [];
     // path của context là chuỗi id các context từ gốc tới chính nó
     // (định dạng '/<id>/.../<id>'): các id trong path là đúng tập
     // context mà gán vai trò tại đó kế thừa xuống khoá này.
     const pathIds = courseCtx.path.split('/').filter((part) => part.length > 0);
     if (!pathIds.length) return [];
-    const rows = await this.db.selectDistinct({ userId: roleAssignments.userId })
-      .from(roleAssignments)
-      .innerJoin(role, eq(role.id, roleAssignments.roleId))
-      .where(and(
-        inArray(role.archetype, [...STAFF_ARCHETYPES]),
-        inArray(roleAssignments.contextId, pathIds),
-      ));
+    const rows = await this.handle
+      .selectFrom('role_assignments')
+      .innerJoin('role', 'role.id', 'role_assignments.role_id')
+      .select('role_assignments.user_id as userId')
+      .distinct()
+      .where('role.archetype', 'in', [...STAFF_ARCHETYPES])
+      .where('role_assignments.context_id', 'in', pathIds)
+      .execute();
     return rows.map((r) => r.userId);
   }
 
   // --- báo cáo conversation ---------------------------------------------------
 
   /** Ghi một báo cáo conversation mới (trạng thái open). */
-  async insertReport(v: typeof messageConversationReports.$inferInsert): Promise<ReportRow> {
-    const [row] = await this.db.insert(messageConversationReports).values(v).returning();
-    return row!;
+  async insertReport(v: NewReport): Promise<ReportRow> {
+    return this.handle
+      .insertInto('message_conversation_reports')
+      .values(reportInsertValues(v))
+      .returning(REPORT_COLUMNS)
+      .executeTakeFirstOrThrow() as Promise<ReportRow>;
   }
   /** Một báo cáo theo id. */
   async getReport(id: string): Promise<ReportRow | undefined> {
-    const [row] = await this.db.select().from(messageConversationReports).where(eq(messageConversationReports.id, id));
-    return row;
+    return this.handle
+      .selectFrom('message_conversation_reports')
+      .select(REPORT_COLUMNS)
+      .where('id', '=', id)
+      .executeTakeFirst() as Promise<ReportRow | undefined>;
   }
   /** Các báo cáo mới nhất trước (hàng đợi xử lý lọc theo thẩm quyền ở tầng service). */
   async listReports(limit = 200): Promise<ReportRow[]> {
-    return this.db.select().from(messageConversationReports)
-      .orderBy(desc(messageConversationReports.createdAt))
-      .limit(limit);
+    return this.handle
+      .selectFrom('message_conversation_reports')
+      .select(REPORT_COLUMNS)
+      .orderBy('created_at', 'desc')
+      .limit(limit)
+      .execute() as Promise<ReportRow[]>;
   }
   /** Đổi trạng thái xử lý của báo cáo; resolved/dismissed ghi người xử lý + mốc, mở lại thì xoá hai dấu đó. */
   async updateReportStatus(id: string, status: string, resolvedBy: string | null): Promise<ReportRow | undefined> {
     const closing = status !== 'open';
-    const [row] = await this.db.update(messageConversationReports)
+    return this.handle
+      .updateTable('message_conversation_reports')
       .set({
         status,
-        resolvedBy: closing ? resolvedBy : null,
-        resolvedAt: closing ? new Date() : null,
+        resolved_by: closing ? resolvedBy : null,
+        resolved_at: closing ? new Date() : null,
       })
-      .where(eq(messageConversationReports.id, id))
-      .returning();
-    return row;
+      .where('id', '=', id)
+      .returning(REPORT_COLUMNS)
+      .executeTakeFirst() as Promise<ReportRow | undefined>;
   }
 
   // --- ghi danh hiệu lực + roster thành viên khoá ------------------------------
@@ -1101,15 +1756,21 @@ export class MessagingRepository {
    */
   async activeCourseIds(userId: string): Promise<string[]> {
     const now = new Date();
-    const rows = await this.db.select({ courseId: enrol.courseId }).from(userEnrolments)
-      .innerJoin(enrol, eq(userEnrolments.enrolId, enrol.id))
-      .where(and(
-        eq(userEnrolments.userId, userId),
-        eq(userEnrolments.status, 0),
-        eq(enrol.status, 0),
-        lte(userEnrolments.timeStart, now),
-        or(isNull(userEnrolments.timeEnd), gte(userEnrolments.timeEnd, now)),
-      ));
+    const rows = await this.handle
+      .selectFrom('user_enrolments')
+      .innerJoin('enrol', 'enrol.id', 'user_enrolments.enrol_id')
+      .select('enrol.course_id as courseId')
+      .where((eb) => eb.and([
+        eb('user_enrolments.user_id', '=', userId),
+        eb('user_enrolments.status', '=', 0),
+        eb('enrol.status', '=', 0),
+        eb('user_enrolments.time_start', '<=', now),
+        eb.or([
+          eb('user_enrolments.time_end', 'is', null),
+          eb('user_enrolments.time_end', '>=', now),
+        ]),
+      ]))
+      .execute();
     return rows.map((r) => r.courseId);
   }
   /**
@@ -1127,25 +1788,30 @@ export class MessagingRepository {
    */
   async findTeacherStudentSharedCourseId(userA: string, userB: string): Promise<string | null> {
     const now = new Date();
-    const rows = await this.db.select({ courseId: context.instanceId })
-      .from(context)
-      .innerJoin(roleAssignments, eq(roleAssignments.contextId, context.id))
-      .innerJoin(role, eq(role.id, roleAssignments.roleId))
-      .innerJoin(enrol, eq(enrol.courseId, context.instanceId))
-      .innerJoin(userEnrolments, eq(userEnrolments.enrolId, enrol.id))
-      .where(and(
-        eq(context.contextLevel, 50),
-        inArray(role.archetype, [...STAFF_ARCHETYPES]),
-        eq(userEnrolments.status, 0),
-        eq(enrol.status, 0),
-        lte(userEnrolments.timeStart, now),
-        or(isNull(userEnrolments.timeEnd), gte(userEnrolments.timeEnd, now)),
-        or(
-          and(eq(roleAssignments.userId, userA), eq(userEnrolments.userId, userB)),
-          and(eq(roleAssignments.userId, userB), eq(userEnrolments.userId, userA)),
-        ),
-      ))
-      .limit(1);
+    const rows = await this.handle
+      .selectFrom('context')
+      .innerJoin('role_assignments', 'role_assignments.context_id', 'context.id')
+      .innerJoin('role', 'role.id', 'role_assignments.role_id')
+      .innerJoin('enrol', 'enrol.course_id', 'context.instance_id')
+      .innerJoin('user_enrolments', 'user_enrolments.enrol_id', 'enrol.id')
+      .select('context.instance_id as courseId')
+      .where((eb) => eb.and([
+        eb('context.context_level', '=', 50),
+        eb('role.archetype', 'in', [...STAFF_ARCHETYPES]),
+        eb('user_enrolments.status', '=', 0),
+        eb('enrol.status', '=', 0),
+        eb('user_enrolments.time_start', '<=', now),
+        eb.or([
+          eb('user_enrolments.time_end', 'is', null),
+          eb('user_enrolments.time_end', '>=', now),
+        ]),
+        eb.or([
+          eb.and([eb('role_assignments.user_id', '=', userA), eb('user_enrolments.user_id', '=', userB)]),
+          eb.and([eb('role_assignments.user_id', '=', userB), eb('user_enrolments.user_id', '=', userA)]),
+        ]),
+      ]))
+      .limit(1)
+      .execute();
     return rows[0]?.courseId ?? null;
   }
   /**
@@ -1154,25 +1820,31 @@ export class MessagingRepository {
    * dùng để tính cờ nhắn thẳng trên từng dòng roster.
    */
   async isCourseTeachingStaff(courseId: string, userId: string): Promise<boolean> {
-    const [courseCtx] = await this.db.select({ id: context.id }).from(context)
-      .where(and(eq(context.contextLevel, 50), eq(context.instanceId, courseId)));
+    const courseCtx = await this.handle
+      .selectFrom('context')
+      .select('id')
+      .where('context_level', '=', 50)
+      .where('instance_id', '=', courseId)
+      .executeTakeFirst();
     if (!courseCtx) return false;
-    const rows = await this.db.select({ id: roleAssignments.id })
-      .from(roleAssignments)
-      .innerJoin(role, eq(role.id, roleAssignments.roleId))
-      .where(and(
-        eq(roleAssignments.contextId, courseCtx.id),
-        eq(roleAssignments.userId, userId),
-        inArray(role.archetype, [...STAFF_ARCHETYPES]),
-      ))
-      .limit(1);
+    const rows = await this.handle
+      .selectFrom('role_assignments')
+      .innerJoin('role', 'role.id', 'role_assignments.role_id')
+      .select('role_assignments.id as id')
+      .where('role_assignments.context_id', '=', courseCtx.id)
+      .where('role_assignments.user_id', '=', userId)
+      .where('role.archetype', 'in', [...STAFF_ARCHETYPES])
+      .limit(1)
+      .execute();
     return rows.length > 0;
   }
   /** Tóm tắt một khoá (cho danh sách "khoá của tôi" của luồng tìm bạn theo khoá). */
   async getCourseSummary(courseId: string): Promise<{ courseId: string; fullName: string; shortName: string } | undefined> {
-    const [row] = await this.db.select({ courseId: course.id, fullName: course.fullName, shortName: course.shortName })
-      .from(course).where(eq(course.id, courseId));
-    return row;
+    return this.handle
+      .selectFrom('course')
+      .select(['id as courseId', 'full_name as fullName', 'short_name as shortName'])
+      .where('id', '=', courseId)
+      .executeTakeFirst();
   }
   /**
    * Các khoá mà user là THÀNH VIÊN theo định nghĩa roster đã chốt:
@@ -1181,10 +1853,14 @@ export class MessagingRepository {
    */
   async listMembershipCourseIds(userId: string): Promise<string[]> {
     const enrolled = await this.activeCourseIds(userId);
-    const assigned = await this.db.selectDistinct({ courseId: context.instanceId })
-      .from(roleAssignments)
-      .innerJoin(context, eq(context.id, roleAssignments.contextId))
-      .where(and(eq(roleAssignments.userId, userId), eq(context.contextLevel, 50)));
+    const assigned = await this.handle
+      .selectFrom('role_assignments')
+      .innerJoin('context', 'context.id', 'role_assignments.context_id')
+      .select('context.instance_id as courseId')
+      .distinct()
+      .where('role_assignments.user_id', '=', userId)
+      .where('context.context_level', '=', 50)
+      .execute();
     const assignedCourseIds = assigned.map((r) => r.courseId).filter((id): id is string => id !== null);
     return [...new Set([...enrolled, ...assignedCourseIds])];
   }
@@ -1195,23 +1871,38 @@ export class MessagingRepository {
    */
   async isCourseMember(courseId: string, userId: string): Promise<boolean> {
     const now = new Date();
-    const [enrolled] = await this.db.select({ userId: userEnrolments.userId }).from(userEnrolments)
-      .innerJoin(enrol, eq(userEnrolments.enrolId, enrol.id))
-      .where(and(
-        eq(enrol.courseId, courseId),
-        eq(userEnrolments.userId, userId),
-        eq(userEnrolments.status, 0),
-        eq(enrol.status, 0),
-        lte(userEnrolments.timeStart, now),
-        or(isNull(userEnrolments.timeEnd), gte(userEnrolments.timeEnd, now)),
-      )).limit(1);
+    const enrolled = await this.handle
+      .selectFrom('user_enrolments')
+      .innerJoin('enrol', 'enrol.id', 'user_enrolments.enrol_id')
+      .select('user_enrolments.user_id as userId')
+      .where((eb) => eb.and([
+        eb('enrol.course_id', '=', courseId),
+        eb('user_enrolments.user_id', '=', userId),
+        eb('user_enrolments.status', '=', 0),
+        eb('enrol.status', '=', 0),
+        eb('user_enrolments.time_start', '<=', now),
+        eb.or([
+          eb('user_enrolments.time_end', 'is', null),
+          eb('user_enrolments.time_end', '>=', now),
+        ]),
+      ]))
+      .limit(1)
+      .executeTakeFirst();
     if (enrolled) return true;
-    const [courseCtx] = await this.db.select({ id: context.id }).from(context)
-      .where(and(eq(context.contextLevel, 50), eq(context.instanceId, courseId)));
+    const courseCtx = await this.handle
+      .selectFrom('context')
+      .select('id')
+      .where('context_level', '=', 50)
+      .where('instance_id', '=', courseId)
+      .executeTakeFirst();
     if (!courseCtx) return false;
-    const [assigned] = await this.db.select({ id: roleAssignments.id }).from(roleAssignments)
-      .where(and(eq(roleAssignments.contextId, courseCtx.id), eq(roleAssignments.userId, userId)))
-      .limit(1);
+    const assigned = await this.handle
+      .selectFrom('role_assignments')
+      .select('id')
+      .where('context_id', '=', courseCtx.id)
+      .where('user_id', '=', userId)
+      .limit(1)
+      .executeTakeFirst();
     return Boolean(assigned);
   }
   /**
@@ -1235,21 +1926,21 @@ export class MessagingRepository {
     const cursorCond = cursor
       ? sql`and ((case when btrim(u.first_name || ' ' || u.last_name) = '' then u.username else btrim(u.first_name || ' ' || u.last_name) end), u.username, u.id) > (${cursor.displayName}, ${cursor.username}, ${cursor.userId}::uuid)`
       : sql``;
-    const executed = await this.db.execute(sql`
+    const executed = await sql<Record<string, unknown>>`
       with course_ctx as (
-        select id from ${context} where context_level = 50 and instance_id = ${courseId}
+        select id from "context" where context_level = 50 and instance_id = ${courseId}
       ),
       member_flags as (
         select ue.user_id as user_id, false as staff, true as enrolled
-        from ${userEnrolments} ue
-        join ${enrol} e on e.id = ue.enrol_id
+        from user_enrolments ue
+        join enrol e on e.id = ue.enrol_id
         where e.course_id = ${courseId}
           and ue.status = 0 and e.status = 0
           and ue.time_start <= now() and (ue.time_end is null or ue.time_end >= now())
         union all
         select ra.user_id as user_id, (r.archetype in ('manager', 'coursecreator', 'editingteacher', 'teacher')) as staff, false as enrolled
-        from ${roleAssignments} ra
-        join ${role} r on r.id = ra.role_id
+        from role_assignments ra
+        join role r on r.id = ra.role_id
         where ra.context_id = (select id from course_ctx)
       ),
       members as (
@@ -1259,31 +1950,27 @@ export class MessagingRepository {
         (case when btrim(u.first_name || ' ' || u.last_name) = '' then u.username else btrim(u.first_name || ' ' || u.last_name) end) as display_name,
         m.staff as staff, m.enrolled as enrolled
       from members m
-      join ${users} u on u.id = m.user_id
+      join users u on u.id = m.user_id
       where u.deleted = false and u.suspended = false and u.is_guest = false
         and u.id <> ${actorId}
         and not exists (
-          select 1 from ${messageUsersBlocked} b
+          select 1 from message_users_blocked b
           where (b.user_id = ${actorId} and b.blocked_user_id = u.id)
              or (b.user_id = u.id and b.blocked_user_id = ${actorId})
         )
         ${cursorCond}
       order by display_name asc, u.username asc, u.id asc
       limit ${limit}
-    `);
-    const rows = (Array.isArray(executed) ? executed[0] : executed)?.rows ?? [];
-    return rows.map((r) => {
-      const raw = r as Record<string, unknown>;
-      return {
-        userId: raw.user_id as string,
-        username: raw.username as string,
-        firstName: raw.first_name as string,
-        lastName: raw.last_name as string,
-        displayName: raw.display_name as string,
-        staff: Boolean(raw.staff),
-        enrolled: Boolean(raw.enrolled),
-      };
-    });
+    `.execute(this.handle);
+    return executed.rows.map((raw) => ({
+      userId: raw.user_id as string,
+      username: raw.username as string,
+      firstName: raw.first_name as string,
+      lastName: raw.last_name as string,
+      displayName: raw.display_name as string,
+      staff: Boolean(raw.staff),
+      enrolled: Boolean(raw.enrolled),
+    }));
   }
 
   // --- đồng bộ cuộc trò chuyện nhóm ------------------------------------------------
@@ -1294,14 +1981,21 @@ export class MessagingRepository {
    * Lấy một course group theo id (kèm courseId để resolve context/staff).
    */
   async getCourseGroup(groupId: string): Promise<CourseGroupRow | undefined> {
-    const [row] = await this.db.select().from(courseGroups).where(eq(courseGroups.id, groupId));
-    return row;
+    return this.handle
+      .selectFrom('course_groups')
+      .select(COURSE_GROUP_COLUMNS)
+      .where('id', '=', groupId)
+      .executeTakeFirst() as Promise<CourseGroupRow | undefined>;
   }
   /**
    * Thành viên hiện tại của một course group.
    */
   async listGroupMemberIds(groupId: string): Promise<string[]> {
-    const rows = await this.db.select().from(groupsMembers).where(eq(groupsMembers.groupId, groupId));
+    const rows = await this.handle
+      .selectFrom('groups_members')
+      .select('user_id as userId')
+      .where('group_id', '=', groupId)
+      .execute();
     return rows.map((r) => r.userId);
   }
   /**
@@ -1309,20 +2003,24 @@ export class MessagingRepository {
    * membership conversation đã cũ so với group).
    */
   async listGroupIdsForUser(userId: string): Promise<string[]> {
-    const rows = await this.db.select({ groupId: groupsMembers.groupId }).from(groupsMembers)
-      .where(eq(groupsMembers.userId, userId));
+    const rows = await this.handle
+      .selectFrom('groups_members')
+      .select('group_id as groupId')
+      .where('user_id', '=', userId)
+      .execute();
     return rows.map((r) => r.groupId);
   }
   /**
    * Conversation gắn với một course group qua (component, itemType, itemId).
    */
   async findGroupConversation(groupId: string): Promise<ConversationRow | undefined> {
-    const [row] = await this.db.select().from(messageConversations).where(and(
-      eq(messageConversations.component, 'core_group'),
-      eq(messageConversations.itemType, 'groups'),
-      eq(messageConversations.itemId, groupId),
-    ));
-    return row;
+    return this.handle
+      .selectFrom('message_conversations')
+      .select(CONVERSATION_COLUMNS)
+      .where('component', '=', 'core_group')
+      .where('item_type', '=', 'groups')
+      .where('item_id', '=', groupId)
+      .executeTakeFirst() as Promise<ConversationRow | undefined>;
   }
   /**
    * Mọi conversation gắn group mà user là thành viên của group tương ứng —
@@ -1330,13 +2028,19 @@ export class MessagingRepository {
    * conversation ngay cả khi chưa từng là thành viên conversation).
    */
   async listGroupConversationsForGroupMember(userId: string): Promise<ConversationRow[]> {
-    const memberships = await this.db.select().from(groupsMembers).where(eq(groupsMembers.userId, userId));
+    const memberships = await this.handle
+      .selectFrom('groups_members')
+      .select('group_id as groupId')
+      .where('user_id', '=', userId)
+      .execute();
     if (!memberships.length) return [];
-    return this.db.select().from(messageConversations).where(and(
-      eq(messageConversations.component, 'core_group'),
-      eq(messageConversations.itemType, 'groups'),
-      inArray(messageConversations.itemId, memberships.map((m) => m.groupId)),
-    ));
+    return this.handle
+      .selectFrom('message_conversations')
+      .select(CONVERSATION_COLUMNS)
+      .where('component', '=', 'core_group')
+      .where('item_type', '=', 'groups')
+      .where('item_id', 'in', memberships.map((m) => m.groupId))
+      .execute() as Promise<ConversationRow[]>;
   }
 
   // --- đồng bộ cuộc trò chuyện khoá học ----------------------------------------------
@@ -1352,13 +2056,15 @@ export class MessagingRepository {
    * (xem {@link acquireCourseConversationLock}) — đường đọc mặc định
    * vẫn qua kết nối thường.
    */
-  async findCourseConversation(courseId: string, tx?: DbTx): Promise<ConversationRow | undefined> {
-    const [row] = await (tx ?? this.db).select().from(messageConversations).where(and(
-      eq(messageConversations.component, 'core_course'),
-      eq(messageConversations.itemType, 'course'),
-      eq(messageConversations.itemId, courseId),
-    ));
-    return row;
+  async findCourseConversation(courseId: string, tx?: MessagingDb): Promise<ConversationRow | undefined> {
+    const db = tx ?? this.handle;
+    return db
+      .selectFrom('message_conversations')
+      .select(CONVERSATION_COLUMNS)
+      .where('component', '=', 'core_course')
+      .where('item_type', '=', 'course')
+      .where('item_id', '=', courseId)
+      .executeTakeFirst() as Promise<ConversationRow | undefined>;
   }
   /**
    * Khoá advisory cấp transaction theo courseId cho đường ensure
@@ -1368,9 +2074,9 @@ export class MessagingRepository {
    * commit. Đây là điểm đồng bộ duy nhất giữ bất biến "mỗi khoá đúng
    * một conversation cấp khoá" mà không cần unique trên schema.
    */
-  async acquireCourseConversationLock(tx: DbTx, courseId: string): Promise<void> {
+  async acquireCourseConversationLock(tx: MessagingTx, courseId: string): Promise<void> {
     const key = `messaging:core_course:${courseId}`;
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`);
+    await sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`.execute(tx);
   }
   /**
    * User đang ghi danh HIỆU LỰC trong một khoá (instance enabled + ghi
@@ -1378,15 +2084,21 @@ export class MessagingRepository {
    */
   async listActiveEnrolledUserIds(courseId: string): Promise<string[]> {
     const now = new Date();
-    const rows = await this.db.select({ userId: userEnrolments.userId }).from(userEnrolments)
-      .innerJoin(enrol, eq(userEnrolments.enrolId, enrol.id))
-      .where(and(
-        eq(enrol.courseId, courseId),
-        eq(userEnrolments.status, 0),
-        eq(enrol.status, 0),
-        lte(userEnrolments.timeStart, now),
-        or(isNull(userEnrolments.timeEnd), gte(userEnrolments.timeEnd, now)),
-      ));
+    const rows = await this.handle
+      .selectFrom('user_enrolments')
+      .innerJoin('enrol', 'enrol.id', 'user_enrolments.enrol_id')
+      .select('user_enrolments.user_id as userId')
+      .where((eb) => eb.and([
+        eb('enrol.course_id', '=', courseId),
+        eb('user_enrolments.status', '=', 0),
+        eb('enrol.status', '=', 0),
+        eb('user_enrolments.time_start', '<=', now),
+        eb.or([
+          eb('user_enrolments.time_end', 'is', null),
+          eb('user_enrolments.time_end', '>=', now),
+        ]),
+      ]))
+      .execute();
     return [...new Set(rows.map((r) => r.userId))];
   }
   /**
@@ -1407,11 +2119,13 @@ export class MessagingRepository {
   async listCourseConversationsForMember(userId: string): Promise<ConversationRow[]> {
     const courseIds = await this.listMembershipCourseIds(userId);
     if (!courseIds.length) return [];
-    return this.db.select().from(messageConversations).where(and(
-      eq(messageConversations.component, 'core_course'),
-      eq(messageConversations.itemType, 'course'),
-      inArray(messageConversations.itemId, courseIds),
-    ));
+    return this.handle
+      .selectFrom('message_conversations')
+      .select(CONVERSATION_COLUMNS)
+      .where('component', '=', 'core_course')
+      .where('item_type', '=', 'course')
+      .where('item_id', 'in', courseIds)
+      .execute() as Promise<ConversationRow[]>;
   }
 
   // --- class conversation sync (lát MSG-T2, issue #184) ----------------------
@@ -1432,11 +2146,11 @@ export class MessagingRepository {
    *   của lớp; `undefined` khi lớp không tồn tại.
    */
   async getClassSummary(classId: string): Promise<{ classId: string; name: string; ownerId: string; cohortId: string; tenantId: string; status: string } | undefined> {
-    const [row] = await this.db.select({
-      classId: classes.id, name: classes.name, ownerId: classes.ownerId,
-      cohortId: classes.cohortId, tenantId: classes.tenantId, status: classes.status,
-    }).from(classes).where(eq(classes.id, classId));
-    return row;
+    return this.handle
+      .selectFrom('classes')
+      .select(['id as classId', 'name', 'owner_id as ownerId', 'cohort_id as cohortId', 'tenant_id as tenantId', 'status'])
+      .where('id', '=', classId)
+      .executeTakeFirst();
   }
   /**
    * Mọi user mang vai trò staff tại context của lớp hoặc một context
@@ -1449,18 +2163,23 @@ export class MessagingRepository {
    *   khi lớp chưa có context).
    */
   async listClassStaffUserIds(classId: string): Promise<string[]> {
-    const [classCtx] = await this.db.select().from(context)
-      .where(and(eq(context.contextLevel, 45), eq(context.instanceId, classId)));
+    const classCtx = await this.handle
+      .selectFrom('context')
+      .select(['id', 'path'])
+      .where('context_level', '=', 45)
+      .where('instance_id', '=', classId)
+      .executeTakeFirst();
     if (!classCtx) return [];
     const pathIds = classCtx.path.split('/').filter((part) => part.length > 0);
     if (!pathIds.length) return [];
-    const rows = await this.db.selectDistinct({ userId: roleAssignments.userId })
-      .from(roleAssignments)
-      .innerJoin(role, eq(role.id, roleAssignments.roleId))
-      .where(and(
-        inArray(role.archetype, [...STAFF_ARCHETYPES]),
-        inArray(roleAssignments.contextId, pathIds),
-      ));
+    const rows = await this.handle
+      .selectFrom('role_assignments')
+      .innerJoin('role', 'role.id', 'role_assignments.role_id')
+      .select('role_assignments.user_id as userId')
+      .distinct()
+      .where('role.archetype', 'in', [...STAFF_ARCHETYPES])
+      .where('role_assignments.context_id', 'in', pathIds)
+      .execute();
     return rows.map((r) => r.userId);
   }
   /**
@@ -1474,18 +2193,22 @@ export class MessagingRepository {
    * @returns `true` khi có gán vai staff ngay tại context lớp.
    */
   async isClassTeachingStaff(classId: string, userId: string): Promise<boolean> {
-    const [classCtx] = await this.db.select({ id: context.id }).from(context)
-      .where(and(eq(context.contextLevel, 45), eq(context.instanceId, classId)));
+    const classCtx = await this.handle
+      .selectFrom('context')
+      .select('id')
+      .where('context_level', '=', 45)
+      .where('instance_id', '=', classId)
+      .executeTakeFirst();
     if (!classCtx) return false;
-    const rows = await this.db.select({ id: roleAssignments.id })
-      .from(roleAssignments)
-      .innerJoin(role, eq(role.id, roleAssignments.roleId))
-      .where(and(
-        eq(roleAssignments.contextId, classCtx.id),
-        eq(roleAssignments.userId, userId),
-        inArray(role.archetype, [...STAFF_ARCHETYPES]),
-      ))
-      .limit(1);
+    const rows = await this.handle
+      .selectFrom('role_assignments')
+      .innerJoin('role', 'role.id', 'role_assignments.role_id')
+      .select('role_assignments.id as id')
+      .where('role_assignments.context_id', '=', classCtx.id)
+      .where('role_assignments.user_id', '=', userId)
+      .where('role.archetype', 'in', [...STAFF_ARCHETYPES])
+      .limit(1)
+      .execute();
     return rows.length > 0;
   }
   /**
@@ -1498,8 +2221,11 @@ export class MessagingRepository {
   async listClassRosterMemberIds(classId: string): Promise<string[]> {
     const cls = await this.getClassSummary(classId);
     if (!cls) return [];
-    const rows = await this.db.select({ userId: cohortMembers.userId }).from(cohortMembers)
-      .where(eq(cohortMembers.cohortId, cls.cohortId));
+    const rows = await this.handle
+      .selectFrom('cohort_members')
+      .select('user_id as userId')
+      .where('cohort_id', '=', cls.cohortId)
+      .execute();
     return rows.map((r) => r.userId);
   }
   /**
@@ -1532,16 +2258,28 @@ export class MessagingRepository {
     const cls = await this.getClassSummary(classId);
     if (!cls) return false;
     if (cls.ownerId === userId) return true;
-    const [inRoster] = await this.db.select({ userId: cohortMembers.userId }).from(cohortMembers)
-      .where(and(eq(cohortMembers.cohortId, cls.cohortId), eq(cohortMembers.userId, userId)))
-      .limit(1);
+    const inRoster = await this.handle
+      .selectFrom('cohort_members')
+      .select('user_id as userId')
+      .where('cohort_id', '=', cls.cohortId)
+      .where('user_id', '=', userId)
+      .limit(1)
+      .executeTakeFirst();
     if (inRoster) return true;
-    const [classCtx] = await this.db.select({ id: context.id }).from(context)
-      .where(and(eq(context.contextLevel, 45), eq(context.instanceId, classId)));
+    const classCtx = await this.handle
+      .selectFrom('context')
+      .select('id')
+      .where('context_level', '=', 45)
+      .where('instance_id', '=', classId)
+      .executeTakeFirst();
     if (!classCtx) return false;
-    const [assigned] = await this.db.select({ id: roleAssignments.id }).from(roleAssignments)
-      .where(and(eq(roleAssignments.contextId, classCtx.id), eq(roleAssignments.userId, userId)))
-      .limit(1);
+    const assigned = await this.handle
+      .selectFrom('role_assignments')
+      .select('id')
+      .where('context_id', '=', classCtx.id)
+      .where('user_id', '=', userId)
+      .limit(1)
+      .executeTakeFirst();
     return Boolean(assigned);
   }
   /**
@@ -1554,13 +2292,15 @@ export class MessagingRepository {
    *   bỏ trống thì đọc bằng kết nối thường.
    * @returns Conversation cấp lớp của lớp, hoặc `undefined`.
    */
-  async findClassConversation(classId: string, tx?: DbTx): Promise<ConversationRow | undefined> {
-    const [row] = await (tx ?? this.db).select().from(messageConversations).where(and(
-      eq(messageConversations.component, 'core_class'),
-      eq(messageConversations.itemType, 'class'),
-      eq(messageConversations.itemId, classId),
-    ));
-    return row;
+  async findClassConversation(classId: string, tx?: MessagingDb): Promise<ConversationRow | undefined> {
+    const db = tx ?? this.handle;
+    return db
+      .selectFrom('message_conversations')
+      .select(CONVERSATION_COLUMNS)
+      .where('component', '=', 'core_class')
+      .where('item_type', '=', 'class')
+      .where('item_id', '=', classId)
+      .executeTakeFirst() as Promise<ConversationRow | undefined>;
   }
   /**
    * Khoá advisory cấp transaction theo classId cho đường ensure
@@ -1571,9 +2311,9 @@ export class MessagingRepository {
    * @param tx - Transaction sẽ giữ khoá tới khi commit/rollback.
    * @param classId - Id lớp làm khoá.
    */
-  async acquireClassConversationLock(tx: DbTx, classId: string): Promise<void> {
+  async acquireClassConversationLock(tx: MessagingTx, classId: string): Promise<void> {
     const key = `messaging:core_class:${classId}`;
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`);
+    await sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`.execute(tx);
   }
   /**
    * Mọi conversation cấp lớp thuộc các lớp mà user có quan hệ (chủ
@@ -1588,11 +2328,13 @@ export class MessagingRepository {
   async listClassConversationsForMember(userId: string): Promise<ConversationRow[]> {
     const relations = await this.listTreeClassesForUser(userId);
     if (!relations.length) return [];
-    return this.db.select().from(messageConversations).where(and(
-      eq(messageConversations.component, 'core_class'),
-      eq(messageConversations.itemType, 'class'),
-      inArray(messageConversations.itemId, relations.map((r) => r.classId)),
-    ));
+    return this.handle
+      .selectFrom('message_conversations')
+      .select(CONVERSATION_COLUMNS)
+      .where('component', '=', 'core_class')
+      .where('item_type', '=', 'class')
+      .where('item_id', 'in', relations.map((r) => r.classId))
+      .execute() as Promise<ConversationRow[]>;
   }
   /**
    * Một trang roster của lớp, sắp tăng dần theo (displayName,
@@ -1617,21 +2359,21 @@ export class MessagingRepository {
     const cursorCond = cursor
       ? sql`and ((case when btrim(u.first_name || ' ' || u.last_name) = '' then u.username else btrim(u.first_name || ' ' || u.last_name) end), u.username, u.id) > (${cursor.displayName}, ${cursor.username}, ${cursor.userId}::uuid)`
       : sql``;
-    const executed = await this.db.execute(sql`
+    const executed = await sql<Record<string, unknown>>`
       with class_row as (
-        select cohort_id, owner_id from ${classes} where id = ${classId}
+        select cohort_id, owner_id from classes where id = ${classId}
       ),
       class_ctx as (
-        select id from ${context} where context_level = 45 and instance_id = ${classId}
+        select id from "context" where context_level = 45 and instance_id = ${classId}
       ),
       member_flags as (
         select cm.user_id as user_id, false as staff, true as enrolled
-        from ${cohortMembers} cm
+        from cohort_members cm
         where cm.cohort_id = (select cohort_id from class_row)
         union all
         select ra.user_id as user_id, (r.archetype in ('manager', 'coursecreator', 'editingteacher', 'teacher')) as staff, false as enrolled
-        from ${roleAssignments} ra
-        join ${role} r on r.id = ra.role_id
+        from role_assignments ra
+        join role r on r.id = ra.role_id
         where ra.context_id = (select id from class_ctx)
         union all
         select owner_id as user_id, true as staff, false as enrolled
@@ -1644,31 +2386,27 @@ export class MessagingRepository {
         (case when btrim(u.first_name || ' ' || u.last_name) = '' then u.username else btrim(u.first_name || ' ' || u.last_name) end) as display_name,
         m.staff as staff, m.enrolled as enrolled
       from members m
-      join ${users} u on u.id = m.user_id
+      join users u on u.id = m.user_id
       where u.deleted = false and u.suspended = false and u.is_guest = false
         and u.id <> ${actorId}
         and not exists (
-          select 1 from ${messageUsersBlocked} b
+          select 1 from message_users_blocked b
           where (b.user_id = ${actorId} and b.blocked_user_id = u.id)
              or (b.user_id = u.id and b.blocked_user_id = ${actorId})
         )
         ${cursorCond}
       order by display_name asc, u.username asc, u.id asc
       limit ${limit}
-    `);
-    const rows = (Array.isArray(executed) ? executed[0] : executed)?.rows ?? [];
-    return rows.map((r) => {
-      const raw = r as Record<string, unknown>;
-      return {
-        userId: raw.user_id as string,
-        username: raw.username as string,
-        firstName: raw.first_name as string,
-        lastName: raw.last_name as string,
-        displayName: raw.display_name as string,
-        staff: Boolean(raw.staff),
-        enrolled: Boolean(raw.enrolled),
-      };
-    });
+    `.execute(this.handle);
+    return executed.rows.map((raw) => ({
+      userId: raw.user_id as string,
+      username: raw.username as string,
+      firstName: raw.first_name as string,
+      lastName: raw.last_name as string,
+      displayName: raw.display_name as string,
+      staff: Boolean(raw.staff),
+      enrolled: Boolean(raw.enrolled),
+    }));
   }
   /**
    * Lớp chung của một cặp (giáo viên, học sinh) theo quan hệ mở cổng
@@ -1685,22 +2423,24 @@ export class MessagingRepository {
    * @returns Id lớp chung đầu tiên theo quan hệ GV–HS, hoặc null.
    */
   async findTeacherStudentSharedClassId(userA: string, userB: string): Promise<string | null> {
-    const rows = await this.db.select({ classId: context.instanceId })
-      .from(context)
-      .innerJoin(roleAssignments, eq(roleAssignments.contextId, context.id))
-      .innerJoin(role, eq(role.id, roleAssignments.roleId))
-      .innerJoin(classes, eq(classes.id, context.instanceId))
-      .innerJoin(cohortMembers, eq(cohortMembers.cohortId, classes.cohortId))
-      .where(and(
-        eq(context.contextLevel, 45),
-        eq(classes.status, 'active'),
-        inArray(role.archetype, [...STAFF_ARCHETYPES]),
-        or(
-          and(eq(roleAssignments.userId, userA), eq(cohortMembers.userId, userB)),
-          and(eq(roleAssignments.userId, userB), eq(cohortMembers.userId, userA)),
-        ),
-      ))
-      .limit(1);
+    const rows = await this.handle
+      .selectFrom('context')
+      .innerJoin('role_assignments', 'role_assignments.context_id', 'context.id')
+      .innerJoin('role', 'role.id', 'role_assignments.role_id')
+      .innerJoin('classes', 'classes.id', 'context.instance_id')
+      .innerJoin('cohort_members', 'cohort_members.cohort_id', 'classes.cohort_id')
+      .select('context.instance_id as classId')
+      .where((eb) => eb.and([
+        eb('context.context_level', '=', 45),
+        eb('classes.status', '=', 'active'),
+        eb('role.archetype', 'in', [...STAFF_ARCHETYPES]),
+        eb.or([
+          eb.and([eb('role_assignments.user_id', '=', userA), eb('cohort_members.user_id', '=', userB)]),
+          eb.and([eb('role_assignments.user_id', '=', userB), eb('cohort_members.user_id', '=', userA)]),
+        ]),
+      ]))
+      .limit(1)
+      .execute();
     return rows[0]?.classId ?? null;
   }
 
@@ -1715,23 +2455,34 @@ export class MessagingRepository {
 
   /** Quan hệ của user với MỘT lớp: chủ lớp hay có gán vai archetype staff tại context lớp (mức 45) hay không. */
   async listTreeClassesForUser(userId: string): Promise<{ classId: string; name: string; isOwner: boolean; isClassStaff: boolean; isRosterMember: boolean }[]> {
-    const owned = await this.db.select({ classId: classes.id, name: classes.name }).from(classes)
-      .where(and(eq(classes.ownerId, userId), eq(classes.status, 'active')));
-    const staffRows = await this.db.selectDistinct({ classId: context.instanceId, name: classes.name })
-      .from(roleAssignments)
-      .innerJoin(role, eq(role.id, roleAssignments.roleId))
-      .innerJoin(context, eq(context.id, roleAssignments.contextId))
-      .innerJoin(classes, eq(classes.id, context.instanceId))
-      .where(and(
-        eq(roleAssignments.userId, userId),
-        eq(context.contextLevel, 45),
-        inArray(role.archetype, [...STAFF_ARCHETYPES]),
-        eq(classes.status, 'active'),
-      ));
-    const rosterRows = await this.db.selectDistinct({ classId: classes.id, name: classes.name })
-      .from(cohortMembers)
-      .innerJoin(classes, eq(classes.cohortId, cohortMembers.cohortId))
-      .where(and(eq(cohortMembers.userId, userId), eq(classes.status, 'active')));
+    const owned = await this.handle
+      .selectFrom('classes')
+      .select(['id as classId', 'name'])
+      .where('owner_id', '=', userId)
+      .where('status', '=', 'active')
+      .execute();
+    const staffRows = await this.handle
+      .selectFrom('role_assignments')
+      .innerJoin('role', 'role.id', 'role_assignments.role_id')
+      .innerJoin('context', 'context.id', 'role_assignments.context_id')
+      .innerJoin('classes', 'classes.id', 'context.instance_id')
+      .select(['context.instance_id as classId', 'classes.name as name'])
+      .distinct()
+      .where((eb) => eb.and([
+        eb('role_assignments.user_id', '=', userId),
+        eb('context.context_level', '=', 45),
+        eb('role.archetype', 'in', [...STAFF_ARCHETYPES]),
+        eb('classes.status', '=', 'active'),
+      ]))
+      .execute();
+    const rosterRows = await this.handle
+      .selectFrom('cohort_members')
+      .innerJoin('classes', 'classes.cohort_id', 'cohort_members.cohort_id')
+      .select(['classes.id as classId', 'classes.name as name'])
+      .distinct()
+      .where('cohort_members.user_id', '=', userId)
+      .where('classes.status', '=', 'active')
+      .execute();
     const byId = new Map<string, { classId: string; name: string; isOwner: boolean; isClassStaff: boolean; isRosterMember: boolean }>();
     const ensure = (classId: string | null, name: string) => {
       if (!classId) return undefined;
@@ -1751,27 +2502,35 @@ export class MessagingRepository {
   /** Mọi khoá THẬT (không phải mẫu) thuộc một tập lớp — để neo cây theo quan hệ lớp–khoá. */
   async listCoursesByClassIds(classIds: string[]): Promise<{ courseId: string; fullName: string; classId: string }[]> {
     if (!classIds.length) return [];
-    const rows = await this.db.select({ courseId: course.id, fullName: course.fullName, classId: course.classId })
-      .from(course)
-      .where(and(inArray(course.classId, classIds), eq(course.isTemplate, false)));
+    const rows = await this.handle
+      .selectFrom('course')
+      .select(['id as courseId', 'full_name as fullName', 'class_id as classId'])
+      .where('class_id', 'in', classIds)
+      .where('is_template', '=', false)
+      .execute();
     return rows.filter((r): r is { courseId: string; fullName: string; classId: string } => r.classId !== null);
   }
 
   /** Lớp chứa từng khoá trong tập cho trước (khoá không thuộc lớp nào thì vắng khỏi kết quả). */
   async listClassesOfCourses(courseIds: string[]): Promise<{ courseId: string; classId: string; className: string; classStatus: string }[]> {
     if (!courseIds.length) return [];
-    const rows = await this.db.select({ courseId: course.id, classId: course.classId, className: classes.name, classStatus: classes.status })
-      .from(course)
-      .innerJoin(classes, eq(classes.id, course.classId))
-      .where(inArray(course.id, courseIds));
+    const rows = await this.handle
+      .selectFrom('course')
+      .innerJoin('classes', 'classes.id', 'course.class_id')
+      .select(['course.id as courseId', 'course.class_id as classId', 'classes.name as className', 'classes.status as classStatus'])
+      .where('course.id', 'in', courseIds)
+      .execute();
     return rows.filter((r): r is { courseId: string; classId: string; className: string; classStatus: string } => r.classId !== null);
   }
 
   /** Tên hiển thị của một tập khoá (cho các nút khoá của cây). */
   async listCourseNames(courseIds: string[]): Promise<{ courseId: string; fullName: string }[]> {
     if (!courseIds.length) return [];
-    return this.db.select({ courseId: course.id, fullName: course.fullName }).from(course)
-      .where(inArray(course.id, courseIds));
+    return this.handle
+      .selectFrom('course')
+      .select(['id as courseId', 'full_name as fullName'])
+      .where('id', 'in', courseIds)
+      .execute();
   }
 
   /**
@@ -1781,49 +2540,59 @@ export class MessagingRepository {
    */
   async listTeachingCourseIds(userId: string, courseIds: string[]): Promise<string[]> {
     if (!courseIds.length) return [];
-    const rows = await this.db.selectDistinct({ courseId: context.instanceId })
-      .from(roleAssignments)
-      .innerJoin(role, eq(role.id, roleAssignments.roleId))
-      .innerJoin(context, eq(context.id, roleAssignments.contextId))
-      .where(and(
-        eq(roleAssignments.userId, userId),
-        eq(context.contextLevel, 50),
-        inArray(context.instanceId, courseIds),
-        inArray(role.archetype, [...STAFF_ARCHETYPES]),
-      ));
+    const rows = await this.handle
+      .selectFrom('role_assignments')
+      .innerJoin('role', 'role.id', 'role_assignments.role_id')
+      .innerJoin('context', 'context.id', 'role_assignments.context_id')
+      .select('context.instance_id as courseId')
+      .distinct()
+      .where((eb) => eb.and([
+        eb('role_assignments.user_id', '=', userId),
+        eb('context.context_level', '=', 50),
+        eb('context.instance_id', 'in', courseIds),
+        eb('role.archetype', 'in', [...STAFF_ARCHETYPES]),
+      ]))
+      .execute();
     return rows.map((r) => r.courseId).filter((id): id is string => id !== null);
   }
 
   /** Tên của một tập course group (cho các nút nhóm con của cây). */
   async listGroupNames(groupIds: string[]): Promise<{ groupId: string; name: string; courseId: string }[]> {
     if (!groupIds.length) return [];
-    return this.db.select({ groupId: courseGroups.id, name: courseGroups.name, courseId: courseGroups.courseId })
-      .from(courseGroups)
+    return this.handle
+      .selectFrom('course_groups')
+      .select(['id as groupId', 'name', 'course_id as courseId'])
+      .where('id', 'in', groupIds)
       // Nhóm cấu trúc "Cả lớp" (CLASS_WHOLE_GROUP_NAME của module
       // classes — kênh cả khoá do hệ tự tạo cho khoá thuộc lớp,
       // roster vật chất hoá vào đó) KHÔNG phải nhóm con do GV chia
       // nên không hiện ở mức nhóm con của cây.
-      .where(and(inArray(courseGroups.id, groupIds), ne(courseGroups.name, 'Cả lớp')));
+      .where('name', '<>', 'Cả lớp')
+      .execute();
   }
 
   /** Conversation CẤP KHOÁ của một tập khoá (itemType 'course') — tra "đã ensure hay chưa" cho nút cây. */
   async listCourseConversationsByCourseIds(courseIds: string[]): Promise<ConversationRow[]> {
     if (!courseIds.length) return [];
-    return this.db.select().from(messageConversations).where(and(
-      eq(messageConversations.component, 'core_course'),
-      eq(messageConversations.itemType, 'course'),
-      inArray(messageConversations.itemId, courseIds),
-    ));
+    return this.handle
+      .selectFrom('message_conversations')
+      .select(CONVERSATION_COLUMNS)
+      .where('component', '=', 'core_course')
+      .where('item_type', '=', 'course')
+      .where('item_id', 'in', courseIds)
+      .execute() as Promise<ConversationRow[]>;
   }
 
   /** Conversation CẤP LỚP của một tập lớp (itemType 'class' — có từ MSG-T2; ở MSG-T1 thường rỗng). */
   async listClassConversations(classIds: string[]): Promise<ConversationRow[]> {
     if (!classIds.length) return [];
-    return this.db.select().from(messageConversations).where(and(
-      eq(messageConversations.component, 'core_class'),
-      eq(messageConversations.itemType, 'class'),
-      inArray(messageConversations.itemId, classIds),
-    ));
+    return this.handle
+      .selectFrom('message_conversations')
+      .select(CONVERSATION_COLUMNS)
+      .where('component', '=', 'core_class')
+      .where('item_type', '=', 'class')
+      .where('item_id', 'in', classIds)
+      .execute() as Promise<ConversationRow[]>;
   }
 
   /**
@@ -1834,74 +2603,102 @@ export class MessagingRepository {
    * conversation đó.
    */
   async listCourseAndClassConversations(): Promise<ConversationRow[]> {
-    return this.db.select().from(messageConversations).where(or(
-      and(eq(messageConversations.component, 'core_course'), eq(messageConversations.itemType, 'course')),
-      and(eq(messageConversations.component, 'core_class'), eq(messageConversations.itemType, 'class')),
-    ));
+    return this.handle
+      .selectFrom('message_conversations')
+      .select(CONVERSATION_COLUMNS)
+      .where((eb) => eb.or([
+        eb.and([eb('component', '=', 'core_course'), eb('item_type', '=', 'course')]),
+        eb.and([eb('component', '=', 'core_class'), eb('item_type', '=', 'class')]),
+      ]))
+      .execute() as Promise<ConversationRow[]>;
   }
 
   /** Conversation NHÓM CON của một tập group (itemType 'groups'). */
   async listGroupConversationsByGroupIds(groupIds: string[]): Promise<ConversationRow[]> {
     if (!groupIds.length) return [];
-    return this.db.select().from(messageConversations).where(and(
-      eq(messageConversations.component, 'core_group'),
-      eq(messageConversations.itemType, 'groups'),
-      inArray(messageConversations.itemId, groupIds),
-    ));
+    return this.handle
+      .selectFrom('message_conversations')
+      .select(CONVERSATION_COLUMNS)
+      .where('component', '=', 'core_group')
+      .where('item_type', '=', 'groups')
+      .where('item_id', 'in', groupIds)
+      .execute() as Promise<ConversationRow[]>;
   }
 
-  /**
-   * Tenant hiệu lực cho các đường ĐỌC/GHI phía user của notification
-   * (TENANT-1, #196 — lọc tầng ứng dụng, lớp phòng thủ thứ nhất; RLS
-   * fail-closed là lưới cứng phía sau): đang trong ngữ cảnh một
-   * tenant → chỉ notification của tenant đó; ngữ cảnh platform hoặc
-   * đường nền (consumer quét xuyên tenant) → undefined = không lọc
-   * thêm ở tầng này.
-   */
-  private userTenantScope(): string | undefined {
-    return tenantAls.getStore()?.tenantId;
-  }
+  // --- notification ------------------------------------------------------------
+  // Phạm vi tenant của các đường ĐỌC/GHI phía user (TENANT-1, #196 —
+  // lọc tầng ứng dụng, lớp phòng thủ thứ nhất; RLS fail-closed là lưới
+  // cứng phía sau) do tầng service truyền tường minh qua tham số
+  // `tenantId` cuối mỗi method: đang trong ngữ cảnh một tenant → chỉ
+  // notification của tenant đó; ngữ cảnh platform hoặc đường nền
+  // (consumer quét xuyên tenant) → undefined = không lọc thêm ở tầng
+  // này. Repository không đọc ALS (xem ghi chú đầu file).
 
   /**
    * Chèn notification trong ứng dụng.
    */
-  async insertNotification(v: typeof notifications.$inferInsert, tx?: DbTx): Promise<NotificationRow> {
-    const [row] = await (tx ?? this.db).insert(notifications).values(v).returning(); return row!;
+  async insertNotification(v: NewNotification, tx?: MessagingDb): Promise<NotificationRow> {
+    const db = tx ?? this.handle;
+    return db
+      .insertInto('notifications')
+      .values(notificationInsertValues(v))
+      .returning(NOTIFICATION_COLUMNS)
+      .executeTakeFirstOrThrow() as Promise<NotificationRow>;
   }
   /**
    * Số notification chưa đọc (đếm bằng count(*) ở DB).
    */
-  async countUnreadNotifications(userIdTo: string): Promise<number> {
-    const tenantId = this.userTenantScope();
-    const [row] = await this.db.select({ value: sql<number>`count(*)::int` }).from(notifications)
-      .where(and(
-        eq(notifications.userIdTo, userIdTo), isNull(notifications.timeRead),
-        tenantId ? eq(notifications.tenantId, tenantId) : undefined,
-      ));
+  async countUnreadNotifications(userIdTo: string, tenantId?: string): Promise<number> {
+    const row = await this.handle
+      .selectFrom('notifications')
+      .select(sql<number>`count(*)::int`.as('value'))
+      .where((eb) => {
+        const conds: Expression<SqlBool>[] = [
+          eb('user_id_to', '=', userIdTo),
+          eb('time_read', 'is', null),
+        ];
+        if (tenantId !== undefined) conds.push(eb('tenant_id', '=', tenantId));
+        return eb.and(conds);
+      })
+      .executeTakeFirst();
     return row?.value ?? 0;
   }
   /**
    * Đánh dấu một notification đã đọc.
    */
-  async markNotificationRead(id: string, userIdTo: string): Promise<boolean> {
-    const tenantId = this.userTenantScope();
-    const rows = await this.db.update(notifications).set({ timeRead: new Date() })
-      .where(and(
-        eq(notifications.id, id), eq(notifications.userIdTo, userIdTo),
-        tenantId ? eq(notifications.tenantId, tenantId) : undefined,
-      )).returning();
+  async markNotificationRead(id: string, userIdTo: string, tenantId?: string): Promise<boolean> {
+    const rows = await this.handle
+      .updateTable('notifications')
+      .set({ time_read: new Date() })
+      .where((eb) => {
+        const conds: Expression<SqlBool>[] = [
+          eb('id', '=', id),
+          eb('user_id_to', '=', userIdTo),
+        ];
+        if (tenantId !== undefined) conds.push(eb('tenant_id', '=', tenantId));
+        return eb.and(conds);
+      })
+      .returning('id')
+      .execute();
     return rows.length > 0;
   }
   /**
    * Đánh dấu mọi notification đã đọc.
    */
-  async markAllNotificationsRead(userIdTo: string): Promise<number> {
-    const tenantId = this.userTenantScope();
-    const rows = await this.db.update(notifications).set({ timeRead: new Date() })
-      .where(and(
-        eq(notifications.userIdTo, userIdTo), isNull(notifications.timeRead),
-        tenantId ? eq(notifications.tenantId, tenantId) : undefined,
-      )).returning();
+  async markAllNotificationsRead(userIdTo: string, tenantId?: string): Promise<number> {
+    const rows = await this.handle
+      .updateTable('notifications')
+      .set({ time_read: new Date() })
+      .where((eb) => {
+        const conds: Expression<SqlBool>[] = [
+          eb('user_id_to', '=', userIdTo),
+          eb('time_read', 'is', null),
+        ];
+        if (tenantId !== undefined) conds.push(eb('tenant_id', '=', tenantId));
+        return eb.and(conds);
+      })
+      .returning('id')
+      .execute();
     return rows.length;
   }
 
@@ -1912,16 +2709,22 @@ export class MessagingRepository {
    * xếp theo hoạt động mới nhất; phân trang keyset trên cặp
    * (max(created_at), max(id)) của dòng gộp qua mệnh đề HAVING, nên
    * không trang nào phải tải toàn bộ lịch sử về mới gộp được.
+   *
+   * Ba điểm ghép đoạn động (danh sách IN của `eventTypes`, mệnh đề
+   * WHERE, mệnh đề HAVING) dùng `sql.join` của Kysely theo khuôn
+   * T-11: tầng gọi chỉ đẩy đoạn khi danh sách tương ứng KHÔNG rỗng
+   * (danh sách loại rỗng = không lọc; HAVING rỗng = không có mệnh
+   * đề HAVING), và biểu thức con `latestIdExpr` mang tham số của
+   * cursor nằm đúng vị trí của nó trong HAVING khi ghép.
    */
   async listNotificationGroups(userIdTo: string, opts: {
     eventTypes?: string[];
     unreadOnly?: boolean;
     cursor?: { latestAt: Date; latestId: string };
     limit: number;
-  }): Promise<NotificationGroupAggregateRow[]> {
-    const where = [sql`user_id_to = ${userIdTo}`];
-    const tenantScope = this.userTenantScope();
-    if (tenantScope) where.push(sql`tenant_id = ${tenantScope}`);
+  }, tenantId?: string): Promise<NotificationGroupAggregateRow[]> {
+    const where: RawBuilder<unknown>[] = [sql`user_id_to = ${userIdTo}`];
+    if (tenantId !== undefined) where.push(sql`tenant_id = ${tenantId}`);
     if (opts.eventTypes && opts.eventTypes.length > 0) {
       where.push(sql`event_type in (${sql.join(opts.eventTypes.map((t) => sql`${t}`), sql`, `)})`);
     }
@@ -1929,12 +2732,12 @@ export class MessagingRepository {
     // array_agg sắp xếp theo (created_at, id) giảm dần — cùng thứ tự
     // với neo keyset (max(created_at), id mới nhất).
     const latestIdExpr = sql`(array_agg(id order by created_at desc, id desc))[1]`;
-    const having: ReturnType<typeof sql>[] = [];
+    const having: RawBuilder<unknown>[] = [];
     if (opts.unreadOnly) having.push(sql`count(*) filter (where time_read is null) > 0`);
     if (opts.cursor) {
       having.push(sql`(max(created_at), ${latestIdExpr}) < (${opts.cursor.latestAt}::timestamptz, ${opts.cursor.latestId}::uuid)`);
     }
-    const query = sql`
+    const query = sql<NotificationGroupAggregateRow>`
       select
         event_type as "eventType",
         component as "component",
@@ -1951,18 +2754,22 @@ export class MessagingRepository {
       order by max(created_at) desc, ${latestIdExpr} desc
       limit ${opts.limit}
     `;
-    const res = (await this.db.execute(query)) as unknown as { rows: NotificationGroupAggregateRow[] };
+    const res = await query.execute(this.handle);
     return res.rows;
   }
 
   /** Lấy các notification theo đúng tập id (điểm neo `latest` của các dòng gộp). */
-  async listNotificationsByIds(ids: string[]): Promise<NotificationRow[]> {
+  async listNotificationsByIds(ids: string[], tenantId?: string): Promise<NotificationRow[]> {
     if (ids.length === 0) return [];
-    const tenantId = this.userTenantScope();
-    return this.db.select().from(notifications).where(and(
-      inArray(notifications.id, ids),
-      tenantId ? eq(notifications.tenantId, tenantId) : undefined,
-    ));
+    return this.handle
+      .selectFrom('notifications')
+      .select(NOTIFICATION_COLUMNS)
+      .where((eb) => {
+        const conds: Expression<SqlBool>[] = [eb('id', 'in', ids)];
+        if (tenantId !== undefined) conds.push(eb('tenant_id', '=', tenantId));
+        return eb.and(conds);
+      })
+      .execute() as Promise<NotificationRow[]>;
   }
 
   /**
@@ -1971,67 +2778,90 @@ export class MessagingRepository {
    * tiết đúng một dòng gộp, `day` so theo ngày lịch Asia/Saigon như
    * khoá gộp để hai đường không bao giờ lệch nhau.
    */
-  async listNotificationItems(userIdTo: string, opts: NotificationItemsOptions): Promise<NotificationRow[]> {
-    const conditions = [eq(notifications.userIdTo, userIdTo)];
-    const tenantId = this.userTenantScope();
-    if (tenantId) conditions.push(eq(notifications.tenantId, tenantId));
-    if (opts.eventType) conditions.push(eq(notifications.eventType, opts.eventType));
-    if (opts.eventTypes && opts.eventTypes.length > 0) conditions.push(inArray(notifications.eventType, opts.eventTypes));
-    if (opts.source === null) {
-      conditions.push(sql`coalesce(nullif(${notifications.contextUrl}, ''), '') = ''`);
-    } else if (typeof opts.source === 'string') {
-      conditions.push(eq(notifications.contextUrl, opts.source));
-    }
-    if (opts.day) {
-      conditions.push(sql`to_char(((${notifications.createdAt}) at time zone 'Asia/Ho_Chi_Minh')::date, 'YYYY-MM-DD') = ${opts.day}`);
-    }
-    if (opts.unreadOnly) conditions.push(isNull(notifications.timeRead));
-    if (opts.cursor) {
-      conditions.push(sql`(${notifications.createdAt}, ${notifications.id}) < (${opts.cursor.createdAt}::timestamptz, ${opts.cursor.id}::uuid)`);
-    }
-    return this.db.select().from(notifications)
-      .where(and(...conditions))
-      .orderBy(desc(notifications.createdAt), desc(notifications.id))
-      .limit(opts.limit);
+  async listNotificationItems(userIdTo: string, opts: NotificationItemsOptions, tenantId?: string): Promise<NotificationRow[]> {
+    return this.handle
+      .selectFrom('notifications')
+      .select(NOTIFICATION_COLUMNS)
+      .where((eb) => {
+        const conds: Expression<SqlBool>[] = [eb('user_id_to', '=', userIdTo)];
+        if (tenantId !== undefined) conds.push(eb('tenant_id', '=', tenantId));
+        if (opts.eventType) conds.push(eb('event_type', '=', opts.eventType));
+        if (opts.eventTypes && opts.eventTypes.length > 0) conds.push(eb('event_type', 'in', opts.eventTypes));
+        if (opts.source === null) {
+          conds.push(sql<SqlBool>`coalesce(nullif(context_url, ''), '') = ''`);
+        } else if (typeof opts.source === 'string') {
+          conds.push(eb('context_url', '=', opts.source));
+        }
+        if (opts.day) {
+          conds.push(sql<SqlBool>`to_char((created_at at time zone 'Asia/Ho_Chi_Minh')::date, 'YYYY-MM-DD') = ${opts.day}`);
+        }
+        if (opts.unreadOnly) conds.push(eb('time_read', 'is', null));
+        if (opts.cursor) {
+          conds.push(sql<SqlBool>`(created_at, id) < (${opts.cursor.createdAt}::timestamptz, ${opts.cursor.id}::uuid)`);
+        }
+        return eb.and(conds);
+      })
+      .orderBy('created_at', 'desc')
+      .orderBy('id', 'desc')
+      .limit(opts.limit)
+      .execute() as Promise<NotificationRow[]>;
   }
 
   /**
    * Đánh dấu đã đọc HÀNG LOẠT theo khoá gộp (loại × nguồn × ngày)
    * của trung tâm v2: chỉ các mục chưa đọc thuộc đúng khoá mới đổi.
    */
-  async markNotificationGroupRead(userIdTo: string, key: { eventType: string; sourceKey: string; day: string }): Promise<number> {
-    const tenantId = this.userTenantScope();
-    const rows = await this.db.update(notifications).set({ timeRead: new Date() })
-      .where(and(
-        eq(notifications.userIdTo, userIdTo),
-        eq(notifications.eventType, key.eventType),
-        isNull(notifications.timeRead),
-        tenantId ? eq(notifications.tenantId, tenantId) : undefined,
-        sql`coalesce(nullif(${notifications.contextUrl}, ''), '') = ${key.sourceKey}`,
-        sql`to_char(((${notifications.createdAt}) at time zone 'Asia/Ho_Chi_Minh')::date, 'YYYY-MM-DD') = ${key.day}`,
-      )).returning();
+  async markNotificationGroupRead(userIdTo: string, key: { eventType: string; sourceKey: string; day: string }, tenantId?: string): Promise<number> {
+    const rows = await this.handle
+      .updateTable('notifications')
+      .set({ time_read: new Date() })
+      .where((eb) => {
+        const conds: Expression<SqlBool>[] = [
+          eb('user_id_to', '=', userIdTo),
+          eb('event_type', '=', key.eventType),
+          eb('time_read', 'is', null),
+          sql<SqlBool>`coalesce(nullif(context_url, ''), '') = ${key.sourceKey}`,
+          sql<SqlBool>`to_char((created_at at time zone 'Asia/Ho_Chi_Minh')::date, 'YYYY-MM-DD') = ${key.day}`,
+        ];
+        if (tenantId !== undefined) conds.push(eb('tenant_id', '=', tenantId));
+        return eb.and(conds);
+      })
+      .returning('id')
+      .execute();
     return rows.length;
   }
 
   /** Xoá MỘT notification của đúng chủ sở hữu; false khi không tồn tại hoặc không phải của họ. */
-  async deleteNotification(id: string, userIdTo: string): Promise<boolean> {
-    const tenantId = this.userTenantScope();
-    const rows = await this.db.delete(notifications)
-      .where(and(
-        eq(notifications.id, id), eq(notifications.userIdTo, userIdTo),
-        tenantId ? eq(notifications.tenantId, tenantId) : undefined,
-      )).returning();
+  async deleteNotification(id: string, userIdTo: string, tenantId?: string): Promise<boolean> {
+    const rows = await this.handle
+      .deleteFrom('notifications')
+      .where((eb) => {
+        const conds: Expression<SqlBool>[] = [
+          eb('id', '=', id),
+          eb('user_id_to', '=', userIdTo),
+        ];
+        if (tenantId !== undefined) conds.push(eb('tenant_id', '=', tenantId));
+        return eb.and(conds);
+      })
+      .returning('id')
+      .execute();
     return rows.length > 0;
   }
 
   /** Dọn mọi notification ĐÃ ĐỌC của user (trung tâm v2); trả số mục đã xoá. */
-  async deleteReadNotifications(userIdTo: string): Promise<number> {
-    const tenantId = this.userTenantScope();
-    const rows = await this.db.delete(notifications)
-      .where(and(
-        eq(notifications.userIdTo, userIdTo), isNotNull(notifications.timeRead),
-        tenantId ? eq(notifications.tenantId, tenantId) : undefined,
-      )).returning();
+  async deleteReadNotifications(userIdTo: string, tenantId?: string): Promise<number> {
+    const rows = await this.handle
+      .deleteFrom('notifications')
+      .where((eb) => {
+        const conds: Expression<SqlBool>[] = [
+          eb('user_id_to', '=', userIdTo),
+          eb('time_read', 'is not', null),
+        ];
+        if (tenantId !== undefined) conds.push(eb('tenant_id', '=', tenantId));
+        return eb.and(conds);
+      })
+      .returning('id')
+      .execute();
     return rows.length;
   }
 
@@ -2043,12 +2873,15 @@ export class MessagingRepository {
    * nữa.
    */
   async hasUnreadNotification(userIdTo: string, eventType: string, contextUrl: string): Promise<boolean> {
-    const [row] = await this.db.select({ id: notifications.id }).from(notifications)
-      .where(and(
-        eq(notifications.userIdTo, userIdTo), eq(notifications.eventType, eventType),
-        eq(notifications.contextUrl, contextUrl), isNull(notifications.timeRead),
-      ))
-      .limit(1);
+    const row = await this.handle
+      .selectFrom('notifications')
+      .select('id')
+      .where('user_id_to', '=', userIdTo)
+      .where('event_type', '=', eventType)
+      .where('context_url', '=', contextUrl)
+      .where('time_read', 'is', null)
+      .limit(1)
+      .executeTakeFirst();
     return row !== undefined;
   }
 
@@ -2058,11 +2891,11 @@ export class MessagingRepository {
    * item công thức và item bị ẩn) và dựng nội dung không chứa điểm số.
    */
   async getGradeItemNotifyInfo(itemId: string): Promise<{ itemType: string; itemName: string; hidden: boolean; courseId: string } | undefined> {
-    const [row] = await this.db.select({
-      itemType: gradeItems.itemType, itemName: gradeItems.itemName,
-      hidden: gradeItems.hidden, courseId: gradeItems.courseId,
-    }).from(gradeItems).where(eq(gradeItems.id, itemId));
-    return row;
+    return this.handle
+      .selectFrom('grade_items')
+      .select(['item_type as itemType', 'item_name as itemName', 'hidden', 'course_id as courseId'])
+      .where('id', '=', itemId)
+      .executeTakeFirst();
   }
 
   /**
@@ -2071,14 +2904,22 @@ export class MessagingRepository {
    * nhận thông báo điểm mới).
    */
   async isGradeHiddenForUser(itemId: string, userId: string): Promise<boolean> {
-    const [row] = await this.db.select({ hidden: gradeGrades.hidden }).from(gradeGrades)
-      .where(and(eq(gradeGrades.itemId, itemId), eq(gradeGrades.userId, userId)));
+    const row = await this.handle
+      .selectFrom('grade_grades')
+      .select('hidden')
+      .where('item_id', '=', itemId)
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
     return row?.hidden ?? false;
   }
 
   /** Tên đầy đủ của khoá học để dựng nội dung thông báo. */
   async getCourseFullName(courseId: string): Promise<string | undefined> {
-    const [row] = await this.db.select({ fullName: course.fullName }).from(course).where(eq(course.id, courseId));
+    const row = await this.handle
+      .selectFrom('course')
+      .select('full_name as fullName')
+      .where('id', '=', courseId)
+      .executeTakeFirst();
     return row?.fullName;
   }
 
@@ -2098,37 +2939,40 @@ export class MessagingRepository {
   async getAssignmentNotifyInfo(assignmentId: string): Promise<{
     name: string; courseId: string; courseVisible: boolean; cmVisible: boolean | null; cmDeletionInProgress: boolean | null;
   } | undefined> {
-    const [row] = await this.db.select({
-      name: assignments.name, courseId: assignments.course, courseVisible: course.visible,
-      cmVisible: courseModules.visible, cmDeletionInProgress: courseModules.deletionInProgress,
-    }).from(assignments)
-      .innerJoin(course, eq(course.id, assignments.course))
-      .leftJoin(courseModules, eq(courseModules.id, assignments.cmId))
-      .where(eq(assignments.id, assignmentId));
-    return row;
+    return this.handle
+      .selectFrom('assignments')
+      .innerJoin('course', 'course.id', 'assignments.course')
+      .leftJoin('course_modules', 'course_modules.id', 'assignments.cm_id')
+      .select([
+        'assignments.name as name',
+        'assignments.course as courseId',
+        'course.visible as courseVisible',
+        'course_modules.visible as cmVisible',
+        'course_modules.deletion_in_progress as cmDeletionInProgress',
+      ])
+      .where('assignments.id', '=', assignmentId)
+      .executeTakeFirst();
   }
 
   /** Như trên cho một quiz (assignment → quiz_available / quiz_attempt_finished). */
   async getPinNotifyInfo(pinId: string): Promise<{
     name: string; courseId: string; courseVisible: boolean; cmVisible: boolean | null; cmDeletionInProgress: boolean | null;
   } | undefined> {
-    const [row] = await this.db.select({
-      name: sql<string>`coalesce(${examPins.name}, ${examVersions.name})`, courseId: examPins.courseId, courseVisible: course.visible,
-      cmVisible: courseModules.visible, cmDeletionInProgress: courseModules.deletionInProgress,
-    }).from(examPins)
-      .innerJoin(examVersions, eq(examVersions.id, examPins.examVersionId))
-      .innerJoin(course, eq(course.id, examPins.courseId))
-      .leftJoin(courseModules, eq(courseModules.id, examPins.cmId))
-      .where(eq(examPins.id, pinId));
-    return row;
+    return this.handle
+      .selectFrom('exam_pins')
+      .innerJoin('exam_versions', 'exam_versions.id', 'exam_pins.exam_version_id')
+      .innerJoin('course', 'course.id', 'exam_pins.course_id')
+      .leftJoin('course_modules', 'course_modules.id', 'exam_pins.cm_id')
+      .select([
+        sql<string>`coalesce(exam_pins.name, exam_versions.name)`.as('name'),
+        'exam_pins.course_id as courseId',
+        'course.visible as courseVisible',
+        'course_modules.visible as cmVisible',
+        'course_modules.deletion_in_progress as cmDeletionInProgress',
+      ])
+      .where('exam_pins.id', '=', pinId)
+      .executeTakeFirst();
   }
-
-  /**
-   * Mọi user có ghi danh đang hiệu lực trong khoá (instance đang bật +
-   * ghi danh ACTIVE + trong cửa sổ thời gian) — nghịch đảo của
-   * activeCourseIds ở trên, cùng ngữ nghĩa EnrolService.isEnrolled;
-   * đối tượng nhận thông báo "hoạt động mới" của NB-1.
-   */
 
   /**
    * Số bài nộp của một bài tập đang CHỜ CHẤM tại thời điểm gọi: bản
@@ -2138,28 +2982,34 @@ export class MessagingRepository {
    * báo gộp assignment_submitted cho giáo viên (P5, issue #174).
    */
   async countAssignmentSubmissionsAwaitingGrading(assignmentId: string): Promise<number> {
-    const rows = await this.db.select({ id: assignSubmissions.id }).from(assignSubmissions)
-      .leftJoin(assignGrades, and(
-        eq(assignGrades.assignmentId, assignSubmissions.assignmentId),
-        eq(assignGrades.userId, assignSubmissions.userId),
-        eq(assignGrades.attemptNumber, assignSubmissions.attemptNumber),
-      ))
-      .where(and(
-        eq(assignSubmissions.assignmentId, assignmentId),
-        eq(assignSubmissions.status, 'submitted'),
-        or(isNull(assignGrades.id), ne(assignGrades.status, 'released')),
-      ));
+    const rows = await this.handle
+      .selectFrom('assign_submissions')
+      .leftJoin('assign_grades', (join) => join
+        .onRef('assign_grades.assignment_id', '=', 'assign_submissions.assignment_id')
+        .onRef('assign_grades.user_id', '=', 'assign_submissions.user_id')
+        .onRef('assign_grades.attempt_number', '=', 'assign_submissions.attempt_number'))
+      .select('assign_submissions.id as id')
+      .where((eb) => eb.and([
+        eb('assign_submissions.assignment_id', '=', assignmentId),
+        eb('assign_submissions.status', '=', 'submitted'),
+        eb.or([
+          eb('assign_grades.id', 'is', null),
+          eb('assign_grades.status', '<>', 'released'),
+        ]),
+      ]))
+      .execute();
     return rows.length;
   }
 
   /** Số lượt làm của một lần ghim đang ở trạng thái cần chấm tay (không tính lượt preview của giáo viên). */
   async countPinAttemptsNeedingGrading(pinId: string): Promise<number> {
-    const rows = await this.db.select({ id: examAttempts.id }).from(examAttempts)
-      .where(and(
-        eq(examAttempts.pinId, pinId),
-        eq(examAttempts.state, 'needsgrading'),
-        eq(examAttempts.preview, false),
-      ));
+    const rows = await this.handle
+      .selectFrom('exam_attempts')
+      .select('id')
+      .where('pin_id', '=', pinId)
+      .where('state', '=', 'needsgrading')
+      .where('preview', '=', false)
+      .execute();
     return rows.length;
   }
 
@@ -2170,26 +3020,34 @@ export class MessagingRepository {
    * sinh bản mới (P5: một thông báo gộp cập nhật số lượng).
    */
   async getUnreadNotification(userIdTo: string, eventType: string, contextUrl: string): Promise<NotificationRow | undefined> {
-    const [row] = await this.db.select().from(notifications)
-      .where(and(
-        eq(notifications.userIdTo, userIdTo), eq(notifications.eventType, eventType),
-        eq(notifications.contextUrl, contextUrl), isNull(notifications.timeRead),
-      ))
-      .orderBy(desc(notifications.createdAt))
-      .limit(1);
-    return row;
+    return this.handle
+      .selectFrom('notifications')
+      .select(NOTIFICATION_COLUMNS)
+      .where('user_id_to', '=', userIdTo)
+      .where('event_type', '=', eventType)
+      .where('context_url', '=', contextUrl)
+      .where('time_read', 'is', null)
+      .orderBy('created_at', 'desc')
+      .limit(1)
+      .executeTakeFirst() as Promise<NotificationRow | undefined>;
   }
 
   /** Cập nhật nội dung một notification đang tồn tại (chỉ dùng cho bản gộp chưa đọc của NB-1). */
   async updateNotificationContent(id: string, subject: string, fullMessage: string): Promise<void> {
-    await this.db.update(notifications)
-      .set({ subject, fullMessage, smallMessage: fullMessage.slice(0, 200) })
-      .where(eq(notifications.id, id));
+    await this.handle
+      .updateTable('notifications')
+      .set({ subject, full_message: fullMessage, small_message: fullMessage.slice(0, 200) })
+      .where('id', '=', id)
+      .execute();
   }
 
   /** Tenant sở hữu khoá học (TENANT-1, #196) — nguồn tenant cho notification/dữ liệu phát sinh từ khoá. */
   async getCourseTenantId(courseId: string): Promise<string | null> {
-    const [row] = await this.db.select({ tenantId: course.tenantId }).from(course).where(eq(course.id, courseId));
+    const row = await this.handle
+      .selectFrom('course')
+      .select('tenant_id as tenantId')
+      .where('id', '=', courseId)
+      .executeTakeFirst();
     return row?.tenantId ?? null;
   }
 
@@ -2199,7 +3057,7 @@ export class MessagingRepository {
    * chung `@lms/messaging` — repository chỉ uỷ quyền (issue #521).
    */
   async getConversationTenantId(conversationId: string): Promise<string | null> {
-    return getConversationTenantIdShared(this.db, conversationId);
+    return this.store.getConversationTenantId(conversationId);
   }
 
   /**
@@ -2212,39 +3070,58 @@ export class MessagingRepository {
    * viên mới là nguồn sự thật).
    */
   async getUserDefaultTenantId(userId: string): Promise<string | null> {
-    const rows = await this.db.select({ tenantId: tenantMemberships.tenantId, kind: tenants.kind })
-      .from(tenantMemberships)
-      .innerJoin(tenants, eq(tenants.id, tenantMemberships.tenantId))
-      .where(and(
-        eq(tenantMemberships.userId, userId),
-        eq(tenantMemberships.status, 'active'),
-        eq(tenants.status, 'active'),
-      ));
+    const rows = await this.handle
+      .selectFrom('tenant_memberships')
+      .innerJoin('tenants', 'tenants.id', 'tenant_memberships.tenant_id')
+      .select(['tenant_memberships.tenant_id as tenantId', 'tenants.kind as kind'])
+      .where('tenant_memberships.user_id', '=', userId)
+      .where('tenant_memberships.status', '=', 'active')
+      .where('tenants.status', '=', 'active')
+      .execute();
     const distinct = [...new Map(rows.map((r) => [r.tenantId, r])).values()];
     if (distinct.length === 1) return distinct[0]!.tenantId;
     if (distinct.length > 1) {
       const nonPlatform = distinct.find((r) => r.kind !== 'platform');
       if (nonPlatform) return nonPlatform.tenantId;
     }
-    const [zero] = await this.db.select({ id: tenants.id }).from(tenants).where(eq(tenants.kind, 'platform'));
+    const zero = await this.handle
+      .selectFrom('tenants')
+      .select('id')
+      .where('kind', '=', 'platform')
+      .executeTakeFirst();
     return zero?.id ?? null;
   }
 
   /**
    * Ghi nhật ký một lần dispatch notification qua kênh.
    */
-  async insertDispatchLog(v: typeof notificationDispatchLog.$inferInsert, tx?: DbTx): Promise<DispatchLogRow> {
-    const [row] = await (tx ?? this.db).insert(notificationDispatchLog).values(v)
-      .onConflictDoNothing({ target: notificationDispatchLog.dedupeKey }).returning();
-    if (row) return row;
-    const [existing] = await this.db.select().from(notificationDispatchLog)
-      .where(eq(notificationDispatchLog.dedupeKey, v.dedupeKey!));
-    return existing!;
+  async insertDispatchLog(v: NewDispatchLog, tx?: MessagingDb): Promise<DispatchLogRow> {
+    const db = tx ?? this.handle;
+    const row = await db
+      .insertInto('notification_dispatch_log')
+      .values(dispatchLogInsertValues(v))
+      .onConflict((oc) => oc.column('dedupe_key').doNothing())
+      .returning(DISPATCH_LOG_COLUMNS)
+      .executeTakeFirst();
+    if (row) return row as DispatchLogRow;
+    // Trùng dedupe_key: đọc lại dòng đã ghi của lần dispatch trước —
+    // giữ đúng đường đọc của bản cũ (qua handle gốc, không qua tx).
+    const existing = await this.handle
+      .selectFrom('notification_dispatch_log')
+      .select(DISPATCH_LOG_COLUMNS)
+      .where('dedupe_key', '=', v.dedupeKey!)
+      .executeTakeFirstOrThrow();
+    return existing as DispatchLogRow;
   }
   /**
    * Nhật ký dispatch (kiểm chứng gửi).
    */
   async listDispatchLog(userId: string): Promise<DispatchLogRow[]> {
-    return this.db.select().from(notificationDispatchLog).where(eq(notificationDispatchLog.userId, userId)).orderBy(asc(notificationDispatchLog.id));
+    return this.handle
+      .selectFrom('notification_dispatch_log')
+      .select(DISPATCH_LOG_COLUMNS)
+      .where('user_id', '=', userId)
+      .orderBy('id', 'asc')
+      .execute() as Promise<DispatchLogRow[]>;
   }
 }

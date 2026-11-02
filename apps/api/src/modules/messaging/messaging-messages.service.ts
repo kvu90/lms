@@ -4,7 +4,9 @@ import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { SiteConfigService } from '../site-config/site-config.service';
 import { UsersService } from '../users/users.service';
-import { blankRecalledContent, MessagingRepository, searchExcerptOf, type ConversationRow, type MessageRow, type MessageWithQuoteRow, type ReportRow } from './messaging.repository';
+import { MessagingRepository, type ConversationRow, type MessageRow, type MessageWithQuoteRow, type ReportRow } from '@lms/db/repositories/messaging';
+import { blankRecalledContent, searchExcerptOf } from '@lms/messaging';
+import { tenantAls } from '../tenants/tenant-als';
 import { MessagingSendThrottleService } from './messaging-send-throttle.service';
 import { MessagingContactsService } from './messaging-contacts.service';
 import { MessagingConversationsService } from './messaging-conversations.service';
@@ -283,7 +285,7 @@ export class MessagingMessagesService {
     await this.assertMessageLengthAllowed(input.text);
     await this.sendThrottle.consume(actorId);
     try {
-      const saved = await this.repo.dbHandle.transaction(async (tx) => {
+      const saved = await this.repo.transaction(async (tx) => {
         const seq = await this.repo.allocateNextSeq(conversationId, tx);
         const msg = await this.repo.insertMessage({
           conversationId: conversationId, userIdFrom: actorId,
@@ -295,7 +297,7 @@ export class MessagingMessagesService {
         // lại tự hiện lại (bỏ lưu trong cùng transaction — xem
         // clearArchivedForIncomingMessage ở repository).
         await this.repo.clearArchivedForIncomingMessage(conversationId, actorId, tx);
-        await this.outbox.enqueue(tx, {
+        await this.outbox.enqueueKysely(tx, {
           aggregate: 'messaging', type: 'message_sent',
           payload: {
             conversationId, messageId: msg.id, seq, fromUserId: actorId,
@@ -757,7 +759,9 @@ export class MessagingMessagesService {
   async unreadCounts(userId: string): Promise<{ conversations: number; notifications: number }> {
     return {
       conversations: await this.repo.countUnreadConversations(userId),
-      notifications: await this.repo.countUnreadNotifications(userId),
+      // Phạm vi tenant của ngữ cảnh hiện hành truyền tường minh
+      // xuống repository (repository tại `@lms/db` không đọc ALS).
+      notifications: await this.repo.countUnreadNotifications(userId, tenantAls.getStore()?.tenantId),
     };
   }
 }

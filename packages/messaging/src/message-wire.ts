@@ -1,10 +1,19 @@
 import type { LmsMessage } from '@lms/contracts';
-import type { message, messageConversations } from '@lms/db';
+import type {
+  ConversationRow,
+  MessageQuoteView,
+  MessageRow,
+  MessageWithQuoteRow,
+} from '@lms/db/repositories/messaging';
 
-/** Một dòng tin nhắn (bảng `message` của `@lms/db`). */
-export type MessageRow = typeof message.$inferSelect;
-/** Một dòng conversation (bảng `message_conversations` của `@lms/db`). */
-export type ConversationRow = typeof messageConversations.$inferSelect;
+/**
+ * Hình dạng dòng của tầng dữ liệu messaging được khai một nguồn duy
+ * nhất tại `@lms/db/repositories/messaging` (nơi repository Kysely
+ * sống) và re-export tại đây cho mọi phía tiêu thụ hiện hữu của
+ * package — chỉ là import type-only, không tạo phụ thuộc runtime
+ * ngược về `@lms/db` (issue #658: gỡ vòng phụ thuộc hai package).
+ */
+export type { ConversationRow, MessageQuoteView, MessageRow, MessageWithQuoteRow };
 
 /**
  * Vô hiệu hoá NỘI DUNG của một tin đã thu hồi cho các đường đọc/phân
@@ -19,23 +28,6 @@ export function blankRecalledContent(row: MessageRow): MessageRow {
   if (!row.recalledAt) return row;
   return { ...row, fullMessage: '', smallMessage: '' };
 }
-
-/**
- * Khối tóm tắt TRÍCH DẪN của một tin gốc (lát M3, issue #229) — hình
- * dạng khớp `messageQuoteSchema` của @lms/contracts (khai báo cục bộ
- * ở đây để tầng dữ liệu không phụ thuộc contracts; tương thích cấu
- * trúc khi gán vào wire ở tầng realtime/service).
- */
-export interface MessageQuoteView {
-  id: string;
-  seq: number;
-  userIdFrom: string;
-  excerpt: string;
-  unavailable: boolean;
-}
-
-/** Một dòng tin kèm khối trích dẫn đã dựng sẵn cho người nhận (`replyTo = null` khi không trích dẫn). */
-export type MessageWithQuoteRow = MessageRow & { replyTo: MessageQuoteView | null };
 
 /** Trần độ dài của excerpt trích dẫn: đủ nhận ra tin gốc, không biến khối trích dẫn thành bản sao của tin. */
 export const QUOTE_EXCERPT_MAX_CHARS = 120;
@@ -95,4 +87,35 @@ export function toWireMessage(row: MessageRow, quote: MessageQuoteView | null = 
     replyToMessageId: row.replyToMessageId,
     replyTo: quote,
   };
+}
+
+/** Trần độ dài của excerpt kết quả tìm tin (lát M4): cùng trần với excerpt trích dẫn. */
+export const SEARCH_EXCERPT_MAX_CHARS = QUOTE_EXCERPT_MAX_CHARS;
+
+/**
+ * Rút gọn nội dung quanh CHỖ KHỚP cho một kết quả tìm tin (lát M4,
+ * issue #237): cửa sổ tối đa {@link SEARCH_EXCERPT_MAX_CHARS} ký tự
+ * (theo code point) đặt chỗ khớp gần giữa, thêm … ở phía bị cắt.
+ * Khớp theo chuỗi con không phân biệt hoa thường — cùng ngữ nghĩa
+ * với truy vấn ILIKE ở repository. Không tìm thấy chỗ khớp (không
+ * xảy ra với hàng lấy từ truy vấn khớp) thì lùi về rút gọn từ đầu
+ * như excerpt trích dẫn.
+ *
+ * Hàm này trước đây sống trong file repository phía API; nó là
+ * logic hình dạng wire thuần chuỗi (cùng họ với {@link quoteExcerptOf})
+ * nên chuyển về đây khi repository dời sang `@lms/db` — `@lms/db`
+ * giữ thuần truy cập dữ liệu (issue #658).
+ */
+export function searchExcerptOf(text: string, query: string): string {
+  const chars = Array.from(text);
+  if (chars.length <= SEARCH_EXCERPT_MAX_CHARS) return text;
+  const at = text.toLocaleLowerCase('vi').indexOf(query.toLocaleLowerCase('vi'));
+  if (at < 0) return quoteExcerptOf(text);
+  const matchStart = Array.from(text.slice(0, at)).length;
+  const matchLength = Array.from(query).length;
+  const before = Math.max(0, Math.floor((SEARCH_EXCERPT_MAX_CHARS - matchLength) / 2));
+  const start = Math.max(0, matchStart - before);
+  const end = Math.min(chars.length, start + SEARCH_EXCERPT_MAX_CHARS);
+  const slice = chars.slice(start, end).join('');
+  return `${start > 0 ? '…' : ''}${slice}${end < chars.length ? '…' : ''}`;
 }

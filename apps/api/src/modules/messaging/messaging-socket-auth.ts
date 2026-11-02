@@ -14,7 +14,7 @@ import {
 } from '../tenants/space-resolution';
 import { TenantsService } from '../tenants/tenants.service';
 import { UsersService } from '../users/users.service';
-import { MessagingRepository } from './messaging.repository';
+import { MessagingRepository } from '@lms/db/repositories/messaging';
 
 export interface MessagingSocketIdentity {
   userId: string;

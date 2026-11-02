@@ -11,7 +11,9 @@ import { MessagingController, NotificationsController } from './messaging.contro
 import { MessagingGateway } from './messaging.gateway';
 
 import { MessagingRealtimeService } from './messaging-realtime.service';
-import { MessagingRepository } from './messaging.repository';
+import { MessagingRepository } from '@lms/db/repositories/messaging';
+import { createMessagingStore } from '@lms/messaging';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { MessagingSendThrottleService } from './messaging-send-throttle.service';
 import { MessagingService, NOTIFICATION_DISPATCH_QUEUE } from './messaging.service';
 import { MessagingSocketAuth } from './messaging-socket-auth';
@@ -41,7 +43,22 @@ import { NotificationUnreadStreamService } from './notification-unread-stream.se
   ],
   controllers: [MessagingController, NotificationsController],
   providers: [
-    MessagingRepository, MessagingService, NotificationUnreadStreamService,
+    {
+      // MessagingRepository nay là repository Kysely của `@lms/db`
+      // (issue #658): provider dựng bằng factory với handle kho
+      // trung tâm ĐÃ ĐỊNH TUYẾN THEO KHÔNG GIAN (`routedKysely`
+      // của SpaceDatabaseService) và cài đặt của cổng store dùng
+      // chung do `@lms/messaging` cấp trên cùng handle đó —
+      // repository uỷ quyền các phép đọc dùng chung qua cổng, nên
+      // `@lms/db` không phụ thuộc ngược vào `@lms/messaging`.
+      provide: MessagingRepository,
+      useFactory: (spaceDb: SpaceDatabaseService) => new MessagingRepository(
+        spaceDb.routedKysely,
+        createMessagingStore(spaceDb.routedKysely),
+      ),
+      inject: [SpaceDatabaseService],
+    },
+    MessagingService, NotificationUnreadStreamService,
     // Throttle gửi tin theo người dùng bằng Redis (lát M2, issue #212).
     MessagingSendThrottleService,
     // Realtime (issue #33): gateway Socket.IO + lớp auth mỏng + tầng
