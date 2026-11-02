@@ -1,19 +1,13 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
-import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, asc, gt, inArray, max } from 'drizzle-orm';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Queue } from 'bullmq';
 import Redis from 'ioredis';
-import { outboxEvents, tenants } from '@lms/db';
-import type { relations } from './db/relations';
 import { redisConnectionFromUrl } from './config/env';
 import { tenantAls } from './db/tenant-als';
+import { SpaceDatabaseService } from './db/routing/space-database.service';
 import { COHORT_SYNC_EVENT_TYPES } from './processors/cohort-sync-events.processor';
 import type { OutboxEventJobData } from './outbox-event-routes';
-
-type Database = NodePgDatabase<typeof relations>;
 
 /**
  * Tiền tố khoá watermark của consumer polling đồng bộ cohort phía
@@ -129,7 +123,7 @@ export class CohortSyncCatchupService implements OnModuleInit, OnModuleDestroy {
   private destroying = false;
 
   constructor(
-    @InjectDrizzle() private readonly db: Database,
+    private readonly spaceDb: SpaceDatabaseService,
     @InjectQueue('cohort-sync-events') private readonly queue: Queue<OutboxEventJobData>,
     config: ConfigService,
   ) {
@@ -269,8 +263,13 @@ export class CohortSyncCatchupService implements OnModuleInit, OnModuleDestroy {
 
     // Neo khi DB đã dựng lại: watermark vượt quá seq lớn nhất
     // hiện có thì không dòng nào của đời DB này nằm trên
-    // watermark — tồn đọng rỗng theo định nghĩa.
-    const [maxRow] = await this.db.select({ value: max(outboxEvents.seq) }).from(outboxEvents);
+    // watermark — tồn đọng rỗng theo định nghĩa. Cột `seq` là
+    // int8: Kysely đọc thành chuỗi nên giá trị lớn nhất được
+    // chuyển về số tường minh tại biên đọc này.
+    const maxRow = await this.spaceDb.routedKysely
+      .selectFrom('outbox_events')
+      .select((eb) => eb.fn.max('seq').as('value'))
+      .executeTakeFirst();
     const dbMax = maxRow?.value === null || maxRow?.value === undefined ? 0 : Number(maxRow.value);
 
     let enqueued = 0;
@@ -282,31 +281,34 @@ export class CohortSyncCatchupService implements OnModuleInit, OnModuleDestroy {
       // thay vì handler trực tiếp.
       let cursor = watermark;
       for (;;) {
-        const rows = await this.db
-          .select()
-          .from(outboxEvents)
-          .where(
-            and(
-              gt(outboxEvents.seq, cursor),
-              inArray(outboxEvents.type, [...COHORT_SYNC_EVENT_TYPES]),
-            ),
-          )
-          .orderBy(asc(outboxEvents.seq))
-          .limit(DRAIN_BATCH_SIZE);
+        const rows = await this.spaceDb.routedKysely
+          .selectFrom('outbox_events')
+          .select([
+            'id', 'seq', 'aggregate', 'type', 'payload',
+            'tenant_id as tenantId', 'occurred_at as occurredAt',
+          ])
+          .where('seq', '>', String(cursor))
+          .where('type', 'in', [...COHORT_SYNC_EVENT_TYPES])
+          .orderBy('seq', 'asc')
+          .limit(DRAIN_BATCH_SIZE)
+          .execute();
         if (rows.length === 0) break;
         const tenantIds = [...new Set(rows.map((row) => row.tenantId).filter((id) => id !== null))];
         const slugRows = tenantIds.length
-          ? await this.db
-              .select({ id: tenants.id, slug: tenants.slug })
-              .from(tenants)
-              .where(inArray(tenants.id, tenantIds))
+          ? await this.spaceDb.routedKysely
+              .selectFrom('tenants')
+              .select(['id', 'slug'])
+              .where('id', 'in', tenantIds)
+              .execute()
           : [];
         const spaceSlugs = new Map(slugRows.map((row) => [row.id, row.slug] as const));
         for (const row of rows) {
           cursor = Number(row.seq);
           const data: OutboxEventJobData = {
             outboxId: row.id,
-            seq: row.seq,
+            // `seq` int8 đọc thành chuỗi qua Kysely; dữ liệu job
+            // giữ hợp đồng số như đường relay.
+            seq: Number(row.seq),
             aggregate: row.aggregate,
             type: row.type,
             payload: row.payload as Record<string, unknown> | null,
