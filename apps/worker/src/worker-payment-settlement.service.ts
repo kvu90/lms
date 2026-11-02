@@ -1,8 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, eq, sql } from 'drizzle-orm';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { classes, cohortMembers, course, enrol, tenants, userEnrolments } from '@lms/db';
+import { sql } from 'kysely';
+import { type CentreTx } from '@lms/db';
 import {
   ENROL_SUSPENDED,
   ENROL_WITHDRAWN,
@@ -17,14 +15,8 @@ import {
 } from '@lms/payments';
 import type { PaymentSettlementPort } from '@lms/payments';
 import { tenantAls } from './db/tenant-als';
-import type { relations } from './db/relations';
 import { WorkerEnrolOutboxService } from './worker-enrol-outbox.service';
 import { WorkerPaymentSpaceScope } from './worker-payment-space-scope.service';
-import { WorkerPaymentsTransitionalRepository } from './worker-payments-transitional.repository';
-
-type Database = NodePgDatabase<typeof relations>;
-/** Handle của một transaction Drizzle đang mở trên tay cầm của worker. */
-type WorkerTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 /**
  * Slug của tenant platform (tenant-zero) — định danh dữ liệu đã gieo,
@@ -100,16 +92,18 @@ const PLATFORM_TENANT_SLUG = 'trang-chinh';
 @Injectable()
 export class WorkerPaymentSettlementService implements PaymentSettlementPort {
   constructor(
-    @InjectDrizzle() private readonly db: Database,
     private readonly repo: PaymentsRepository,
-    private readonly bridge: WorkerPaymentsTransitionalRepository,
     private readonly enrolOutbox: WorkerEnrolOutboxService,
     private readonly spaceScope: WorkerPaymentSpaceScope,
   ) {}
 
   /** Tenant platform (tenant-zero) — chủ của dòng tiền gói và của hàng đợi platform. */
   private async platformTenantId(): Promise<string> {
-    const [zero] = await this.db.select().from(tenants).where(eq(tenants.slug, PLATFORM_TENANT_SLUG));
+    const zero = await this.spaceScope.routedKysely
+      .selectFrom('tenants')
+      .select('id')
+      .where('slug', '=', PLATFORM_TENANT_SLUG)
+      .executeTakeFirst();
     if (!zero) {
       throw new SharedDomainError('tenant.platform_missing', 'Platform tenant (tenant-zero) is not seeded');
     }
@@ -161,17 +155,28 @@ export class WorkerPaymentSettlementService implements PaymentSettlementPort {
     switch (payment.component) {
       case 'enrol_fee': {
         if (!payment.itemId) return false;
-        const [instance] = await this.db.select().from(enrol).where(eq(enrol.id, payment.itemId));
+        const instance = await this.spaceScope.routedKysely
+          .selectFrom('enrol')
+          .select(['enrol', 'cost', 'course_id as courseId'])
+          .where('id', '=', payment.itemId)
+          .executeTakeFirst();
         if (!instance) return false;
         if (instance.enrol !== 'fee' || !instance.cost || instance.cost <= 0) return false;
-        const [courseRow] = await this.db.select({ tenantId: course.tenantId })
-          .from(course).where(eq(course.id, instance.courseId));
+        const courseRow = await this.spaceScope.routedKysely
+          .selectFrom('course')
+          .select('tenant_id as tenantId')
+          .where('id', '=', instance.courseId)
+          .executeTakeFirst();
         if (!courseRow?.tenantId) return false;
         return payment.amount === instance.cost && payment.tenantId === courseRow.tenantId;
       }
       case 'class_fee': {
         if (!payment.itemId) return false;
-        const [target] = await this.db.select().from(classes).where(eq(classes.id, payment.itemId));
+        const target = await this.spaceScope.routedKysely
+          .selectFrom('classes')
+          .select(['fee_cost as feeCost', 'tenant_id as tenantId'])
+          .where('id', '=', payment.itemId)
+          .executeTakeFirst();
         if (!target || !target.feeCost || target.feeCost <= 0) return false;
         return payment.amount === target.feeCost && payment.tenantId === target.tenantId;
       }
@@ -268,7 +273,7 @@ export class WorkerPaymentSettlementService implements PaymentSettlementPort {
   private async suspendEntitlementForFullRefund(
     actorId: string,
     payment: PaymentRow,
-    tx: WorkerTx,
+    tx: CentreTx,
   ): Promise<void> {
     if (payment.component === 'enrol_fee' && payment.itemId) {
       await this.suspendEnrolment(actorId, payment.itemId, payment.userId, tx);
@@ -281,12 +286,12 @@ export class WorkerPaymentSettlementService implements PaymentSettlementPort {
       return;
     }
     // Hoàn đủ gói → đình chỉ quyền lợi gói của chính payment đó
-    // (qua repository chuyển tiếp Drizzle: transaction settle còn
-    // mở bằng Drizzle — chủ đóng W2b #661; đường worker đã gác
-    // component gói trước nên nối trực tiếp giữ nguyên ngữ nghĩa
-    // của `plans.suspendForPayment`).
+    // (qua `PaymentsRepository` của `@lms/payments` trên chính
+    // transaction của khâu settle; đường worker đã gác component
+    // gói trước nên nối trực tiếp giữ nguyên ngữ nghĩa của
+    // `plans.suspendForPayment`).
     if (payment.component === 'tenant_plan' || payment.component === 'teacher_plan') {
-      await this.bridge.suspendEntitlementsByPayment(payment.id, tx);
+      await this.repo.suspendEntitlementsByPayment(payment.id, tx);
     }
   }
 
@@ -305,14 +310,22 @@ export class WorkerPaymentSettlementService implements PaymentSettlementPort {
     actorId: string,
     instanceId: string,
     userId: string,
-    tx: WorkerTx,
+    tx: CentreTx,
   ): Promise<void> {
-    const [instance] = await this.db.select().from(enrol).where(eq(enrol.id, instanceId));
+    const instance = await this.spaceScope.routedKysely
+      .selectFrom('enrol')
+      .select('course_id as courseId')
+      .where('id', '=', instanceId)
+      .executeTakeFirst();
     if (!instance) {
       throw new SharedDomainError('enrol.instance_not_found', `Enrol instance ${instanceId} not found`);
     }
-    const [ue] = await this.db.select().from(userEnrolments)
-      .where(and(eq(userEnrolments.enrolId, instanceId), eq(userEnrolments.userId, userId)));
+    const ue = await this.spaceScope.routedKysely
+      .selectFrom('user_enrolments')
+      .select(['id', 'status'])
+      .where('enrol_id', '=', instanceId)
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
     if (!ue || ue.status === ENROL_WITHDRAWN) {
       throw new SharedDomainError('enrol.user_not_enrolled', 'User enrolment not found');
     }
@@ -320,12 +333,11 @@ export class WorkerPaymentSettlementService implements PaymentSettlementPort {
     // theo khoá với đình chỉ do hệ thống đồng bộ áp (job đối soát
     // class-enrol-reconcile chỉ tôn trọng/không kích hoạt lại đúng
     // các dòng mang vết người này).
-    await tx.update(userEnrolments)
-      .set({ status: ENROL_SUSPENDED, modifierId: actorId, updatedAt: new Date() })
-      .where(eq(userEnrolments.id, ue.id));
-    // Đường Drizzle cũ (điểm nối chuyển tiếp, chủ đóng W2b #661):
-    // khâu settle vẫn chạy trong transaction Drizzle của nó.
-    await this.enrolOutbox.enqueueInDrizzleTx(tx, {
+    await tx.updateTable('user_enrolments')
+      .set({ status: ENROL_SUSPENDED, modifier_id: actorId, updated_at: new Date() })
+      .where('id', '=', ue.id)
+      .execute();
+    await this.enrolOutbox.enqueue(tx, {
       aggregate: 'enrol', type: 'user_enrolment_suspended',
       payload: { courseId: instance.courseId, userId, instanceId, actorId },
     });
@@ -346,16 +358,21 @@ export class WorkerPaymentSettlementService implements PaymentSettlementPort {
   private async suspendPaidClassMember(
     classId: string,
     userId: string,
-    tx: WorkerTx,
+    tx: CentreTx,
   ): Promise<void> {
-    const [row] = await this.db.select().from(classes).where(eq(classes.id, classId));
+    const row = await this.spaceScope.routedKysely
+      .selectFrom('classes')
+      .select('cohort_id as cohortId')
+      .where('id', '=', classId)
+      .executeTakeFirst();
     if (!row) return;
-    const deleted = await tx.delete(cohortMembers)
-      .where(and(eq(cohortMembers.cohortId, row.cohortId), eq(cohortMembers.userId, userId)))
-      .returning();
+    const deleted = await tx.deleteFrom('cohort_members')
+      .where('cohort_id', '=', row.cohortId)
+      .where('user_id', '=', userId)
+      .returningAll()
+      .execute();
     if (deleted.length === 0) return;
-    // Đường Drizzle cũ (điểm nối chuyển tiếp, chủ đóng W2b #661).
-    await this.enrolOutbox.enqueueInDrizzleTx(tx, {
+    await this.enrolOutbox.enqueue(tx, {
       aggregate: 'cohort', type: 'cohort_member_removed',
       payload: { cohortId: row.cohortId, userId },
     });
@@ -396,14 +413,14 @@ export class WorkerPaymentSettlementService implements PaymentSettlementPort {
   }): Promise<RefundRow> {
     const { payment, refund } = input;
     const now = new Date();
-    return this.db.transaction(async (tx) => {
-      await tx.execute(sql`select id from payments where id = ${payment.id} for update`);
-      const fresh = await this.bridge.getRefund(refund.id, tx);
+    return this.repo.transaction(async (tx) => {
+      await sql`select id from payments where id = ${payment.id} for update`.execute(tx);
+      const fresh = await this.repo.getRefund(refund.id, tx);
       if (!fresh || fresh.status === 'settled') return fresh ?? refund;
       if (fresh.status !== 'approved') {
         throw new SharedDomainError('payment.refund_not_approved', 'Refund is not approved for settlement');
       }
-      const settledSum = await this.bridge.sumRefundsByStatuses(payment.id, ['settled'], tx);
+      const settledSum = await this.repo.sumRefundsByStatuses(payment.id, ['settled'], tx);
       const full = settledSum + fresh.amount === payment.amount;
       if (full) {
         // Đình chỉ trước mọi ghi sổ, theo đúng tổng đã khoá ở trên
@@ -412,12 +429,12 @@ export class WorkerPaymentSettlementService implements PaymentSettlementPort {
         await this.suspendEntitlementForFullRefund(input.suspensionActorId, payment, tx);
       }
       const data = { ...((fresh.data ?? {}) as Record<string, unknown>), reversal: { applied: full, at: now.toISOString() } };
-      const updated = await this.bridge.updateRefund(fresh.id, {
+      const updated = await this.repo.updateRefund(fresh.id, {
         status: 'settled', settledAt: now,
         settledBy: input.settledBy, settledEventId: input.settledEventId,
         externalTransactionId: input.externalTransactionId, data,
       }, tx);
-      if (full) await this.bridge.updatePayment(payment.id, { status: 'refunded' }, tx);
+      if (full) await this.repo.updatePayment(payment.id, { status: 'refunded' }, tx);
       return updated;
     });
   }
