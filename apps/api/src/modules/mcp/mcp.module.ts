@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common';
+import { McpIdempotencyRepository } from '@lms/db/repositories/mcp-idempotency';
+import { SpaceRoutingModule } from '../../db/routing/space-routing.module';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { EventsModule } from '../../infra/events/events.module';
 import { BetterAuthModule } from '../auth/better-auth/better-auth.module';
 import { CurriculumModule } from '../curriculum/curriculum.module';
@@ -8,7 +11,6 @@ import { QuizModule } from '../quiz/quiz.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { UsersModule } from '../users/users.module';
 import { McpDepsService } from './mcp-deps.service';
-import { McpIdempotencyRepository } from './mcp-idempotency.repository';
 
 /**
  * McpModule (issue #138, mục 8.1 của #134): MCP mount tay lên express ở
@@ -31,8 +33,17 @@ import { McpIdempotencyRepository } from './mcp-idempotency.repository';
   // mở đối xứng cho đề (ExamsService) và ma trận (MatrixBanksService)
   // — hai module này không import ngược McpModule nên không sinh
   // vòng phụ thuộc.
-  imports: [QuestionsModule, UsersModule, EventsModule, BetterAuthModule, CurriculumModule, TenantsModule, ExamsModule, QuizModule],
-  providers: [McpIdempotencyRepository, McpDepsService],
+  imports: [QuestionsModule, UsersModule, EventsModule, BetterAuthModule, CurriculumModule, TenantsModule, ExamsModule, QuizModule, SpaceRoutingModule],
+  providers: [
+    // Repository của package @lms/db chạy trên handle Kysely đã định
+    // tuyến theo không gian (issue #648).
+    {
+      provide: McpIdempotencyRepository,
+      useFactory: (spaceDatabase: SpaceDatabaseService) => new McpIdempotencyRepository(spaceDatabase.routedKysely),
+      inject: [SpaceDatabaseService],
+    },
+    McpDepsService,
+  ],
   exports: [McpDepsService],
 })
 export class McpModule {}
