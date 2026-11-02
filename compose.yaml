@@ -337,9 +337,9 @@ services:
   # dùng chung cụm Postgres của ứng dụng và không được mất khi
   # container bị tạo lại ở các lần deploy.
   #
-  # Realm `lms` được nạp ở lần khởi động đầu tiên bằng cơ chế
+  # Realm `giaokhoa` được nạp ở lần khởi động đầu tiên bằng cơ chế
   # nạp realm lúc khởi động (--import-realm): file
-  # deploy/keycloak/lms-realm.json trong repo được đóng gói
+  # deploy/keycloak/giaokhoa-realm.json trong repo được đóng gói
   # sẵn vào image của service keycloak (Dockerfile.keycloak ở
   # gốc repo COPY file vào /opt/keycloak/data/import/ trong
   # image). Keycloak chỉ nạp realm khi nó chưa tồn tại; các

@@ -1,6 +1,6 @@
 # Dockerfile của service Keycloak trong compose.yaml ở gốc repo: image
 # phái sinh tối thiểu từ image Keycloak chính thức, chỉ đóng gói thêm
-# file realm `lms` của repo vào thư mục nạp realm lúc khởi động của
+# file realm `giaokhoa` của repo vào thư mục nạp realm lúc khởi động của
 # Keycloak.
 #
 # Vì sao đóng gói file realm vào image thay vì gắn file từ cây
@@ -18,4 +18,4 @@
 # syntax=docker/dockerfile:1
 
 FROM quay.io/keycloak/keycloak:26.7.5
-COPY deploy/keycloak/lms-realm.json /opt/keycloak/data/import/lms-realm.json
+COPY deploy/keycloak/giaokhoa-realm.json /opt/keycloak/data/import/giaokhoa-realm.json

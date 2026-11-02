@@ -5,7 +5,7 @@
 # production tự host (compose.yaml ở gốc repo). Workflow này dựng
 # toàn bộ stack từ chính head của PR trong runner CI, chờ API khỏe,
 # kiểm tra trang gốc, rồi chờ Keycloak sẵn sàng và kiểm chứng realm
-# `lms` của nó (issuer trong tài liệu discovery + Organizations qua
+# `giaokhoa` của nó (issuer trong tài liệu discovery + Organizations qua
 # Admin API), rồi dọn sạch. Nó KHÔNG deploy lên máy tự host
 # thật — đường deploy production vẫn là Dokploy kéo từ main.
 #
@@ -113,7 +113,7 @@ jobs:
       - name: Check root page responds
         run: curl -sf http://localhost:8080/ -o /dev/null
 
-      # Chờ Keycloak sẵn sàng rồi kiểm chứng realm `lms` sống
+      # Chờ Keycloak sẵn sàng rồi kiểm chứng realm `giaokhoa` sống
       # thật, theo ba khẳng định — khẳng định nào trượt cũng làm
       # job fail ngay tại bước này:
       # (1) healthcheck của chính service keycloak báo healthy:
@@ -128,7 +128,7 @@ jobs:
       # runner.
       # (3) Lấy token quản trị từ realm master bằng chính mật
       # khẩu bootstrap job đã sinh trong file .env, gọi Admin
-      # API đọc realm `lms` và khẳng định organizationsEnabled
+      # API đọc realm `giaokhoa` và khẳng định organizationsEnabled
       # bằng true — chứng minh realm đã được nạp từ file trong
       # image và Organizations đã bật.
       - name: Verify Keycloak readiness and realm
@@ -148,18 +148,18 @@ jobs:
             fi
             sleep 5
           done
-          issuer=$(curl -sf http://127.0.0.1:8085/realms/lms/.well-known/openid-configuration | jq -er '.issuer')
-          echo "Realm lms discovery issuer: ${issuer}"
-          if [ "$issuer" != "https://auth.fuckr.net/realms/lms" ]; then
-            echo "Unexpected issuer for realm lms."
+          issuer=$(curl -sf http://127.0.0.1:8085/realms/giaokhoa/.well-known/openid-configuration | jq -er '.issuer')
+          echo "Realm giaokhoa discovery issuer: ${issuer}"
+          if [ "$issuer" != "https://auth.fuckr.net/realms/giaokhoa" ]; then
+            echo "Unexpected issuer for realm giaokhoa."
             exit 1
           fi
           admin_password=$(grep '^KEYCLOAK_ADMIN_PASSWORD=' .env | cut -d= -f2-)
           token=$(curl -sf -X POST http://127.0.0.1:8085/realms/master/protocol/openid-connect/token -H 'Content-Type: application/x-www-form-urlencoded' -d 'grant_type=password' -d 'client_id=admin-cli' -d 'username=admin' --data-urlencode "password=${admin_password}" | jq -er '.access_token')
-          organizations=$(curl -sf http://127.0.0.1:8085/admin/realms/lms -H "Authorization: Bearer ${token}" | jq -er '.organizationsEnabled')
-          echo "Realm lms organizationsEnabled: ${organizations}"
+          organizations=$(curl -sf http://127.0.0.1:8085/admin/realms/giaokhoa -H "Authorization: Bearer ${token}" | jq -er '.organizationsEnabled')
+          echo "Realm giaokhoa organizationsEnabled: ${organizations}"
           if [ "$organizations" != "true" ]; then
-            echo "Realm lms does not have Organizations enabled."
+            echo "Realm giaokhoa does not have Organizations enabled."
             exit 1
           fi
 
