@@ -78,7 +78,7 @@ export class WorkerPaidEnrolActivationService implements PaidEnrolActivationPort
     private readonly spaceScope: WorkerPaymentSpaceScope,
   ) {
     this.materialization = new CohortMaterializationSurface({
-      db: this.db,
+      db: this.spaceScope.routedKysely,
       outbox: enrolOutbox,
       // Phạm vi platform của bề mặt giữ nguyên `spaceSlug` của
       // ngữ cảnh đang chạy (cùng khuôn `CohortSyncService`): phạm

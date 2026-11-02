@@ -4,6 +4,7 @@ import { Client, Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createCentreKysely, sql as kyselySql } from '@lms/db';
 import {
   installSpaceRoleBaseline,
   runSpaceProvision,
@@ -15,8 +16,8 @@ import { ContextsService } from '../../../src/modules/access/contexts.service';
 import { RolesService } from '../../../src/modules/access/roles.service';
 import { PlanLimitsService } from '../../../src/modules/access/plan-limits.service';
 import { RoleSeparationService } from '../../../src/modules/access/role-separation.service';
-import { createCentreKysely } from '@lms/db';
 import { OutboxService } from '../../../src/infra/events/outbox.service';
+import { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
 import { relations } from '../../../src/db/relations';
 import { DEFAULT_ROLES } from '../../../src/modules/access/domain/capabilities';
 
@@ -174,19 +175,30 @@ async function seedSharedStoreDefaults(connectionString: string): Promise<void> 
   await withClient(connectionString, async (client) => {
     await client.query(`SELECT set_config('app.platform', 'on', false)`);
     const db = drizzle({ client, relations });
+    // Handle Kysely cho `OutboxService` và hai service access
+    // (D1 #653, D5 #657): pool riêng trần 1 kết nối với GUC
+    // platform ở mức phiên, cùng khuôn điểm gọi cấp phát trong
+    // `space-provision-runner.ts`.
+    const baselinePool = new Pool({ connectionString, max: 1 });
+    const baselineKysely = createCentreKysely(baselinePool);
     const accessRepository = new AccessRepository(db);
     const rolesService = new RolesService(
       accessRepository,
       new ContextsService(accessRepository),
       // OutboxService đã chuyển sang handle Kysely (D1, issue
-      // #653): handle trỏ đúng kho đang gieo; `seedDefaults`
-      // không phát sự kiện qua outbox nên pool lười này không
-      // mở kết nối nào.
-      new OutboxService(createCentreKysely(new Pool({ connectionString }))),
-      new PlanLimitsService(db),
-      new RoleSeparationService(db),
+      // #653): dùng chính handle Kysely đã dựng ở trên — đúng kho
+      // đang gieo và đã mang GUC platform; `seedDefaults` không
+      // phát sự kiện qua outbox.
+      new OutboxService(baselineKysely),
+      new PlanLimitsService({ routedKysely: baselineKysely } as unknown as SpaceDatabaseService),
+      new RoleSeparationService({ routedKysely: baselineKysely } as unknown as SpaceDatabaseService),
     );
-    await rolesService.seedDefaults();
+    try {
+      await kyselySql`SELECT set_config('app.platform', 'on', false)`.execute(baselineKysely);
+      await rolesService.seedDefaults();
+    } finally {
+      await baselineKysely.destroy().catch(() => undefined);
+    }
   });
 }
 

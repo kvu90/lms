@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import { RoleSeparationCore, type RoleConflictAuditReport } from '@lms/enrol';
-import type { Database } from '../../db/database';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { tenantAls } from '../tenants/tenant-als';
 import { delegateToSharedCore } from './translate-shared-error';
 
@@ -16,8 +15,9 @@ export type { RoleConflictAuditEntry, RoleConflictAuditReport } from '@lms/enrol
  * trên schema dùng chung `@lms/db`) để mọi bề mặt vật chất hoá ghi
  * danh — API tại đây, worker khi nó dựng consumer đồng bộ cohort —
  * gọi về đúng MỘT định nghĩa duy nhất. Service này chỉ còn là lớp
- * bọc của API: dựng lõi bằng tay cầm Drizzle của API và cổng ngữ
- * cảnh platform của API (bản sao `tenantAls` của tiến trình này),
+ * bọc của API: dựng lõi bằng tay cầm Kysely đã định tuyến của API
+ * (`SpaceDatabaseService.routedKysely`) và cổng ngữ cảnh platform của API (bản sao `tenantAls` của tiến
+ * trình này),
  * rồi dịch lỗi của lõi (mang mã kỹ thuật) về exception HTTP mang
  * cùng mã và thông điệp như trước khi trích xuất.
  *
@@ -41,7 +41,7 @@ export type { RoleConflictAuditEntry, RoleConflictAuditReport } from '@lms/enrol
 export class RoleSeparationService {
   private readonly core: RoleSeparationCore;
 
-  constructor(@InjectDrizzle() db: Database) {
+  constructor(spaceDb: SpaceDatabaseService) {
     // Cổng ngữ cảnh platform GIỮ `spaceSlug` của ngữ cảnh hiện tại
     // (Phần A, issue #587 — A4, đúng khuôn
     // `access.repository.ts`): khi lõi tách vai được gọi trong
@@ -49,7 +49,7 @@ export class RoleSeparationService {
     // tenant của nó phải chạy trên kho của trung tâm đó, không rơi
     // về kho chung. Chỉ đổi đích dữ kiện, không đổi tầm nhìn RLS
     // (cờ `platform: true` giữ nguyên).
-    this.core = new RoleSeparationCore(db, (fn) => {
+    this.core = new RoleSeparationCore(spaceDb.routedKysely, (fn) => {
       const spaceSlug = tenantAls.getStore()?.spaceSlug;
       return tenantAls.run({ platform: true, ...(spaceSlug ? { spaceSlug } : {}) }, fn);
     });

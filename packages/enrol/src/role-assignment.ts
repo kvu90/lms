@@ -1,10 +1,15 @@
-import { and, eq, isNull } from 'drizzle-orm';
-import { role, roleAssignments } from '@lms/db';
 import { getContextOrThrow, markContextDirty } from './contexts';
 import { SharedDomainError } from './errors';
 import { TEACHING_ROLE_ARCHETYPES, type PlanLimitsCore } from './plan-limits';
 import type { RoleSeparationCore } from './role-separation';
-import type { EnrolDatabase, RoleAssignmentRow, RoleRow, SharedOutboxPort } from './types';
+import {
+  ROLE_ASSIGNMENT_COLUMNS,
+  ROLE_COLUMNS,
+  type EnrolDatabase,
+  type RoleAssignmentRow,
+  type RoleRow,
+  type SharedOutboxPort,
+} from './types';
 
 /**
  * Truy vết nguồn của một dòng gán vai (Moodle: cột `component`/`itemid`
@@ -45,7 +50,7 @@ export function isEnrolManagedAssignment(assignment: { component?: string | null
  */
 export class RoleAssignmentCore {
   /**
-   * @param db - tay cầm Drizzle của host.
+   * @param db - tay cầm Kysely của host.
    * @param outbox - cổng ghi outbox của host.
    * @param planLimits - lõi giới hạn slot dùng chung.
    * @param roleSeparation - lõi tách vai dùng chung.
@@ -64,7 +69,7 @@ export class RoleAssignmentCore {
    * @throws SharedDomainError mã `access.role_not_found`.
    */
   async getRoleOrThrow(roleId: string): Promise<RoleRow> {
-    const [row] = await this.db.select().from(role).where(eq(role.id, roleId));
+    const row = await this.db.selectFrom('role').select(ROLE_COLUMNS).where('id', '=', roleId).executeTakeFirst();
     if (!row) throw new SharedDomainError('access.role_not_found', `Role ${roleId} not found`);
     return row;
   }
@@ -191,7 +196,7 @@ export class RoleAssignmentCore {
         'This role assignment is managed by an enrolment and cannot be removed directly; unenrol the user from the enrolment instance instead',
       );
     }
-    await this.db.delete(roleAssignments).where(eq(roleAssignments.id, assignmentId));
+    await this.db.deleteFrom('role_assignments').where('id', '=', assignmentId).execute();
     if (existing) {
       await markContextDirty(this.db, existing.contextId);
       // Sự kiện role_unassigned (Moodle \core\event\role_unassigned) cho logstore.
@@ -210,16 +215,41 @@ export class RoleAssignmentCore {
    *
    * @param values - dữ kiện chèn của dòng gán.
    */
-  private async insertAssignment(values: typeof roleAssignments.$inferInsert): Promise<RoleAssignmentRow> {
-    const [row] = await this.db.insert(roleAssignments).values(values)
-      .onConflictDoNothing().returning();
+  private async insertAssignment(values: {
+    roleId: string;
+    userId: string;
+    contextId: string;
+    modifierId?: string | null;
+    component: string;
+    itemId: string | null;
+  }): Promise<RoleAssignmentRow> {
+    const row = await this.db
+      .insertInto('role_assignments')
+      .values({
+        role_id: values.roleId,
+        user_id: values.userId,
+        context_id: values.contextId,
+        ...(values.modifierId !== undefined ? { modifier_id: values.modifierId } : {}),
+        component: values.component,
+        item_id: values.itemId,
+      })
+      .onConflict((oc) => oc.doNothing())
+      .returning(ROLE_ASSIGNMENT_COLUMNS)
+      .executeTakeFirst();
     if (row) return row;
-    const [existing] = await this.db.select().from(roleAssignments).where(and(
-      eq(roleAssignments.roleId, values.roleId!), eq(roleAssignments.userId, values.userId!),
-      eq(roleAssignments.contextId, values.contextId!),
-      eq(roleAssignments.component, values.component ?? ''),
-      values.itemId != null ? eq(roleAssignments.itemId, values.itemId) : isNull(roleAssignments.itemId)));
-    return existing!;
+    return this.db
+      .selectFrom('role_assignments')
+      .select(ROLE_ASSIGNMENT_COLUMNS)
+      .where((eb) => eb.and([
+        eb('role_assignments.role_id', '=', values.roleId),
+        eb('role_assignments.user_id', '=', values.userId),
+        eb('role_assignments.context_id', '=', values.contextId),
+        eb('role_assignments.component', '=', values.component),
+        values.itemId != null
+          ? eb('role_assignments.item_id', '=', values.itemId)
+          : eb('role_assignments.item_id', 'is', null),
+      ]))
+      .executeTakeFirstOrThrow();
   }
 
   /**
@@ -229,8 +259,11 @@ export class RoleAssignmentCore {
    * @param id - id của dòng gán.
    */
   async getAssignment(id: string): Promise<RoleAssignmentRow | undefined> {
-    const [row] = await this.db.select().from(roleAssignments).where(eq(roleAssignments.id, id));
-    return row;
+    return this.db
+      .selectFrom('role_assignments')
+      .select(ROLE_ASSIGNMENT_COLUMNS)
+      .where('id', '=', id)
+      .executeTakeFirst();
   }
 
   /**
@@ -239,9 +272,19 @@ export class RoleAssignmentCore {
    * @param filter - tiêu chí lọc tuỳ chọn.
    */
   async listAssignments(filter: { userId?: string; contextId?: string }): Promise<RoleAssignmentRow[]> {
-    const conds = [];
-    if (filter.userId !== undefined) conds.push(eq(roleAssignments.userId, filter.userId));
-    if (filter.contextId !== undefined) conds.push(eq(roleAssignments.contextId, filter.contextId));
-    return this.db.select().from(roleAssignments).where(conds.length ? and(...conds) : undefined);
+    return this.db
+      .selectFrom('role_assignments')
+      .select(ROLE_ASSIGNMENT_COLUMNS)
+      .where((eb) => {
+        const conds = [];
+        if (filter.userId !== undefined) conds.push(eb('role_assignments.user_id', '=', filter.userId));
+        if (filter.contextId !== undefined) conds.push(eb('role_assignments.context_id', '=', filter.contextId));
+        // Điều kiện động (thử nghiệm T-13): `eb.and` với danh sách
+        // rỗng biên dịch thành `where 1 = 1` — đúng ngữ nghĩa "không
+        // lọc" của đường Drizzle cũ; cấm port nguyên văn
+        // `where(undefined)` vì Kysely gắn NULL và lặng lẽ trả 0 dòng.
+        return eb.and(conds);
+      })
+      .execute();
   }
 }

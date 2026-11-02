@@ -395,9 +395,11 @@ describe('Kích hoạt ghi danh trả phí theo không gian của payment (integ
     // Handle Kysely trên CÙNG pool (đúng như factory của module
     // worker) cho repository + writer của `@lms/payments` đã chuyển
     // Kysely ở #656; các adapter kích hoạt vẫn dùng handle Drizzle
-    // cho tới khi W2b (#661) chuyển chúng — cùng khuôn đó, service
-    // outbox enrol và settlement dùng repository chuyển tiếp Drizzle
-    // của cầu nối PR #683 (chủ đóng #661) trên handle định tuyến.
+    // cho tới khi W2b (#661) chuyển chúng — cùng khuôn đó,
+    // settlement dùng repository chuyển tiếp Drizzle của cầu nối
+    // PR #683 (chủ đóng #661), còn service outbox enrol dựng trên
+    // khung định tuyến này (đường Kysely qua facade của khung,
+    // đường Drizzle ghi trên transaction của nơi gọi).
     spaceDb.bindSharedKysely(createCentreKysely(sharedPool));
     const routed = spaceDb.routedDatabase;
 
@@ -405,7 +407,7 @@ describe('Kích hoạt ghi danh trả phí theo không gian của payment (integ
     const writer = new OutboxWriterService(spaceDb.routedKysely);
     const plans = new PlanEntitlementsService(repo);
     const bridge = new WorkerPaymentsTransitionalRepository(routed);
-    const enrolOutbox = new WorkerEnrolOutboxService(routed);
+    const enrolOutbox = new WorkerEnrolOutboxService(spaceDb);
     const scope = new WorkerPaymentSpaceScope(routed, spaceDb);
     matching = new SepayMatchingService(
       repo,

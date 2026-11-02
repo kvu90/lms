@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
-import { PlanLimitsCore, type EffectivePlanLimit, type EnrolDatabase, type TenantSlotFacts } from '@lms/enrol';
-import type { Database, DbTx } from '../../db/database';
+import { context } from '@lms/db';
+import { CONTEXT_LEVELS, PlanLimitsCore, type EffectivePlanLimit, type TenantSlotFacts } from '@lms/enrol';
+import { and, eq, inArray } from 'drizzle-orm';
+import type { DbTx } from '../../db/database';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { tenantAls } from '../tenants/tenant-als';
 import { delegateToSharedCore } from './translate-shared-error';
 
@@ -16,8 +18,8 @@ export type { EffectivePlanLimit, TenantSlotFacts } from '@lms/enrol';
  * (tầng dữ liệu, trên schema dùng chung `@lms/db`) để mọi bề mặt
  * vật chất hoá ghi danh — API tại đây, worker khi nó dựng consumer
  * đồng bộ cohort — áp đúng MỘT định nghĩa duy nhất. Service này chỉ
- * còn là lớp bọc của API: dựng lõi bằng tay cầm Drizzle của API và
- * cổng ngữ cảnh platform của API (bản sao `tenantAls` của tiến
+ * còn là lớp bọc của API: dựng lõi bằng tay cầm Kysely đã định tuyến của API
+ * (`SpaceDatabaseService.routedKysely`) và cổng ngữ cảnh platform của API (bản sao `tenantAls` của tiến
  * trình này), rồi dịch lỗi của lõi (mang mã kỹ thuật) về exception
  * HTTP mang cùng mã và thông điệp như trước khi trích xuất.
  *
@@ -38,7 +40,7 @@ export type { EffectivePlanLimit, TenantSlotFacts } from '@lms/enrol';
 export class PlanLimitsService {
   private readonly core: PlanLimitsCore;
 
-  constructor(@InjectDrizzle() db: Database) {
+  constructor(spaceDb: SpaceDatabaseService) {
     // Cổng ngữ cảnh platform GIỮ `spaceSlug` của ngữ cảnh hiện tại
     // (Phần A, issue #587 — A4, đúng khuôn
     // `access.repository.ts`): khi lõi kiểm hạn mức được gọi trong
@@ -46,7 +48,7 @@ export class PlanLimitsService {
     // tenant của nó phải chạy trên kho của trung tâm đó, không rơi
     // về kho chung. Chỉ đổi đích dữ kiện, không đổi tầm nhìn RLS
     // (cờ `platform: true` giữ nguyên).
-    this.core = new PlanLimitsCore(db, (fn) => {
+    this.core = new PlanLimitsCore(spaceDb.routedKysely, (fn) => {
       const spaceSlug = tenantAls.getStore()?.spaceSlug;
       return tenantAls.run({ platform: true, ...(spaceSlug ? { spaceSlug } : {}) }, fn);
     });
@@ -58,9 +60,38 @@ export class PlanLimitsService {
    * chính context đó). Trả null khi context không thuộc tenant nào.
    */
   async tenantIdForContext(contextId: string, tx?: DbTx): Promise<string | null> {
-    // Handle transaction của API và handle của package dùng chung cùng
-    // là handle Drizzle trên Postgres — ép kiểu tại biên uỷ quyền này.
-    return delegateToSharedCore(() => this.core.tenantIdForContext(contextId, tx as unknown as EnrolDatabase | undefined));
+    if (tx) {
+      // ĐIỂM NỐI CHUYỂN TIẾP (chủ đóng: access #651 — khi đường
+      // createClass chuyển sang làn Kysely thì nhánh này bị xoá):
+      // đường createClass của API vẫn mở MỘT transaction Drizzle
+      // cho cả createContext/assignRole/setCapabilityOverride, và
+      // `roles.service` chuyển transaction đó vào đây để việc đọc
+      // thấy đúng context lớp vừa tạo trong transaction. Lõi dùng
+      // chung nay chỉ nhận handle Kysely nên không thể nhận
+      // transaction Drizzle này — facade tự đọc hai truy vấn cũ
+      // (dòng context theo id, rồi tổ tiên cấp tenant từ các id
+      // trong path) trên chính transaction Drizzle đó. Bỏ việc
+      // chuyển tiếp (đọc qua lõi Kysely ngoài transaction) sẽ làm
+      // đọc trượt context vừa tạo → trả null → cổng slot giáo viên
+      // bị bỏ qua lặng lẽ cho createClass, nên nhánh này không được
+      // bỏ trước khi #651 đóng nó.
+      return delegateToSharedCore(async () => {
+        const [row] = await tx
+          .select({ contextLevel: context.contextLevel, instanceId: context.instanceId, path: context.path })
+          .from(context)
+          .where(eq(context.id, contextId));
+        if (!row) return null;
+        if (row.contextLevel === CONTEXT_LEVELS.TENANT) return row.instanceId;
+        const ancestorIds = row.path.split('/').filter((s) => s.length > 0);
+        if (ancestorIds.length === 0) return null;
+        const [ancestor] = await tx
+          .select({ instanceId: context.instanceId })
+          .from(context)
+          .where(and(inArray(context.id, ancestorIds), eq(context.contextLevel, CONTEXT_LEVELS.TENANT)));
+        return ancestor?.instanceId ?? null;
+      });
+    }
+    return delegateToSharedCore(() => this.core.tenantIdForContext(contextId));
   }
 
   /** Hạn mức slot gói trung tâm hiệu lực của một tenant. */

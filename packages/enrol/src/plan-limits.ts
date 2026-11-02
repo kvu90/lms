@@ -1,8 +1,3 @@
-import { and, eq, inArray, isNull, like, or, sql } from 'drizzle-orm';
-import {
-  classes, context, course, planEntitlements, pluginConfig, role, roleAssignments,
-  tenantMemberships, tenants, users,
-} from '@lms/db';
 import { CONTEXT_LEVELS } from './contexts';
 import { SharedDomainError } from './errors';
 import type { EnrolDatabase, PlatformScopeRunner } from './types';
@@ -73,8 +68,8 @@ export interface TenantSlotFacts {
  *
  * Vị trí đặt định nghĩa: tầng chung thấp nhất mà cả bốn bề mặt điểm
  * chặn (gán vai trò, membership, tài khoản, tạo khoá) đều phụ thuộc
- * vào. Lõi đọc dữ liệu xuyên bounded context bằng truy vấn Drizzle
- * trực tiếp qua schema dùng chung, và bọc các lượt đọc đếm slot
+ * vào. Lõi đọc dữ liệu xuyên bounded context bằng truy vấn Kysely
+ * trực tiếp qua kho trung tâm, và bọc các lượt đọc đếm slot
  * trong ngữ cảnh platform do host cấp (cổng
  * {@link PlatformScopeRunner}) vì đếm slot là nghiệp vụ chính sách
  * của platform: ở ngữ cảnh của một tenant, RLS sẽ che membership
@@ -82,7 +77,7 @@ export interface TenantSlotFacts {
  */
 export class PlanLimitsCore {
   /**
-   * @param db - tay cầm Drizzle của host.
+   * @param db - tay cầm Kysely của host.
    * @param runInPlatformScope - cổng chạy trong ngữ cảnh platform của host.
    */
   constructor(
@@ -97,10 +92,15 @@ export class PlanLimitsCore {
    * âm) thì rơi về giá trị khởi tạo đã đăng ký trong registry.
    */
   private async readSlotConfig(name: SlotConfigName): Promise<number> {
-    const [row] = await this.db
-      .select({ value: pluginConfig.value })
-      .from(pluginConfig)
-      .where(and(eq(pluginConfig.plugin, 'payments'), eq(pluginConfig.name, name), isNull(pluginConfig.tenantId)));
+    const row = await this.db
+      .selectFrom('plugin_config')
+      .select('plugin_config.value')
+      .where((eb) => eb.and([
+        eb('plugin_config.plugin', '=', 'payments'),
+        eb('plugin_config.name', '=', name),
+        eb('plugin_config.tenant_id', 'is', null),
+      ]))
+      .executeTakeFirst();
     if (row?.value != null) {
       try {
         const parsed: unknown = JSON.parse(row.value);
@@ -114,12 +114,20 @@ export class PlanLimitsCore {
 
   /** Tenant platform (tenant-zero) — tenant duy nhất có `kind = 'platform'`. */
   private async platformTenantId(): Promise<string | null> {
-    const [row] = await this.db.select({ id: tenants.id }).from(tenants).where(eq(tenants.kind, 'platform'));
+    const row = await this.db
+      .selectFrom('tenants')
+      .select('tenants.id')
+      .where('tenants.kind', '=', 'platform')
+      .executeTakeFirst();
     return row?.id ?? null;
   }
 
   private async tenantKind(tenantId: string): Promise<string | null> {
-    const [row] = await this.db.select({ kind: tenants.kind }).from(tenants).where(eq(tenants.id, tenantId));
+    const row = await this.db
+      .selectFrom('tenants')
+      .select('tenants.kind')
+      .where('tenants.id', '=', tenantId)
+      .executeTakeFirst();
     return row?.kind ?? null;
   }
 
@@ -130,28 +138,40 @@ export class PlanLimitsCore {
    * (context hệ thống/người dùng ở tầng platform).
    */
   async tenantIdForContext(contextId: string, tx?: EnrolDatabase): Promise<string | null> {
-    // Bên gọi có thể truyền handle của transaction đang mở (đường settle
-    // hoàn tiền phía API) để việc đọc thấy đúng trạng thái trong giao
-    // dịch đó; không truyền thì đọc qua handle mặc định của bề mặt.
+    // Bên gọi có thể truyền handle của một transaction Kysely đang
+    // mở để việc đọc thấy đúng trạng thái trong giao dịch đó; không
+    // truyền thì đọc qua handle mặc định của bề mặt. Handle này CHỈ
+    // là handle Kysely: đường transaction Drizzle của API (createClass)
+    // được facade `PlanLimitsService` giữ lại ở nhánh riêng của nó
+    // (điểm nối chuyển tiếp, chủ đóng #651) — lõi này không bao giờ
+    // nhận handle Drizzle.
     const db = tx ?? this.db;
-    const [row] = await db.select().from(context).where(eq(context.id, contextId));
+    const row = await db.selectFrom('context').select(CONTEXT_COLUMNS_FOR_TENANT_ID).where('id', '=', contextId).executeTakeFirst();
     if (!row) return null;
     if (row.contextLevel === CONTEXT_LEVELS.TENANT) return row.instanceId;
     const ancestorIds = row.path.split('/').filter((s) => s.length > 0);
     if (ancestorIds.length === 0) return null;
     const ancestors = await db
-      .select({ instanceId: context.instanceId })
-      .from(context)
-      .where(and(inArray(context.id, ancestorIds), eq(context.contextLevel, CONTEXT_LEVELS.TENANT)));
+      .selectFrom('context')
+      .select('context.instance_id as instanceId')
+      .where((eb) => eb.and([
+        eb('context.id', 'in', ancestorIds),
+        eb('context.context_level', '=', CONTEXT_LEVELS.TENANT),
+      ]))
+      .execute();
     return ancestors[0]?.instanceId ?? null;
   }
 
   /** Context của chính tenant (level 20) — gốc cây context của tenant. */
   private async tenantContext(tenantId: string): Promise<{ id: string; path: string } | null> {
-    const [row] = await this.db
-      .select({ id: context.id, path: context.path })
-      .from(context)
-      .where(and(eq(context.contextLevel, CONTEXT_LEVELS.TENANT), eq(context.instanceId, tenantId)));
+    const row = await this.db
+      .selectFrom('context')
+      .select(['context.id', 'context.path'])
+      .where((eb) => eb.and([
+        eb('context.context_level', '=', CONTEXT_LEVELS.TENANT),
+        eb('context.instance_id', '=', tenantId),
+      ]))
+      .executeTakeFirst();
     return row ?? null;
   }
 
@@ -176,14 +196,20 @@ export class PlanLimitsCore {
       this.readSlotConfig(freeConfig),
       this.readSlotConfig('plangracedays'),
     ]);
-    const beneficiaryWhere =
-      component === 'tenant_plan'
-        ? and(eq(planEntitlements.tenantId, beneficiary.tenantId), isNull(planEntitlements.userId))
-        : eq(planEntitlements.userId, beneficiary.userId ?? '');
     const rows = await this.db
-      .select({ startsAt: planEntitlements.startsAt, expiresAt: planEntitlements.expiresAt })
-      .from(planEntitlements)
-      .where(and(eq(planEntitlements.component, component), eq(planEntitlements.status, 'active'), beneficiaryWhere));
+      .selectFrom('plan_entitlements')
+      .select(['plan_entitlements.starts_at as startsAt', 'plan_entitlements.expires_at as expiresAt'])
+      .where((eb) => eb.and([
+        eb('plan_entitlements.component', '=', component),
+        eb('plan_entitlements.status', '=', 'active'),
+        component === 'tenant_plan'
+          ? eb.and([
+              eb('plan_entitlements.tenant_id', '=', beneficiary.tenantId),
+              eb('plan_entitlements.user_id', 'is', null),
+            ])
+          : eb('plan_entitlements.user_id', '=', beneficiary.userId ?? ''),
+      ]))
+      .execute();
     const now = Date.now();
     if (rows.some((r) => r.startsAt.getTime() <= now && now < r.expiresAt.getTime())) {
       return { limit: planLimit, inGracePeriod: false, hasActivePlan: true };
@@ -222,14 +248,19 @@ export class PlanLimitsCore {
    */
   async describeUserInTenant(tenantId: string, userId: string): Promise<TenantSlotFacts> {
     return this.runInPlatformScope(async () => {
-      const [membership] = await this.db
-        .select({ status: tenantMemberships.status })
-        .from(tenantMemberships)
-        .where(and(eq(tenantMemberships.tenantId, tenantId), eq(tenantMemberships.userId, userId)));
-      const [account] = await this.db
-        .select({ suspended: users.suspended, deleted: users.deleted })
-        .from(users)
-        .where(eq(users.id, userId));
+      const membership = await this.db
+        .selectFrom('tenant_memberships')
+        .select('tenant_memberships.status')
+        .where((eb) => eb.and([
+          eb('tenant_memberships.tenant_id', '=', tenantId),
+          eb('tenant_memberships.user_id', '=', userId),
+        ]))
+        .executeTakeFirst();
+      const account = await this.db
+        .selectFrom('users')
+        .select(['users.suspended', 'users.deleted'])
+        .where('users.id', '=', userId)
+        .executeTakeFirst();
       const membershipActive = membership?.status === 'active';
       const accountActive = !!account && !account.suspended && !account.deleted;
       const holdsTeachingRole = await this.userHoldsTeachingRoleInTenant(tenantId, userId);
@@ -251,19 +282,21 @@ export class PlanLimitsCore {
   async userHoldsTeachingRoleInTenant(tenantId: string, userId: string): Promise<boolean> {
     const tctx = await this.tenantContext(tenantId);
     if (!tctx) return false;
-    const [row] = await this.db
-      .select({ id: roleAssignments.id })
-      .from(roleAssignments)
-      .innerJoin(role, eq(role.id, roleAssignments.roleId))
-      .innerJoin(context, eq(context.id, roleAssignments.contextId))
-      .where(
-        and(
-          eq(roleAssignments.userId, userId),
-          inArray(role.archetype, [...TEACHING_ROLE_ARCHETYPES]),
-          or(eq(context.id, tctx.id), like(context.path, `${tctx.path}/%`)),
-        ),
-      )
-      .limit(1);
+    const row = await this.db
+      .selectFrom('role_assignments')
+      .select('role_assignments.id')
+      .innerJoin('role', 'role.id', 'role_assignments.role_id')
+      .innerJoin('context', 'context.id', 'role_assignments.context_id')
+      .where((eb) => eb.and([
+        eb('role_assignments.user_id', '=', userId),
+        eb('role.archetype', 'in', [...TEACHING_ROLE_ARCHETYPES]),
+        eb.or([
+          eb('context.id', '=', tctx.id),
+          eb('context.path', 'like', `${tctx.path}/%`),
+        ]),
+      ]))
+      .limit(1)
+      .executeTakeFirst();
     return !!row;
   }
 
@@ -278,24 +311,25 @@ export class PlanLimitsCore {
       const tctx = await this.tenantContext(tenantId);
       if (!tctx) return 0;
       const rows = await this.db
-        .selectDistinct({ userId: roleAssignments.userId })
-        .from(roleAssignments)
-        .innerJoin(role, eq(role.id, roleAssignments.roleId))
-        .innerJoin(context, eq(context.id, roleAssignments.contextId))
-        .innerJoin(
-          tenantMemberships,
-          and(eq(tenantMemberships.userId, roleAssignments.userId), eq(tenantMemberships.tenantId, tenantId)),
-        )
-        .innerJoin(users, eq(users.id, roleAssignments.userId))
-        .where(
-          and(
-            inArray(role.archetype, [...TEACHING_ROLE_ARCHETYPES]),
-            eq(tenantMemberships.status, 'active'),
-            eq(users.suspended, false),
-            eq(users.deleted, false),
-            or(eq(context.id, tctx.id), like(context.path, `${tctx.path}/%`)),
-          ),
-        );
+        .selectFrom('role_assignments')
+        .select('role_assignments.user_id as userId')
+        .distinct()
+        .innerJoin('role', 'role.id', 'role_assignments.role_id')
+        .innerJoin('context', 'context.id', 'role_assignments.context_id')
+        .innerJoin('tenant_memberships', 'tenant_memberships.user_id', 'role_assignments.user_id')
+        .innerJoin('users', 'users.id', 'role_assignments.user_id')
+        .where((eb) => eb.and([
+          eb('role.archetype', 'in', [...TEACHING_ROLE_ARCHETYPES]),
+          eb('tenant_memberships.tenant_id', '=', tenantId),
+          eb('tenant_memberships.status', '=', 'active'),
+          eb('users.suspended', '=', false),
+          eb('users.deleted', '=', false),
+          eb.or([
+            eb('context.id', '=', tctx.id),
+            eb('context.path', 'like', `${tctx.path}/%`),
+          ]),
+        ]))
+        .execute();
       return rows.length;
     });
   }
@@ -339,20 +373,25 @@ export class PlanLimitsCore {
    * đang đình chỉ" trong đặc tả đã duyệt).
    */
   async assertUserReactivationWithinSlotLimits(userId: string): Promise<void> {
-    // Callback PHẢI là async và await truy vấn BÊN TRONG nó (Phần
-    // A, issue #587 — A4): truy vấn Drizzle là thenable lười —
-    // trả thẳng nó ra khỏi cổng platform thì điểm `.then` chạy
-    // ngoài `tenantAls.run`, ngữ cảnh đọc được lúc đó là ngữ cảnh
-    // của bên gọi chứ không phải ngữ cảnh platform, nên lượt đọc
-    // dòng thành viên chạy sai tầm nhìn RLS (che mất membership ở
-    // tenant khác và làm lọt chốt chặn). Hai điểm gọi còn lại
-    // trong file này đã dùng callback async theo đúng khuôn này.
-    const memberships = await this.runInPlatformScope(async () =>
-      this.db
-        .select({ tenantId: tenantMemberships.tenantId })
-        .from(tenantMemberships)
-        .where(and(eq(tenantMemberships.userId, userId), eq(tenantMemberships.status, 'active'))),
-    );
+    // Callback PHẢI gọi `.execute()` (hoặc await truy vấn) BÊN TRONG
+    // nó (Phần A, issue #587 — A4): `.execute()` phát hành truy vấn
+    // ngay khi gọi, nên gọi trong cổng thì truy vấn chạy dưới ngữ
+    // cảnh platform; trả builder ra ngoài rồi mới execute thì truy
+    // vấn chạy dưới ngữ cảnh của bên gọi, lượt đọc dòng thành viên
+    // chạy sai tầm nhìn RLS (che mất membership ở tenant khác và làm
+    // lọt chốt chặn). Hai điểm gọi còn lại trong file này đã dùng
+    // callback async await bên trong theo đúng khuôn này.
+    const memberships = await this.runInPlatformScope(async () => {
+      const rows = await this.db
+        .selectFrom('tenant_memberships')
+        .select('tenant_memberships.tenant_id as tenantId')
+        .where((eb) => eb.and([
+          eb('tenant_memberships.user_id', '=', userId),
+          eb('tenant_memberships.status', '=', 'active'),
+        ]))
+        .execute();
+      return rows;
+    });
     for (const m of memberships) {
       if ((await this.tenantKind(m.tenantId)) === 'platform') continue;
       if (await this.userHoldsTeachingRoleInTenant(m.tenantId, userId)) {
@@ -368,19 +407,18 @@ export class PlanLimitsCore {
    * slot gói giáo viên.
    */
   async isSiteAdmin(userId: string): Promise<boolean> {
-    const [row] = await this.db
-      .select({ id: roleAssignments.id })
-      .from(roleAssignments)
-      .innerJoin(role, eq(role.id, roleAssignments.roleId))
-      .innerJoin(context, eq(context.id, roleAssignments.contextId))
-      .where(
-        and(
-          eq(roleAssignments.userId, userId),
-          eq(role.archetype, 'manager'),
-          eq(context.contextLevel, CONTEXT_LEVELS.SYSTEM),
-        ),
-      )
-      .limit(1);
+    const row = await this.db
+      .selectFrom('role_assignments')
+      .select('role_assignments.id')
+      .innerJoin('role', 'role.id', 'role_assignments.role_id')
+      .innerJoin('context', 'context.id', 'role_assignments.context_id')
+      .where((eb) => eb.and([
+        eb('role_assignments.user_id', '=', userId),
+        eb('role.archetype', '=', 'manager'),
+        eb('context.context_level', '=', CONTEXT_LEVELS.SYSTEM),
+      ]))
+      .limit(1)
+      .executeTakeFirst();
     return !!row;
   }
 
@@ -397,33 +435,31 @@ export class PlanLimitsCore {
     if (!platformTenantId) return 0;
     const owned = new Set<string>();
     const byClass = await this.db
-      .select({ id: course.id })
-      .from(course)
-      .innerJoin(classes, eq(classes.id, course.classId))
-      .where(
-        and(
-          eq(classes.ownerId, userId),
-          eq(course.tenantId, platformTenantId),
-          eq(course.isTemplate, false),
-        ),
-      );
+      .selectFrom('course')
+      .select('course.id')
+      .innerJoin('classes', 'classes.id', 'course.class_id')
+      .where((eb) => eb.and([
+        eb('classes.owner_id', '=', userId),
+        eb('course.tenant_id', '=', platformTenantId),
+        eb('course.is_template', '=', false),
+      ]))
+      .execute();
     for (const r of byClass) owned.add(r.id);
     const byGrant = await this.db
-      .select({ courseId: context.instanceId })
-      .from(roleAssignments)
-      .innerJoin(role, eq(role.id, roleAssignments.roleId))
-      .innerJoin(context, eq(context.id, roleAssignments.contextId))
-      .innerJoin(course, eq(course.id, context.instanceId))
-      .where(
-        and(
-          eq(roleAssignments.userId, userId),
-          inArray(role.archetype, [...TEACHING_ROLE_ARCHETYPES]),
-          eq(context.contextLevel, CONTEXT_LEVELS.COURSE),
-          sql`${roleAssignments.component} <> 'enrol'`,
-          eq(course.tenantId, platformTenantId),
-          eq(course.isTemplate, false),
-        ),
-      );
+      .selectFrom('role_assignments')
+      .innerJoin('role', 'role.id', 'role_assignments.role_id')
+      .innerJoin('context', 'context.id', 'role_assignments.context_id')
+      .innerJoin('course', 'course.id', 'context.instance_id')
+      .select('context.instance_id as courseId')
+      .where((eb) => eb.and([
+        eb('role_assignments.user_id', '=', userId),
+        eb('role.archetype', 'in', [...TEACHING_ROLE_ARCHETYPES]),
+        eb('context.context_level', '=', CONTEXT_LEVELS.COURSE),
+        eb('role_assignments.component', '<>', 'enrol'),
+        eb('course.tenant_id', '=', platformTenantId),
+        eb('course.is_template', '=', false),
+      ]))
+      .execute();
     for (const r of byGrant) if (r.courseId) owned.add(r.courseId);
     return owned.size;
   }
@@ -440,7 +476,11 @@ export class PlanLimitsCore {
    */
   async assertTeacherCourseSlotForNewCourse(tenantId: string, classId: string): Promise<void> {
     if ((await this.tenantKind(tenantId)) !== 'platform') return;
-    const [cls] = await this.db.select({ ownerId: classes.ownerId }).from(classes).where(eq(classes.id, classId));
+    const [cls] = await this.db
+      .selectFrom('classes')
+      .select('classes.owner_id as ownerId')
+      .where('classes.id', '=', classId)
+      .execute();
     if (!cls) return;
     if (await this.isSiteAdmin(cls.ownerId)) return;
     const [{ limit }, used] = await Promise.all([
@@ -455,3 +495,14 @@ export class PlanLimitsCore {
     }
   }
 }
+
+/**
+ * Cột đọc tối thiểu của `tenantIdForContext`: id, cấp, instance và
+ * path của context — chỉ bốn cột này, không lấy nguyên dòng.
+ */
+const CONTEXT_COLUMNS_FOR_TENANT_ID = [
+  'id',
+  'context_level as contextLevel',
+  'instance_id as instanceId',
+  'path',
+] as const;

@@ -5,7 +5,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import type { MyTenant, Tenant as TenantDto, TenantMembership as TenantMembershipDto } from '@lms/contracts';
 import { ensureActiveTenantMembership } from '@lms/enrol';
 import {
@@ -22,7 +21,6 @@ import { ControlPlaneRepository } from '@lms/db/repositories/control-plane';
 import { PlanLimitsService } from '../access/plan-limits.service';
 import { UsersService } from '../users/users.service';
 import { OutboxService } from '../../infra/events/outbox.service';
-import type { Database } from '../../db/database';
 import { tenantAls } from './tenant-als';
 import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { SpaceRoutingError } from '../../db/routing/space-connection-resolver';
@@ -122,13 +120,6 @@ export class TenantsService {
     private readonly planLimits: PlanLimitsService,
     private readonly spaceDb: SpaceDatabaseService,
     private readonly directory: ControlPlaneRepository,
-    /**
-     * Handle Drizzle thô — CHỈ dùng cho điểm uỷ thác
-     * `ensureActiveMembership` xuống tầng dùng chung `@lms/enrol`
-     * (xem mô tả ở method đó). Mọi đường dữ liệu còn lại của
-     * service đi qua repository Kysely.
-     */
-    @InjectDrizzle() private readonly db: Database,
   ) {}
 
   // --- tenant-zero + hàm hỗ trợ seed ------------------------------------------
@@ -573,16 +564,12 @@ export class TenantsService {
    * chất hoá của nó mà không phụ thuộc service của API; method này
    * chỉ uỷ thác, giữ nguyên hành vi và kiểu trả về.
    *
-   * Handle uỷ thác (issue #641): tầng dùng chung `@lms/enrol` vẫn
-   * chạy trên Drizzle cho tới hạng mục chuyển đổi của chính nó
-   * (nó còn ghi context của cụm access chưa chuyển đổi), trong
-   * khi TenantsRepository đã chuyển sang Kysely — vì vậy service
-   * tự inject handle Drizzle đã định tuyến cho RIÊNG điểm uỷ thác
-   * này thay vì lấy qua repository như trước. Điểm uỷ thác là một
-   * thao tác Drizzle độc lập, không ghép transaction với bất kỳ
-   * thao tác Kysely nào, nên không tồn tại giao dịch lai; khi
-   * `@lms/enrol` chuyển đổi, điểm này quay về lấy handle qua
-   * repository.
+   * Handle uỷ thác (D5 #657): tầng dùng chung `@lms/enrol` đã
+   * chuyển sang Kysely nên điểm này uỷ thác bằng tay cầm Kysely
+   * đã định tuyến của API (`spaceDb.routedKysely`); handle Drizzle
+   * thô inject riêng cho điểm này đã gỡ. Điểm uỷ thác là một
+   * thao tác độc lập, không ghép transaction với bất kỳ thao tác
+   * nào khác, nên không tồn tại giao dịch lai.
    *
    * CỐ Ý không tự bọc ngữ cảnh platform (HOTFIX #196 vòng 2): đây là
    * thao tác dữ liệu CỦA một tenant — các call-site nghiệp vụ (ghi
@@ -592,7 +579,7 @@ export class TenantsService {
    * tầng của chúng và method này kế thừa ngữ cảnh của nơi gọi.
    */
   async ensureActiveMembership(tenantId: string, userId: string): Promise<TenantMembershipRow> {
-    return ensureActiveTenantMembership(this.db, tenantId, userId);
+    return ensureActiveTenantMembership(this.spaceDb.routedKysely, tenantId, userId);
   }
 
   /**
