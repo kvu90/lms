@@ -1,17 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, eq, sql } from 'drizzle-orm';
-import type { Database } from '../../db/database';
+import { sql as kyselySql } from '@lms/db';
 import { SpaceDatabaseService } from '../../db/routing/space-database.service';
-import {
-  curricula,
-  curriculumNodes,
-  curriculumProgramRecords,
-  learningOutcomes,
-  programPackageInstalls,
-  subjects,
-} from '../../db/schema';
 import { ContextsService } from '../access/contexts.service';
 import { CENTRE_PROGRAM_PACKAGE_KEY } from './centre-provision';
 import {
@@ -20,6 +10,19 @@ import {
   restoreProgramDumpSql,
 } from '../curriculum/program-dump';
 import { tenantAls } from './tenant-als';
+
+/**
+ * Danh sách cột tường minh có bí danh camelCase của bảng sổ cài
+ * đặt gói (`program_package_installs`) — dùng chung cho mọi câu
+ * đọc dòng sổ trong service này để giữ đúng hình dạng
+ * `ProgramPackageInstallRecord` mà phía tiêu thụ đang dùng.
+ */
+const INSTALL_RECORD_COLUMNS = [
+  'package_key as packageKey',
+  'version',
+  'checksum',
+  'installed_at as installedAt',
+] as const;
 
 /**
  * Một dòng trong sổ ghi nhận cài đặt gói chương trình
@@ -119,7 +122,6 @@ export interface SpaceProgramPackageInstallReport {
 @Injectable()
 export class SpaceProgramPackageService {
   constructor(
-    @InjectDrizzle() private readonly db: Database,
     private readonly spaceDb: SpaceDatabaseService,
     private readonly contexts: ContextsService,
   ) {}
@@ -134,11 +136,12 @@ export class SpaceProgramPackageService {
 
     // Sổ nguồn đọc từ kho chung: ngữ cảnh platform KHÔNG mang slug
     // nên handle định tuyến uỷ thác về kho chung.
-    const sourceRows = await tenantAls.run({ platform: true }, () =>
-      this.db
-        .select()
-        .from(programPackageInstalls)
-        .where(eq(programPackageInstalls.tenantId, tenantId)),
+    const sourceRows = await tenantAls.run({ platform: true }, async () =>
+      this.spaceDb.routedKysely
+        .selectFrom('program_package_installs')
+        .select(INSTALL_RECORD_COLUMNS)
+        .where('tenant_id', '=', tenantId)
+        .execute(),
     );
     const sourceInstalls: ProgramPackageInstallRecord[] = sourceRows.map((row) => ({
       packageKey: row.packageKey,
@@ -158,16 +161,12 @@ export class SpaceProgramPackageService {
     const result = await tenantAls.run({ platform: true }, () =>
       this.spaceDb.withSpaceDatabase(slug, async () => {
         const system = await this.contexts.ensureSystemContext();
-        const [before] = await this.db
-          .select()
-          .from(programPackageInstalls)
-          .where(
-            and(
-              eq(programPackageInstalls.tenantId, tenantId),
-              eq(programPackageInstalls.packageKey, CENTRE_PROGRAM_PACKAGE_KEY),
-            ),
-          )
-          .limit(1);
+        const before = await this.spaceDb.routedKysely
+          .selectFrom('program_package_installs')
+          .select(INSTALL_RECORD_COLUMNS)
+          .where('tenant_id', '=', tenantId)
+          .where('package_key', '=', CENTRE_PROGRAM_PACKAGE_KEY)
+          .executeTakeFirst();
         const targetInstallBefore: ProgramPackageInstallRecord | null = before
           ? {
               packageKey: before.packageKey,
@@ -180,19 +179,22 @@ export class SpaceProgramPackageService {
         let restored = false;
         let installRecorded = false;
         if (!before) {
-          const [subjectCount] = await this.db
-            .select({ count: sql<number>`count(*)::int` })
-            .from(subjects);
+          const subjectCount = await this.spaceDb.routedKysely
+            .selectFrom('subjects')
+            .select(kyselySql<number>`count(*)::int`.as('count'))
+            .executeTakeFirst();
           const programPresent = Number(subjectCount?.count ?? 0) > 0;
           if (!programPresent) {
             // Từ issue #646, `restoreProgramDumpSql` chạy trên
             // handle Kysely: lấy handle Kysely của ĐÚNG kho đích
             // theo slug (kho riêng thì pool riêng của kho đó, kho
             // chung thì handle kho chung) — cùng kho đích mà các
-            // câu Drizzle xung quanh đang ghi. Restore mở
-            // transaction riêng của nó trên handle đó; các câu
-            // Drizzle trước/sau vẫn là các câu tự-commit độc lập
-            // như trước, không thành giao dịch lai.
+            // câu truy vấn xung quanh đang ghi (các câu đó cũng đã
+            // chuyển sang handle Kysely định tuyến ở issue #655).
+            // Restore mở transaction riêng của nó trên handle
+            // đích; các câu xung quanh vẫn là các câu tự-commit độc
+            // lập như trước, không gộp thành một giao dịch chung
+            // với restore.
             await restoreProgramDumpSql(
               await this.spaceDb.getKyselyForSpace(slug),
               dumpSql,
@@ -200,12 +202,15 @@ export class SpaceProgramPackageService {
             );
             restored = true;
           }
-          await this.db.insert(programPackageInstalls).values({
-            tenantId,
-            packageKey: CENTRE_PROGRAM_PACKAGE_KEY,
-            version: PROGRAM_DUMP_VERSION,
-            checksum: dumpChecksum,
-          });
+          await this.spaceDb.routedKysely
+            .insertInto('program_package_installs')
+            .values({
+              tenant_id: tenantId,
+              package_key: CENTRE_PROGRAM_PACKAGE_KEY,
+              version: PROGRAM_DUMP_VERSION,
+              checksum: dumpChecksum,
+            })
+            .execute();
           installRecorded = true;
         } else if (before.version !== PROGRAM_DUMP_VERSION || before.checksum !== dumpChecksum) {
           throw new Error(
@@ -218,38 +223,33 @@ export class SpaceProgramPackageService {
         const transferredKeys: string[] = [];
         for (const source of sourceInstalls) {
           if (source.packageKey === CENTRE_PROGRAM_PACKAGE_KEY) continue;
-          const [existing] = await this.db
-            .select({ id: programPackageInstalls.id })
-            .from(programPackageInstalls)
-            .where(
-              and(
-                eq(programPackageInstalls.tenantId, tenantId),
-                eq(programPackageInstalls.packageKey, source.packageKey),
-              ),
-            )
-            .limit(1);
+          const existing = await this.spaceDb.routedKysely
+            .selectFrom('program_package_installs')
+            .select('id')
+            .where('tenant_id', '=', tenantId)
+            .where('package_key', '=', source.packageKey)
+            .executeTakeFirst();
           if (!existing) {
-            await this.db.insert(programPackageInstalls).values({
-              tenantId,
-              packageKey: source.packageKey,
-              version: source.version,
-              checksum: source.checksum,
-              installedAt: source.installedAt,
-            });
+            await this.spaceDb.routedKysely
+              .insertInto('program_package_installs')
+              .values({
+                tenant_id: tenantId,
+                package_key: source.packageKey,
+                version: source.version,
+                checksum: source.checksum,
+                installed_at: source.installedAt,
+              })
+              .execute();
             transferredKeys.push(source.packageKey);
           }
         }
 
-        const [after] = await this.db
-          .select()
-          .from(programPackageInstalls)
-          .where(
-            and(
-              eq(programPackageInstalls.tenantId, tenantId),
-              eq(programPackageInstalls.packageKey, CENTRE_PROGRAM_PACKAGE_KEY),
-            ),
-          )
-          .limit(1);
+        const after = await this.spaceDb.routedKysely
+          .selectFrom('program_package_installs')
+          .select(INSTALL_RECORD_COLUMNS)
+          .where('tenant_id', '=', tenantId)
+          .where('package_key', '=', CENTRE_PROGRAM_PACKAGE_KEY)
+          .executeTakeFirst();
         if (!after) {
           throw new Error(
             `Program package ${CENTRE_PROGRAM_PACKAGE_KEY} has no install record in the destination store after installation`,
@@ -263,23 +263,38 @@ export class SpaceProgramPackageService {
         };
 
         const countSubjects = async () => {
-          const [row] = await this.db.select({ count: sql<number>`count(*)::int` }).from(subjects);
+          const row = await this.spaceDb.routedKysely
+            .selectFrom('subjects')
+            .select(kyselySql<number>`count(*)::int`.as('count'))
+            .executeTakeFirst();
           return Number(row?.count ?? 0);
         };
         const countCurricula = async () => {
-          const [row] = await this.db.select({ count: sql<number>`count(*)::int` }).from(curricula);
+          const row = await this.spaceDb.routedKysely
+            .selectFrom('curricula')
+            .select(kyselySql<number>`count(*)::int`.as('count'))
+            .executeTakeFirst();
           return Number(row?.count ?? 0);
         };
         const countNodes = async () => {
-          const [row] = await this.db.select({ count: sql<number>`count(*)::int` }).from(curriculumNodes);
+          const row = await this.spaceDb.routedKysely
+            .selectFrom('curriculum_nodes')
+            .select(kyselySql<number>`count(*)::int`.as('count'))
+            .executeTakeFirst();
           return Number(row?.count ?? 0);
         };
         const countOutcomes = async () => {
-          const [row] = await this.db.select({ count: sql<number>`count(*)::int` }).from(learningOutcomes);
+          const row = await this.spaceDb.routedKysely
+            .selectFrom('learning_outcomes')
+            .select(kyselySql<number>`count(*)::int`.as('count'))
+            .executeTakeFirst();
           return Number(row?.count ?? 0);
         };
         const countProgramRecords = async () => {
-          const [row] = await this.db.select({ count: sql<number>`count(*)::int` }).from(curriculumProgramRecords);
+          const row = await this.spaceDb.routedKysely
+            .selectFrom('curriculum_program_records')
+            .select(kyselySql<number>`count(*)::int`.as('count'))
+            .executeTakeFirst();
           return Number(row?.count ?? 0);
         };
         const outcomeCounts = {
