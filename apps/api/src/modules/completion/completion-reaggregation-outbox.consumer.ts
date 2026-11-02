@@ -1,11 +1,9 @@
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, asc, gt, inArray, max } from 'drizzle-orm';
+import type { CentreDb } from '@lms/db';
 import Redis from 'ioredis';
 import { COURSE_COMPLETION_REAGGREGATION_REQUESTED } from '@lms/enrol';
-import type { Database } from '../../db/database';
-import { outboxEvents } from '../../db/schema';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { redisTlsFromUrl } from '../../config/env';
 import { CompletionService } from './completion.service';
 
@@ -67,7 +65,7 @@ export class CompletionReaggregationOutboxConsumer implements OnModuleInit, OnMo
 
   constructor(
     @Inject(ConfigService) config: ConfigService,
-    @InjectDrizzle() private readonly db: Database,
+    private readonly spaceDb: SpaceDatabaseService,
     private readonly completion: CompletionService,
   ) {
     const redisUrl = config.getOrThrow<string>('REDIS_URL');
@@ -121,19 +119,45 @@ export class CompletionReaggregationOutboxConsumer implements OnModuleInit, OnMo
     }
   }
 
-  /** Các yêu cầu tái tổng hợp đang chờ sau watermark, theo thứ tự seq. */
+  /** Handle Kysely kho trung tâm đã định tuyến theo không gian (facade của SpaceDatabaseService). */
+  private get db(): CentreDb {
+    return this.spaceDb.routedKysely;
+  }
+
+  /**
+   * Các yêu cầu tái tổng hợp đang chờ sau watermark, theo thứ tự seq.
+   * Cột `seq` là int8: phía Kysely đọc thành chuỗi (hợp đồng kiểu
+   * runtime đã chốt — không bật parser int8 toàn cục), nên giá trị
+   * được chuyển `Number(...)` tường minh tại biên này để watermark
+   * và khoá Redis giữ đúng ngữ nghĩa số như trước.
+   */
   private async fetchPending() {
-    return this.db.select({ seq: outboxEvents.seq, type: outboxEvents.type, payload: outboxEvents.payload })
-      .from(outboxEvents)
-      .where(and(gt(outboxEvents.seq, this.watermark!), inArray(outboxEvents.type, [...REAGGREGATION_TYPES])))
-      .orderBy(asc(outboxEvents.seq))
-      .limit(BATCH_SIZE);
+    const rows = await this.db
+      .selectFrom('outbox_events')
+      .select(['seq', 'type', 'payload'])
+      // Toán hạng so sánh của cột int8 ở phía Kysely là chuỗi
+      // (kiểu chọn của Int8); Postgres ép tham số sang bigint khi
+      // so sánh với cột.
+      .where('seq', '>', String(this.watermark!))
+      .where('type', 'in', [...REAGGREGATION_TYPES])
+      .orderBy('seq', 'asc')
+      .limit(BATCH_SIZE)
+      .execute();
+    return rows.map((row) => ({ seq: Number(row.seq), type: row.type, payload: row.payload }));
+  }
+
+  /** Seq lớn nhất hiện có trong outbox (0 khi bảng rỗng); int8 đọc thành chuỗi nên chuyển số tường minh như ở fetchPending. */
+  private async maxSeq(): Promise<number> {
+    const row = await this.db
+      .selectFrom('outbox_events')
+      .select((eb) => eb.fn.max('seq').as('value'))
+      .executeTakeFirst();
+    return row?.value != null ? Number(row.value) : 0;
   }
 
   /** Phát hiện DB dựng lại trong lúc tiến trình chạy và neo watermark về 0 (khuôn consumer đồng bộ cohort). */
   private async reanchorIfDbReset(): Promise<boolean> {
-    const [row] = await this.db.select({ value: max(outboxEvents.seq) }).from(outboxEvents);
-    const dbMax = row?.value ?? 0;
+    const dbMax = await this.maxSeq();
     if (this.watermark === null || dbMax >= this.watermark) return false;
     this.logger.warn(
       `Phát hiện DB đã bị dựng lại trong lúc tiến trình chạy (seq lớn nhất hiện có ${dbMax} < watermark ${this.watermark}) — neo lại watermark về 0 để tiêu thụ các sự kiện của đời DB mới.`,
@@ -161,8 +185,7 @@ export class CompletionReaggregationOutboxConsumer implements OnModuleInit, OnMo
    * kiện này.
    */
   private async initialWatermark(): Promise<number> {
-    const [row] = await this.db.select({ value: max(outboxEvents.seq) }).from(outboxEvents);
-    const dbMax = row?.value ?? 0;
+    const dbMax = await this.maxSeq();
     const storedRaw = await this.redis.get(this.watermarkKey).catch(() => null);
     const stored = storedRaw === null ? null : Number(storedRaw);
     const start = stored !== null && Number.isFinite(stored) && stored <= dbMax ? stored : 0;

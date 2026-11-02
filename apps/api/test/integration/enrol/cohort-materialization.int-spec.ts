@@ -8,6 +8,7 @@ import Redis from 'ioredis';
 import { createTestApp } from '../../support/identity-access-helpers';
 import { CompletionReaggregationOutboxConsumer } from '../../../src/modules/completion/completion-reaggregation-outbox.consumer';
 import { CompletionService } from '../../../src/modules/completion/completion.service';
+import { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
 import { EnrolRepository } from '../../../src/modules/enrol/enrol.repository';
 import { EnrolService } from '../../../src/modules/enrol/enrol.service';
 import { OutboxService } from '../../../src/infra/events/outbox.service';
@@ -481,7 +482,7 @@ describe('Vật chất hoá cohort dùng chung — đặc tả hoá hành vi ở
     await redis.del(`lms:completion-reaggregation:${databaseName}:seq`);
     const fresh = new CompletionReaggregationOutboxConsumer(
       app.get(ConfigService),
-      app.get(EnrolRepository).dbHandle,
+      app.get(SpaceDatabaseService),
       app.get(CompletionService),
     );
     try {

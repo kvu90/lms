@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
-import { sql, type CentreDB, type CentreTx } from '@lms/db';
+import { sql, type CentreDb, type CentreDB, type CentreTx } from '@lms/db';
 import type { Database } from '../../db/database';
 import { outboxEvents } from '../../db/schema';
 import { tenantAls } from '../../modules/tenants/tenant-als';
@@ -13,7 +12,7 @@ export interface OutboxEventInput {
   tenantId?: string | null;
 }
 
-/** Bề mặt transaction tối thiểu mà OutboxService cần (một tx của Drizzle). */
+/** Bề mặt transaction tối thiểu mà đường ghi Drizzle chuyển tiếp cần (một tx của Drizzle). */
 export interface OutboxTx {
   insert: Database['insert'];
 }
@@ -22,10 +21,19 @@ export interface OutboxTx {
  * Outbox giao dịch (tự dựng): dòng sự kiện được ghi trong CÙNG
  * transaction cơ sở dữ liệu với thay đổi nghiệp vụ. Nếu transaction bị rollback
  * thì không tồn tại dòng sự kiện nào và không gì có thể được phát đi.
+ *
+ * Trạng thái sau chuyển đổi Kysely (D1, issue #653): handle riêng
+ * của service là handle Kysely kho trung tâm (`CentreDb` — ở tầng
+ * ứng dụng là facade định tuyến theo không gian), và đường ghi
+ * chuẩn là {@link OutboxService.enqueueKysely}. Đường ghi Drizzle
+ * {@link OutboxService.enqueue} còn giữ dạng CHUYỂN TIẾP cho các
+ * phía gọi vẫn mở transaction Drizzle; nó chỉ được gỡ khi điểm gọi
+ * Drizzle cuối cùng đã chuyển sang Kysely (hạng mục gỡ Drizzle
+ * cuối chiến dịch đối chiếu điểm này không còn tồn tại).
  */
 @Injectable()
 export class OutboxService {
-  constructor(@InjectDrizzle() private readonly db: Database) {}
+  constructor(private readonly db: CentreDb) {}
 
   /**
    * Phân giải tenant hiệu lực và payload của một sự kiện — nhà duy
@@ -47,6 +55,16 @@ export class OutboxService {
     return { tenantId, payload };
   }
 
+  /**
+   * Đường ghi Drizzle CHUYỂN TIẾP: ghi dòng sự kiện bằng chính
+   * transaction Drizzle của phía gọi, cho các module chưa chuyển
+   * sang Kysely. Cùng bảng `outbox_events`, cùng hình dạng dòng và
+   * cùng khâu phân giải tenant/payload với đường Kysely chuẩn
+   * ({@link OutboxService.enqueueKysely}) — bản Kysely là đặc tả
+   * đích. Điều kiện gỡ: điểm gọi Drizzle cuối cùng chuyển sang
+   * Kysely thì phương thức này và kiểu {@link OutboxTx} bị xoá;
+   * hạng mục gỡ Drizzle cuối chiến dịch đối chiếu.
+   */
   async enqueue(tx: OutboxTx, input: OutboxEventInput): Promise<void> {
     const { tenantId, payload } = this.resolveTenantPayload(input);
     await tx.insert(outboxEvents).values({
@@ -58,15 +76,17 @@ export class OutboxService {
   }
 
   /**
-   * Đường ghi outbox qua handle Kysely: dòng sự kiện được ghi
-   * trong CÙNG transaction Kysely với thay đổi nghiệp vụ của nơi
-   * gọi — cùng bất biến giao dịch với {@link enqueue}, cho các
-   * module đã chuyển sang Kysely (hiện là calendar và badges,
-   * issue #647). Cột `payload` jsonb đi qua serialize tường minh
-   * kèm `::jsonb` theo khuôn ghi jsonb của `@lms/db`: driver `pg`
-   * tự stringify object thường nhưng hiểu MẢNG cấp cao nhất là
-   * mảng PostgreSQL. Khi hạng mục chuyển đổi của chính outbox
-   * (D1) về đích, hai đường ghi hợp nhất về đường Kysely này.
+   * Đường ghi outbox chuẩn qua handle Kysely: dòng sự kiện được
+   * ghi trong CÙNG transaction Kysely với thay đổi nghiệp vụ của
+   * nơi gọi — cùng bất biến giao dịch với {@link enqueue}. Đây là
+   * điểm nối A của phán quyết C-8 đã được hợp nhất tại D1 (issue
+   * #653): biến thể do các cụm đã chuyển (G7 #647 đưa vào, G5 #645
+   * tái sử dụng) nay là đường ghi chuẩn của service đã chuyển đổi;
+   * chữ ký `enqueueKysely(tx: CentreTx, input)` giữ nguyên để mọi
+   * phía gọi phía Kysely không đổi hợp đồng. Cột `payload` jsonb
+   * đi qua serialize tường minh kèm `::jsonb` theo khuôn ghi jsonb
+   * của `@lms/db`: driver `pg` tự stringify object thường nhưng
+   * hiểu MẢNG cấp cao nhất là mảng PostgreSQL.
    */
   async enqueueKysely(tx: CentreTx, input: OutboxEventInput): Promise<void> {
     const { tenantId, payload } = this.resolveTenantPayload(input);
@@ -81,10 +101,10 @@ export class OutboxService {
       .execute();
   }
 
-  /** Hàm tiện ích: đưa vào hàng đợi trong một transaction ngắn riêng. */
+  /** Hàm tiện ích: đưa vào hàng đợi trong một transaction Kysely ngắn riêng trên handle của service. */
   async enqueueStandalone(input: OutboxEventInput): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      await this.enqueue(tx as OutboxTx, input);
+    await this.db.transaction().execute(async (tx) => {
+      await this.enqueueKysely(tx, input);
     });
   }
 }

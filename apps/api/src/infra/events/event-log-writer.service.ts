@@ -1,10 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, eq } from 'drizzle-orm';
-import type { Database } from '../../db/database';
-import { context, eventLog } from '../../db/schema';
+import { sql, type CentreDB, type CentreDb } from '@lms/db';
 
-/** Hình dạng dòng outbox mà writer phản chiếu (tập con cấu trúc của dòng Drizzle). */
+/** Hình dạng dòng outbox mà writer phản chiếu (tập con cấu trúc của dòng outbox đã commit). */
 export interface OutboxRowLike {
   id: string;
   seq: number;
@@ -65,7 +62,7 @@ function str(value: unknown): string | null {
 export class EventLogWriter {
   private readonly logger = new Logger(EventLogWriter.name);
 
-  constructor(@InjectDrizzle() private readonly db: Database) {}
+  constructor(private readonly db: CentreDb) {}
 
   async record(row: OutboxRowLike): Promise<void> {
     try {
@@ -96,14 +93,20 @@ export class EventLogWriter {
         outboxId: row.id,
         outboxSeq: row.seq,
       };
-      await this.db.insert(eventLog).values({
-        eventType: row.type,
-        contextId,
-        userId: actorId,
-        tenantId: row.tenantId ?? str(source.tenantId),
-        payload,
-        createdAt: row.occurredAt,
-      });
+      // Cột `payload` jsonb đi qua serialize tường minh kèm
+      // `::jsonb` theo khuôn ghi jsonb của `@lms/db` (driver `pg`
+      // hiểu MẢNG cấp cao nhất là mảng PostgreSQL nếu ghi thẳng).
+      await this.db
+        .insertInto('event_log')
+        .values({
+          event_type: row.type,
+          context_id: contextId,
+          user_id: actorId,
+          tenant_id: row.tenantId ?? str(source.tenantId),
+          payload: sql<CentreDB['event_log']['payload']>`${JSON.stringify(payload)}::jsonb`,
+          created_at: row.occurredAt,
+        })
+        .execute();
     } catch (err) {
       this.logger.error(`Failed to mirror outbox event ${row.type} (${row.id}) into event_log: ${String(err)}`);
     }
@@ -122,10 +125,12 @@ export class EventLogWriter {
   private async courseContextId(courseId: string): Promise<string | null> {
     if (!UUID_RE.test(courseId)) return null;
     const rows = await this.db
-      .select({ id: context.id })
-      .from(context)
-      .where(and(eq(context.contextLevel, COURSE_CONTEXT_LEVEL), eq(context.instanceId, courseId)))
-      .limit(1);
+      .selectFrom('context')
+      .select('id')
+      .where('context_level', '=', COURSE_CONTEXT_LEVEL)
+      .where('instance_id', '=', courseId)
+      .limit(1)
+      .execute();
     return rows[0]?.id ?? null;
   }
 }
