@@ -1,13 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { UserListStatus, UserWithAssignmentsListResponse } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
-import { AccessRepository, type AssignmentListRow, type RoleRow } from './access.repository';
+import { AccessRepository, type AssignmentListRow, type RoleRow } from '@lms/db/repositories/access';
 import { ContextsService } from './contexts.service';
 import { CAPABILITY_DEFINITIONS, DEFAULT_ROLES } from './domain/capabilities';
 import { CAP_ALLOW, CAP_INHERIT, CAP_PREVENT, CAP_PROHIBIT } from './domain/permission';
 import { PlanLimitsService, TEACHING_ROLE_ARCHETYPES } from './plan-limits.service';
 import { RoleSeparationService } from './role-separation.service';
-import type { DbTx } from '../../db/database';
+import type { CentreTx } from '@lms/db';
 
 const VALID_PERMISSIONS = [CAP_PROHIBIT, CAP_PREVENT, CAP_INHERIT, CAP_ALLOW];
 
@@ -224,7 +224,7 @@ export class RolesService {
    * vô hiệu hoá cache quyền — nửa còn lại nằm ở đường gỡ/xoá: xem
    * `unassignRole` và `deleteRole`.
    */
-  async assignRole(userId: string, roleId: string, contextId: string, modifierId?: string, source?: AssignmentSource, tx?: DbTx): Promise<unknown> {
+  async assignRole(userId: string, roleId: string, contextId: string, modifierId?: string, source?: AssignmentSource, tx?: CentreTx): Promise<unknown> {
     const roleRow = await this.getRole(roleId);
     await this.contexts.getContext(contextId, tx);
     // Điểm chặn SLOT GÓI TRUNG TÂM (phần còn lại của lát 2, issue
@@ -279,7 +279,7 @@ export class RolesService {
         aggregate: 'access', type: 'role_assigned',
         payload: { assignmentId: (row as { id: string }).id, userId, roleId, contextId, actorId: modifierId ?? null, component, itemId },
       } as const;
-      if (tx) await this.outbox.enqueue(tx, event);
+      if (tx) await this.outbox.enqueueKysely(tx, event);
       else await this.outbox.enqueueStandalone(event);
     }
     return row;
@@ -322,7 +322,7 @@ export class RolesService {
   /**
    * Liệt kê gán role, lọc tuỳ chọn theo user.
    */
-  async listAssignments(filter: { userId?: string; contextId?: string }, tx?: DbTx): Promise<unknown[]> {
+  async listAssignments(filter: { userId?: string; contextId?: string }, tx?: CentreTx): Promise<unknown[]> {
     return this.repo.listAssignments(filter, tx);
   }
   /**
@@ -398,7 +398,7 @@ export class RolesService {
   /**
    * Đặt override CAP_* cho role tại context (ALLOW/INHERIT/PREVENT/PROHIBIT).
    */
-  async setCapabilityOverride(roleId: string, capability: string, contextId: string, permission: number, modifierId?: string, tx?: DbTx): Promise<void> {
+  async setCapabilityOverride(roleId: string, capability: string, contextId: string, permission: number, modifierId?: string, tx?: CentreTx): Promise<void> {
     if (!VALID_PERMISSIONS.includes(permission)) {
       throw new BadRequestException({ message: `Invalid permission ${permission}`, code: 'access.invalid_permission' });
     }
@@ -461,7 +461,7 @@ export class RolesService {
       }
     }
     const effective = overrides.filter((entry) => entry.permission !== CAP_INHERIT);
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       await this.repo.deleteRoleCapabilitiesInContext(roleId, contextId, tx);
       for (const entry of effective) {
         await this.repo.upsertRoleCapability({ contextId, roleId, capability: entry.capability, permission: entry.permission, modifierId }, tx);

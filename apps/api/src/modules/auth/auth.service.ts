@@ -512,7 +512,7 @@ export class AuthService {
     try {
       // Cổng ngữ cảnh platform GIỮ `spaceSlug` của ngữ cảnh hiện tại
       // (Phần A, issue #587 — A4, đúng khuôn
-      // `access.repository.ts`): đăng nhập tại địa chỉ của trung tâm
+      // `permission-evaluator.service.ts`): đăng nhập tại địa chỉ của trung tâm
       // ở kho riêng chạy sau bước ghim slug của guard, nên tenant
       // của trung tâm đó phải tra trong kho riêng — rơi về kho chung
       // sẽ không thấy tenant chỉ sống ở kho riêng, cấp token thiếu

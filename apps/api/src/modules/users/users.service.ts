@@ -3,7 +3,7 @@ import type { MyAccessView } from '@lms/contracts';
 import { AuthRepository } from '@lms/db/repositories/auth';
 import { UsersRepository, type UserListFilter, type UserRow } from '@lms/db/repositories/users';
 import { OutboxService } from '../../infra/events/outbox.service';
-import type { ContextRow } from '../access/access.repository';
+import type { ContextRow } from '@lms/db/repositories/access';
 import { ContextsService } from '../access/contexts.service';
 import { CredentialBridgeService } from '../auth/better-auth/credential-bridge.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';

@@ -37,12 +37,9 @@ import type { Json } from '../types/centre-db';
  * hợp đồng cũ; `content` của YCCĐ giữ kiểu `LearningOutcomeDoc`
  * theo `$type<>` đã khai.
  *
- * Ngoại lệ chuyển tiếp C-7 (xem CORRECTIONS.md của chiến dịch):
- * repository này VẪN giữ `insertCategory` nhận handle Kysely làm
- * điểm ghi category chuẩn phía Kysely; riêng luồng `buildBank`
- * phía api còn mở giao dịch Drizzle (DL-09) nên tạm ghi category
- * mặc định qua điểm chuyển tiếp ở `QuestionBanksRepository` —
- * điểm đó do PR merge cuối trong ba issue #644/#651/#653 xoá.
+ * Điểm chuyển tiếp C-7 đã được hấp thụ ở đợt access (#651):
+ * giao dịch `buildBank` nay mở phía Kysely và ghi category mặc
+ * định thẳng qua `insertCategory` tại đây.
  */
 
 /** Handle kho trung tâm mà repository chấp nhận: thường hoặc trong giao dịch. */
@@ -1095,8 +1092,6 @@ export class QuestionsRepository {
 
   /**
    * Chèn category mới — điểm ghi category chuẩn phía Kysely.
-   * (Luồng `buildBank` phía api còn ở giao dịch Drizzle nên tạm
-   * ghi qua điểm chuyển tiếp C-7; xem đầu file.)
    */
   async insertCategory(v: NewQCategory, tx?: QuestionsDb): Promise<QCategoryRow> {
     const db = tx ?? this.handle;

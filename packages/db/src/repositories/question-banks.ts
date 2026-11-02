@@ -36,19 +36,9 @@ import type { EntryRow, QCategoryRow, QuestionBankRow, QuestionRow } from './que
  *   (MT-15) nên bỏ được lớp ép kiểu `as unknown as { rows }` của
  *   bản cũ.
  *
- * Ngoại lệ chuyển tiếp C-7 (xem CORRECTIONS.md của chiến dịch):
- * repository này giữ `insertBank` nhận handle Kysely làm điểm ghi
- * bank chuẩn phía Kysely; riêng luồng `buildBank` phía api còn mở
- * giao dịch Drizzle (bất biến nguyên tử DL-09, issue #490) vì các
- * phía còn lại trong giao dịch đó (context + override/gán vai của
- * access, dòng outbox) vẫn ở Drizzle — hai lệnh ghi của bank
- * trong luồng đó (`insertBank`, category mặc định) tạm thực thi
- * qua các điểm ghi chuyển tiếp tối thiểu phía api
- * (`QuestionBanksTransitionalRepository.insertBankTx` /
- * `insertCategoryTx`). Chủ đóng không đổi: PR merge CUỐI trong ba
- * issue #644/#651/#653 lật điểm mở giao dịch của `buildBank` sang
- * Kysely và xoá các điểm chuyển tiếp; PR này chạy trước nên KHÔNG
- * đóng C-7.
+ * Điểm chuyển tiếp C-7 đã được hấp thụ ở đợt access (#651):
+ * giao dịch `buildBank` nay mở phía Kysely và ghi thẳng qua
+ * `insertBank` tại đây cùng `insertCategory` của repository câu hỏi.
  */
 
 export type { QuestionBankRow } from './questions';

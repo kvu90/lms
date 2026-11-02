@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Cache } from 'cache-manager';
 import type { ConfigService } from '@nestjs/config';
 import type { OutboxService } from '../../infra/events/outbox.service';
-import type { AccessRepository, ContextRow } from './access.repository';
+import type { AccessRepository, ContextRow } from '@lms/db/repositories/access';
 import { ContextsService } from './contexts.service';
 import { CAP_ALLOW } from './domain/permission';
 import { PermissionEvaluator } from './permission-evaluator.service';

@@ -1,9 +1,10 @@
 import { forwardRef, Module } from '@nestjs/common';
+import { AccessRepository } from '@lms/db/repositories/access';
 import { SpaceRoutingModule } from '../../db/routing/space-routing.module';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { CacheInfraModule } from '../../infra/cache/cache-infra.module';
 import { EventsModule } from '../../infra/events/events.module';
 import { AccessController } from './access.controller';
-import { AccessRepository } from './access.repository';
 import { ContextsService } from './contexts.service';
 import { PermissionEvaluator } from './permission-evaluator.service';
 import { PlanLimitsService } from './plan-limits.service';
@@ -22,7 +23,9 @@ import { RolesService } from './roles.service';
     CacheInfraModule, EventsModule,
     // SpaceRoutingModule: PermissionEvaluator cần SpaceDatabaseService
     // để lấy danh tính kho của ngữ cảnh hiện tại cho khoá cache
-    // `siteadmins` (issue #587, tiền điều kiện TĐ6). Cạnh này khép
+    // `siteadmins` (issue #587, tiền điều kiện TĐ6), và
+    // AccessRepository cần handle `routedKysely` của nó (xem
+    // provider factory bên dưới). Cạnh này khép
     // vòng module tường minh AccessModule → SpaceRoutingModule →
     // ControlPlaneModule → AccessModule (ControlPlaneModule import
     // module này cho chính PermissionEvaluator/ContextsService), nên
@@ -34,7 +37,21 @@ import { RolesService } from './roles.service';
     forwardRef(() => SpaceRoutingModule),
   ],
   controllers: [AccessController],
-  providers: [AccessRepository, ContextsService, RolesService, PermissionEvaluator, PlanLimitsService, RoleSeparationService],
+  providers: [
+    {
+      // AccessRepository nay là repository Kysely của `@lms/db`
+      // (issue #651): provider dựng bằng factory với handle kho
+      // trung tâm ĐÃ ĐỊNH TUYẾN THEO KHÔNG GIAN (`routedKysely`
+      // của SpaceDatabaseService), cùng khuôn với các repository
+      // đã chuyển trước đó. Evaluator đọc cổng tenant qua không
+      // gian của request nên handle phải là facade định tuyến,
+      // không phải handle kho cố định.
+      provide: AccessRepository,
+      useFactory: (spaceDb: SpaceDatabaseService) => new AccessRepository(spaceDb.routedKysely),
+      inject: [SpaceDatabaseService],
+    },
+    ContextsService, RolesService, PermissionEvaluator, PlanLimitsService, RoleSeparationService,
+  ],
   exports: [ContextsService, RolesService, PermissionEvaluator, PlanLimitsService, RoleSeparationService],
 })
 /** Module phân quyền: context, capability, role. */

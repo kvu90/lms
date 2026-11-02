@@ -424,9 +424,10 @@ export class GroupsRepository {
       .execute() as Promise<GroupRow[]>;
   }
 
-  /** Chèn cohort. */
-  async insertCohort(v: NewCohort): Promise<CohortRow> {
-    return this.handle
+  /** Chèn cohort; nhận handle giao dịch khi gọi trong transaction tạo lớp. */
+  async insertCohort(v: NewCohort, tx?: GroupsDb): Promise<CohortRow> {
+    const db = tx ?? this.handle;
+    return db
       .insertInto('cohort')
       .values(cohortInsertValues(v))
       .returning(COHORT_COLUMNS)
@@ -451,9 +452,10 @@ export class GroupsRepository {
       .execute() as Promise<CohortRow[]>;
   }
 
-  /** Cập nhật cohort. */
-  async updateCohort(id: string, v: Partial<NewCohort>): Promise<void> {
-    await this.handle
+  /** Cập nhật cohort; nhận handle giao dịch khi gọi trong transaction tạo lớp. */
+  async updateCohort(id: string, v: Partial<NewCohort>, tx?: GroupsDb): Promise<void> {
+    const db = tx ?? this.handle;
+    await db
       .updateTable('cohort')
       .set({ ...cohortUpdateValues(v), updated_at: new Date() })
       .where('id', '=', id)

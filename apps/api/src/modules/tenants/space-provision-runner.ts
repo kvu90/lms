@@ -99,7 +99,7 @@ import {
   retargetUrl,
 } from '../fleet/fleet-common';
 import { FleetRegistryWriter } from '../fleet/fleet-registry-writer';
-import { AccessRepository } from '../access/access.repository';
+import { AccessRepository } from '@lms/db/repositories/access';
 import { ContextsService } from '../access/contexts.service';
 import { RolesService } from '../access/roles.service';
 import { PlanLimitsService } from '../access/plan-limits.service';
@@ -287,29 +287,31 @@ const ROLE_BASELINE_MARKER_VERSION = 1;
  *   tiên) nên việc đồng bộ lại ma trận không mất thay đổi cục
  *   bộ nào.
  *
- * @param db - Handle Drizzle của kho đích (kết nối đã mang ngữ
- *   cảnh platform để qua RLS như mọi ghi seed của pipeline).
- * @param kyselyDb - Handle Kysely của cùng kho đích (cùng ngữ cảnh
- *   platform ở mức phiên) cho `OutboxService` (service đã chuyển
- *   sang Kysely ở D1, issue #653) và hai service access mà
- *   `RolesService` yêu cầu ở constructor (D5 #657). Closure này
- *   chỉ gọi `listRoles`/`seedDefaults` — cả hai đều không phát
- *   sự kiện qua outbox và không truy vấn qua hai lõi access —
- *   nên handle chỉ để dựng các service đúng hợp đồng, chỉ cần
- *   tồn tại đúng kho.
+ * @param accessDb - Handle Kysely của kho đích (pool riêng
+ *   trần 1 kết nối đã mang GUC platform ở mức phiên — seed
+ *   ghi qua AccessRepository phải qua RLS FORCE như mọi ghi
+ *   seed khác, cùng khuôn pool riêng của bước restore gói
+ *   chương trình). Cùng handle này dựng `OutboxService`
+ *   (service đã chuyển sang Kysely ở D1, issue #653) và hai
+ *   facade access `PlanLimitsService`/`RoleSeparationService`
+ *   qua stub mang `routedKysely` trỏ về chính nó. Closure này
+ *   chỉ gọi `listRoles`/`seedDefaults` — cả hai đều không
+ *   phát sự kiện qua outbox và không truy vấn qua hai lõi
+ *   access — nên các handle dựng service chỉ để đúng hợp
+ *   đồng, không mở thêm kết nối nào trong lượt cài này.
  * @returns `created` khi lượt này đã chạy đường gieo và ghi dấu
  *   mốc hoàn tất, `reused` khi kho đã cài trọn bộ vai nên không
  *   đổi gì.
  */
-async function installCentreRoleBaseline(db: Database, kyselyDb: CentreDb): Promise<'created' | 'reused'> {
-  const accessRepository = new AccessRepository(db);
+async function installCentreRoleBaseline(accessDb: CentreDb): Promise<'created' | 'reused'> {
+  const accessRepository = new AccessRepository(accessDb);
   const contextsService = new ContextsService(accessRepository);
   const rolesService = new RolesService(
     accessRepository,
     contextsService,
-    new OutboxService(kyselyDb),
-    new PlanLimitsService({ routedKysely: kyselyDb } as unknown as SpaceDatabaseService),
-    new RoleSeparationService({ routedKysely: kyselyDb } as unknown as SpaceDatabaseService),
+    new OutboxService(accessDb),
+    new PlanLimitsService({ routedKysely: accessDb } as unknown as SpaceDatabaseService),
+    new RoleSeparationService({ routedKysely: accessDb } as unknown as SpaceDatabaseService),
   );
   const existingRoles = await rolesService.listRoles();
   const presentShortNames = new Set(existingRoles.map((row) => row.shortName));
@@ -645,17 +647,14 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
       // Bộ vai mặc định của kho trung tâm (cơ chế chuyển tiếp —
       // xem `installCentreRoleBaseline`): cài sau khi context hệ
       // thống và dòng tenant đã có, vì ma trận mặc định neo vào
-      // context hệ thống của chính kho này. Handle Kysely cho
-      // `OutboxService` và hai service access dựng trên pool riêng
-      // trần 1 kết nối (cùng khuôn restorePool ở trên) với GUC
-      // platform ở mức phiên.
-      const baselinePool = new Pool({ connectionString: centreUrl, max: 1 });
-      const baselineKysely = createCentreKysely(baselinePool);
+      // context hệ thống của chính kho này.
+      const accessPool = new Pool({ connectionString: centreUrl, max: 1 });
+      const accessDb = createCentreKysely(accessPool);
       try {
-        await kyselySql`SELECT set_config('app.platform', 'on', false)`.execute(baselineKysely);
-        step('role-baseline', await installCentreRoleBaseline(db, baselineKysely));
+        await kyselySql`SELECT set_config('app.platform', 'on', false)`.execute(accessDb);
+        step('role-baseline', await installCentreRoleBaseline(accessDb));
       } finally {
-        await baselineKysely.destroy().catch(() => undefined);
+        await accessDb.destroy().catch(() => undefined);
       }
       // Nhận diện của trung tâm (một dòng cho mỗi tenant).
       const [existingIdentity] = await db.select().from(centreIdentity).where(eq(centreIdentity.tenantId, tenantId)).limit(1);
@@ -895,17 +894,14 @@ export async function installSpaceRoleBaseline(options: SpaceRoleBaselineOptions
       const db = drizzle({ client, relations });
       const [tenant] = await db.select().from(tenants).where(eq(tenants.slug, slug)).limit(1);
       if (!tenant) throw new Error(`Tenant ${slug} does not exist in the centre database yet`);
-      // Handle Kysely cho `OutboxService` và hai service access
-      // (D1 #653, D5 #657): pool riêng trần 1 kết nối với GUC
-      // platform ở mức phiên, cùng khuôn điểm gọi cấp phát ở trên.
-      const baselinePool = new Pool({ connectionString: centreUrl, max: 1 });
-      const baselineKysely = createCentreKysely(baselinePool);
+      const accessPool = new Pool({ connectionString: centreUrl, max: 1 });
+      const accessDb = createCentreKysely(accessPool);
       let outcome: 'created' | 'reused';
       try {
-        await kyselySql`SELECT set_config('app.platform', 'on', false)`.execute(baselineKysely);
-        outcome = await installCentreRoleBaseline(db, baselineKysely);
+        await kyselySql`SELECT set_config('app.platform', 'on', false)`.execute(accessDb);
+        outcome = await installCentreRoleBaseline(accessDb);
       } finally {
-        await baselineKysely.destroy().catch(() => undefined);
+        await accessDb.destroy().catch(() => undefined);
       }
       log(`[install-roles:${slug}] role-baseline: ${outcome}`);
       return { slug, outcome };

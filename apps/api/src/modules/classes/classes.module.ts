@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ClassesRepository } from '@lms/db/repositories/classes';
+import { GroupsRepository } from '@lms/db/repositories/groups';
 import { SpaceRoutingModule } from '../../db/routing/space-routing.module';
 import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { EventsModule } from '../../infra/events/events.module';
@@ -12,7 +13,6 @@ import { TenantsModule } from '../tenants/tenants.module';
 import { UsersModule } from '../users/users.module';
 import { ClassesController } from './classes.controller';
 import { ClassesService } from './classes.service';
-import { ClassesTransitionalRepository } from './classes-transitional.repository';
 
 /**
  * ClassesModule — LỚP HỌC HẠNG NHẤT (issue #184, CLASS-0): vòng đời lớp,
@@ -35,10 +35,16 @@ import { ClassesTransitionalRepository } from './classes-transitional.repository
       useFactory: (spaceDb: SpaceDatabaseService) => new ClassesRepository(spaceDb.routedKysely),
       inject: [SpaceDatabaseService],
     },
-    // Repository chuyển tiếp Drizzle của giao dịch tạo lớp (điểm
-    // dừng của điểm nối C-8/B) — chủ đóng đợt access #651, xem
-    // file của nó.
-    ClassesTransitionalRepository,
+    {
+      // GroupsRepository phục vụ giao dịch tạo lớp (cohort nền và
+      // nối context cho cohort — issue #651 hấp thụ điểm nối
+      // C-8/B): cùng factory `routedKysely` như ClassesRepository
+      // vì GroupsModule chỉ export GroupsService, không export
+      // repository.
+      provide: GroupsRepository,
+      useFactory: (spaceDb: SpaceDatabaseService) => new GroupsRepository(spaceDb.routedKysely),
+      inject: [SpaceDatabaseService],
+    },
     ClassesService,
   ],
   exports: [ClassesService, ClassesRepository],

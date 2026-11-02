@@ -1,8 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { context } from '@lms/db';
-import { CONTEXT_LEVELS, PlanLimitsCore, type EffectivePlanLimit, type TenantSlotFacts } from '@lms/enrol';
-import { and, eq, inArray } from 'drizzle-orm';
-import type { DbTx } from '../../db/database';
+import { type CentreTx } from '@lms/db';
+import { PlanLimitsCore, type EffectivePlanLimit, type TenantSlotFacts } from '@lms/enrol';
 import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { tenantAls } from '../tenants/tenant-als';
 import { delegateToSharedCore } from './translate-shared-error';
@@ -43,7 +41,7 @@ export class PlanLimitsService {
   constructor(spaceDb: SpaceDatabaseService) {
     // Cổng ngữ cảnh platform GIỮ `spaceSlug` của ngữ cảnh hiện tại
     // (Phần A, issue #587 — A4, đúng khuôn
-    // `access.repository.ts`): khi lõi kiểm hạn mức được gọi trong
+    // `permission-evaluator.service.ts`): khi lõi kiểm hạn mức được gọi trong
     // request của một trung tâm ở kho riêng, các lượt đọc xuyên
     // tenant của nó phải chạy trên kho của trung tâm đó, không rơi
     // về kho chung. Chỉ đổi đích dữ kiện, không đổi tầm nhìn RLS
@@ -58,40 +56,21 @@ export class PlanLimitsService {
    * Suy tenant sở hữu một context: context tenant là tổ tiên có
    * `context_level = 20` trong `path` vật chất hoá của context (hoặc
    * chính context đó). Trả null khi context không thuộc tenant nào.
+   *
+   * Bên gọi có transaction Kysely đang mở thì truyền transaction
+   * đó để việc đọc thấy đúng trạng thái trong giao dịch: đường gán
+   * vai của `roles.service` tạo context lớp trong cùng transaction
+   * rồi cần suy tenant của chính context vừa tạo — đọc qua handle
+   * mặc định ngoài transaction sẽ trượt dòng chưa commit và trả
+   * null, làm cổng slot giáo viên bị bỏ qua lặng lẽ. Không truyền
+   * thì lõi đọc qua handle mặc định của nó. Toàn bộ đường
+   * createContext/assignRole/setCapabilityOverride nay chạy trên
+   * làn Kysely nên facade chỉ còn handle Kysely như phần còn lại
+   * của service — lõi dùng chung cũng chỉ nhận handle Kysely,
+   * không còn nhánh đọc bằng transaction Drizzle.
    */
-  async tenantIdForContext(contextId: string, tx?: DbTx): Promise<string | null> {
-    if (tx) {
-      // ĐIỂM NỐI CHUYỂN TIẾP (chủ đóng: access #651 — khi đường
-      // createClass chuyển sang làn Kysely thì nhánh này bị xoá):
-      // đường createClass của API vẫn mở MỘT transaction Drizzle
-      // cho cả createContext/assignRole/setCapabilityOverride, và
-      // `roles.service` chuyển transaction đó vào đây để việc đọc
-      // thấy đúng context lớp vừa tạo trong transaction. Lõi dùng
-      // chung nay chỉ nhận handle Kysely nên không thể nhận
-      // transaction Drizzle này — facade tự đọc hai truy vấn cũ
-      // (dòng context theo id, rồi tổ tiên cấp tenant từ các id
-      // trong path) trên chính transaction Drizzle đó. Bỏ việc
-      // chuyển tiếp (đọc qua lõi Kysely ngoài transaction) sẽ làm
-      // đọc trượt context vừa tạo → trả null → cổng slot giáo viên
-      // bị bỏ qua lặng lẽ cho createClass, nên nhánh này không được
-      // bỏ trước khi #651 đóng nó.
-      return delegateToSharedCore(async () => {
-        const [row] = await tx
-          .select({ contextLevel: context.contextLevel, instanceId: context.instanceId, path: context.path })
-          .from(context)
-          .where(eq(context.id, contextId));
-        if (!row) return null;
-        if (row.contextLevel === CONTEXT_LEVELS.TENANT) return row.instanceId;
-        const ancestorIds = row.path.split('/').filter((s) => s.length > 0);
-        if (ancestorIds.length === 0) return null;
-        const [ancestor] = await tx
-          .select({ instanceId: context.instanceId })
-          .from(context)
-          .where(and(inArray(context.id, ancestorIds), eq(context.contextLevel, CONTEXT_LEVELS.TENANT)));
-        return ancestor?.instanceId ?? null;
-      });
-    }
-    return delegateToSharedCore(() => this.core.tenantIdForContext(contextId));
+  async tenantIdForContext(contextId: string, tx?: CentreTx): Promise<string | null> {
+    return delegateToSharedCore(() => this.core.tenantIdForContext(contextId, tx));
   }
 
   /** Hạn mức slot gói trung tâm hiệu lực của một tenant. */

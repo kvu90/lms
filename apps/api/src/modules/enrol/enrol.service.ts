@@ -107,7 +107,7 @@ export class EnrolService implements OnModuleInit {
       },
       // Cổng ngữ cảnh platform GIỮ `spaceSlug` của ngữ cảnh hiện
       // tại (Phần A, issue #587 — A4, đúng khuôn
-      // `access.repository.ts`): khi bề mặt vật chất hoá được gọi
+      // `permission-evaluator.service.ts`): khi bề mặt vật chất hoá được gọi
       // trong request của một trung tâm ở kho riêng, các lượt
       // đọc/ghi xuyên tenant của nó phải chạy trên kho của trung
       // tâm đó, không rơi về kho chung. Chỉ đổi đích dữ kiện,
