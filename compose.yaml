@@ -337,13 +337,14 @@ services:
   # dùng chung cụm Postgres của ứng dụng và không được mất khi
   # container bị tạo lại ở các lần deploy.
   #
-  # Realm `giaokhoa` được nạp ở lần khởi động đầu tiên bằng cơ chế
-  # nạp realm lúc khởi động (--import-realm): file
-  # deploy/keycloak/giaokhoa-realm.json trong repo được đóng gói
-  # sẵn vào image của service keycloak (Dockerfile.keycloak ở
-  # gốc repo COPY file vào /opt/keycloak/data/import/ trong
-  # image). Keycloak chỉ nạp realm khi nó chưa tồn tại; các
-  # lần khởi động sau bỏ qua file này.
+  # Realm không nằm trong repo: realm, client và cấu hình
+  # trong realm là dữ kiện vận hành của bản cài, do admin tạo
+  # và quản trong trang quản trị Keycloak (Admin Console) và
+  # qua Admin API — service keycloak dưới đây chạy thẳng image
+  # gốc của Keycloak, không đóng gói file realm nào và không
+  # nạp realm lúc khởi động. Hệ quả: nếu cơ sở dữ liệu của
+  # Keycloak bị xoá sạch và dựng lại từ đầu, realm không tự
+  # xuất hiện lại — admin tạo lại realm trong trang quản trị.
   #
   # Hai service này chạy trên mạng riêng keycloak-net (khai ở
   # khối networks cuối file), tách khỏi mạng mặc định của
@@ -376,11 +377,9 @@ services:
       - keycloak-net
 
   keycloak:
-    build:
-      context: .
-      dockerfile: Dockerfile.keycloak
+    image: quay.io/keycloak/keycloak:26.7.5
     restart: unless-stopped
-    command: ["start", "--import-realm"]
+    command: ["start"]
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://kc-db:5432/keycloak
@@ -448,8 +447,8 @@ services:
       # Image Keycloak không có curl: thăm readiness bằng Bash
       # /dev/tcp — mở kết nối TCP tới cổng quản trị 9000, gửi
       # request HTTP và đòi dòng trạng thái đáp án chứa 200.
-      # start_period dài để lần khởi động đầu (tạo schema và
-      # nạp realm) không bị tính là lỗi. Healthcheck chỉ để
+      # start_period dài để lần khởi động đầu (tạo schema)
+      # không bị tính là lỗi. Healthcheck chỉ để
       # quan sát trạng thái và cho CI chờ readiness — không cơ
       # chế nào restart container theo healthcheck, nên
       # database chập chờn không làm Keycloak bị khởi động lại.
@@ -459,8 +458,7 @@ services:
       # bằng chuỗi rỗng trước khi lệnh tới container và probe
       # hỏng lặng lẽ (đã vấp ở lượt CI đầu của healthcheck này:
       # log job có cảnh báo "status variable is not set" trong
-      # khi Keycloak khởi động và nạp realm hoàn toàn bình
-      # thường).
+      # khi Keycloak khởi động hoàn toàn bình thường).
       test: ["CMD", "bash", "-c", 'exec 3<>/dev/tcp/127.0.0.1/9000 || exit 1; printf "GET /health/ready HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n" >&3; IFS= read -r status <&3; case "$$status" in *" 200 "*) exit 0 ;; *) exit 1 ;; esac']
       interval: 10s
       timeout: 5s

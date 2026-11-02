@@ -4,9 +4,10 @@
 # của PR trước khi merge để bảo đảm head đó thật sự dựng được stack
 # production tự host (compose.yaml ở gốc repo). Workflow này dựng
 # toàn bộ stack từ chính head của PR trong runner CI, chờ API khỏe,
-# kiểm tra trang gốc, rồi chờ Keycloak sẵn sàng và kiểm chứng realm
-# `giaokhoa` của nó (issuer trong tài liệu discovery + Organizations qua
-# Admin API), rồi dọn sạch. Nó KHÔNG deploy lên máy tự host
+# kiểm tra trang gốc, rồi chờ Keycloak sẵn sàng và kiểm chứng nó
+# boot khỏe (healthcheck của service + issuer trong tài liệu
+# discovery của realm `master`), rồi dọn sạch. Nó KHÔNG deploy
+# lên máy tự host
 # thật — đường deploy production vẫn là Dokploy kéo từ main.
 #
 # Chuỗi status context của job dưới đây là "deploy-check / verify-stack"
@@ -56,8 +57,8 @@ jobs:
       # compose.yaml) cộng mật khẩu tài khoản quản trị bootstrap
       # của Keycloak (compose nội suy biến này theo dạng có mặc
       # định rỗng, nhưng bootstrap cần giá trị thật ở lần khởi
-      # động đầu tiên và bước kiểm chứng realm ở dưới cần chính
-      # mật khẩu này để đăng nhập Admin API); các biến còn lại
+      # động đầu tiên để Keycloak tạo được tài khoản quản trị
+      # bootstrap); các biến còn lại
       # giữ nguyên mặc định của file mẫu, trong đó BETTER_AUTH_URL
       # và CORS_ORIGINS là http://localhost:8080 cho môi trường CI. Các
       # biến tuỳ chọn (MFA, Resend) giữ ở dạng comment trong file mẫu
@@ -113,25 +114,23 @@ jobs:
       - name: Check root page responds
         run: curl -sf http://localhost:8080/ -o /dev/null
 
-      # Chờ Keycloak sẵn sàng rồi kiểm chứng realm `giaokhoa` sống
-      # thật, theo ba khẳng định — khẳng định nào trượt cũng làm
+      # Chờ Keycloak sẵn sàng rồi kiểm chứng nó boot khỏe,
+      # theo hai khẳng định — khẳng định nào trượt cũng làm
       # job fail ngay tại bước này:
       # (1) healthcheck của chính service keycloak báo healthy:
       # healthcheck thăm /health/ready trên cổng quản trị 9000
       # bên trong container (cổng 9000 không publish ra host nên
       # runner không thăm trực tiếp được; trạng thái health đọc
       # qua docker inspect của container service).
-      # (2) Tài liệu discovery của realm qua cổng loopback 8085
-      # khẳng định issuer đúng tên miền công khai: KC_HOSTNAME
-      # ghim issuer theo https://auth.fuckr.net nên discovery
-      # trả issuer này dù request đi qua địa chỉ loopback của
-      # runner.
-      # (3) Lấy token quản trị từ realm master bằng chính mật
-      # khẩu bootstrap job đã sinh trong file .env, gọi Admin
-      # API đọc realm `giaokhoa` và khẳng định organizationsEnabled
-      # bằng true — chứng minh realm đã được nạp từ file trong
-      # image và Organizations đã bật.
-      - name: Verify Keycloak readiness and realm
+      # (2) Tài liệu discovery của realm `master` qua cổng
+      # loopback 8085 khẳng định issuer đúng tên miền công khai:
+      # KC_HOSTNAME ghim issuer theo https://auth.fuckr.net nên
+      # discovery trả issuer này dù request đi qua địa chỉ
+      # loopback của runner. Realm `master` có sẵn trong mọi
+      # bản cài Keycloak nên luôn khẳng định được; các realm
+      # nghiệp vụ là dữ kiện vận hành do admin tạo trong trang
+      # quản trị, không nằm trong stack CI này.
+      - name: Verify Keycloak readiness
         run: |
           for attempt in $(seq 1 60); do
             container_id=$(docker compose -f compose.yaml -f compose.ci.yaml ps -q keycloak)
@@ -148,18 +147,10 @@ jobs:
             fi
             sleep 5
           done
-          issuer=$(curl -sf http://127.0.0.1:8085/realms/giaokhoa/.well-known/openid-configuration | jq -er '.issuer')
-          echo "Realm giaokhoa discovery issuer: ${issuer}"
-          if [ "$issuer" != "https://auth.fuckr.net/realms/giaokhoa" ]; then
-            echo "Unexpected issuer for realm giaokhoa."
-            exit 1
-          fi
-          admin_password=$(grep '^KEYCLOAK_ADMIN_PASSWORD=' .env | cut -d= -f2-)
-          token=$(curl -sf -X POST http://127.0.0.1:8085/realms/master/protocol/openid-connect/token -H 'Content-Type: application/x-www-form-urlencoded' -d 'grant_type=password' -d 'client_id=admin-cli' -d 'username=admin' --data-urlencode "password=${admin_password}" | jq -er '.access_token')
-          organizations=$(curl -sf http://127.0.0.1:8085/admin/realms/giaokhoa -H "Authorization: Bearer ${token}" | jq -er '.organizationsEnabled')
-          echo "Realm giaokhoa organizationsEnabled: ${organizations}"
-          if [ "$organizations" != "true" ]; then
-            echo "Realm giaokhoa does not have Organizations enabled."
+          issuer=$(curl -sf http://127.0.0.1:8085/realms/master/.well-known/openid-configuration | jq -er '.issuer')
+          echo "Realm master discovery issuer: ${issuer}"
+          if [ "$issuer" != "https://auth.fuckr.net/realms/master" ]; then
+            echo "Unexpected issuer for realm master."
             exit 1
           fi
 
