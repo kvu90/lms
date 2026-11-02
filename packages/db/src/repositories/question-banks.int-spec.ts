@@ -135,9 +135,12 @@ async function seedData(): Promise<Seed> {
     })
     .execute();
 
+  // Chỉ số unique (scope, bank_kind) với scope 'platform' chỉ cho một bank
+  // platform mỗi kind: ba lần insert platform trong spec này (bank hệ thống,
+  // bank id tường minh, bank rollback) dùng ba bankKind khác nhau.
   const platformBank = await repo.insertBank({
     name: 'Ngân hàng hệ thống', scope: 'platform', tenantId: null, ownerId: null,
-    scopeRefId: null, contextId: CONTEXT_ID, createdBy: u1.id,
+    scopeRefId: null, contextId: CONTEXT_ID, createdBy: u1.id, bankKind: 'question',
   });
   const schoolBank = await repo.insertBank({
     name: 'Bank trường', scope: 'school', tenantId: tenant.id, ownerId: null,
@@ -285,7 +288,7 @@ describe('QuestionBanksRepository trên Kysely (issue #644)', () => {
   it('insertBank giữ id do phía gọi cấp trước (hình dạng buildBank dựng context trỏ về bank)', async () => {
     const bank = await repo.insertBank({
       id: EXPLICIT_BANK_ID, name: 'Bank id tường minh', scope: 'platform', tenantId: null,
-      ownerId: null, scopeRefId: null, contextId: CONTEXT_ID, createdBy: seed.u1,
+      ownerId: null, scopeRefId: null, contextId: CONTEXT_ID, createdBy: seed.u1, bankKind: 'exam',
     });
     expect(bank.id).toBe(EXPLICIT_BANK_ID);
     expect(await repo.getBank(EXPLICIT_BANK_ID)).toEqual(bank);
@@ -436,7 +439,7 @@ describe('QuestionBanksRepository trên Kysely (issue #644)', () => {
     await expect(repo.transaction(async (tx) => {
       await repo.insertBank({
         id: TX_BANK_ID, name: 'Bank rollback', scope: 'platform', tenantId: null,
-        ownerId: null, scopeRefId: null, contextId: CONTEXT_ID, createdBy: seed.u1,
+        ownerId: null, scopeRefId: null, contextId: CONTEXT_ID, createdBy: seed.u1, bankKind: 'matrix',
       }, tx);
       throw new Error('huỷ giao dịch mẫu');
     })).rejects.toThrow('huỷ giao dịch mẫu');

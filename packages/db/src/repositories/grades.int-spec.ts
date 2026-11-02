@@ -44,6 +44,7 @@ const U1 = '019276a1-4444-7000-8000-0000000000e1';
 const U2 = '019276a1-4444-7000-8000-0000000000e2';
 const ACTOR = '019276a1-4444-7000-8000-0000000000e3';
 const CM_ID = '019276a1-4444-7000-8000-0000000000f1';
+const CM_TWIN_ID = '019276a1-4444-7000-8000-0000000000f2';
 const EMPTY_COURSE = '019276a1-4444-7000-8000-0000000000f2';
 
 let pool: Pool;
@@ -82,9 +83,11 @@ async function seedData(): Promise<Seed> {
   const itemB = await repo.insertItem({
     courseId: courseRow.id, itemType: 'manual', itemName: 'Bài tay 2', sortOrder: 1,
   });
-  // Item sinh đôi cho oracle upsert: cùng hình dạng với itemA để hai phía chạy độc lập.
+  // Item sinh đôi cho oracle upsert: cùng hình dạng với itemA để hai phía
+  // chạy độc lập; itemInstance phải khác itemA vì ràng buộc unique
+  // (course_id, item_type, item_instance, item_module) của bảng grade_items.
   const itemTwin = await repo.insertItem({
-    courseId: courseRow.id, itemType: 'mod', itemModule: 'quiz', itemInstance: CM_ID,
+    courseId: courseRow.id, itemType: 'mod', itemModule: 'quiz', itemInstance: CM_TWIN_ID,
     itemName: 'Bài kiểm tra 1 (sinh đôi)', sortOrder: 3, gradeMax: 10,
   });
   return { courseId: courseRow.id, itemA, itemB, itemTwin };
