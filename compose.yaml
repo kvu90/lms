@@ -211,7 +211,7 @@ services:
       retries: 12
       start_period: 20s
 
-  # Áp migration (thư mục drizzle đi kèm image api) rồi kết thúc.
+  # Áp migration (thư mục migration trong package @lms/db đi kèm image api) rồi kết thúc.
   # Service này luôn thuộc stack, không nằm trong profile: api và
   # worker khai depends_on điều kiện service_completed_successfully
   # vào nó nên mỗi lần `docker compose up`, migration được áp xong
@@ -238,7 +238,7 @@ services:
       # Hai URL đích của mô hình role: script runtime-roles-setup
       # đảm bảo hai role tồn tại, database thuộc sở hữu của role
       # migration và role runtime chỉ giữ quyền dữ liệu; cấu hình
-      # Drizzle của kho nghiệp vụ ưu tiên MIGRATION_DATABASE_URL nên
+      # runner migration của kho nghiệp vụ ưu tiên MIGRATION_DATABASE_URL nên
       # migration được áp bằng đúng role chủ sở hữu.
       MIGRATION_DATABASE_URL: postgres://lms_migrator:${MIGRATOR_POSTGRES_PASSWORD:?Can dat MIGRATOR_POSTGRES_PASSWORD trong file .env}@postgres:5432/${POSTGRES_DB:-lms}
       RUNTIME_DATABASE_URL: postgres://lms_runtime:${RUNTIME_POSTGRES_PASSWORD:?Can dat RUNTIME_POSTGRES_PASSWORD trong file .env}@postgres:5432/${POSTGRES_DB:-lms}

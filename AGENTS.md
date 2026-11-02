@@ -24,7 +24,7 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
 
 - **Bám pattern chính thức của package/framework bên ngoài:** khi
   dùng hay cấu hình bất kỳ package hay framework bên ngoài nào
-  (thư viện bên thứ ba, ví dụ Vitest, NestJS, Drizzle hay plugin
+  (thư viện bên thứ ba, ví dụ Vitest, NestJS, Kysely hay plugin
   ESLint), đội thi công PHẢI nghiên cứu pattern chính thức của
   chính thư viện đó trước — tài liệu, cách dùng khuyến nghị, bộ
   rule và quy ước của nhà phát hành — và dùng đúng như vậy. Cấm
