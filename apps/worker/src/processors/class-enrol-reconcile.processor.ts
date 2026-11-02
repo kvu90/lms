@@ -17,19 +17,63 @@
  * role không BYPASSRLS (`test/class-enrol-reconcile-rls.spec.ts`).
  */
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import type { Job } from 'bullmq';
-import { and, eq, inArray } from 'drizzle-orm';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type { relations } from '../db/relations';
-import {
-  classes, cohortMembers, context, course, enrol, groupsMembers, outboxEvents,
-  roleAssignments, userEnrolments,
-} from '@lms/db';
+import { sql } from 'kysely';
+import { type CentreDB } from '@lms/db';
+import { type EnrolInstanceRow } from '@lms/enrol';
+import { SpaceDatabaseService } from '../db/routing/space-database.service';
 import { TaskLogService } from '../task-log.service';
 import { tenantAls } from '../db/tenant-als';
 
-type Database = NodePgDatabase<typeof relations>;
+/**
+ * Danh sách cột đọc của một dòng `enrol` mà processor này nạp —
+ * đúng hình dạng `EnrolRow` của `@lms/db`, dùng chung cho lượt đọc
+ * các instance cohort của lớp: bí danh camelCase tường minh theo
+ * khuôn danh sách cột của `@lms/db`.
+ */
+const ENROL_COLUMNS = [
+  'id',
+  'course_id as courseId',
+  'enrol',
+  'name',
+  'role_id as roleId',
+  'status',
+  'enrol_period as enrolPeriod',
+  'time_start as timeStart',
+  'time_end as timeEnd',
+  'enrolment_key as enrolmentKey',
+  'custom_int1 as customInt1',
+  'custom_int2 as customInt2',
+  'custom_text1 as customText1',
+  'cost',
+  'currency',
+  'payment_account_id as paymentAccountId',
+  'send_welcome_message as sendWelcomeMessage',
+  'welcome_message as welcomeMessage',
+  'created_at as createdAt',
+  'updated_at as updatedAt',
+] as const;
+
+/**
+ * Danh sách cột đọc của một dòng `user_enrolments` mà kế hoạch
+ * đối soát cần: định danh, instance, người dùng, trạng thái và
+ * vết người thao tác (phân biệt đình chỉ thủ công với đình chỉ
+ * của đồng bộ hệ thống).
+ */
+const USER_ENROLMENT_PLAN_COLUMNS = [
+  'id',
+  'enrol_id as enrolId',
+  'user_id as userId',
+  'status',
+  'modifier_id as modifierId',
+] as const;
+
+/** Hình dáng dòng `classes` mà lượt đối soát cần: định danh, tenant sở hữu và backing cohort của lớp. */
+interface ReconcileClassRow {
+  id: string;
+  tenantId: string;
+  cohortId: string;
+}
 
 export interface ClassEnrolReconcileResult {
   checkedAt: string;
@@ -58,7 +102,7 @@ const CONTEXT_LEVEL_COURSE = 50;
 /** Một việc sửa đã lên kế hoạch cho một instance — tính trước toàn bộ để áp ngưỡng an toàn theo lớp trước khi ghi. */
 interface PlannedFix {
   kind: 'enrol' | 'reactivate' | 'suspend' | 'withdraw' | 'role';
-  instance: typeof enrol.$inferSelect;
+  instance: EnrolInstanceRow;
   userId: string;
   ueId?: string;
 }
@@ -90,7 +134,7 @@ interface PlannedFix {
  */
 @Processor('class-enrol-reconcile')
 export class ClassEnrolReconcileProcessor extends WorkerHost {
-  constructor(@InjectDrizzle() private readonly db: Database, private readonly taskLog: TaskLogService) { super(); }
+  constructor(private readonly spaceDb: SpaceDatabaseService, private readonly taskLog: TaskLogService) { super(); }
 
   /**
    * Xử lý một job đối soát. Worker không có request HTTP nên processor
@@ -147,7 +191,11 @@ export class ClassEnrolReconcileProcessor extends WorkerHost {
       classesChecked: 0, enrolled: 0, reactivated: 0, suspended: 0, withdrawn: 0,
       rolesRestored: 0, skippedClassIds: [],
     };
-    const activeClasses = await this.db.select().from(classes).where(eq(classes.status, 'active'));
+    const activeClasses = await this.spaceDb.routedKysely
+      .selectFrom('classes')
+      .select(['id', 'tenant_id as tenantId', 'cohort_id as cohortId'])
+      .where('status', '=', 'active')
+      .execute();
     for (const clazz of activeClasses) {
       result.classesChecked += 1;
       // Xử lý một lớp trong ngữ cảnh tenant của CHÍNH lớp đó: đọc hai
@@ -177,21 +225,35 @@ export class ClassEnrolReconcileProcessor extends WorkerHost {
   }
 
   /** Lên kế hoạch sửa cho một lớp: đọc toàn bộ hai phía (roster ↔ UE trên các instance cohort của lớp) và suy ra việc cần làm. */
-  private async planForClass(clazz: typeof classes.$inferSelect): Promise<{ planned: PlannedFix[]; scale: number } | null> {
-    const members = await this.db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, clazz.cohortId));
+  private async planForClass(clazz: ReconcileClassRow): Promise<{ planned: PlannedFix[]; scale: number } | null> {
+    const members = await this.spaceDb.routedKysely
+      .selectFrom('cohort_members')
+      .select('user_id as userId')
+      .where('cohort_id', '=', clazz.cohortId)
+      .execute();
     const memberIds = new Set(members.map((m) => m.userId));
-    const classCourses = await this.db.select().from(course).where(eq(course.classId, clazz.id));
+    const classCourses = await this.spaceDb.routedKysely
+      .selectFrom('course')
+      .select('id')
+      .where('class_id', '=', clazz.id)
+      .execute();
     if (classCourses.length === 0) return { planned: [], scale: memberIds.size };
-    const instances = await this.db.select().from(enrol).where(and(
-      inArray(enrol.courseId, classCourses.map((c) => c.id)),
-      eq(enrol.enrol, 'cohort'),
-      eq(enrol.customInt1, clazz.cohortId),
-      eq(enrol.status, 0),
-    ));
+    const instances: EnrolInstanceRow[] = await this.spaceDb.routedKysely
+      .selectFrom('enrol')
+      .select(ENROL_COLUMNS)
+      .where('course_id', 'in', classCourses.map((c) => c.id))
+      .where('enrol', '=', 'cohort')
+      .where('custom_int1', '=', clazz.cohortId)
+      .where('status', '=', 0)
+      .execute();
     const planned: PlannedFix[] = [];
     let scale = memberIds.size;
     for (const instance of instances) {
-      const ues = await this.db.select().from(userEnrolments).where(eq(userEnrolments.enrolId, instance.id));
+      const ues = await this.spaceDb.routedKysely
+        .selectFrom('user_enrolments')
+        .select(USER_ENROLMENT_PLAN_COLUMNS)
+        .where('enrol_id', '=', instance.id)
+        .execute();
       scale += ues.length;
       const ueByUser = new Map(ues.map((ue) => [ue.userId, ue]));
       const courseCtx = await this.courseContextId(instance.courseId);
@@ -202,13 +264,15 @@ export class ClassEnrolReconcileProcessor extends WorkerHost {
       // vai của instance, đúng component và itemId của instance.
       const assignedUserIds = new Set<string>();
       if (instance.roleId && courseCtx && memberIds.size > 0) {
-        const assignments = await this.db.select({ userId: roleAssignments.userId }).from(roleAssignments).where(and(
-          inArray(roleAssignments.userId, [...memberIds]),
-          eq(roleAssignments.contextId, courseCtx),
-          eq(roleAssignments.roleId, instance.roleId),
-          eq(roleAssignments.component, ENROL_ASSIGNMENT_COMPONENT),
-          eq(roleAssignments.itemId, instance.id),
-        ));
+        const assignments = await this.spaceDb.routedKysely
+          .selectFrom('role_assignments')
+          .select('user_id as userId')
+          .where('user_id', 'in', [...memberIds])
+          .where('context_id', '=', courseCtx)
+          .where('role_id', '=', instance.roleId)
+          .where('component', '=', ENROL_ASSIGNMENT_COMPONENT)
+          .where('item_id', '=', instance.id)
+          .execute();
         for (const assignment of assignments) assignedUserIds.add(assignment.userId);
       }
       for (const userId of memberIds) {
@@ -249,8 +313,12 @@ export class ClassEnrolReconcileProcessor extends WorkerHost {
   }
 
   private async courseContextId(courseId: string): Promise<string | undefined> {
-    const [row] = await this.db.select().from(context)
-      .where(and(eq(context.contextLevel, CONTEXT_LEVEL_COURSE), eq(context.instanceId, courseId)));
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('context')
+      .select('id')
+      .where('context_level', '=', CONTEXT_LEVEL_COURSE)
+      .where('instance_id', '=', courseId)
+      .executeTakeFirst();
     return row?.id;
   }
 
@@ -259,75 +327,86 @@ export class ClassEnrolReconcileProcessor extends WorkerHost {
     const { instance, userId } = fix;
     if (fix.kind === 'enrol') {
       const courseCtx = await this.courseContextId(instance.courseId);
-      await this.db.transaction(async (tx) => {
-        await tx.insert(userEnrolments).values({
-          enrolId: instance.id, userId, status: ENROL_ACTIVE, timeStart: now, timeEnd: null, modifierId: null,
-        });
-        await tx.insert(outboxEvents).values({
+      await this.spaceDb.routedKysely.transaction().execute(async (tx) => {
+        await tx.insertInto('user_enrolments').values({
+          enrol_id: instance.id, user_id: userId, status: ENROL_ACTIVE, time_start: now, time_end: null, modifier_id: null,
+        }).execute();
+        await tx.insertInto('outbox_events').values({
           aggregate: 'enrol', type: 'user_enrolled',
-          payload: { courseId: instance.courseId, userId, instanceId: instance.id, method: 'cohort', actorId: null, reconciled: true },
-        });
+          // Cột `payload` jsonb đi qua serialize tường minh kèm
+          // `::jsonb` theo khuôn ghi jsonb của `@lms/db`.
+          payload: sql<CentreDB['outbox_events']['payload']>`${JSON.stringify({
+            courseId: instance.courseId, userId, instanceId: instance.id, method: 'cohort', actorId: null, reconciled: true,
+          })}::jsonb`,
+        }).execute();
         if (instance.roleId && courseCtx) {
-          await tx.insert(roleAssignments).values({
-            roleId: instance.roleId, userId, contextId: courseCtx,
-            component: ENROL_ASSIGNMENT_COMPONENT, itemId: instance.id,
-          }).onConflictDoNothing();
+          await tx.insertInto('role_assignments').values({
+            role_id: instance.roleId, user_id: userId, context_id: courseCtx,
+            component: ENROL_ASSIGNMENT_COMPONENT, item_id: instance.id,
+          }).onConflict((oc) => oc.doNothing()).execute();
         }
         if (instance.customInt2) {
-          await tx.insert(groupsMembers).values({
-            groupId: instance.customInt2, userId, component: 'enrol_cohort', itemId: instance.id,
-          }).onConflictDoNothing();
+          await tx.insertInto('groups_members').values({
+            group_id: instance.customInt2, user_id: userId, component: 'enrol_cohort', item_id: instance.id,
+          }).onConflict((oc) => oc.doNothing()).execute();
         }
       });
       return;
     }
     if (fix.kind === 'reactivate' && fix.ueId) {
-      await this.db.update(userEnrolments)
-        .set({ status: ENROL_ACTIVE, modifierId: null, updatedAt: now })
-        .where(eq(userEnrolments.id, fix.ueId));
+      await this.spaceDb.routedKysely.updateTable('user_enrolments')
+        .set({ status: ENROL_ACTIVE, modifier_id: null, updated_at: now })
+        .where('id', '=', fix.ueId)
+        .execute();
       return;
     }
     if (fix.kind === 'suspend' && fix.ueId) {
-      await this.db.transaction(async (tx) => {
-        await tx.update(userEnrolments)
-          .set({ status: ENROL_SUSPENDED, modifierId: null, updatedAt: now })
-          .where(eq(userEnrolments.id, fix.ueId!));
-        await tx.insert(outboxEvents).values({
+      await this.spaceDb.routedKysely.transaction().execute(async (tx) => {
+        await tx.updateTable('user_enrolments')
+          .set({ status: ENROL_SUSPENDED, modifier_id: null, updated_at: now })
+          .where('id', '=', fix.ueId!)
+          .execute();
+        await tx.insertInto('outbox_events').values({
           aggregate: 'enrol', type: 'user_enrolment_suspended',
-          payload: { courseId: instance.courseId, userId, instanceId: instance.id, reason: 'reconciled_cohort_removed' },
-        });
+          payload: sql<CentreDB['outbox_events']['payload']>`${JSON.stringify({
+            courseId: instance.courseId, userId, instanceId: instance.id, reason: 'reconciled_cohort_removed',
+          })}::jsonb`,
+        }).execute();
       });
       return;
     }
     if (fix.kind === 'withdraw' && fix.ueId) {
       const courseCtx = await this.courseContextId(instance.courseId);
-      await this.db.transaction(async (tx) => {
-        await tx.update(userEnrolments)
-          .set({ status: ENROL_WITHDRAWN, modifierId: null, updatedAt: now })
-          .where(eq(userEnrolments.id, fix.ueId!));
+      await this.spaceDb.routedKysely.transaction().execute(async (tx) => {
+        await tx.updateTable('user_enrolments')
+          .set({ status: ENROL_WITHDRAWN, modifier_id: null, updated_at: now })
+          .where('id', '=', fix.ueId!)
+          .execute();
         if (instance.roleId && courseCtx) {
-          await tx.delete(roleAssignments).where(and(
-            eq(roleAssignments.userId, userId),
-            eq(roleAssignments.contextId, courseCtx),
-            eq(roleAssignments.roleId, instance.roleId),
-            eq(roleAssignments.component, ENROL_ASSIGNMENT_COMPONENT),
-            eq(roleAssignments.itemId, instance.id),
-          ));
+          await tx.deleteFrom('role_assignments')
+            .where('user_id', '=', userId)
+            .where('context_id', '=', courseCtx)
+            .where('role_id', '=', instance.roleId)
+            .where('component', '=', ENROL_ASSIGNMENT_COMPONENT)
+            .where('item_id', '=', instance.id)
+            .execute();
         }
-        await tx.insert(outboxEvents).values({
+        await tx.insertInto('outbox_events').values({
           aggregate: 'enrol', type: 'user_unenrolled',
-          payload: { courseId: instance.courseId, userId, instanceId: instance.id, reason: 'reconciled_cohort_removed' },
-        });
+          payload: sql<CentreDB['outbox_events']['payload']>`${JSON.stringify({
+            courseId: instance.courseId, userId, instanceId: instance.id, reason: 'reconciled_cohort_removed',
+          })}::jsonb`,
+        }).execute();
       });
       return;
     }
     if (fix.kind === 'role') {
       const courseCtx = await this.courseContextId(instance.courseId);
       if (instance.roleId && courseCtx) {
-        await this.db.insert(roleAssignments).values({
-          roleId: instance.roleId, userId, contextId: courseCtx,
-          component: ENROL_ASSIGNMENT_COMPONENT, itemId: instance.id,
-        }).onConflictDoNothing();
+        await this.spaceDb.routedKysely.insertInto('role_assignments').values({
+          role_id: instance.roleId, user_id: userId, context_id: courseCtx,
+          component: ENROL_ASSIGNMENT_COMPONENT, item_id: instance.id,
+        }).onConflict((oc) => oc.doNothing()).execute();
       }
     }
   }
