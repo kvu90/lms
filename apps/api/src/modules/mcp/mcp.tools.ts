@@ -45,7 +45,7 @@ import type { QuestionsService } from '../questions/questions.service';
 import type { MatrixBanksService } from '../quiz/matrix-banks.service';
 import { truefalseHashAnswers } from '../questions/domain/question-engine';
 import { mcpRequestHash, normalizeContentStrings, scanContent, type ContentViolation } from './mcp-content';
-import type { McpIdempotencyRepository } from './mcp-idempotency.repository';
+import type { McpIdempotencyRepository } from '@lms/db/repositories/mcp-idempotency';
 import type { McpActor } from './mcp.context';
 
 export interface McpToolDeps {
