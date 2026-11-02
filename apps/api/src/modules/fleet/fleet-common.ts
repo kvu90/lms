@@ -306,7 +306,7 @@ export function runPgTool(
  * của package `@lms/db` để đường dẫn là TUYỆT ĐỐI và đúng ở mọi bố
  * cục chạy (repo phát triển, image production đóng gói bằng
  * `pnpm deploy` — carrier nằm trong `node_modules/@lms/db`), không
- * suy từ thư mục làm việc như mặc định cũ `<cwd>/drizzle` (thư mục
+ * suy từ thư mục làm việc như mặc định cũ theo thư mục làm việc (thư mục
  * đó không còn tồn tại sau khi carrier dời vào package). Phân giải
  * lỗi (bố cục lạ chưa build package) thì dự phòng theo vị trí
  * `node_modules` tính từ thư mục làm việc của tiến trình API.
@@ -342,17 +342,13 @@ export function listMigrationFolders(migrationsDir: string): string[] {
 
 /**
  * Đọc phiên bản schema THẬT của một database từ nhật ký migration
- * của chính nó — uỷ thác cho hàm đọc tương thích của `@lms/db`
- * (issue #639): kho đã qua adoption thì đọc `kysely_migration`
- * (phiên bản mới nhất là tên lớn nhất — tên migration mở đầu bằng
- * dấu thời gian nên thứ tự tên là thứ tự áp); kho chưa qua
- * adoption thì đọc `drizzle.__drizzle_migrations` đúng truy vấn cũ
- * (theo thời gian áp, hoà thì theo id). Database chưa từng được
- * áp migration (chưa có bảng nhật ký nào) được coi là chưa có
- * phiên bản (null) — đây là NGUỒN SỰ THẬT về phiên bản của kho;
- * sổ đăng ký chỉ là ảnh phản chiếu phải khớp với nó. Hàm này CHỈ
- * ĐỌC, không đổi hành vi ghi nhận phiên bản của runner (runner
- * vẫn ghi qua bộ máy Drizzle cho tới nấc đổi chủ B2).
+ * của chính nó — uỷ thác cho hàm đọc của `@lms/db` (issue #639):
+ * đọc `kysely_migration` (phiên bản mới nhất là tên lớn nhất — tên
+ * migration mở đầu bằng dấu thời gian nên thứ tự tên là thứ tự
+ * áp). Database chưa từng được áp migration bằng bộ máy của
+ * package (chưa có bảng nhật ký) được coi là chưa có phiên bản
+ * (null) — đây là NGUỒN SỰ THẬT về phiên bản của kho; sổ đăng ký
+ * chỉ là ảnh phản chiếu phải khớp với nó. Hàm này CHỈ ĐỌC.
  */
 export async function readDatabaseSchemaVersion(client: Client): Promise<string | null> {
   return getLatestAppliedMigration(client);
@@ -360,8 +356,8 @@ export async function readDatabaseSchemaVersion(client: Client): Promise<string 
 
 /**
  * Đọc TOÀN TẬP tên migration đã áp trong một database từ nhật ký
- * của chính nó — uỷ thác cho hàm đọc tương thích của `@lms/db`
- * (cùng luật chọn nguồn như `readDatabaseSchemaVersion`). Đây là
+ * `kysely_migration` của chính nó — uỷ thác cho hàm đọc của
+ * `@lms/db` (cùng nguồn như `readDatabaseSchemaVersion`). Đây là
  * căn cứ để runner quyết định một kho còn thiếu migration nào:
  * chỉ nhìn migration MỚI NHẤT (như `readDatabaseSchemaVersion`)
  * sẽ bỏ sót kho đã có migration mới nhất nhưng THIẾU một

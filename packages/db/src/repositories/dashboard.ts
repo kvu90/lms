@@ -1,7 +1,7 @@
 /**
  * Repository của module DASHBOARD trên Kysely — hạng mục nhóm C của
  * chiến dịch chuyển tầng dữ liệu sang `packages/db` + Kysely (issue
- * #652), chuyển từ repository Drizzle cũ ở
+ * #652), chuyển từ repository cũ trước chuyển đổi ở
  * `apps/api/src/modules/dashboard/dashboard.repository.ts`.
  *
  * Vai trò: mọi truy cập dữ liệu của dashboard việc cần làm (DASH1,
@@ -31,7 +31,7 @@
  * control plane (xem mục "Sổ tay chuyển đổi repository sang Kysely"
  * trong `AGENTS.md` của package): bên trong dùng tên cột snake_case
  * của interface schema codegen; bên ngoài giữ nguyên hợp đồng dòng
- * camelCase của repository Drizzle cũ qua danh sách cột tường minh
+ * camelCase của repository cũ trước chuyển đổi qua danh sách cột tường minh
  * có bí danh; các hàm ánh xạ ghi loại `undefined` từng trường (thử
  * nghiệm T-4); mọi giá trị where là tham số bắt buộc. Module này
  * không tham gia transaction nào (kiểm kê tại file cũ: 0 điểm mở

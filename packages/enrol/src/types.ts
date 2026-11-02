@@ -8,7 +8,7 @@ import type { CentreDb, CentreTx } from '@lms/db';
  * liệu qua Kysely trên kho trung tâm của `@lms/db` (không bật
  * CamelCasePlugin — tên cột trong truy vấn giữ snake_case như DB,
  * tên trường trong kiểu dòng giữ camelCase như hợp đồng cũ của
- * repository Drizzle để phía tiêu thụ không đổi). Hai thứ thuộc về
+ * repository bộ máy cũ để phía tiêu thụ không đổi). Hai thứ thuộc về
  * hạ tầng của từng app nên được host cấp vào qua cổng thay vì package
  * tự giữ: (1) ghi outbox — mỗi app có dịch vụ outbox riêng với ngữ
  * cảnh tenant của app đó; (2) chạy một lượt đọc trong ngữ cảnh
@@ -83,8 +83,8 @@ export interface SharedSurfaceDeps {
 
 // ---------------------------------------------------------------------------
 // Kiểu dòng đọc (hợp đồng công khai — khớp `$inferSelect` của schema
-// Drizzle cũ để phía tiêu thụ không đổi; khai tường minh tại đây để
-// package sống sót qua hạng mục gỡ Drizzle #663 khi file schema bị xoá)
+// bộ máy cũ để phía tiêu thụ không đổi; khai tường minh tại đây để
+// package sống sót qua hạng mục gỡ bộ máy cũ #663 khi file schema bị xoá)
 // ---------------------------------------------------------------------------
 
 /** Dòng của bảng `context` (cây context phân quyền). */

@@ -72,7 +72,8 @@ export function matrixContentSignature(input: MatrixContentSignatureInput): stri
  * Lỗi có phải va chạm ĐÚNG ràng buộc duy nhất (bank đích, chữ ký nội
  * dung) của `exam_matrices` hay không.
  *
- * PostgreSQL báo lỗi vi phạm unique bằng mã 23505; lỗi Drizzle có thể
+ * PostgreSQL báo lỗi vi phạm unique bằng mã 23505; lỗi của lớp
+ * truy cập dữ kiện có thể
  * bọc lỗi gốc qua `cause` nên phải duyệt cả chuỗi cause (cùng mẫu các
  * service khác trong repo). Mã 23505 chưa đủ để kết luận: chỉ khi
  * tên ràng buộc xuất hiện trong `constraint` hoặc trong thông điệp

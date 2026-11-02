@@ -167,7 +167,7 @@ export class ActivityDueReminderProcessor extends WorkerHost {
         if (remindedKeys.has(remindedKey)) continue;
         await this.spaceDb.routedKysely.insertInto('outbox_events').values({
           aggregate: 'activity', type: 'activity_due_reminder',
-          // Bản Drizzle cũ bỏ hẳn cột tenant_id ở dòng này (giá trị
+          // Bản bộ máy cũ bỏ hẳn cột tenant_id ở dòng này (giá trị
           // lưu là NULL vì cột không có default); Kysely bắt ghi
           // tường minh cột nullable không default nên ghi `null`.
           tenant_id: null,
@@ -241,7 +241,7 @@ export class ActivityDueReminderProcessor extends WorkerHost {
    * được nhắc lại.
    */
   private async remindedKeysForPin(pinId: string): Promise<Set<string>> {
-    // Toán tử JSON giữ nguyên văn như bản Drizzle cũ, chỉ đổi cách
+    // Toán tử JSON giữ nguyên văn như bản cũ trước chuyển đổi, chỉ đổi cách
     // tham chiếu cột sang `sql.ref` của Kysely; payload đọc ra giữ
     // kiểu Json của cột và đi thẳng vào helper nhận `unknown`.
     const rows = await this.spaceDb.routedKysely

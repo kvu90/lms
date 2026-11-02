@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
-import { and, desc, eq, gte, sql } from 'drizzle-orm';
+import { sql, type CentreDb, type JsonValue } from '@lms/db';
 import Redis from 'ioredis';
 import {
   NOTIFICATION_UNREAD_CHANGED_CHANNEL,
@@ -13,10 +13,6 @@ import {
 } from '../../../src/processors/notification-retention.processor';
 import { redisConnectionFromUrl } from '../../../src/config/env';
 import { tenantAls } from '../../../src/db/tenant-als';
-import {
-  calendarEvents, notificationDispatchLog, notifications, reportBuilderReport,
-  reportBuilderSchedule, taskLog, userPreferences,
-} from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
@@ -46,7 +42,7 @@ const DAY_MS = 24 * 3600_000;
 describe('Worker NB-6: lưu giữ thông báo + luật gửi chung', () => {
   let context: INestApplicationContext;
   let harness: OrdinaryWorkerModuleHarness;
-  let db: any;
+  let db: CentreDb;
   let delivery: NotificationDeliveryService;
   const suffix = Date.now() % 100000;
   const uid = (slot: number) => `01970000-0000-7000-8000-${String(970000 + suffix * 10 + slot).padStart(12, '0')}`;
@@ -59,33 +55,34 @@ describe('Worker NB-6: lưu giữ thông báo + luật gửi chung', () => {
   const startedAt = new Date(Date.now() - 1000);
 
   async function mkUser(id: string, username: string, suspended = false) {
-    await db.execute(sql`insert into users (id, username, email, first_name, last_name, suspended, deleted)
+    await sql`insert into users (id, username, email, first_name, last_name, suspended, deleted)
       values (${id}, ${username}, ${`${username}@x.io`}, 'Nb6', 'User', ${suspended}, false)
-      on conflict (id) do nothing`);
+      on conflict (id) do nothing`.execute(db);
   }
 
   async function setPref(userId: string, name: string, value: string) {
-    await db.insert(userPreferences).values({ userId, name, value }).onConflictDoNothing();
+    await db.insertInto('user_preferences').values({ user_id: userId, name, value }).onConflict((oc) => oc.doNothing()).execute();
   }
 
   async function mkEvent(userId: string, name: string) {
-    const [event] = await db.insert(calendarEvents).values({
-      name, eventType: 'user', userId, timeStart: new Date(Date.now() + 3600_000),
-    }).returning();
+    const event = await db.insertInto('calendar_events').values({
+      name, event_type: 'user', user_id: userId, time_start: new Date(Date.now() + 3600_000),
+    }).returningAll().executeTakeFirstOrThrow();
     return event.id as string;
   }
 
   async function notesOf(userId: string, eventType: string) {
-    return db.select().from(notifications)
-      .where(and(eq(notifications.userIdTo, userId), eq(notifications.eventType, eventType)));
+    return db.selectFrom('notifications').selectAll()
+      .where('user_id_to', '=', userId).where('event_type', '=', eventType)
+      .execute();
   }
 
   async function dispatchOf(userId: string, provider: string, status: string) {
-    return db.select().from(notificationDispatchLog).where(and(
-      eq(notificationDispatchLog.userId, userId),
-      eq(notificationDispatchLog.provider, provider),
-      eq(notificationDispatchLog.status, status),
-    ));
+    return db.selectFrom('notification_dispatch_log').selectAll()
+      .where('user_id', '=', userId)
+      .where('provider', '=', provider)
+      .where('status', '=', status)
+      .execute();
   }
 
   beforeAll(async () => {
@@ -117,13 +114,13 @@ describe('Worker NB-6: lưu giữ thông báo + luật gửi chung', () => {
     expect(first.status).toBe('notified');
     const notes = await notesOf(plainUser, 'calendar_reminder');
     expect(notes).toHaveLength(1);
-    expect(notes[0].contextUrl).toBe(`/calendar/events/${eventId}`);
+    expect(notes[0].context_url).toBe(`/calendar/events/${eventId}`);
     // Giữ nguyên bề mặt hiển thị cũ: smallMessage là subject.
-    expect(notes[0].smallMessage).toBe(notes[0].subject);
+    expect(notes[0].small_message).toBe(notes[0].subject);
     const logs = await dispatchOf(plainUser, 'calendar_reminder', 'delivered');
     expect(logs).toHaveLength(1);
-    expect(logs[0].dedupeKey).toBe(`popup-${notes[0].id}`);
-    expect(logs[0].notificationId).toBe(notes[0].id);
+    expect(logs[0].dedupe_key).toBe(`popup-${notes[0].id}`);
+    expect(logs[0].notification_id).toBe(notes[0].id);
     const replay = await processor.process({ data: { eventId, userId: plainUser, minutesBefore: 30 } } as never);
     expect(replay.status).toBe('duplicate');
     expect(await notesOf(plainUser, 'calendar_reminder')).toHaveLength(1);
@@ -201,43 +198,45 @@ describe('Worker NB-6: lưu giữ thông báo + luật gửi chung', () => {
   });
 
   it('lịch báo cáo thông báo qua luật chung và nay để lại log gửi đã giao', async () => {
-    const [report] = await db.insert(reportBuilderReport).values({
-      name: `NB6 report ${suffix}`, dataSource: 'enrolments', createdBy: plainUser, columns: ['userId'],
-    }).returning();
-    const [schedule] = await db.insert(reportBuilderSchedule).values({
-      reportId: report.id, createdBy: plainUser, cron: 'daily', enabled: true,
-    }).returning();
+    const report = await db.insertInto('report_builder_report').values({
+      name: `NB6 report ${suffix}`, data_source: 'enrolments', created_by: plainUser,
+      columns: sql<JsonValue>`${JSON.stringify(['userId'])}::jsonb`,
+    }).returningAll().executeTakeFirstOrThrow();
+    const schedule = await db.insertInto('report_builder_schedule').values({
+      report_id: report.id, created_by: plainUser, cron: 'daily', enabled: true,
+    }).returningAll().executeTakeFirstOrThrow();
     const processor = context.get(ReportScheduleProcessor);
     const result = await processor.process({ data: { scheduleId: schedule.id } } as never);
     expect(result.status).toBe('completed');
     const notes = await notesOf(plainUser, 'report_scheduled');
     expect(notes.length).toBeGreaterThanOrEqual(1);
-    const mine = notes.find((n: { contextUrl: string }) => n.contextUrl === `/reports/${report.id}`);
+    const mine = notes.find((n) => n.context_url === `/reports/${report.id}`);
     expect(mine).toBeDefined();
     const logs = await dispatchOf(plainUser, 'report_scheduled', 'delivered');
-    expect(logs.some((l: { notificationId: string }) => l.notificationId === mine.id)).toBe(true);
+    expect(logs.some((l) => l.notification_id === mine!.id)).toBe(true);
   });
 
   it('lịch báo cáo tôn trọng luật: tuỳ chọn tắt và người tạo bị đình chỉ thì không nhận thông báo', async () => {
     const processor = context.get(ReportScheduleProcessor);
     async function runFor(creator: string, tag: string) {
-      const [report] = await db.insert(reportBuilderReport).values({
-        name: `NB6 report ${tag} ${suffix}`, dataSource: 'enrolments', createdBy: creator, columns: ['userId'],
-      }).returning();
-      const [schedule] = await db.insert(reportBuilderSchedule).values({
-        reportId: report.id, createdBy: creator, cron: 'daily', enabled: true,
-      }).returning();
+      const report = await db.insertInto('report_builder_report').values({
+        name: `NB6 report ${tag} ${suffix}`, data_source: 'enrolments', created_by: creator,
+        columns: sql<JsonValue>`${JSON.stringify(['userId'])}::jsonb`,
+      }).returningAll().executeTakeFirstOrThrow();
+      const schedule = await db.insertInto('report_builder_schedule').values({
+        report_id: report.id, created_by: creator, cron: 'daily', enabled: true,
+      }).returningAll().executeTakeFirstOrThrow();
       const result = await processor.process({ data: { scheduleId: schedule.id } } as never);
       expect(result.status).toBe('completed');
       return report.id as string;
     }
     const offReportId = await runFor(v2OffUser, 'off');
     expect((await notesOf(v2OffUser, 'report_scheduled'))
-      .some((n: { contextUrl: string }) => n.contextUrl === `/reports/${offReportId}`)).toBe(false);
+      .some((n) => n.context_url === `/reports/${offReportId}`)).toBe(false);
     expect(await dispatchOf(v2OffUser, 'report_scheduled', 'skipped-preference')).toHaveLength(1);
     const suspReportId = await runFor(suspendedUser, 'susp');
     expect((await notesOf(suspendedUser, 'report_scheduled'))
-      .some((n: { contextUrl: string }) => n.contextUrl === `/reports/${suspReportId}`)).toBe(false);
+      .some((n) => n.context_url === `/reports/${suspReportId}`)).toBe(false);
     expect((await dispatchOf(suspendedUser, 'report_scheduled', 'skipped-suspended')).length)
       .toBeGreaterThanOrEqual(1);
   });
@@ -247,19 +246,19 @@ describe('Worker NB-6: lưu giữ thông báo + luật gửi chung', () => {
     const now = new Date();
     const at = (days: number) => new Date(now.getTime() - days * DAY_MS);
     async function mkNote(days: number, read: boolean) {
-      const [row] = await db.insert(notifications).values({
-        userIdTo: retentionUser, subject: `nb6-ret-${days}-${read ? 'r' : 'u'}-${suffix}`,
-        fullMessage: 'x', smallMessage: 'x', component: 'core_test', eventType: 'retention_probe',
-        createdAt: at(days), timeRead: read ? at(days) : null,
-      }).returning();
+      const row = await db.insertInto('notifications').values({
+        user_id_to: retentionUser, subject: `nb6-ret-${days}-${read ? 'r' : 'u'}-${suffix}`,
+        full_message: 'x', small_message: 'x', component: 'core_test', event_type: 'retention_probe',
+        created_at: at(days), time_read: read ? at(days) : null,
+      }).returningAll().executeTakeFirstOrThrow();
       return row.id as string;
     }
     async function mkDispatch(days: number) {
-      const [row] = await db.insert(notificationDispatchLog).values({
-        userId: retentionUser, provider: 'retention_probe', channel: 'popup',
-        status: 'delivered', subject: 'x', dedupeKey: `nb6-ret-${days}-${suffix}`,
-        createdAt: at(days),
-      }).returning();
+      const row = await db.insertInto('notification_dispatch_log').values({
+        user_id: retentionUser, provider: 'retention_probe', channel: 'popup',
+        status: 'delivered', subject: 'x', dedupe_key: `nb6-ret-${days}-${suffix}`,
+        created_at: at(days),
+      }).returningAll().executeTakeFirstOrThrow();
       return row.id as string;
     }
     const readKept89 = await mkNote(89, true);
@@ -277,8 +276,8 @@ describe('Worker NB-6: lưu giữ thông báo + luật gửi chung', () => {
     expect(result.unreadDeleted).toBeGreaterThanOrEqual(1);
     expect(result.dispatchLogDeleted).toBeGreaterThanOrEqual(1);
 
-    const remainingNotes = await db.select({ id: notifications.id }).from(notifications)
-      .where(eq(notifications.userIdTo, retentionUser));
+    const remainingNotes = await db.selectFrom('notifications').select('id')
+      .where('user_id_to', '=', retentionUser).execute();
     const noteIds = new Set(remainingNotes.map((r: { id: string }) => r.id));
     expect(noteIds.has(readKept89)).toBe(true);
     expect(noteIds.has(readKept90)).toBe(true);
@@ -287,8 +286,8 @@ describe('Worker NB-6: lưu giữ thông báo + luật gửi chung', () => {
     expect(noteIds.has(unreadKept180)).toBe(true);
     expect(noteIds.has(unreadGone181)).toBe(false);
 
-    const remainingDispatch = await db.select({ id: notificationDispatchLog.id })
-      .from(notificationDispatchLog).where(eq(notificationDispatchLog.userId, retentionUser));
+    const remainingDispatch = await db.selectFrom('notification_dispatch_log').select('id')
+      .where('user_id', '=', retentionUser).execute();
     const dispatchIds = new Set(remainingDispatch.map((r: { id: string }) => r.id));
     expect(dispatchIds.has(dispatchKept89)).toBe(true);
     expect(dispatchIds.has(dispatchKept90)).toBe(true);
@@ -298,9 +297,9 @@ describe('Worker NB-6: lưu giữ thông báo + luật gửi chung', () => {
   it('lượt chạy tiến trình lưu giữ để lại một dòng task_log thành công', async () => {
     const processor = context.get(NotificationRetentionProcessor);
     await processor.process({ data: {} } as never);
-    const rows = await db.select().from(taskLog)
-      .where(and(eq(taskLog.taskName, 'notification-retention'), gte(taskLog.startedAt, startedAt)))
-      .orderBy(desc(taskLog.startedAt));
+    const rows = await db.selectFrom('task_log').selectAll()
+      .where('task_name', '=', 'notification-retention').where('started_at', '>=', startedAt)
+      .orderBy('started_at', 'desc').execute();
     expect(rows.length).toBeGreaterThanOrEqual(1);
     expect(rows[0].status).toBe('success');
     expect(rows[0].message).toContain('dispatch log');

@@ -96,11 +96,11 @@ export class EnrolService implements OnModuleInit {
       // Bộ điều hợp cổng outbox của bề mặt sang đường ghi Kysely
       // của `OutboxService` (biến thể `enqueueKysely`, chuẩn từ
       // PR #672): cùng ngữ nghĩa phân giải tenant qua ALS như
-      // đường Drizzle cũ, chỉ khác handle transaction. Mọi đường
+      // đường cũ trước chuyển đổi, chỉ khác handle transaction. Mọi đường
       // ghi outbox còn lại của service này cũng đi qua biến thể
       // Kysely (vd `setSuspended` gọi thẳng `enqueueKysely` bằng
       // transaction của bên gọi — điểm nối C-8/C đã đóng ở PR
-      // #683), không còn đường ghi Drizzle nào trong service.
+      // #683), không còn đường ghi bộ máy cũ nào trong service.
       outbox: {
         enqueue: (tx, input) => this.outbox.enqueueKysely(tx, input),
         enqueueStandalone: (input) => spaceDb.routedKysely.transaction().execute((trx) => this.outbox.enqueueKysely(trx, input)),

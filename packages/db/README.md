@@ -13,13 +13,12 @@ từng app (việc hợp nhất này là lý do package tồn tại). Hình dạ
 định những sự thật nghiệp vụ nào được lưu bền: trạng thái công bố điểm, quan hệ
 lớp–khoá, tenant của mọi bản ghi, vết audit.
 
-Hệ đang trong chiến dịch chuyển tầng dữ liệu từ Drizzle sang **Kysely**: package
-này giữ khung Kysely (kiểu sinh từ DB thật, factory dựng instance, harness test)
-và — theo từng hạng mục chuyển đổi — các repository Kysely trong
-`src/repositories/`; phần chưa chuyển vẫn chạy bằng schema Drizzle trong cùng
-package. Hai ORM cùng tồn tại trong giai đoạn chuyển đổi theo quy ước ở mục
-"Quy ước hai ORM cùng tồn tại" dưới đây; đích cuối của chiến dịch là gỡ hẳn
-Drizzle khỏi cây mã.
+Package này là tầng dữ liệu **Kysely** duy nhất của hệ: kiểu sinh từ
+DB thật, factory dựng instance, harness test và các repository
+Kysely trong `src/repositories/`. Chiến dịch chuyển tầng dữ liệu đã
+kết thúc — bộ máy ORM cũ đã gỡ hẳn khỏi cây mã ở hạng mục cuối của
+chiến dịch, và quy ước một ORM duy nhất ở mục "Quy ước tầng dữ liệu"
+dưới đây là trạng thái thường trực.
 
 ## Quyết định nghiệp vụ còn hiệu lực
 
@@ -59,8 +58,8 @@ Drizzle khỏi cây mã.
   catalog của DB dựng từ rỗng; riêng `oauth_client.id` mang mặc định
   `gen_random_uuid()` nên số `id: Generated<string>` trong file sinh của kho
   trung tâm là 188).
-- **Cột jsonb có hình dạng nghiệp vụ thật** (phía Drizzle đang khai bằng
-  `$type<…>()`) phải có override từng cột trong file cấu hình codegen của
+- **Cột jsonb có hình dạng nghiệp vụ thật** (hình dạng được giữ ở
+  `src/jsonb-types.ts`) phải có override từng cột trong file cấu hình codegen của
   kho (`scripts/codegen/<kho>.json`, khoá `overrides.columns` theo dạng
   `bảng.cột`, kèm `customImports` trỏ về nơi định nghĩa kiểu thật). Chuỗi
   override thay toàn bộ kiểu của cột nên phải tự mang `| null` khi cột
@@ -98,18 +97,16 @@ Drizzle khỏi cây mã.
   đúng hợp đồng GUC của hệ (`TestTenantPool`), và `createTestKysely(...)`
   bọc ba factory production cho spec.
 
-## Quy ước hai ORM cùng tồn tại
+## Quy ước tầng dữ liệu
 
-- **Một module thuộc hẳn về một ORM**: module đã chuyển sang Kysely thì
-  toàn bộ đường dữ liệu của nó đi qua handle Kysely; module chưa chuyển
-  giữ nguyên Drizzle. Không trộn hai ORM trong cùng một module.
-- **Cấm giao dịch lai**: một thao tác nghiệp vụ không bao giờ mở đồng
-  thời một giao dịch Drizzle và một giao dịch Kysely — tính nguyên tử
-  không bắc qua hai ORM được.
-- Các file schema Drizzle (`src/*.schema.ts`) đóng băng trong giai đoạn
-  chuyển đổi: không sửa, không xoá cho tới hạng mục gỡ Drizzle ở cuối
-  chiến dịch (riêng các kiểu hình dạng jsonb mà codegen tham chiếu vẫn
-  sống trong các file đó cho tới khi được dời đi ở hạng mục gỡ).
+- **Một ORM duy nhất**: mọi đường dữ liệu của mọi module đi qua
+  handle Kysely của package này; không đưa ORM thứ hai vào cây mã.
+- **Một giao dịch một handle**: một thao tác nghiệp vụ mở giao dịch
+  trên đúng một handle Kysely — tính nguyên tử không bắc qua hai
+  handle độc lập được.
+- Hình dạng bảng không khai tay: kiểu của ba kho sinh bằng
+  `kysely-codegen` từ database thật vào `src/types/`; hình dạng
+  jsonb nghiệp vụ mà codegen tham chiếu sống ở `src/jsonb-types.ts`.
 
 ## Ranh giới — package này KHÔNG làm gì
 
@@ -118,12 +115,12 @@ Drizzle khỏi cây mã.
   qua handle; luật chạy nằm ở `apps/api`.
 - Carrier migration hiện hành nằm ở `packages/db/migrations/<kho>`
   (centre, control-plane, system-bank) — bộ SQL đóng băng dời từ
-  `apps/api/drizzle*` ở hạng mục nền thứ hai của chiến dịch (issue
+  `apps/api` ở hạng mục nền thứ hai của chiến dịch (issue
   #639); bộ máy áp là Migrator của Kysely trong `src/migrate/`
-  (provider đọc carrier, cấy nhật ký adoption, runner CLI
-  `dist/migrate/run.js <kho>`, hậu kiểm số đếm). Nhật ký Drizzle
-  cũ (`drizzle.__drizzle_migrations`) giữ nguyên, chỉ đọc trong
-  cửa sổ cùng tồn tại.
+  (provider đọc carrier, runner CLI
+  `dist/migrate/run.js <kho>`, hậu kiểm số đếm). Bảng nhật ký của
+  bộ máy cũ trong các database đang sống giữ nguyên không đụng vào
+  (không xoá); mã nguồn không còn đọc nó.
 - Không phải hợp đồng API: hình dạng request/response thuộc `packages/contracts`.
 
 ## Kỹ thuật tối thiểu

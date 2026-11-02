@@ -1,11 +1,8 @@
-import { and, asc, eq } from 'drizzle-orm';
-import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createCentreKysely, type CentreDb } from '../client';
-import { gradeGrades, gradeItems, gradePublications } from '../grades.schema';
 import { buildTestDatabase, dropTestDatabase, withDatabase } from '../test-support/build-test-database';
-import { GradesRepository, type GradeRow, type ItemRow } from './grades';
+import { GradesRepository, type GradeRow, type ItemRow, type NewGrade } from './grades';
 
 /**
  * Spec tích hợp của repository điểm theo bài trên Kysely (issue
@@ -18,10 +15,10 @@ import { GradesRepository, type GradeRow, type ItemRow } from './grades';
  * `grades.ts` — không mô phỏng handle.
  *
  * Các tính chất chốt tại đây:
- * - CRUD item và các đường tìm item khớp oracle Drizzle (nguyên
- *   văn truy vấn của repository cũ) trên CÙNG dữ kiện mẫu.
+ * - CRUD item và các đường tìm item khớp oracle độc lập (cùng truy
+ *   vấn dựng bằng Kysely thô ngoài repository) trên CÙNG dữ kiện mẫu.
  * - `upsertGrade` hai nhánh insert/xung đột theo khoá composite
- *   (item, user) cho kết quả TỪNG TRƯỜNG bằng oracle Drizzle —
+ *   (item, user) cho kết quả TỪNG TRƯỜNG bằng oracle độc lập —
  *   gồm điểm sắc nhất của nhóm theo T-4 (rủi ro R-G4-2): trường
  *   phía gọi không truyền (`undefined`) phải được GIỮ NGUYÊN ở
  *   nhánh xung đột ở cả hai phía, còn `null` tường minh thì ghi
@@ -50,7 +47,6 @@ const EMPTY_COURSE = '019276a1-4444-7000-8000-0000000000f2';
 let pool: Pool;
 let db: CentreDb;
 let repo: GradesRepository;
-let drizzleDb: NodePgDatabase;
 
 interface Seed {
   courseId: string;
@@ -101,7 +97,6 @@ beforeAll(async () => {
   pool = new Pool({ connectionString: storeUrl });
   db = createCentreKysely(pool);
   repo = new GradesRepository(db);
-  drizzleDb = drizzle({ client: pool });
   seed = await seedData();
 }, 180_000);
 
@@ -112,22 +107,71 @@ afterAll(async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Oracle Drizzle: nguyên văn `upsertGrade` của repository cũ (apps/api
-// trước #644) để đối chiếu tương đương trên cùng chuỗi lệnh ghi.
+// Oracle độc lập: nguyên văn ngữ nghĩa `upsertGrade` của repository
+// cũ (trước #644) dựng lại bằng Kysely thô ngoài repository, để đối
+// chiếu tương đương trên cùng chuỗi lệnh ghi. Tập trường SET ở
+// nhánh xung đột chép đúng danh sách của bản cũ (11 trường nghiệp
+// vụ + `updated_at`); trường `undefined` bị bỏ khỏi cả INSERT lẫn
+// SET như hành vi của bản cũ.
 // ---------------------------------------------------------------------------
 
-async function oracleUpsertGrade(v: typeof gradeGrades.$inferInsert): Promise<GradeRow> {
-  const [row] = await drizzleDb.insert(gradeGrades).values(v)
-    .onConflictDoUpdate({
-      target: [gradeGrades.itemId, gradeGrades.userId],
-      set: {
-        rawGrade: v.rawGrade, finalGrade: v.finalGrade, hidden: v.hidden, locked: v.locked,
-        overridden: v.overridden, excluded: v.excluded, frozen: v.frozen, feedback: v.feedback,
-        aggregationStatus: v.aggregationStatus, aggregationWeight: v.aggregationWeight,
-        lockTime: v.lockTime, updatedAt: new Date(),
-      },
-    }).returning();
-  return row! as GradeRow;
+/** Bí danh đọc dòng `grade_grades` về đúng hình dạng `GradeRow` của repository. */
+const GRADE_ROW_COLUMNS = [
+  'id',
+  'item_id as itemId',
+  'user_id as userId',
+  'raw_grade as rawGrade',
+  'final_grade as finalGrade',
+  'raw_grade_max as rawGradeMax',
+  'raw_grade_min as rawGradeMin',
+  'hidden',
+  'locked',
+  'overridden',
+  'excluded',
+  'feedback',
+  'frozen',
+  'aggregation_status as aggregationStatus',
+  'aggregation_weight as aggregationWeight',
+  'lock_time as lockTime',
+  'information',
+  'created_at as createdAt',
+  'updated_at as updatedAt',
+] as const;
+
+async function oracleUpsertGrade(v: NewGrade): Promise<GradeRow> {
+  const values: Record<string, unknown> = { item_id: v.itemId, user_id: v.userId };
+  const fieldMap: Array<[keyof NewGrade, string]> = [
+    ['rawGrade', 'raw_grade'],
+    ['finalGrade', 'final_grade'],
+    ['rawGradeMax', 'raw_grade_max'],
+    ['rawGradeMin', 'raw_grade_min'],
+    ['hidden', 'hidden'],
+    ['locked', 'locked'],
+    ['overridden', 'overridden'],
+    ['excluded', 'excluded'],
+    ['feedback', 'feedback'],
+    ['frozen', 'frozen'],
+    ['aggregationStatus', 'aggregation_status'],
+    ['aggregationWeight', 'aggregation_weight'],
+    ['lockTime', 'lock_time'],
+    ['information', 'information'],
+  ];
+  for (const [camel, snake] of fieldMap) {
+    if (v[camel] !== undefined) values[snake] = v[camel];
+  }
+  const conflictSet: Record<string, unknown> = { updated_at: new Date() };
+  for (const key of [
+    'rawGrade', 'finalGrade', 'hidden', 'locked', 'overridden', 'excluded', 'frozen',
+    'feedback', 'aggregationStatus', 'aggregationWeight', 'lockTime',
+  ] as const) {
+    if (v[key] !== undefined) conflictSet[fieldMap.find(([camel]) => camel === key)![1]] = v[key];
+  }
+  const row = await db.insertInto('grade_grades')
+    .values(values as never)
+    .onConflict((oc) => oc.columns(['item_id', 'user_id']).doUpdateSet(conflictSet as never))
+    .returning(GRADE_ROW_COLUMNS as never)
+    .executeTakeFirstOrThrow();
+  return row as unknown as GradeRow;
 }
 
 /** Chiếu dòng điểm xuống các trường nghiệp vụ để so hai phía (bỏ định danh/thời gian). */
@@ -148,9 +192,18 @@ describe('GradesRepository trên Kysely (issue #644)', () => {
     expect(seed.itemB.postingPolicy).toBe('auto');
     const items = await repo.listItems(seed.courseId);
     expect(items.map((i) => i.id)).toEqual([seed.itemB.id, seed.itemA.id, seed.itemTwin.id]);
-    const oracle = await drizzleDb.select().from(gradeItems)
-      .where(eq(gradeItems.courseId, seed.courseId))
-      .orderBy(asc(gradeItems.sortOrder), asc(gradeItems.id));
+    const oracle = await db.selectFrom('grade_items')
+      .select([
+        'id', 'course_id as courseId', 'item_type as itemType', 'item_module as itemModule',
+        'item_instance as itemInstance', 'item_name as itemName', 'id_number as idNumber',
+        'grade_type as gradeType', 'grade_min as gradeMin', 'grade_max as gradeMax',
+        'grade_pass as gradePass', 'hidden', 'locked', 'sort_order as sortOrder',
+        'multiplicator', 'plus_factor as plusFactor', 'posting_policy as postingPolicy',
+        'created_at as createdAt', 'updated_at as updatedAt',
+      ])
+      .where('course_id', '=', seed.courseId)
+      .orderBy('sort_order').orderBy('id')
+      .execute();
     expect(items).toEqual(oracle);
   });
 
@@ -183,7 +236,7 @@ describe('GradesRepository trên Kysely (issue #644)', () => {
     expect(await repo.getGrade(seed.itemA.id, U1)).toEqual(saved);
   });
 
-  it('upsertGrade nhánh xung đột: trường không truyền được giữ nguyên, null tường minh ghi NULL — khớp oracle Drizzle từng trường', async () => {
+  it('upsertGrade nhánh xung đột: trường không truyền được giữ nguyên, null tường minh ghi NULL — khớp oracle độc lập từng trường', async () => {
     // Chuỗi hai lần ghi GIỐNG HỆT nhau cho hai phía trên hai item độc lập.
     const first = {
       rawGrade: 7, rawGradeMin: 0, rawGradeMax: 10, finalGrade: 7, feedback: 'Lần 1',
@@ -258,9 +311,14 @@ describe('GradesRepository trên Kysely (issue #644)', () => {
     });
     const mine = await repo.listPublications(seed.courseId);
     expect(mine.map((p) => p.action)).toEqual(['publish', 'unpublish']);
-    const oracle = await drizzleDb.select().from(gradePublications)
-      .where(eq(gradePublications.courseId, seed.courseId))
-      .orderBy(asc(gradePublications.createdAt), asc(gradePublications.id));
+    const oracle = await db.selectFrom('grade_publications')
+      .select([
+        'id', 'course_id as courseId', 'item_id as itemId', 'action', 'scope',
+        'actor_id as actorId', 'note', 'created_at as createdAt',
+      ])
+      .where('course_id', '=', seed.courseId)
+      .orderBy('created_at').orderBy('id')
+      .execute();
     expect(mine).toEqual(oracle);
   });
 
@@ -278,8 +336,9 @@ describe('GradesRepository trên Kysely (issue #644)', () => {
     await repo.upsertGrade({ itemId: item.id, userId: U1, rawGrade: 3, finalGrade: 3 });
     await repo.deleteItem(item.id);
     expect(await repo.getItem(item.id)).toBeUndefined();
-    const left = await drizzleDb.select().from(gradeGrades)
-      .where(and(eq(gradeGrades.itemId, item.id)));
+    const left = await db.selectFrom('grade_grades').selectAll()
+      .where('item_id', '=', item.id)
+      .execute();
     expect(left).toEqual([]);
   });
 });

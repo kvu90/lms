@@ -15,22 +15,18 @@
  *   2. Cụm PostgreSQL dưới 18: cài shim `uuidv7()` viết tay TRƯỚC
  *      carrier (PG18 có hàm tích hợp). Shim nằm ngoài carrier —
  *      nội dung carrier giữ nguyên từng byte.
- *   3. Áp toàn bộ migration của kho bằng Migrator của package (kèm
- *      bước cấy nhật ký theo diện carrier đóng băng — trên database
- *      trống thì bước này là no-op vì chưa có nhật ký Drizzle để
- *      cấy).
+ *   3. Áp toàn bộ migration của kho bằng đúng trình tự dùng chung
+ *      của package (`applyStoreMigrations` — cùng trình tự runner
+ *      production chạy).
  *
  * Đường dẫn carrier trỏ vào `packages/db/migrations/<kho>` — vị trí
- * của bộ SQL sau khi dời khỏi `apps/api/drizzle*` ở hạng mục nền
+ * của bộ SQL sau khi dời khỏi các file cấu hình cũ ở `apps/api` ở hạng mục nền
  * thứ hai.
  */
 import { join } from 'node:path';
 import { Client, Pool } from 'pg';
-import { Migrator } from 'kysely/migration';
 import { createCentreKysely, createControlPlaneKysely, createSystemBankKysely } from '../client';
-import { adoptJournal } from '../migrate/adopt-journal';
-import { FrozenSqlProvider } from '../migrate/frozen-sql-provider';
-import { installUuidv7Shim, MIGRATION_STORES } from '../migrate/stores';
+import { applyStoreMigrations } from '../migrate/apply';
 import type { Kysely } from 'kysely';
 
 /** Ba kho có thể dựng bằng harness này, khớp ba factory trong `client.ts`. */
@@ -72,27 +68,18 @@ export function withDatabase(connectionString: string, database: string): string
 
 /**
  * Áp toàn bộ migration của một kho (carrier đóng băng + migration
- * native) vào database đã tạo bằng bộ máy migration của package:
- * cài shim `uuidv7()` trước nếu cụm dưới PG18, cấy nhật ký theo
- * diện carrier đóng băng của kho (no-op trên database trống), rồi
- * `migrateToLatest()`. Lỗi migrate (Kysely không ném mà trả
- * `{ error, results }`) được chuyển thành ngoại lệ rõ ràng —
- * harness im lặng bỏ qua lỗi áp là database test thiếu bảng mà
- * spec không biết.
+ * native) vào database đã tạo bằng trình tự áp dùng chung của
+ * package (`applyStoreMigrations`: shim `uuidv7()` cho cụm dưới
+ * PG18 rồi `migrateToLatest()`, lỗi áp ném thành ngoại lệ) — cùng
+ * một trình tự với runner production nên database test luôn khớp
+ * hình dạng production tạo ra. Harness im lặng bỏ qua lỗi áp là
+ * database test thiếu bảng mà spec không biết, nên lỗi phải ném.
  */
 async function applyCarrier(storeUrl: string, store: TestStoreKind): Promise<void> {
   const pool = new Pool({ connectionString: storeUrl });
   const db = createStoreKysely(store, pool);
   try {
-    await installUuidv7Shim(db);
-    await adoptJournal(db, MIGRATION_STORES[store].carrierNames);
-    const migrator = new Migrator({ db, provider: new FrozenSqlProvider(migrationsDirFor(store)) });
-    const { error, results } = await migrator.migrateToLatest();
-    if (error || (results ?? []).some((result) => result.status === 'Error')) {
-      throw new Error(
-        `Harness không áp được carrier của kho ${store}: ${error ? (error as Error).message ?? String(error) : 'có migration báo Error'}`,
-      );
-    }
+    await applyStoreMigrations(db, store, migrationsDirFor(store));
   } finally {
     await db.destroy().catch(() => undefined);
   }

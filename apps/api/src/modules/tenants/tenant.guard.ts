@@ -91,7 +91,7 @@ export class TenantGuard implements CanActivate {
       const space = await resolveDedicatedSpace(this.spaceDb, request.headers?.host);
       const isPlatformSession = user.tenantId !== undefined && user.tenantId === zero.id && user.centreId === undefined;
       if (space && !isPlatformSession) {
-        const spaceTenant = await this.spaceDb.withSpaceDatabase(space.slug, () =>
+        const spaceTenant = await this.spaceDb.withSpaceKysely(space.slug, () =>
           this.repo.getTenantBySlug(space.slug),
         );
         if (!spaceTenant) {
@@ -107,7 +107,7 @@ export class TenantGuard implements CanActivate {
           });
         }
         if (spaceTenant.kind !== 'platform') {
-          const membership = await this.spaceDb.withSpaceDatabase(space.slug, () =>
+          const membership = await this.spaceDb.withSpaceKysely(space.slug, () =>
             this.repo.getMembership(spaceTenant.id, user.id),
           );
           if (membership?.status !== 'active') {

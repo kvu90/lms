@@ -18,7 +18,6 @@ function makeService(options?: { prepared?: boolean }) {
   const spaceDb = {
     isSpacePrepared: vi.fn(() => options?.prepared ?? false),
     resolveTarget: vi.fn(async () => ({ slug: 'trung-tam-a', status: 'active', mode: 'dedicated' })),
-    getDatabaseForSpace: vi.fn(async () => ({})),
     getKyselyForSpace: vi.fn(async () => ({})),
   };
   const tenants = {
@@ -49,7 +48,7 @@ describe('Service nhận diện trung tâm', () => {
     const identity = await service.getIdentity('trung-tam-a');
     expect(identity).toMatchObject({ displayName: 'Trung tâm A — tên riêng', brandColor: '#1d4ed8' });
     expect(spaceDb.resolveTarget).not.toHaveBeenCalled();
-    expect(spaceDb.getDatabaseForSpace).not.toHaveBeenCalled();
+    expect(spaceDb.getKyselyForSpace).not.toHaveBeenCalled();
     expect(tenants.getTenantBySlug).toHaveBeenCalledWith('trung-tam-a');
   });
 
@@ -58,7 +57,7 @@ describe('Service nhận diện trung tâm', () => {
     const identity = await service.getIdentity('trung-tam-a');
     expect(identity).toMatchObject({ displayName: 'Trung tâm A — tên riêng' });
     expect(spaceDb.resolveTarget).toHaveBeenCalledWith('trung-tam-a');
-    expect(spaceDb.getDatabaseForSpace).toHaveBeenCalledWith('trung-tam-a');
+    expect(spaceDb.getKyselyForSpace).toHaveBeenCalledWith('trung-tam-a');
   });
 
   it('trung tâm đã chuẩn bị nhưng không có dòng tenant trong kho của nó thì trả 404', async () => {

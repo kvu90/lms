@@ -61,7 +61,7 @@ import type {
  * Bóc lỗi vi phạm unique của PostgreSQL (23505): qua Kysely lỗi pg
  * ném THÔ — `code` nằm trực tiếp trên lỗi, không có `cause`; helper
  * vẫn duyệt cả chuỗi `cause` (vòng đầu kiểm chính lỗi được ném) để
- * tương thích các đường lỗi còn bọc qua Drizzle ở tầng khác.
+ * tương thích các đường lỗi còn bọc qua bộ máy cũ ở tầng khác.
  */
 function isUniqueViolation(err: unknown): boolean {
   let e: unknown = err;
@@ -543,12 +543,12 @@ export class SystemBankService {
    */
   async createOutcomePackage(actorId: string, dto: CreateSystemOutcomePackageDto) {
     await this.assertPlatformManager(actorId);
-    const snapshot = await this.tenantDb.withPlatformKysely(async (tx) => {
+    const snapshot = await this.tenantDb.withPlatform(async (tx) => {
       // Chụp cây chương trình bằng truy vấn Kysely trên handle định
       // tuyến (hạng mục G10, issue #650): danh sách cột tường minh có
       // bí danh camelCase khớp hình dạng dòng mà phần dựng gói phía
       // dưới đang dùng; các tập id rỗng được chặn trước bằng guard
-      // độ dài như bản Drizzle — không phát truy vấn `in ()`.
+      // độ dài như bản bộ máy cũ — không phát truy vấn `in ()`.
       const subjectColumns = [
         'id',
         'context_id as contextId',

@@ -67,7 +67,7 @@ export class PlanLimitsService {
    * createContext/assignRole/setCapabilityOverride nay chạy trên
    * làn Kysely nên facade chỉ còn handle Kysely như phần còn lại
    * của service — lõi dùng chung cũng chỉ nhận handle Kysely,
-   * không còn nhánh đọc bằng transaction Drizzle.
+   * không còn nhánh đọc bằng transaction bộ máy cũ.
    */
   async tenantIdForContext(contextId: string, tx?: CentreTx): Promise<string | null> {
     return delegateToSharedCore(() => this.core.tenantIdForContext(contextId, tx));

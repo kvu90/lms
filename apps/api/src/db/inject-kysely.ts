@@ -1,14 +1,14 @@
 /**
  * Decorator `@InjectKysely(...)` — cơ chế inject handle Kysely tự
- * dựng của repo, thay vai trò mà `@InjectDrizzle` của package ngoài
- * `@nestjs/drizzle` đang giữ cho phía Drizzle.
+ * dựng của repo, thay vai trò mà decorator inject theo token của
+ * NestJS từng giữ cho phía bộ máy cũ.
  *
  * Vì sao tự dựng: Kysely không có module NestJS chính thức và dự án
  * không lấy thêm package cộng đồng cho việc này (xem `KyselyModule`
  * trong `kysely.module.ts` cùng thư mục). Mỗi kho dữ liệu có một
  * token riêng; `InjectKysely()` không tham số trỏ về kho trung tâm —
- * kho mặc định, tương đương cách `@InjectDrizzle()` trỏ về kết nối
- * mặc định hiện nay.
+ * kho mặc định, tương đương cách decorator của bộ máy cũ trỏ về kết
+ * nối mặc định trước đây.
  */
 import { Inject } from '@nestjs/common';
 

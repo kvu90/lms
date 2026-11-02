@@ -1,10 +1,9 @@
 import { INestApplication } from '@nestjs/common';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Client } from 'pg';
+import { Client, Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { spaceJoinCodeDirectory, spaceMembershipDirectory, spaceRegistry } from '@lms/db/control-plane';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { createControlPlaneKysely, type ControlPlaneDb } from '@lms/db/control-plane';
 import { emitSpaceRegistryChanged } from '../../../src/db/routing/space-routing-events';
 import { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
 import { CAP_ALLOW } from '../../../src/modules/access/domain/permission';
@@ -97,7 +96,7 @@ async function withClient<T>(connectionString: string, fn: (client: Client) => P
   }
 }
 
-/** Áp một file migration SQL (tách theo dấu phân đoạn của Drizzle) lên một database qua kết nối cho trước. */
+/** Áp một file migration SQL (tách theo dấu phân đoạn của file) lên một database qua kết nối cho trước. */
 async function applySqlFile(connectionString: string, filePath: string, withUuidShim: boolean): Promise<void> {
   await withClient(connectionString, async (client) => {
     if (withUuidShim) {
@@ -186,6 +185,16 @@ describe('Đọc quản trị ở kho đích + thư mục định tuyến (đầ
 
   const centreUrl = () => clusterUrl(CENTRE_DATABASE, CENTRE_ROLE, CENTRE_PASSWORD);
   const cpUrl = () => clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD);
+  /** Mở handle Kysely của kho control plane kiểm chứng trên một pool riêng ngắn hạn, đóng pool ngay sau khi dùng. */
+  const withCpDb = async <T>(fn: (cpDb: ControlPlaneDb) => Promise<T>): Promise<T> => {
+    const pool = new Pool({ connectionString: cpUrl() });
+    const cpDb = createControlPlaneKysely(pool);
+    try {
+      return await fn(cpDb);
+    } finally {
+      await cpDb.destroy();
+    }
+  };
   const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
   const must = async (res: { status: number; body: unknown }, what: string) => {
     if (res.status < 200 || res.status >= 300) {
@@ -242,21 +251,20 @@ describe('Đọc quản trị ở kho đích + thư mục định tuyến (đầ
 
     // Dòng đăng ký kho riêng trong sổ, ghi trước khi ứng dụng
     // khởi động như spec Phần A.
-    await withClient(cpUrl(), async (client) => {
-      const cpDb = drizzle({ client });
-      await cpDb.insert(spaceRegistry).values([
+    await withCpDb(async (cpDb) => {
+      await cpDb.insertInto('space_registry').values([
         {
           slug: CENTRE_SLUG,
           name: 'Trung tâm TĐ3',
           kind: 'center',
           status: 'active',
-          databaseName: CENTRE_DATABASE,
-          storageMode: 'dedicated',
-          connectionRoleRef: CENTRE_ROLE,
-          secretRef: 'env:SPACE_TEST_TD3_URL',
-          schemaVersion: 'v1',
+          database_name: CENTRE_DATABASE,
+          storage_mode: 'dedicated',
+          connection_role_ref: CENTRE_ROLE,
+          secret_ref: 'env:SPACE_TEST_TD3_URL',
+          schema_version: 'v1',
         },
-      ]);
+      ]).execute();
     });
 
     app = await createTestApp();
@@ -283,7 +291,7 @@ describe('Đọc quản trị ở kho đích + thư mục định tuyến (đầ
     const contexts = app.get(ContextsService, { strict: false });
     const roles = app.get(RolesService, { strict: false });
     const adminUsername = uniqueName('admintd3');
-    await spaceDb.withSpaceDatabase(
+    await spaceDb.withSpaceKysely(
       CENTRE_SLUG,
       async () => {
         const user = await users.createUser({
@@ -395,13 +403,10 @@ describe('Đọc quản trị ở kho đích + thư mục định tuyến (đầ
       'create tenant user in space',
     )) as { id: string };
     spaceUserId = createdUser.id;
-    const directoryRows = await withClient(cpUrl(), async (client) => {
-      const cpDb = drizzle({ client });
-      return cpDb.select().from(spaceMembershipDirectory);
-    });
-    const entry = directoryRows.find((row) => row.spaceSlug === CENTRE_SLUG && row.spaceUserId === spaceUserId);
+    const directoryRows = await withCpDb((cpDb) => cpDb.selectFrom('space_membership_directory').selectAll().execute());
+    const entry = directoryRows.find((row) => row.space_slug === CENTRE_SLUG && row.space_user_id === spaceUserId);
     expect(entry).toBeDefined();
-    expect(entry!.globalUserId).toBe(spaceUserId);
+    expect(entry!.global_user_id).toBe(spaceUserId);
     expect(entry!.status).toBe('active');
 
     // Thêm thành viên (tài khoản toàn cục) cho tenant kho riêng
@@ -412,11 +417,8 @@ describe('Đọc quản trị ở kho đích + thư mục định tuyến (đầ
       await http(app).post(`/api/v1/tenants/${tenantId}/members`).set(auth(adminToken)).send({ userId: globalUser.id }),
       'add global member',
     );
-    const afterAdd = await withClient(cpUrl(), async (client) => {
-      const cpDb = drizzle({ client });
-      return cpDb.select().from(spaceMembershipDirectory);
-    });
-    const addedEntry = afterAdd.find((row) => row.spaceSlug === CENTRE_SLUG && row.globalUserId === globalUser.id);
+    const afterAdd = await withCpDb((cpDb) => cpDb.selectFrom('space_membership_directory').selectAll().execute());
+    const addedEntry = afterAdd.find((row) => row.space_slug === CENTRE_SLUG && row.global_user_id === globalUser.id);
     expect(addedEntry).toBeDefined();
     expect(addedEntry!.status).toBe('active');
 
@@ -427,11 +429,8 @@ describe('Đọc quản trị ở kho đích + thư mục định tuyến (đầ
         .send({ status: 'suspended' }),
       'suspend member',
     );
-    const afterSuspend = await withClient(cpUrl(), async (client) => {
-      const cpDb = drizzle({ client });
-      return cpDb.select().from(spaceMembershipDirectory);
-    });
-    const suspendedEntry = afterSuspend.find((row) => row.spaceSlug === CENTRE_SLUG && row.globalUserId === globalUser.id);
+    const afterSuspend = await withCpDb((cpDb) => cpDb.selectFrom('space_membership_directory').selectAll().execute());
+    const suspendedEntry = afterSuspend.find((row) => row.space_slug === CENTRE_SLUG && row.global_user_id === globalUser.id);
     expect(suspendedEntry).toBeDefined();
     expect(suspendedEntry!.status).toBe('suspended');
   });
@@ -492,11 +491,8 @@ describe('Đọc quản trị ở kho đích + thư mục định tuyến (đầ
       const result = await client.query<{ cohort_id: string }>('SELECT cohort_id FROM classes WHERE id = $1', [classId]);
       return result.rows[0]!.cohort_id;
     });
-    const directoryCodes = await withClient(cpUrl(), async (client) => {
-      const cpDb = drizzle({ client });
-      return cpDb.select().from(spaceJoinCodeDirectory);
-    });
-    expect(directoryCodes.some((row) => row.joinCode === joinCode && row.spaceSlug === CENTRE_SLUG)).toBe(true);
+    const directoryCodes = await withCpDb((cpDb) => cpDb.selectFrom('space_join_code_directory').selectAll().execute());
+    expect(directoryCodes.some((row) => row.join_code === joinCode && row.space_slug === CENTRE_SLUG)).toBe(true);
     // Mã và lớp không hề tồn tại ở kho chung.
     expect(await countRows(process.env.DATABASE_URL!, 'classes', 'id', classId)).toBe(0);
 
@@ -574,11 +570,8 @@ describe('Đọc quản trị ở kho đích + thư mục định tuyến (đầ
     const second = await runBackfill();
     expect(second.joinCodesClaimed).toBe(0);
     expect(second.joinCodesAlreadyPresent).toBe(1);
-    const codeRows = await withClient(cpUrl(), async (client) => {
-      const cpDb = drizzle({ client });
-      return cpDb.select().from(spaceJoinCodeDirectory);
-    });
-    expect(codeRows.filter((row) => row.joinCode === joinCode)).toHaveLength(1);
+    const codeRows = await withCpDb((cpDb) => cpDb.selectFrom('space_join_code_directory').selectAll().execute());
+    expect(codeRows.filter((row) => row.join_code === joinCode)).toHaveLength(1);
 
     // Va chạm: một lớp thứ hai trong kho đích mang mã mà thư
     // mục đang ghi cho một không gian khác → lấp thư mục BÁO
@@ -597,36 +590,32 @@ describe('Đọc quản trị ở kho đích + thư mục định tuyến (đầ
     });
     const third = await runBackfill();
     expect(third.joinCodeConflicts).toEqual([{ joinCode: secondCode, classId: secondClass.id, ownerSpaceSlug: 'khong-gian-khac' }]);
-    const afterConflict = await withClient(cpUrl(), async (client) => {
-      const cpDb = drizzle({ client });
-      return cpDb.select().from(spaceJoinCodeDirectory);
-    });
-    expect(afterConflict.find((row) => row.joinCode === secondCode)!.spaceSlug).toBe('khong-gian-khac');
+    const afterConflict = await withCpDb((cpDb) => cpDb.selectFrom('space_join_code_directory').selectAll().execute());
+    expect(afterConflict.find((row) => row.join_code === secondCode)!.space_slug).toBe('khong-gian-khac');
   });
 
   it('thư mục trỏ tới kho đích không chuẩn bị được thì lỗi tường minh, không trả rỗng giả hay từ chối oan', async () => {
     // Không gian "hỏng": đăng ký kho riêng trỏ tới một database
     // không tồn tại trên cụm; thư mục có mục trỏ về nó.
     process.env.SPACE_TEST_BROKEN_TD3_URL = clusterUrl('lms_test_khong_ton_tai_td3', CENTRE_ROLE, CENTRE_PASSWORD);
-    await withClient(cpUrl(), async (client) => {
-      const cpDb = drizzle({ client });
-      await cpDb.insert(spaceRegistry).values([
+    await withCpDb(async (cpDb) => {
+      await cpDb.insertInto('space_registry').values([
         {
           slug: BROKEN_SLUG,
           name: 'Trung tâm hỏng TĐ3',
           kind: 'center',
           status: 'active',
-          databaseName: 'lms_test_khong_ton_tai_td3',
-          storageMode: 'dedicated',
-          connectionRoleRef: CENTRE_ROLE,
-          secretRef: 'env:SPACE_TEST_BROKEN_TD3_URL',
-          schemaVersion: 'v1',
+          database_name: 'lms_test_khong_ton_tai_td3',
+          storage_mode: 'dedicated',
+          connection_role_ref: CENTRE_ROLE,
+          secret_ref: 'env:SPACE_TEST_BROKEN_TD3_URL',
+          schema_version: 'v1',
         },
-      ]);
-      await cpDb.insert(spaceMembershipDirectory).values([
-        { globalUserId: memberId, spaceSlug: BROKEN_SLUG, spaceUserId: memberId, status: 'active' },
-      ]);
-      await cpDb.insert(spaceJoinCodeDirectory).values([{ joinCode: BROKEN_CODE, spaceSlug: BROKEN_SLUG }]);
+      ]).execute();
+      await cpDb.insertInto('space_membership_directory').values([
+        { global_user_id: memberId, space_slug: BROKEN_SLUG, space_user_id: memberId, status: 'active' },
+      ]).execute();
+      await cpDb.insertInto('space_join_code_directory').values([{ join_code: BROKEN_CODE, space_slug: BROKEN_SLUG }]).execute();
     });
     emitSpaceRegistryChanged(BROKEN_SLUG);
 

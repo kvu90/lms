@@ -28,8 +28,9 @@
  *    không cấp mật khẩu thì GIỮ NGUYÊN mật khẩu cũ (không xoay lén
  *    dưới chân môi trường triển khai đã lưu mật khẩu trước đó).
  * 3. Migration: toàn bộ migration nghiệp vụ hiện hành vào database
- *    mới bằng đúng bộ máy `migrate()` của Drizzle (như fleet
- *    runner), rồi ghi phiên bản schema vào registry của trung tâm.
+ *    mới bằng đúng bộ máy migration của `@lms/db`
+ *    (`applyStoreMigrations`, như fleet runner), rồi ghi phiên bản
+ *    schema vào registry của trung tâm.
  *    Database mới nên không cần sao lưu trước như fleet runner.
  * 4. Dữ kiện nền: context hệ thống + dòng tenant (kind `center`,
  *    trạng thái `active`) + context tenant + bản cài cục bộ gói
@@ -69,10 +70,8 @@
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { Client, Pool } from 'pg';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { SpaceRegistryRow } from '@lms/db/repositories/control-plane';
+import { applyStoreMigrations } from '@lms/db/migrate';
 import {
   buildCentreDatabaseUrl,
   CENTRE_INVITE_TTL_MS,
@@ -84,7 +83,6 @@ import {
   generateCentreInviteToken,
   hashCentreInviteToken,
   normalizeSpaceSlug,
-  UUIDV7_SHIM,
 } from './centre-provision';
 import {
   buildEnsureDatabaseStatements,
@@ -106,26 +104,14 @@ import { PlanLimitsService } from '../access/plan-limits.service';
 import { RoleSeparationService } from '../access/role-separation.service';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { SpaceDatabaseService } from '../../db/routing/space-database.service';
-import type { Database } from '../../db/database';
 import { CONTEXT_LEVELS, DEFAULT_ROLES } from '../access/domain/capabilities';
-import { createCentreKysely, sql as kyselySql, type CentreDb } from '@lms/db';
+import { createCentreKysely, sql as kyselySql, type CentreDb, type JsonValue } from '@lms/db';
 import { isDedicatedDatabaseNameConflict } from '@lms/db/repositories/control-plane';
 import {
   loadProgramDumpSql,
   PROGRAM_DUMP_VERSION,
   restoreProgramDumpSql,
 } from '../curriculum/program-dump';
-import { relations } from '../../db/relations';
-import {
-  centreIdentity,
-  centreInvites,
-  config,
-  context,
-  programPackageInstalls,
-  tenantMemberships,
-  tenants,
-  users,
-} from '../../db/schema';
 
 /** Đầu vào của một lượt cấp phát. */
 export type SpaceProvisionOptions = {
@@ -149,7 +135,7 @@ export type SpaceProvisionOptions = {
   databasePassword?: string;
   /** UUID của người vận hành — bắt buộc, ghi vào lịch sử sổ đăng ký (fail-closed khi thiếu). */
   actorId: string;
-  /** Thư mục migration nghiệp vụ (mặc định `<cwd>/drizzle`). */
+  /** Thư mục migration nghiệp vụ (mặc định: thư mục carrier trong package `@lms/db`). */
   migrationsDir?: string;
   /** Biến môi trường (mặc định `process.env`) — test chèn env riêng qua đây. */
   env?: NodeJS.ProcessEnv;
@@ -503,14 +489,12 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
     const centreUrl = buildCentreDatabaseUrl({ host: clusterHost, port: clusterPort, role: connectionRole, password: centrePassword, databaseName });
 
     // ---- Bước 3: migration nghiệp vụ vào kho mới ----
+    // Bộ máy migration của `@lms/db` (`applyStoreMigrations`) tự
+    // lo bước tiền-migration shim `uuidv7()` cho cụm dưới PG18
+    // trước khi áp — cùng trình tự với CLI migrate và fleet
+    // runner, không bản sao tại đây.
     const migrationPool = new Pool({ connectionString: centreUrl });
     try {
-      const versionRow = await migrationPool.query('SHOW server_version');
-      const major = Number(String(versionRow.rows[0].server_version).split('.')[0]);
-      if (major < 18) {
-        await migrationPool.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
-        await migrationPool.query(UUIDV7_SHIM);
-      }
       const folders = listMigrationFolders(migrationsDir);
       if (folders.length === 0) throw new Error(`No migration folders found under ${migrationsDir}`);
       const targetVersion = folders[folders.length - 1]!;
@@ -525,8 +509,8 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
         await probe.end().catch(() => undefined);
       }
       if (!applied.includes(targetVersion)) {
-        const db = drizzle({ client: migrationPool });
-        await migrate(db, { migrationsFolder: migrationsDir });
+        const migrationDb = createCentreKysely(migrationPool);
+        await applyStoreMigrations(migrationDb, 'centre', migrationsDir);
         const verify = new Client({ connectionString: centreUrl });
         await verify.connect();
         try {
@@ -555,32 +539,39 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
     }
 
     // ---- Bước 4–6: dữ kiện nền, nhận diện, quản trị đầu tiên ----
-    // Một kết nối riêng với GUC platform ở mức phiên: mọi ghi seed
-    // (kể cả restore dump chạy transaction riêng của nó) đều thấy
-    // platform='on' nên qua được RLS FORCE của kho mới.
-    const seedClient = new Client({ connectionString: centreUrl });
-    await seedClient.connect();
+    // Một pool riêng trần 1 kết nối với GUC platform ở mức phiên:
+    // mọi ghi seed (kể cả restore dump chạy transaction riêng của
+    // nó trên pool riêng của nó) đều thấy platform='on' nên qua
+    // được RLS FORCE của kho mới. Trần 1 kết nối + các câu lệnh
+    // đều chạy tuần tự nên mọi câu đều mượn đúng kết nối duy nhất
+    // mang GUC phiên đó (cùng khuôn pool trần 1 của bước restore
+    // ở dưới).
+    const seedPool = new Pool({ connectionString: centreUrl, max: 1 });
+    const db = createCentreKysely(seedPool);
     try {
       // GUC platform ở mức phiên (không phải transaction-local):
       // restore dump chạy transaction riêng của nó nên GUC phải tồn
       // tại ngoài transaction mới tới được bên trong nó.
-      await seedClient.query(`SELECT set_config('app.platform', 'on', false)`);
-      const db = drizzle({ client: seedClient, relations });
+      await kyselySql`SELECT set_config('app.platform', 'on', false)`.execute(db);
       // Context hệ thống (level 10) — neo của toàn bộ cây chương trình và tenant.
-      const [existingSystem] = await db.select().from(context)
-        .where(and(eq(context.contextLevel, CONTEXT_LEVELS.SYSTEM), isNull(context.instanceId))).limit(1);
+      const existingSystem = await db.selectFrom('context').selectAll()
+        .where('context_level', '=', CONTEXT_LEVELS.SYSTEM).where('instance_id', 'is', null)
+        .limit(1).executeTakeFirst();
       let systemContextId: string;
       if (existingSystem) {
         systemContextId = existingSystem.id;
       } else {
-        const [inserted] = await db.insert(context).values({ contextLevel: CONTEXT_LEVELS.SYSTEM, instanceId: null, path: '', depth: 0 }).returning();
-        const path = `/${inserted!.id}`;
-        await db.update(context).set({ path, depth: 1 }).where(eq(context.id, inserted!.id));
-        systemContextId = inserted!.id;
+        const inserted = await db.insertInto('context')
+          .values({ context_level: CONTEXT_LEVELS.SYSTEM, instance_id: null, path: '', depth: 0 })
+          .returningAll().executeTakeFirstOrThrow();
+        const path = `/${inserted.id}`;
+        await db.updateTable('context').set({ path, depth: 1 }).where('id', '=', inserted.id).execute();
+        systemContextId = inserted.id;
       }
       // Dòng tenant của trung tâm (kind center, active — cổng guard
       // yêu cầu tenant active và membership active để đi qua).
-      const [existingTenant] = await db.select().from(tenants).where(eq(tenants.slug, slug)).limit(1);
+      const existingTenant = await db.selectFrom('tenants').selectAll()
+        .where('slug', '=', slug).limit(1).executeTakeFirst();
       let tenantId: string;
       if (existingTenant) {
         tenantId = existingTenant.id;
@@ -588,15 +579,20 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
           throw new Error(`Tenant ${slug} already exists in the centre database with kind ${existingTenant.kind} / status ${existingTenant.status} — refusing to take it over`);
         }
       } else {
-        const [inserted] = await db.insert(tenants).values({ slug, name, kind: 'center', status: 'active', plan: options.plan ?? null }).returning();
-        tenantId = inserted!.id;
+        const inserted = await db.insertInto('tenants')
+          .values({ slug, name, kind: 'center', status: 'active', plan: options.plan ?? null })
+          .returningAll().executeTakeFirstOrThrow();
+        tenantId = inserted.id;
       }
       // Context tenant (level 20) dưới context hệ thống.
-      const [existingTenantContext] = await db.select().from(context)
-        .where(and(eq(context.contextLevel, CONTEXT_LEVELS.TENANT), eq(context.instanceId, tenantId))).limit(1);
+      const existingTenantContext = await db.selectFrom('context').selectAll()
+        .where('context_level', '=', CONTEXT_LEVELS.TENANT).where('instance_id', '=', tenantId)
+        .limit(1).executeTakeFirst();
       if (!existingTenantContext) {
-        const [inserted] = await db.insert(context).values({ contextLevel: CONTEXT_LEVELS.TENANT, instanceId: tenantId, path: '', depth: 0 }).returning();
-        await db.update(context).set({ path: `${'/' + systemContextId}/${inserted!.id}`, depth: 2 }).where(eq(context.id, inserted!.id));
+        const inserted = await db.insertInto('context')
+          .values({ context_level: CONTEXT_LEVELS.TENANT, instance_id: tenantId, path: '', depth: 0 })
+          .returningAll().executeTakeFirstOrThrow();
+        await db.updateTable('context').set({ path: `${'/' + systemContextId}/${inserted.id}`, depth: 2 }).where('id', '=', inserted.id).execute();
       }
       // Bản cài gói chương trình: khớp phiên bản + checksum thì bỏ
       // qua; chưa có bản cài mà dữ kiện đã có thì chỉ ghi bản cài
@@ -604,25 +600,24 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
       // dump rồi ghi bản cài.
       const dumpSql = loadProgramDumpSql();
       const dumpChecksum = createHash('sha256').update(dumpSql).digest('hex');
-      const [existingInstall] = await db.select().from(programPackageInstalls)
-        .where(and(eq(programPackageInstalls.tenantId, tenantId), eq(programPackageInstalls.packageKey, CENTRE_PROGRAM_PACKAGE_KEY))).limit(1);
+      const existingInstall = await db.selectFrom('program_package_installs').selectAll()
+        .where('tenant_id', '=', tenantId).where('package_key', '=', CENTRE_PROGRAM_PACKAGE_KEY)
+        .limit(1).executeTakeFirst();
       let programRecordsPresent = false;
       if (!existingInstall || existingInstall.version !== PROGRAM_DUMP_VERSION || existingInstall.checksum !== dumpChecksum) {
-        const executed = await db.execute(sql`SELECT COUNT(*) AS c FROM subjects`);
-        const subjectRows = (executed as unknown as { rows: { c: string }[] }).rows;
-        programRecordsPresent = Number(subjectRows[0]?.c ?? 0) > 0;
+        const executed = await kyselySql<{ c: string }>`SELECT COUNT(*) AS c FROM subjects`.execute(db);
+        programRecordsPresent = Number(executed.rows[0]?.c ?? 0) > 0;
         if (!existingInstall && !programRecordsPresent) {
-          // Từ issue #646, `restoreProgramDumpSql` chạy trên
-          // handle Kysely. Đường seed này đang giữ GUC platform ở
-          // MỨC PHIÊN trên `seedClient` để restore (transaction
-          // riêng của nó) qua được RLS FORCE — bản Kysely vì vậy
+          // `restoreProgramDumpSql` chạy trên handle Kysely
+          // (issue #646). Đường seed này đang giữ GUC platform ở
+          // MỨC PHIÊN trên pool seed để restore (transaction
+          // riêng của nó) qua được RLS FORCE — bản restore vì vậy
           // dùng một pool RIÊNG trần 1 kết nối trên cùng
           // connection string: đặt GUC platform ở mức phiên lên
           // kết nối duy nhất đó trước, rồi transaction của restore
           // mượn lại đúng kết nối ấy (không có lượt dùng song song
           // nào khác trên pool này trong bước seed). Pool đóng
-          // ngay sau restore; các câu Drizzle xung quanh trên
-          // `seedClient` không đổi.
+          // ngay sau restore.
           const restorePool = new Pool({ connectionString: centreUrl, max: 1 });
           const restoreDb = createCentreKysely(restorePool);
           try {
@@ -633,9 +628,9 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
           }
         }
         if (!existingInstall) {
-          await db.insert(programPackageInstalls).values({
-            tenantId, packageKey: CENTRE_PROGRAM_PACKAGE_KEY, version: PROGRAM_DUMP_VERSION, checksum: dumpChecksum,
-          });
+          await db.insertInto('program_package_installs').values({
+            tenant_id: tenantId, package_key: CENTRE_PROGRAM_PACKAGE_KEY, version: PROGRAM_DUMP_VERSION, checksum: dumpChecksum,
+          }).execute();
         } else {
           // Bản cài cũ lệch phiên bản/checksum: gói đã đổi bản — cấp
           // phát không tự nâng cấp kho đã có (đó là việc của migration
@@ -657,16 +652,20 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
         await accessDb.destroy().catch(() => undefined);
       }
       // Nhận diện của trung tâm (một dòng cho mỗi tenant).
-      const [existingIdentity] = await db.select().from(centreIdentity).where(eq(centreIdentity.tenantId, tenantId)).limit(1);
+      const existingIdentity = await db.selectFrom('centre_identity').selectAll()
+        .where('tenant_id', '=', tenantId).limit(1).executeTakeFirst();
       if (!existingIdentity) {
-        await db.insert(centreIdentity).values({ tenantId, displayName: name, logoPath: null, brandColor: null });
+        await db.insertInto('centre_identity')
+          .values({ tenant_id: tenantId, display_name: name, logo_path: null, brand_color: null })
+          .execute();
         step('identity', 'created');
       } else {
         step('identity', 'reused');
       }
       // Quản trị đầu tiên: tài khoản chưa có mật khẩu + membership +
       // siteadmins của kho trung tâm + lời mời kích hoạt.
-      const [existingUser] = await db.select().from(users).where(eq(users.username, adminUsername)).limit(1);
+      const existingUser = await db.selectFrom('users').selectAll()
+        .where('username', '=', adminUsername).limit(1).executeTakeFirst();
       let adminUserId: string;
       if (existingUser) {
         if (existingUser.email !== adminEmail) {
@@ -674,15 +673,16 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
         }
         adminUserId = existingUser.id;
       } else {
-        const [inserted] = await db.insert(users).values({
-          username: adminUsername, email: adminEmail, passwordHash: null,
-          firstName: options.adminFirstName ?? '', lastName: options.adminLastName ?? '',
-          forcePasswordChange: true,
-        }).returning();
-        adminUserId = inserted!.id;
+        const inserted = await db.insertInto('users').values({
+          username: adminUsername, email: adminEmail, password_hash: null,
+          first_name: options.adminFirstName ?? '', last_name: options.adminLastName ?? '',
+          force_password_change: true,
+        }).returningAll().executeTakeFirstOrThrow();
+        adminUserId = inserted.id;
       }
-      await db.insert(tenantMemberships).values({ tenantId, userId: adminUserId, status: 'active' })
-        .onConflictDoNothing({ target: [tenantMemberships.tenantId, tenantMemberships.userId] });
+      await db.insertInto('tenant_memberships').values({ tenant_id: tenantId, user_id: adminUserId, status: 'active' })
+        .onConflict((oc) => oc.columns(['tenant_id', 'user_id']).doNothing())
+        .execute();
       // Mục THƯ MỤC THÀNH VIÊN cho quản trị đầu tiên (issue #587,
       // hạng mục 3 — thiết kế B1): bộ chọn trung tâm của các
       // không gian kho riêng đọc thư mục ở control plane, nên
@@ -697,38 +697,43 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
         spaceUserId: adminUserId,
         status: 'active',
       });
-      const [siteAdminsRow] = await db.select().from(config).where(eq(config.key, 'siteadmins')).limit(1);
+      const siteAdminsRow = await db.selectFrom('config').selectAll()
+        .where('key', '=', 'siteadmins').limit(1).executeTakeFirst();
       const currentAdmins = Array.isArray(siteAdminsRow?.value) ? (siteAdminsRow!.value as unknown[]).map((v) => String(v)) : [];
       if (!currentAdmins.includes(adminUserId)) {
         const next = [...currentAdmins, adminUserId];
+        // Cột `value` là jsonb và giá trị là MẢNG cấp cao nhất:
+        // phải serialize tường minh kèm `::jsonb` như khuôn ghi
+        // jsonb của `@lms/db` (driver `pg` hiểu mảng cấp cao nhất
+        // là mảng PostgreSQL, không phải JSON).
+        const nextValue = kyselySql<JsonValue>`${JSON.stringify(next)}::jsonb`;
         if (siteAdminsRow) {
-          await db.update(config).set({ value: next }).where(eq(config.id, siteAdminsRow.id));
+          await db.updateTable('config').set({ value: nextValue }).where('id', '=', siteAdminsRow.id).execute();
         } else {
-          await db.insert(config).values({ key: 'siteadmins', value: next });
+          await db.insertInto('config').values({ key: 'siteadmins', value: nextValue }).execute();
         }
       }
       // Lời mời: đang chờ thì tái dùng (token gốc đã mất sau lần in
       // đầu — vận hành dùng lệnh cấp lại nếu mất link); chưa có thì
       // tạo mới và trả token gốc để CLI in ra.
-      const [pendingInvite] = await db.select().from(centreInvites)
-        .where(and(
-          eq(centreInvites.userId, adminUserId),
-          isNull(centreInvites.usedAt),
-          isNull(centreInvites.revokedAt),
-          sql`${centreInvites.expiresAt} > now()`,
-        )).limit(1);
+      const pendingInvite = await db.selectFrom('centre_invites').selectAll()
+        .where('user_id', '=', adminUserId)
+        .where('used_at', 'is', null)
+        .where('revoked_at', 'is', null)
+        .where('expires_at', '>', kyselySql<Date>`now()`)
+        .limit(1).executeTakeFirst();
       let inviteToken: string | null = null;
       let inviteExpiresAt: Date | null = null;
       if (pendingInvite) {
-        inviteExpiresAt = pendingInvite.expiresAt;
+        inviteExpiresAt = pendingInvite.expires_at as Date;
         step('admin-invite', 'reused');
       } else {
         inviteToken = generateCentreInviteToken();
         inviteExpiresAt = new Date(Date.now() + CENTRE_INVITE_TTL_MS);
-        await db.insert(centreInvites).values({
-          tenantId, userId: adminUserId, email: adminEmail,
-          tokenHash: hashCentreInviteToken(inviteToken), expiresAt: inviteExpiresAt,
-        });
+        await db.insertInto('centre_invites').values({
+          tenant_id: tenantId, user_id: adminUserId, email: adminEmail,
+          token_hash: hashCentreInviteToken(inviteToken), expires_at: inviteExpiresAt,
+        }).execute();
         step('admin-invite', 'created');
       }
 
@@ -741,7 +746,7 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
         passwordWasGenerated, generatedPassword, status: 'active', steps,
       };
     } finally {
-      await seedClient.end().catch(() => undefined);
+      await db.destroy().catch(() => undefined);
     }
   } finally {
     await writer.close().catch(() => undefined);
@@ -801,24 +806,26 @@ export async function manageCentreInvite(options: CentreInviteOptions): Promise<
     const secretEnvVar = secretRef.slice('env:'.length);
     const centreUrl = env[secretEnvVar];
     if (!centreUrl) throw new Error(`Connection URL env var ${secretEnvVar} is not set in this environment`);
-    const client = new Client({ connectionString: centreUrl });
-    await client.connect();
+    // Pool trần 1 kết nối mang GUC platform ở mức phiên như mọi
+    // đường ghi vào kho trung tâm của runner này.
+    const pool = new Pool({ connectionString: centreUrl, max: 1 });
+    const db = createCentreKysely(pool);
     try {
-      await client.query(`SELECT set_config('app.platform', 'on', false)`);
-      const db = drizzle({ client, relations });
-      const [tenant] = await db.select().from(tenants).where(eq(tenants.slug, slug)).limit(1);
+      await kyselySql`SELECT set_config('app.platform', 'on', false)`.execute(db);
+      const tenant = await db.selectFrom('tenants').selectAll()
+        .where('slug', '=', slug).limit(1).executeTakeFirst();
       if (!tenant) throw new Error(`Tenant ${slug} does not exist in the centre database yet`);
-      const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+      const user = await db.selectFrom('users').selectAll()
+        .where('email', '=', email).limit(1).executeTakeFirst();
       if (!user) throw new Error(`No user with email ${email} in the centre database`);
-      const pending = await db.select().from(centreInvites)
-        .where(and(
-          eq(centreInvites.userId, user.id),
-          isNull(centreInvites.usedAt),
-          isNull(centreInvites.revokedAt),
-          sql`${centreInvites.expiresAt} > now()`,
-        ));
+      const pending = await db.selectFrom('centre_invites').selectAll()
+        .where('user_id', '=', user.id)
+        .where('used_at', 'is', null)
+        .where('revoked_at', 'is', null)
+        .where('expires_at', '>', kyselySql<Date>`now()`)
+        .execute();
       for (const invite of pending) {
-        await db.update(centreInvites).set({ revokedAt: new Date() }).where(eq(centreInvites.id, invite.id));
+        await db.updateTable('centre_invites').set({ revoked_at: new Date() }).where('id', '=', invite.id).execute();
       }
       log(`[invite:${slug}] revoked ${pending.length} pending invite(s) for ${email}`);
       if (options.revokeOnly) {
@@ -826,13 +833,13 @@ export async function manageCentreInvite(options: CentreInviteOptions): Promise<
       }
       const inviteToken = generateCentreInviteToken();
       const inviteExpiresAt = new Date(Date.now() + CENTRE_INVITE_TTL_MS);
-      await db.insert(centreInvites).values({
-        tenantId: tenant.id, userId: user.id, email,
-        tokenHash: hashCentreInviteToken(inviteToken), expiresAt: inviteExpiresAt,
-      });
+      await db.insertInto('centre_invites').values({
+        tenant_id: tenant.id, user_id: user.id, email,
+        token_hash: hashCentreInviteToken(inviteToken), expires_at: inviteExpiresAt,
+      }).execute();
       return { slug, userId: user.id, revokedCount: pending.length, inviteToken, inviteExpiresAt };
     } finally {
-      await client.end().catch(() => undefined);
+      await db.destroy().catch(() => undefined);
     }
   } finally {
     await writer.close().catch(() => undefined);
@@ -885,28 +892,21 @@ export async function installSpaceRoleBaseline(options: SpaceRoleBaselineOptions
     const secretEnvVar = secretRef.slice('env:'.length);
     const centreUrl = env[secretEnvVar];
     if (!centreUrl) throw new Error(`Connection URL env var ${secretEnvVar} is not set in this environment`);
-    const client = new Client({ connectionString: centreUrl });
-    await client.connect();
+    const accessPool = new Pool({ connectionString: centreUrl, max: 1 });
+    const accessDb = createCentreKysely(accessPool);
     try {
       // GUC platform ở mức phiên như mọi đường ghi seed vào kho
-      // trung tâm: qua được RLS FORCE của kho.
-      await client.query(`SELECT set_config('app.platform', 'on', false)`);
-      const db = drizzle({ client, relations });
-      const [tenant] = await db.select().from(tenants).where(eq(tenants.slug, slug)).limit(1);
+      // trung tâm: qua được RLS FORCE của kho. Lượt đọc dòng
+      // tenant và lượt cài bộ vai dùng chung handle này.
+      await kyselySql`SELECT set_config('app.platform', 'on', false)`.execute(accessDb);
+      const tenant = await accessDb.selectFrom('tenants').selectAll()
+        .where('slug', '=', slug).limit(1).executeTakeFirst();
       if (!tenant) throw new Error(`Tenant ${slug} does not exist in the centre database yet`);
-      const accessPool = new Pool({ connectionString: centreUrl, max: 1 });
-      const accessDb = createCentreKysely(accessPool);
-      let outcome: 'created' | 'reused';
-      try {
-        await kyselySql`SELECT set_config('app.platform', 'on', false)`.execute(accessDb);
-        outcome = await installCentreRoleBaseline(accessDb);
-      } finally {
-        await accessDb.destroy().catch(() => undefined);
-      }
+      const outcome = await installCentreRoleBaseline(accessDb);
       log(`[install-roles:${slug}] role-baseline: ${outcome}`);
       return { slug, outcome };
     } finally {
-      await client.end().catch(() => undefined);
+      await accessDb.destroy().catch(() => undefined);
     }
   } finally {
     await writer.close().catch(() => undefined);

@@ -1,10 +1,9 @@
 import { INestApplication } from '@nestjs/common';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Client } from 'pg';
+import { Client, Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { spaceRegistry } from '@lms/db/control-plane';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { createControlPlaneKysely } from '@lms/db/control-plane';
 import { emitSpaceRegistryChanged } from '../../../src/db/routing/space-routing-events';
 import {
   STRONG_PASSWORD,
@@ -103,7 +102,7 @@ async function withClient<T>(connectionString: string, fn: (client: Client) => P
   }
 }
 
-/** Áp một file migration SQL (tách theo dấu phân đoạn của Drizzle) lên một database qua kết nối cho trước. */
+/** Áp một file migration SQL (tách theo dấu phân đoạn của file) lên một database qua kết nối cho trước. */
 async function applySqlFile(connectionString: string, filePath: string, withUuidShim: boolean): Promise<void> {
   await withClient(connectionString, async (client) => {
     if (withUuidShim) {
@@ -258,37 +257,41 @@ describe('Định tuyến theo trung tâm ở tầng API (đầu-cuối)', () =>
 
     // Hai dòng đăng ký kho riêng trong sổ (seed của ứng dụng đã
     // ghi hai dòng kho chung của Trang chính và trường mặc định).
-    await withClient(clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD), async (client) => {
-      const cpDb = drizzle({ client });
+    const cpPool = new Pool({ connectionString: clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD) });
+    const cpDb = createControlPlaneKysely(cpPool);
+    try {
       const inserted = await cpDb
-        .insert(spaceRegistry)
+        .insertInto('space_registry')
         .values([
           {
             slug: CENTRE_A_SLUG,
             name: 'Trung tâm A 582',
             kind: 'center',
             status: 'active',
-            databaseName: CENTRE_A_DATABASE,
-            storageMode: 'dedicated',
-            connectionRoleRef: CENTRE_A_ROLE,
-            secretRef: 'env:SPACE_TEST_A_582_URL',
-            schemaVersion: 'v1',
+            database_name: CENTRE_A_DATABASE,
+            storage_mode: 'dedicated',
+            connection_role_ref: CENTRE_A_ROLE,
+            secret_ref: 'env:SPACE_TEST_A_582_URL',
+            schema_version: 'v1',
           },
           {
             slug: CENTRE_B_SLUG,
             name: 'Trung tâm B 582',
             kind: 'center',
             status: 'active',
-            databaseName: CENTRE_B_DATABASE,
-            storageMode: 'dedicated',
-            connectionRoleRef: CENTRE_B_ROLE,
-            secretRef: 'env:SPACE_TEST_B_582_URL',
-            schemaVersion: 'v1',
+            database_name: CENTRE_B_DATABASE,
+            storage_mode: 'dedicated',
+            connection_role_ref: CENTRE_B_ROLE,
+            secret_ref: 'env:SPACE_TEST_B_582_URL',
+            schema_version: 'v1',
           },
         ])
-        .returning({ id: spaceRegistry.id, slug: spaceRegistry.slug });
+        .returning(['id', 'slug'])
+        .execute();
       registryAId = inserted.find((row) => row.slug === CENTRE_A_SLUG)!.id;
-    });
+    } finally {
+      await cpDb.destroy();
+    }
 
     adminToken = (await login(app, 'admin', 'Admin123!')).accessToken;
 

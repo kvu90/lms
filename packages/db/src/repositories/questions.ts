@@ -1,12 +1,12 @@
 import { sql, type RawBuilder } from 'kysely';
 import type { CentreDb, CentreTx } from '../client';
-import type { LearningOutcomeDoc } from '../curriculum.schema';
+import type { LearningOutcomeDoc } from '../jsonb-types';
 import type { Json } from '../types/centre-db';
 
 /**
  * Kho dữ liệu câu hỏi trên Kysely (issue #642, nhóm G2 của chiến
  * dịch chuyển tầng dữ liệu sang Kysely): TOÀN BỘ bề mặt của
- * `QuestionsRepository` cũ ở `apps/api` (Drizzle) được chuyển
+ * `QuestionsRepository` cũ ở `apps/api`  được chuyển
  * nguyên vẹn sang đây — category, câu hỏi, entry/version, stimulus,
  * đáp án + options theo dạng câu, usage/attempt/step của engine, và
  * các gắn kết chương trình (môn/YCCĐ) kèm bộ lọc khám phá theo
@@ -33,7 +33,7 @@ import type { Json } from '../types/centre-db';
  * Bề mặt kiểu dòng (hàng `*Row` xuất khẩu dưới đây) giữ đúng hình
  * dạng `$inferSelect` của repository cũ để phía tiêu thụ trong
  * module questions không đổi hợp đồng: các cột jsonb nội dung
- * không có `$type<>` ở schema Drizzle được giữ là `unknown` như
+ * không có `$type<>` ở schema bộ máy cũ được giữ là `unknown` như
  * hợp đồng cũ; `content` của YCCĐ giữ kiểu `LearningOutcomeDoc`
  * theo `$type<>` đã khai.
  *
@@ -1689,9 +1689,9 @@ export class QuestionsRepository {
   /**
    * Đánh dấu bản nhập từ ngân hàng hệ thống của một câu là
    * `derived` (đã có version do trung tâm tạo thêm) — trước đây
-   * tầng service ghi thẳng bằng Drizzle trên handle giao dịch của
+   * tầng service ghi thẳng bằng bộ máy cũ trên handle giao dịch của
    * nó (điểm A3 của kiểm kê #642); nay khép vào repository để
-   * module questions không còn lệnh ghi Drizzle nào ngoài
+   * module questions không còn lệnh ghi bộ máy cũ nào ngoài
    * repository của chính nó. Chỉ các dòng còn `pristine` mới đổi.
    */
   async markSystemImportDerived(questionId: string, tx: QuestionsDb): Promise<void> {

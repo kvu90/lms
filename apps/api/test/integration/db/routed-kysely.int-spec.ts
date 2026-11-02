@@ -1,7 +1,7 @@
 /**
  * Ca tích hợp của FACADE KYSELY ĐỊNH TUYẾN phía API (issue #639):
  * chứng minh `routedKysely` của `SpaceDatabaseService` giữ đúng
- * hợp đồng của `routedDatabase` — và giữ đúng ngữ nghĩa Kysely —
+ * hợp đồng định tuyến — và giữ đúng ngữ nghĩa Kysely —
  * qua Proxy uỷ thác theo ngữ cảnh ALS:
  *
  *   - `getKyselyForSpace` trả handle kho chung cho slug kho chung,
@@ -32,13 +32,10 @@
  * phân giải phải chốt đích theo `databaseName` trong sổ.
  */
 import type { ConfigService } from '@nestjs/config';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createCentreKysely, type CentreDb } from '@lms/db';
 import { buildTestDatabase, dropTestDatabase, withDatabase } from '@lms/db/test-support';
-import type { Database } from '../../../src/db/database';
-import { relations } from '../../../src/db/relations';
 import { SpaceRoutingError } from '../../../src/db/routing/space-connection-resolver';
 import { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
 import { TenantAwarePool } from '../../../src/db/tenant-pool';
@@ -96,7 +93,6 @@ describe('Facade Kysely định tuyến phía API (integration)', () => {
   let service: SpaceDatabaseService;
   let controlPlane: ControlPlaneConnection;
   let sharedPool: TenantAwarePool;
-  let sharedDb: Database;
   let sharedKysely: CentreDb;
   let sharedUrl = '';
   let centreAUrl = '';
@@ -143,9 +139,7 @@ describe('Facade Kysely định tuyến phía API (integration)', () => {
       controlPlane,
     );
     sharedPool = new TenantAwarePool({ connectionString: sharedUrl });
-    sharedDb = drizzle({ client: sharedPool, relations });
     sharedKysely = createCentreKysely(sharedPool);
-    service.bindSharedDatabase(sharedDb);
     service.bindSharedKysely(sharedKysely);
   }, 180_000);
 

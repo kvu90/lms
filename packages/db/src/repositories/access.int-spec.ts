@@ -25,7 +25,7 @@ import { AccessRepository } from './access';
  *   đọc thành `Date`.
  * - Ghi đè theo khoá phức hợp, doNothing + đọc lại khớp đúng
  *   nguồn, và các bảo vệ danh sách rỗng đều giữ nguyên ngữ nghĩa
- *   của bản Drizzle cũ.
+ *   của bản cũ trước chuyển đổi.
  * - Transaction của repository rollback trọn vẹn khi hàm ném lỗi.
  */
 
@@ -406,7 +406,7 @@ describe('override capability', () => {
     const aggregates = await repo.getRoleOverrideAggregates();
     const found = aggregates.find((a) => a.roleId === roleId);
     // Resource = `split_part(capability, ':', 1)` trên MỌI ghi đè (đúng
-    // hành vi bản Drizzle cũ, PR #549): hai tên không có dấu hai chấm
+    // hành vi bản cũ trước chuyển đổi, PR #549): hai tên không có dấu hai chấm
     // thành hai resource riêng, cộng `unknown` từ `unknown:thing` = 3.
     // Chỉ cột read/write mới loại capability ngoài danh mục (ghép trái
     // không thấy capType); ghi đè ngoài danh mục vẫn tính vào tổng.

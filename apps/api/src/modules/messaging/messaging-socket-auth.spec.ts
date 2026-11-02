@@ -21,7 +21,7 @@ import { MessagingSocketAuth } from './messaging-socket-auth';
  * Tiền điều kiện Phần B (issue #587, hạng mục 1): handshake tại địa
  * chỉ của trung tâm ở kho riêng thì MỌI lượt đọc danh tính phải chạy
  * trong kho của trung tâm đó. Các ca của khối này dùng một đầu dò
- * ghi lại từng lượt đọc có nằm trong `withSpaceDatabase` hay không
+ * ghi lại từng lượt đọc có nằm trong `withSpaceKysely` hay không
  * và store ALS tại thời điểm đọc — gỡ bước phân giải không gian (đọc
  * thẳng như đường kho chung) là các khẳng định về đầu dò đỏ ngay.
  */
@@ -42,7 +42,7 @@ describe('MessagingSocketAuth — dual auth cookie + token (GĐ5)', () => {
     platformTenantId?: string;
   } = {}) {
     // Đầu dò phạm vi kho: `insideSpace` bật trong lúc callback của
-    // `withSpaceDatabase` chạy; mọi lượt đọc của các fake ghi lại
+    // `withSpaceKysely` chạy; mọi lượt đọc của các fake ghi lại
     // trạng thái đầu dò tại thời điểm đọc, kèm store ALS thật.
     const probe = {
       insideSpace: false,
@@ -94,8 +94,8 @@ describe('MessagingSocketAuth — dual auth cookie + token (GĐ5)', () => {
         }
         throw new SpaceRoutingError('space_routing.space_not_found', `Space slug ${slug} is not registered`);
       }),
-      getDatabaseForSpace: vi.fn(async () => ({})),
-      withSpaceDatabase: vi.fn(async (slug: string, fn: (db: unknown) => Promise<unknown>) => {
+      getKyselyForSpace: vi.fn(async () => ({})),
+      withSpaceKysely: vi.fn(async (slug: string, fn: (db: unknown) => Promise<unknown>) => {
         probe.spaceSlugs.push(slug);
         probe.insideSpace = true;
         try {
@@ -296,7 +296,7 @@ describe('MessagingSocketAuth — dual auth cookie + token (GĐ5)', () => {
         headers: { host: HOST, cookie: 'better-auth.session_token=abc123' },
       });
       expect(identity).toEqual({ userId: 'u1', username: 'user-u1', tenantId: 'tenant-s', spaceSlug: null });
-      expect(spaceDb.withSpaceDatabase).not.toHaveBeenCalled();
+      expect(spaceDb.withSpaceKysely).not.toHaveBeenCalled();
       expect(probe.reads.every((read) => !read.insideSpace)).toBe(true);
     });
   });

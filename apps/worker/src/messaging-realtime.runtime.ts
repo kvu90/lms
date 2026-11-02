@@ -42,7 +42,7 @@ export class MessagingRealtimeRuntime implements OnModuleDestroy {
       // truyền facade định tuyến theo không gian của worker —
       // cùng handle mà các processor của job hiện hành dùng qua
       // SpaceJobRunner, nên ngữ cảnh kho/GUC của lượt phân phối
-      // không đổi so với đường Drizzle trước đây.
+      // không đổi so với đường cũ trước đây.
       store: createMessagingDistributionStore(spaceDb.routedKysely),
       emitter: this.emitterHandle.emitter,
       logger: {

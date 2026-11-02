@@ -2,14 +2,11 @@ import { BullModule, getQueueToken } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { DrizzleModule } from '@nestjs/drizzle';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { createCentreKysely } from '@lms/db';
 import { I18nWorkerModule } from './i18n/i18n.config';
 import { databaseConnectionFromEnv, redisConnectionFromUrl, validateEnv } from './config/env';
-import { relations } from './db/relations';
 import { SpaceDatabaseService } from './db/routing/space-database.service';
 import { SpaceRoutingModule } from './db/routing/space-routing.module';
 import { TenantAwarePool } from './db/tenant-pool';
@@ -87,60 +84,23 @@ import {
  */
 const outboxRouteQueueNames: string[] = allQueueNamesOfRoutes(OUTBOX_EVENT_QUEUE_ROUTES);
 
+/**
+ * Token của provider gắn handle kho chung (xem khai báo trong
+ * `providers` của WorkerModule): giá trị của provider không được
+ * inject ở đâu — provider tồn tại vì hành động gắn lúc khởi tạo.
+ */
+const SHARED_CENTRE_KYSELY = 'SHARED_CENTRE_KYSELY';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     I18nWorkerModule,
     // Khung định tuyến theo trung tâm: cấp SpaceDatabaseService cho
     // relay (quét outbox theo trung tâm) và SpaceJobRunner cho các
-    // processor tiêu thụ job outbox (issue #582). Cùng một thực thể
-    // module với bản được DrizzleModule.forRootAsync import ở dưới
-    // — handle kho chung gắn trong factory đó tới đúng service mà
-    // relay/processor dùng.
+    // processor tiêu thụ job outbox (issue #582). Handle kho chung
+    // gắn vào service này bởi provider SHARED_CENTRE_KYSELY ở dưới
+    // — tới đúng service mà relay/processor dùng.
     SpaceRoutingModule,
-    DrizzleModule.forRootAsync({
-      imports: [ConfigModule, SpaceRoutingModule],
-      inject: [ConfigService, SpaceDatabaseService],
-      useFactory: (config: ConfigService, spaceDatabase: SpaceDatabaseService) => {
-        const connection = databaseConnectionFromEnv(
-          config.getOrThrow<string>('DATABASE_URL'),
-          config.get<boolean>('DATABASE_SSL') ?? false,
-        );
-        const poolConfig = typeof connection === 'string' ? { connectionString: connection } : connection;
-        // Ngân sách kết nối (issue #586): trần `DATABASE_POOL_MAX`
-        // khi được cấu hình; chưa cấu hình thì giữ nguyên cấu hình
-        // pool như trước — cùng cơ chế với phía api.
-        const poolMax = config.get<number>('DATABASE_POOL_MAX');
-        const pool = new TenantAwarePool(poolMax ? { ...poolConfig, max: poolMax } : poolConfig);
-        const sharedDb = drizzle({ client: pool, relations });
-        // Khung định tuyến theo trung tâm (issue #581): gắn handle
-        // kho chung vào khung của worker để các phiên theo trung
-        // tâm (`withSpaceDatabase`) có đích kho chung mà uỷ thác.
-        // Từ issue #582, handle mà các processor/service inject là
-        // HANDLE ĐỊNH TUYẾN của khung (cùng cơ chế với phía API):
-        // ngữ cảnh không mang slug của một trung tâm đã chuẩn bị ở
-        // kho riêng thì handle uỷ thác về đúng handle kho chung ở
-        // trên, nên mọi đường chưa qua phiên theo trung tâm (job
-        // của trung tâm ở kho chung, scheduler quét xuyên tenant)
-        // chạy đúng như hiện tại; job của trung tâm ở kho riêng
-        // chạy trong phiên do `SpaceJobRunner` mở và được handle
-        // này dẫn vào kho của trung tâm đó.
-        spaceDatabase.bindSharedDatabase(sharedDb);
-        // Đường Kysely (issue #639): gắn handle Kysely kho chung
-        // dựng trên CÙNG pool kho chung (không mở thêm pool) để
-        // `routedKysely` có đích kho chung mà uỷ thác. Instance
-        // này không được `destroy()` riêng — vòng đời của nó đi
-        // theo vòng đời pool chung.
-        spaceDatabase.bindSharedKysely(createCentreKysely(pool));
-        return {
-          // TENANT-1 (#196): pool tự dựng có gắn GUC tenant theo ngữ
-          // cảnh ALS ở mọi checkout — cùng cơ chế với phía API (xem
-          // apps/api/src/app.module.ts): scheduler/processor tự bọc
-          // ngữ cảnh platform/tenant, ngoài ngữ cảnh là fail-closed.
-          db: spaceDatabase.routedDatabase,
-        };
-      },
-    }),
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -188,6 +148,44 @@ const outboxRouteQueueNames: string[] = allQueueNamesOfRoutes(OUTBOX_EVENT_QUEUE
     ScheduleModule.forRoot(),
   ],
   providers: [
+    /**
+     * Gắn handle Kysely kho chung vào khung định tuyến theo trung
+     * tâm của worker (issue #581): dựng pool kho chung rồi gắn
+     * handle Kysely dựng trên chính pool đó (không mở thêm pool).
+     * Handle mà các processor/service dùng là HANDLE ĐỊNH TUYẾN
+     * của khung (`routedKysely`, cùng cơ chế với phía API): ngữ
+     * cảnh không mang slug của một trung tâm đã chuẩn bị ở kho
+     * riêng thì handle uỷ thác về đúng handle kho chung ở trên,
+     * nên mọi đường chưa qua phiên theo trung tâm (job của trung
+     * tâm ở kho chung, scheduler quét xuyên tenant) chạy đúng như
+     * hiện tại; job của trung tâm ở kho riêng chạy trong phiên do
+     * `SpaceJobRunner` mở và được handle này dẫn vào kho của
+     * trung tâm đó. Instance này không được `destroy()` riêng —
+     * vòng đời của nó đi theo vòng đời pool chung.
+     * - Pool là `TenantAwarePool` (TENANT-1, #196): pool tự gắn
+     *   GUC tenant theo ngữ cảnh ALS ở mọi checkout — cùng cơ chế
+     *   với phía API (xem apps/api/src/app.module.ts):
+     *   scheduler/processor tự bọc ngữ cảnh platform/tenant, ngoài
+     *   ngữ cảnh là fail-closed.
+     * - Ngân sách kết nối (issue #586): trần `DATABASE_POOL_MAX`
+     *   khi được cấu hình; chưa cấu hình thì giữ nguyên cấu hình
+     *   pool như trước — cùng cơ chế với phía api.
+     */
+    {
+      provide: SHARED_CENTRE_KYSELY,
+      inject: [ConfigService, SpaceDatabaseService],
+      useFactory: (config: ConfigService, spaceDatabase: SpaceDatabaseService) => {
+        const connection = databaseConnectionFromEnv(
+          config.getOrThrow<string>('DATABASE_URL'),
+          config.get<boolean>('DATABASE_SSL') ?? false,
+        );
+        const poolConfig = typeof connection === 'string' ? { connectionString: connection } : connection;
+        const poolMax = config.get<number>('DATABASE_POOL_MAX');
+        const pool = new TenantAwarePool(poolMax ? { ...poolConfig, max: poolMax } : poolConfig);
+        spaceDatabase.bindSharedKysely(createCentreKysely(pool));
+        return pool;
+      },
+    },
     // Đường phát job của relay outbox duy nhất: bảng định tuyến và
     // bản đồ hàng đợi tra theo tên, cả hai suy ra từ
     // OUTBOX_EVENT_QUEUE_ROUTES để nơi đăng ký và nơi tiêu thụ dùng

@@ -1,11 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
-import { and, eq, sql } from 'drizzle-orm';
+import { sql } from '@lms/db';
 import { BadgeAwardProcessor } from '../../../src/processors/badge-award.processor';
-import {
-  badge, badgeCriteria, badgeIssued, courseCompletions,
-  notificationDispatchLog, notifications, userPreferences,
-} from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
@@ -56,63 +52,63 @@ describe('Worker #174-A: tự trao huy hiệu gửi qua luật gửi chung (tắ
   // riêng) — mỗi lần gọi dựng một lớp mới, theo khuôn engagement-jobs.
   async function fixtureClassId(): Promise<string> {
     const ownerId = '01980000-0000-7000-8000-00000000c1a5';
-    await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${ownerId}, 'wk-class-owner', 'wk-class-owner@x.io', false, false) on conflict (id) do nothing`);
-    const coh = await db.execute(sql`insert into cohort (tenant_id, name, context_id, component, visible) values ((select id from tenants where slug = 'worker-fixture'), 'wk 174a cohort', '01990000-0000-7000-8000-0000000000a1', 'class', false) returning id`);
+    await sql`insert into users (id, username, email, suspended, deleted) values (${ownerId}, 'wk-class-owner', 'wk-class-owner@x.io', false, false) on conflict (id) do nothing`.execute(db);
+    const coh = await sql`insert into cohort (tenant_id, name, context_id, component, visible) values ((select id from tenants where slug = 'worker-fixture'), 'wk 174a cohort', '01990000-0000-7000-8000-0000000000a1', 'class', false) returning id`.execute(db);
     const cohId = (coh.rows[0] as { id: string }).id;
-    const cls = await db.execute(sql`insert into classes (tenant_id, name, owner_id, cohort_id) values ((select id from tenants where slug = 'worker-fixture'), 'wk 174a class', ${ownerId}, ${cohId}) returning id`);
+    const cls = await sql`insert into classes (tenant_id, name, owner_id, cohort_id) values ((select id from tenants where slug = 'worker-fixture'), 'wk 174a class', ${ownerId}, ${cohId}) returning id`.execute(db);
     return (cls.rows[0] as { id: string }).id;
   }
 
   async function fixtureCourse(shortName: string): Promise<string> {
-    const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`wk-174a-cat-${shortName}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
+    const catRows = await sql`insert into course_categories (name, path, tenant_id) values (${`wk-174a-cat-${shortName}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`.execute(db);
     const catId = (catRows.rows[0] as { id: string }).id;
-    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, class_id) values (${catId}, (select tenant_id from course_categories where id = ${catId}), ${`Worker 174A course ${shortName}`}, ${shortName}, ${await fixtureClassId()}) returning id`);
+    const courseRows = await sql`insert into course (category, tenant_id, full_name, short_name, class_id) values (${catId}, (select tenant_id from course_categories where id = ${catId}), ${`Worker 174A course ${shortName}`}, ${shortName}, ${await fixtureClassId()}) returning id`.execute(db);
     return (courseRows.rows[0] as { id: string }).id;
   }
 
   async function mkBadge(name: string, type: number, badgeCourseId: string | null, leafCourseId: string): Promise<string> {
-    const [row] = await db.insert(badge).values({ name, type, status: 1, issuerName: 'LMS', courseId: badgeCourseId }).returning();
-    await db.insert(badgeCriteria).values({ badgeId: row.id, criteriaType: 'overall', method: 1, params: {} });
-    await db.insert(badgeCriteria).values({ badgeId: row.id, criteriaType: 'coursecompletion', method: 1, params: { courseId: leafCourseId } });
+    const row = await db.insertInto('badge').values({ name, type, status: 1, issuer_name: 'LMS', course_id: badgeCourseId }).returningAll().executeTakeFirstOrThrow();
+    await db.insertInto('badge_criteria').values({ badge_id: row.id, criteria_type: 'overall', method: 1, params: {} }).execute();
+    await db.insertInto('badge_criteria').values({ badge_id: row.id, criteria_type: 'coursecompletion', method: 1, params: { courseId: leafCourseId } }).execute();
     return row.id as string;
   }
 
   async function badgeNotificationsOf(userId: string) {
-    const rows = await db.select().from(notifications).where(and(
-      eq(notifications.userIdTo, userId), eq(notifications.eventType, 'badge_awarded'),
-    ));
+    const rows = await db.selectFrom('notifications').selectAll()
+      .where('user_id_to', '=', userId).where('event_type', '=', 'badge_awarded')
+      .execute();
     return rows as { subject: string }[];
   }
 
   async function badgeDispatchOf(userId: string, status: string) {
-    return db.select().from(notificationDispatchLog).where(and(
-      eq(notificationDispatchLog.userId, userId),
-      eq(notificationDispatchLog.provider, 'badge_awarded'),
-      eq(notificationDispatchLog.status, status),
-    ));
+    return db.selectFrom('notification_dispatch_log').selectAll()
+      .where('user_id', '=', userId)
+      .where('provider', '=', 'badge_awarded')
+      .where('status', '=', status)
+      .execute();
   }
 
   beforeAll(async () => {
     harness = await bootWorkerModuleAsOrdinaryRole();
     context = harness.context;
     db = harness.adminDb;
-    await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
+    await sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`.execute(db);
     for (const [id, name] of [[mutedUser, 'muted'], [openUser, 'open']] as const) {
-      await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${id}, ${`wk174a-${name}-${suffix}`}, ${`wk174a-${name}-${suffix}@x.io`}, false, false) on conflict (id) do nothing`);
+      await sql`insert into users (id, username, email, suspended, deleted) values (${id}, ${`wk174a-${name}-${suffix}`}, ${`wk174a-${name}-${suffix}@x.io`}, false, false) on conflict (id) do nothing`.execute(db);
     }
     mutedCourseId = await fixtureCourse(`wk174am${suffix}`);
     openCourseId = await fixtureCourse(`wk174ao${suffix}`);
     // Cả hai user đều hoàn thành cả hai khoá → đủ tiêu chí cho cả ba huy hiệu.
     for (const userId of [mutedUser, openUser]) {
       for (const courseId of [mutedCourseId, openCourseId]) {
-        await db.insert(courseCompletions).values({ userId, course: courseId, status: 'complete', timeStarted: new Date(), timeCompleted: new Date() });
+        await db.insertInto('course_completions').values({ user_id: userId, course: courseId, status: 'complete', time_started: new Date(), time_completed: new Date() }).execute();
       }
     }
     mutedBadgeId = await mkBadge(`WK174A muted-course badge ${suffix}`, 2, mutedCourseId, mutedCourseId);
     openBadgeId = await mkBadge(`WK174A open-course badge ${suffix}`, 2, openCourseId, openCourseId);
     siteBadgeId = await mkBadge(`WK174A site badge ${suffix}`, 1, null, openCourseId);
     // Người nhận thứ nhất tắt tiếng khoá muted (khoá tuỳ chọn NB-4).
-    await db.insert(userPreferences).values({ userId: mutedUser, name: `notif.course.${mutedCourseId}`, value: 'mute' });
+    await db.insertInto('user_preferences').values({ user_id: mutedUser, name: `notif.course.${mutedCourseId}`, value: 'mute' }).execute();
   });
 
   afterAll(async () => { await harness.close(); });
@@ -124,8 +120,8 @@ describe('Worker #174-A: tự trao huy hiệu gửi qua luật gửi chung (tắ
     // (result.issued là id các assertion vừa ghi — khẳng định theo
     // bảng badgeIssued bên dưới mới là đối chiếu theo huy hiệu).
     expect(result.issued).toHaveLength(3);
-    const issued = await db.select().from(badgeIssued).where(eq(badgeIssued.userId, mutedUser));
-    expect((issued as { badgeId: string }[]).map((r) => r.badgeId)).toEqual(expect.arrayContaining([mutedBadgeId, openBadgeId, siteBadgeId]));
+    const issued = await db.selectFrom('badge_issued').selectAll().where('user_id', '=', mutedUser).execute();
+    expect((issued as { badge_id: string }[]).map((r) => r.badge_id)).toEqual(expect.arrayContaining([mutedBadgeId, openBadgeId, siteBadgeId]));
 
     const subjects = (await badgeNotificationsOf(mutedUser)).map((n) => n.subject);
     // Huy hiệu của khoá bị mute: KHÔNG có thông báo.

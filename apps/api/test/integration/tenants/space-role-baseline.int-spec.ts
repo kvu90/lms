@@ -1,10 +1,9 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Client, Pool } from 'pg';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createCentreKysely, sql as kyselySql } from '@lms/db';
+import { applyStoreMigrations } from '@lms/db/migrate';
 import {
   installSpaceRoleBaseline,
   runSpaceProvision,
@@ -18,7 +17,6 @@ import { PlanLimitsService } from '../../../src/modules/access/plan-limits.servi
 import { RoleSeparationService } from '../../../src/modules/access/role-separation.service';
 import { OutboxService } from '../../../src/infra/events/outbox.service';
 import { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
-import { relations } from '../../../src/db/relations';
 import { DEFAULT_ROLES } from '../../../src/modules/access/domain/capabilities';
 
 /**
@@ -80,7 +78,7 @@ async function withClient<T>(connectionString: string, fn: (client: Client) => P
   }
 }
 
-/** Áp một file migration SQL (tách theo dấu phân đoạn của Drizzle) lên một database qua kết nối cho trước. */
+/** Áp một file migration SQL (tách theo dấu phân đoạn của file) lên một database qua kết nối cho trước. */
 async function applySqlFile(connectionString: string, filePath: string): Promise<void> {
   await withClient(connectionString, async (client) => {
     const version = await client.query<{ server_version_num: string }>('SHOW server_version_num');
@@ -176,7 +174,7 @@ async function seedSharedStoreDefaults(connectionString: string): Promise<void> 
     await client.query(`SELECT set_config('app.platform', 'on', false)`);
     // AccessRepository nay nhận handle Kysely (issue #651): pool
     // riêng trần 1 kết nối trên cùng connection string, GUC
-    // platform ở mức phiên như client Drizzle bên cạnh. Cùng
+    // platform ở mức phiên như kết nối pg bên cạnh. Cùng
     // handle dựng `OutboxService` (đã chuyển sang Kysely ở D1,
     // issue #653) và hai facade access qua stub `routedKysely`:
     // `seedDefaults` không phát sự kiện qua outbox và không
@@ -208,12 +206,10 @@ async function buildReferenceStore(): Promise<void> {
   });
   const pool = new Pool({ connectionString: clusterUrl(SHARED_DATABASE) });
   try {
-    const version = await pool.query<{ server_version_num: string }>('SHOW server_version_num');
-    if (Number(version.rows[0]!.server_version_num) < 180000) {
-      await pool.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
-      await pool.query(UUIDV7_SHIM);
-    }
-    await migrate(drizzle({ client: pool }), { migrationsFolder: MIGRATIONS_DIR });
+    // Bộ máy migration của `@lms/db` tự cài shim `uuidv7()` khi
+    // server dưới PG18 (xem `installUuidv7Shim` trong package).
+    const db = createCentreKysely(pool);
+    await applyStoreMigrations(db, 'centre', MIGRATIONS_DIR);
   } finally {
     await pool.end();
   }

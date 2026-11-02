@@ -141,10 +141,10 @@ export class PlanLimitsCore {
     // Bên gọi có thể truyền handle của một transaction Kysely đang
     // mở để việc đọc thấy đúng trạng thái trong giao dịch đó; không
     // truyền thì đọc qua handle mặc định của bề mặt. Handle này CHỈ
-    // là handle Kysely: đường transaction Drizzle của API (createClass)
+    // là handle Kysely: đường transaction bộ máy cũ của API (createClass)
     // được facade `PlanLimitsService` giữ lại ở nhánh riêng của nó
     // (điểm nối chuyển tiếp, chủ đóng #651) — lõi này không bao giờ
-    // nhận handle Drizzle.
+    // nhận handle bộ máy cũ.
     const db = tx ?? this.db;
     const row = await db.selectFrom('context').select(CONTEXT_COLUMNS_FOR_TENANT_ID).where('id', '=', contextId).executeTakeFirst();
     if (!row) return null;

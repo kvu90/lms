@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, forwardRef, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { MyAccessView } from '@lms/contracts';
 import { AuthRepository } from '@lms/db/repositories/auth';
-import { UsersRepository, type UserListFilter, type UserRow } from '@lms/db/repositories/users';
+import { UsersRepository, type UserListFilter, type UserPatch, type UserRow } from '@lms/db/repositories/users';
 import { OutboxService } from '../../infra/events/outbox.service';
 import type { ContextRow } from '@lms/db/repositories/access';
 import { ContextsService } from '../access/contexts.service';
@@ -177,7 +177,7 @@ export class UsersService {
     // chuyển đổi) nhưng đường đọc đi qua handle Kysely của repository
     // người dùng kể từ issue #641: handle đó là handle kho trung tâm
     // được định tuyến theo không gian, đọc bảng nào trong kho cũng
-    // đúng đích và đúng ngữ cảnh tenant như đường Drizzle trước đây.
+    // đúng đích và đúng ngữ cảnh tenant như đường cũ trước đây.
     const liveBadge = await this.repo.dbHandle
       .selectFrom('badge_issued')
       .select(['id'])
@@ -335,7 +335,7 @@ export class UsersService {
     const user = await this.getUser(id);
     if (input.customFields) await this.customFields.validateValuesForInstance(USER_COMPONENT, USER_AREA, input.customFields);
     if (user.deleted) throw new BadRequestException({ message: 'Cannot update a deleted user', code: 'user.deleted' });
-    const patch: Partial<typeof import('../../db/schema').users.$inferInsert> = {};
+    const patch: UserPatch = {};
     if (input.email !== undefined) {
       const email = normalizeIdentity(input.email);
       const clash = await this.repo.getByEmail(email);

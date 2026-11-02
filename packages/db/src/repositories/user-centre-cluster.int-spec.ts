@@ -1,11 +1,7 @@
-import { eq } from 'drizzle-orm';
-import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { sql } from 'kysely';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createCentreKysely, type CentreDb } from '../client';
-import { tenantConfig, tenants } from '../tenants.schema';
-import { users } from '../users.schema';
-import { config } from '../infrastructure.schema';
 import { buildTestDatabase, dropTestDatabase, withDatabase } from '../test-support/build-test-database';
 import { AuthRepository } from './auth';
 import { CentreIdentityRepository } from './centre-identity';
@@ -33,13 +29,14 @@ import { UsersRepository } from './users';
  *   được ghi đè giá trị đang có.
  * - U5: insert không truyền id nhận id UUIDv7 qua `returning`;
  *   insert có id tường minh giữ nguyên id.
- * - T-7 (mở rộng cho kho trung tâm): cùng một dòng đọc qua Drizzle
- *   và qua Kysely cho kiểu runtime khớp nhau ở các cột đại diện
- *   của cụm (timestamptz, jsonb — object lẫn mảng ở cấp trên cùng,
- *   boolean, uuid, text) và khẳng định bề mặt int8 của cụm: mười
- *   bốn bảng của cụm không có cột bigint nào (đo tại
- *   information_schema), nên luật int8-đọc-là-string không có bề
- *   mặt trong cụm này.
+ * - T-7 (mở rộng cho kho trung tâm): cùng một dòng đọc qua
+ *   oracle độc lập (Kysely thô ngoài repository) và qua
+ *   repository cho kiểu runtime khớp nhau ở các cột đại diện
+ *   của cụm (timestamptz, jsonb — object lẫn mảng ở cấp trên
+ *   cùng, boolean, uuid, text) và khẳng định bề mặt int8 của
+ *   cụm: mười bốn bảng của cụm không có cột bigint nào (đo tại
+ *   information_schema), nên luật int8-đọc-là-string không có
+ *   bề mặt trong cụm này.
  */
 const adminUrl =
   process.env.LMS_DB_TEST_ADMIN_URL ??
@@ -53,7 +50,6 @@ const UUIDV7_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-
 
 let pool: Pool;
 let db: CentreDb;
-let drizzleDb: NodePgDatabase;
 let authRepo: AuthRepository;
 let usersRepo: UsersRepository;
 let tenantsRepo: TenantsRepository;
@@ -67,7 +63,6 @@ beforeAll(async () => {
   const storeUrl = await buildTestDatabase({ adminUrl, database: CENTRE_DB, store: 'centre' });
   pool = new Pool({ connectionString: storeUrl });
   db = createCentreKysely(pool);
-  drizzleDb = drizzle({ client: pool });
   authRepo = new AuthRepository(db);
   usersRepo = new UsersRepository(db);
   tenantsRepo = new TenantsRepository(db);
@@ -471,27 +466,28 @@ describe('SiteConfigRepository — điểm nóng upsert từng phần, vết aud
   });
 });
 
-describe('T-7 mở rộng cho kho trung tâm — contract hai ORM trên các bảng đại diện của cụm', () => {
-  it('T-7: dòng users ghi qua Drizzle đọc qua Kysely cho kiểu runtime khớp từng cột đại diện', async () => {
-    const [drizzleRow] = await drizzleDb
-      .insert(users)
+describe('T-7 mở rộng cho kho trung tâm — contract kiểu runtime trên các bảng đại diện của cụm', () => {
+  it('T-7: dòng users ghi qua oracle độc lập đọc qua repository cho kiểu runtime khớp từng cột đại diện', async () => {
+    const oracleRow = await db
+      .insertInto('users')
       .values({
         username: 'g641_t7_user',
         email: 'g641_t7_user@example.test',
-        passwordHash: 'hash-t7',
-        firstName: 'T7',
-        lastName: 'Hợp đồng',
+        password_hash: 'hash-t7',
+        first_name: 'T7',
+        last_name: 'Hợp đồng',
         suspended: true,
-        lastLogin: new Date('2026-02-02T03:04:05.000Z'),
+        last_login: new Date('2026-02-02T03:04:05.000Z'),
       })
-      .returning();
-    const kyselyRow = await usersRepo.getById(drizzleRow!.id);
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    const kyselyRow = await usersRepo.getById(oracleRow.id);
     expect(kyselyRow).toBeDefined();
     expect(typeof kyselyRow!.id).toBe('string');
-    expect(kyselyRow!.id).toBe(drizzleRow!.id);
+    expect(kyselyRow!.id).toBe(oracleRow.id);
     expect(kyselyRow!.createdAt).toBeInstanceOf(Date);
-    expect(drizzleRow!.createdAt).toBeInstanceOf(Date);
-    expect(kyselyRow!.createdAt.toISOString()).toBe(drizzleRow!.createdAt.toISOString());
+    expect(oracleRow.created_at).toBeInstanceOf(Date);
+    expect(kyselyRow!.createdAt.toISOString()).toBe((oracleRow.created_at as Date).toISOString());
     expect(kyselyRow!.lastLogin?.toISOString()).toBe('2026-02-02T03:04:05.000Z');
     expect(typeof kyselyRow!.suspended).toBe('boolean');
     expect(kyselyRow!.suspended).toBe(true);
@@ -499,31 +495,33 @@ describe('T-7 mở rộng cho kho trung tâm — contract hai ORM trên các b�
     expect(kyselyRow!.image).toBeNull();
   });
 
-  it('T-7: jsonb của tenant_config và config khớp hai chiều ghi Drizzle đọc Kysely và ghi Kysely đọc Drizzle', async () => {
-    const [drizzleTenant] = await drizzleDb
-      .insert(tenants)
+  it('T-7: jsonb của tenant_config và config khớp hai chiều ghi oracle đọc repository và ghi repository đọc oracle', async () => {
+    const oracleTenant = await db
+      .insertInto('tenants')
       .values({ slug: 'g641-t7', name: 'T7 tenant', kind: 'center', status: 'active', plan: null })
-      .returning();
-    await drizzleDb.insert(tenantConfig).values({
-      tenantId: drizzleTenant!.id,
-      key: 't7.drizzle-write',
-      value: { sau: [1, { hai: 'ba' }] },
-    });
-    const viaRepo = await tenantsRepo.getConfigValue(drizzleTenant!.id, 't7.drizzle-write');
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    await db.insertInto('tenant_config').values({
+      tenant_id: oracleTenant.id,
+      key: 't7.oracle-write',
+      value: sql`${JSON.stringify({ sau: [1, { hai: 'ba' }] })}::jsonb`,
+    }).execute();
+    const viaRepo = await tenantsRepo.getConfigValue(oracleTenant.id, 't7.oracle-write');
     expect(viaRepo?.value).toEqual({ sau: [1, { hai: 'ba' }] });
     expect(viaRepo?.updatedAt).toBeInstanceOf(Date);
 
-    await tenantsRepo.upsertConfigValue(drizzleTenant!.id, 't7.kysely-write', ['mảng', 7]);
-    const [drizzleRead] = await drizzleDb
-      .select()
-      .from(tenantConfig)
-      .where(eq(tenantConfig.key, 't7.kysely-write'));
-    expect(drizzleRead!.value).toEqual(['mảng', 7]);
+    await tenantsRepo.upsertConfigValue(oracleTenant.id, 't7.kysely-write', ['mảng', 7]);
+    const oracleRead = await db
+      .selectFrom('tenant_config')
+      .select('value')
+      .where('key', '=', 't7.kysely-write')
+      .executeTakeFirstOrThrow();
+    expect(oracleRead.value).toEqual(['mảng', 7]);
 
     await siteConfigRepo.storeValue('core', 't7.config-array', [{ a: 1 }]);
-    const [drizzleConfig] = await drizzleDb.select().from(config).where(eq(config.key, 't7.config-array'));
-    expect(drizzleConfig!.value).toEqual([{ a: 1 }]);
-    expect(drizzleConfig!.updatedAt).toBeInstanceOf(Date);
+    const oracleConfig = await db.selectFrom('config').select(['value', 'updated_at as updatedAt']).where('key', '=', 't7.config-array').executeTakeFirstOrThrow();
+    expect(oracleConfig.value).toEqual([{ a: 1 }]);
+    expect(oracleConfig.updatedAt).toBeInstanceOf(Date);
   });
 
   it('T-7: mười bốn bảng của cụm không có cột bigint nào — luật int8 đọc là string không có bề mặt trong cụm', async () => {

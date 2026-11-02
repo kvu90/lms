@@ -1,6 +1,6 @@
 /**
  * Repository của cụm HỌC LIỆU trên Kysely — chuyển đổi từ
- * repository Drizzle của module content phía `apps/api` (issue
+ * repository bộ máy cũ của module content phía `apps/api` (issue
  * #646, nhóm G6 của chiến dịch chuyển tầng dữ liệu sang Kysely).
  *
  * Vai trò: mọi truy cập tới các bảng học liệu của kho trung tâm
@@ -22,7 +22,7 @@
  *   nguyên tên `course`).
  * - Bên ngoài, repository trả/nhận các hình dạng dòng camelCase như
  *   phía tiêu thụ đang dùng (khớp `$inferSelect`/`$inferInsert` của
- *   repository Drizzle cũ): cột được chọn bằng danh sách tường minh
+ *   repository cũ trước chuyển đổi): cột được chọn bằng danh sách tường minh
  *   có bí danh, giá trị ghi được ánh xạ từng trường ở các hàm
  *   `*InsertValues`/`*UpdateSet` trong file này.
  * - Giá trị `undefined` bị LOẠI khỏi values/set trước khi gọi

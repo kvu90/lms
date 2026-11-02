@@ -5,11 +5,11 @@
  * migration của kho nghiệp vụ và TRƯỚC migration của control plane:
  *
  * 1. Đích là KHO NGHIỆP VỤ: URL lấy theo đúng quy tắc của cấu hình
- *    Drizzle kho nghiệp vụ — ưu tiên `MIGRATION_DATABASE_URL` (bước
+ *    bộ máy cũ kho nghiệp vụ — ưu tiên `MIGRATION_DATABASE_URL` (bước
  *    migrate chạy bằng role migration, chủ sở hữu đối tượng của
  *    kho), chưa cấu hình thì dùng `DATABASE_URL`. Khi nhà cung cấp
  *    bắt buộc TLS (`DATABASE_SSL=true`) thì gắn `sslmode=no-verify`
- *    như cấu hình Drizzle.
+ *    như cấu hình bộ máy cũ.
  * 2. Chạy tuần tự các câu ensure idempotent dựng bởi
  *    `system-bank-centre-tables.ts`: database đã áp baseline TRƯỚC
  *    khi 3 bảng vệ tinh được nối vào file baseline (production,

@@ -19,7 +19,7 @@ import { ProgramImportService } from './program-import.service';
  * không phụ thuộc Nest) nên module lắp nó bằng factory provider:
  * handle là handle Kysely định tuyến của kho trung tâm
  * (`SpaceDatabaseService.routedKysely`, dựng trên cùng
- * TenantAwarePool với phía Drizzle để GUC/RLS theo ngữ cảnh tenant
+ * TenantAwarePool với phía bộ máy cũ để GUC/RLS theo ngữ cảnh tenant
  * hoạt động như cũ).
  */
 @Module({

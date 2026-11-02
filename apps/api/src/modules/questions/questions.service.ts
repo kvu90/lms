@@ -109,7 +109,7 @@ interface NormalisedContent {
   answerKey: { guidance: RichTextDocument | null; solution: StoredSolution | null };
 }
 
-/** Bóc lỗi vi phạm unique của PostgreSQL (23505) dù Drizzle có bọc qua cause hay không. */
+/** Bóc lỗi vi phạm unique của PostgreSQL (23505) dù bộ máy cũ có bọc qua cause hay không. */
 function isUniqueViolation(err: unknown): boolean {
   let e: unknown = err;
   while (e !== null && typeof e === 'object') {

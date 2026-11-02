@@ -3,8 +3,7 @@ import type { INestApplicationContext } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import Redis from 'ioredis';
-import { and, eq, sql, type SQL } from 'drizzle-orm';
-import { enrol, notifications, outboxEvents, userEnrolments, userPreferences } from '@lms/db';
+import { sql, type RawBuilder } from '@lms/db';
 import { redisConnectionFromUrl } from '../../../src/config/env';
 import { NotificationEventsCatchupService } from '../../../src/notification-events-catchup.service';
 import { NotificationEventsMarker } from '../../../src/notification-events-marker.service';
@@ -63,21 +62,21 @@ describe('Worker notification events catch-up (phát bù tồn đọng theo wate
 
   const uid = (n: number) => `01900000-0000-7000-8000-${String(720000 + n * 37 + (suffix % 991)).padStart(12, '0')}`;
 
-  async function execRows<T>(query: SQL): Promise<T[]> {
-    const result = (await db.execute(query)) as unknown as { rows: T[] };
+  async function execRows<T>(query: RawBuilder<T>): Promise<T[]> {
+    const result = await query.execute(db);
     return result.rows;
   }
 
   async function makeUser(id: string) {
-    await db.execute(sql`insert into users (id, username, email, first_name, last_name, suspended, deleted) values (${id}, ${`nc520-${id.slice(-6)}-${suffix}`}, ${`nc520-${id.slice(-6)}-${suffix}@x.io`}, 'An', 'Nguyễn Văn', false, false) on conflict (id) do nothing`);
-    await db.insert(userPreferences).values({
-      userId: id, name: 'message_provider_enrol_expiry_warning_email_v2', value: 'immediate',
-    }).onConflictDoNothing();
+    await sql`insert into users (id, username, email, first_name, last_name, suspended, deleted) values (${id}, ${`nc520-${id.slice(-6)}-${suffix}`}, ${`nc520-${id.slice(-6)}-${suffix}@x.io`}, 'An', 'Nguyễn Văn', false, false) on conflict (id) do nothing`.execute(db);
+    await db.insertInto('user_preferences').values({
+      user_id: id, name: 'message_provider_enrol_expiry_warning_email_v2', value: 'immediate',
+    }).onConflict((oc) => oc.doNothing()).execute();
   }
 
   async function fixtureClassId(): Promise<string> {
     const ownerId = '01980000-0000-7000-8000-00000000c1a5';
-    await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${ownerId}, 'wk-class-owner', 'wk-class-owner@x.io', false, false) on conflict (id) do nothing`);
+    await sql`insert into users (id, username, email, suspended, deleted) values (${ownerId}, 'wk-class-owner', 'wk-class-owner@x.io', false, false) on conflict (id) do nothing`.execute(db);
     const coh = await execRows<{ id: string }>(sql`insert into cohort (tenant_id, name, context_id, component, visible) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture cohort', '01990000-0000-7000-8000-0000000000a1', 'class', false) returning id`);
     const cls = await execRows<{ id: string }>(sql`insert into classes (tenant_id, name, owner_id, cohort_id) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture class', ${ownerId}, ${coh[0]!.id}) returning id`);
     return cls[0]!.id;
@@ -91,23 +90,23 @@ describe('Worker notification events catch-up (phát bù tồn đọng theo wate
   }
 
   async function enrolStudent(courseId: string, userId: string): Promise<void> {
-    const [inst] = await db.insert(enrol).values({ courseId, enrol: 'manual', status: 0 }).returning();
-    await db.insert(userEnrolments).values({
-      enrolId: inst!.id as string, userId, status: 0, timeStart: new Date(Date.now() - DAY),
-    });
+    const inst = await db.insertInto('enrol').values({ course_id: courseId, enrol: 'manual', status: 0 }).returningAll().executeTakeFirstOrThrow();
+    await db.insertInto('user_enrolments').values({
+      enrol_id: inst.id, user_id: userId, status: 0, time_start: new Date(Date.now() - DAY),
+    }).execute();
   }
 
   /** Chèn một dòng outbox ĐÃ bị relay đóng dấu `publishedAt` — đúng hình dạng tồn đọng tại thời điểm chuyển đổi. */
   async function emitMarkedRow(userId: string, courseId: string): Promise<{ id: string; seq: number }> {
-    const [row] = await db.insert(outboxEvents).values({
-      aggregate: 'enrol', type: 'enrol_expiry_warning', tenantId: fixtureTenantId,
-      publishedAt: new Date(),
+    const row = await db.insertInto('outbox_events').values({
+      aggregate: 'enrol', type: 'enrol_expiry_warning', tenant_id: fixtureTenantId,
+      published_at: new Date(),
       payload: {
         userId, enrolmentId: uid(950), enrolId: uid(951), courseId,
         timeEnd: new Date(Date.now() + 3 * DAY).toISOString(),
       },
-    }).returning({ id: outboxEvents.id, seq: outboxEvents.seq });
-    return { id: row!.id as string, seq: Number(row!.seq) };
+    }).returning(['id', 'seq']).executeTakeFirstOrThrow();
+    return { id: row.id, seq: Number(row.seq) };
   }
 
   async function waitJobCompleted(outboxId: string, timeoutMs = 90000): Promise<void> {
@@ -121,16 +120,16 @@ describe('Worker notification events catch-up (phát bù tồn đọng theo wate
   }
 
   async function notificationsOf(userId: string, eventType: string) {
-    return db.select().from(notifications).where(and(
-      eq(notifications.userIdTo, userId), eq(notifications.eventType, eventType),
-    ));
+    return db.selectFrom('notifications').selectAll()
+      .where('user_id_to', '=', userId).where('event_type', '=', eventType)
+      .execute();
   }
 
   beforeAll(async () => {
     harness = await bootWorkerModuleAsOrdinaryRole();
     context = harness.context;
     db = harness.adminDb;
-    await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
+    await sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`.execute(db);
     const tenantRows = await execRows<{ id: string }>(sql`select id from tenants where slug = 'worker-fixture'`);
     fixtureTenantId = tenantRows[0]!.id;
     eventsQueue = context.get<Queue>(getQueueToken('notification-events'));

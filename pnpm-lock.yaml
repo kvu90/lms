@@ -217,16 +217,16 @@ importers:
         version: 3.1156.0
       '@better-auth/cimd':
         specifier: 1.7.12
-        version: 1.7.12(19f0237334fb2dd363079494eeddedf0)
+        version: 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/oauth-provider@1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-auth@1.7.12(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))))(better-call@1.4.4(zod@4.6.7)))(better-auth@1.7.12(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))))(better-call@1.4.4(zod@4.6.7))
       '@better-auth/kysely-adapter':
         specifier: 1.7.12
         version: 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(kysely@0.29.7)
       '@better-auth/mcp':
         specifier: 1.7.12
-        version: 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-auth@1.7.12(drizzle-kit@1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)))(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))))(better-call@1.4.4(zod@4.6.7))
+        version: 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-auth@1.7.12(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))))(better-call@1.4.4(zod@4.6.7))
       '@better-auth/oauth-provider':
         specifier: 1.7.12
-        version: 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-auth@1.7.12(drizzle-kit@1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)))(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))))(better-call@1.4.4(zod@4.6.7))
+        version: 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-auth@1.7.12(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))))(better-call@1.4.4(zod@4.6.7))
       '@keyv/redis':
         specifier: ^6.1.0
         version: 6.1.0(keyv@6.1.0)
@@ -269,9 +269,6 @@ importers:
       '@nestjs/core':
         specifier: ^12.2.0
         version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/platform-express@12.2.0)(@nestjs/websockets@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      '@nestjs/drizzle':
-        specifier: ^0.0.2
-        version: 0.0.2(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/core@12.2.0)(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7))(reflect-metadata@0.2.2)
       '@nestjs/event-emitter':
         specifier: ^12.0.1
         version: 12.0.1(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/core@12.2.0)
@@ -310,7 +307,7 @@ importers:
         version: 0.45.1
       better-auth:
         specifier: 1.7.12
-        version: 1.7.12(drizzle-kit@1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)))(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0)))
+        version: 1.7.12(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0)))
       bullmq:
         specifier: ^6.4.0
         version: 6.4.0(ioredis@6.0.0(supports-color@7.2.0))(pg@8.23.1)
@@ -323,12 +320,6 @@ importers:
       docx:
         specifier: ^9.14.0
         version: 9.14.0
-      drizzle-kit:
-        specifier: 1.0.0-rc.5
-        version: 1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7))
-      drizzle-orm:
-        specifier: 1.0.0-rc.5
-        version: 1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)
       exceljs:
         specifier: ^4.4.0
         version: 4.4.0
@@ -470,7 +461,7 @@ importers:
         version: 9.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       better-auth:
         specifier: 1.7.12
-        version: 1.7.12(drizzle-kit@1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@7.0.2))(zod@4.6.7)))(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@7.0.2))(zod@4.6.7))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0)))
+        version: 1.7.12(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0)))
       i18next:
         specifier: ^26.5.4
         version: 26.5.4(typescript@7.0.2)
@@ -598,9 +589,6 @@ importers:
       '@nestjs/core':
         specifier: ^12.2.0
         version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/platform-express@12.2.0)(@nestjs/websockets@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      '@nestjs/drizzle':
-        specifier: ^0.0.2
-        version: 0.0.2(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/core@12.2.0)(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7))(reflect-metadata@0.2.2)
       '@nestjs/event-emitter':
         specifier: ^12.0.1
         version: 12.0.1(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/core@12.2.0)
@@ -616,9 +604,6 @@ importers:
       bullmq:
         specifier: ^6.4.0
         version: 6.4.0(ioredis@6.0.0(supports-color@7.2.0))(pg@8.23.1)
-      drizzle-orm:
-        specifier: 1.0.0-rc.5
-        version: 1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)
       ioredis:
         specifier: ^6.0.0
         version: 6.0.0(supports-color@7.2.0)
@@ -692,9 +677,6 @@ importers:
       '@lms/contracts':
         specifier: workspace:*
         version: link:../contracts
-      drizzle-orm:
-        specifier: 1.0.0-rc.5
-        version: 1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)
       kysely:
         specifier: 0.29.7
         version: 0.29.7
@@ -832,9 +814,6 @@ importers:
       '@lms/db':
         specifier: workspace:*
         version: link:../db
-      drizzle-orm:
-        specifier: 1.0.0-rc.5
-        version: 1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)
     devDependencies:
       '@lms/config':
         specifier: workspace:*
@@ -866,9 +845,6 @@ importers:
       '@lms/db':
         specifier: workspace:*
         version: link:../db
-      drizzle-orm:
-        specifier: 1.0.0-rc.5
-        version: 1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@7.0.2))(zod@4.6.7)
     devDependencies:
       '@lms/config':
         specifier: workspace:*
@@ -888,12 +864,6 @@ importers:
       '@nestjs/common':
         specifier: ^12.2.0
         version: 12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0)
-      '@nestjs/drizzle':
-        specifier: ^0.0.2
-        version: 0.0.2(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/core@12.2.0)(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7))(reflect-metadata@0.2.2)
-      drizzle-orm:
-        specifier: 1.0.0-rc.5
-        version: 1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)
     devDependencies:
       '@lms/config':
         specifier: workspace:*
@@ -1626,15 +1596,6 @@ packages:
       '@nestjs/websockets':
         optional: true
 
-  '@nestjs/drizzle@0.0.2':
-    resolution: {integrity: sha512-9jBMBcqxPLV7BNuqoOQ/6boSH7z1cA6psKKiArHgJgDefBqniQExYjVNhE/GrqJd3vBEwCXkWXwpEvCi8qRIZg==}
-    engines: {node: '>=20.19.0'}
-    peerDependencies:
-      '@nestjs/common': ^11.0.0 || ^12.0.0
-      '@nestjs/core': ^11.0.0 || ^12.0.0
-      drizzle-orm: '>=0.35.0 || >=1.0.0-0'
-      reflect-metadata: ^0.1.13 || ^0.2.0
-
   '@nestjs/event-emitter@12.0.1':
     resolution: {integrity: sha512-7MbpgNcxUcDlqcYY/qgZm1H7MfK3uGcRsd8lEjj9ZYvI9qTl6kdkkykpxZ6YjBRH3wlZK5dFLAei8h5qpsHzOw==}
     engines: {node: '>=20.19.0'}
@@ -2020,6 +1981,7 @@ packages:
   '@smithy/core@3.36.2':
     resolution: {integrity: sha512-oRw0rB9QSUiCZfEs23G5F4Af+b2rQt1lItIICWu5IejFNd+uPM8SWqiKLMpQ6bX1Q7slsLbjuoE2niErFtkVPQ==}
     engines: {node: '>=18.0.0'}
+    deprecated: Deprecated due to a bug in custom logger data redaction. See https://github.com/aws/aws-sdk-js-v3/issues/8393.
 
   '@smithy/credential-provider-imds@4.5.2':
     resolution: {integrity: sha512-A9uSdn72ozbRUSit0eib0TW7nXuNPlaeM0zcGkJ+nE6tFcSDbnmtwoxbTCFBukVQcszDAyvsd7+rTduPTXpygg==}
@@ -3572,170 +3534,6 @@ packages:
     resolution: {integrity: sha512-/8CJTyL817qPnfbQrJgOEcrU3fDrJkRIoXBE566wHuvIXKOCHUZhPqGPbCPi9SogjdGnreF0TlvnTgK6J/8zpA==}
     engines: {node: '>=12'}
     hasBin: true
-
-  drizzle-kit@1.0.0-rc.5:
-    resolution: {integrity: sha512-8glQN7iFK3e1aOIoRit1NtslcsqE/rnlqNw/1jUC5Ph4RFVh/E5Jricxd6Nu2ugj2HlFZlZ6O4006AwqJ9e24g==}
-    hasBin: true
-    peerDependencies:
-      drizzle-orm: '>=1.0.0-rc.5'
-    peerDependenciesMeta:
-      drizzle-orm:
-        optional: true
-
-  drizzle-orm@1.0.0-rc.5:
-    resolution: {integrity: sha512-7BMYTsAZbQ9DcQCtLG4G202Hq6nc/e8o1EBKN6nBweRI8EGPFe/VdyvWQCsU9fuZSiRjNpELolUSi//JFBq+lw==}
-    peerDependencies:
-      '@aws-sdk/client-rds-data': '>=3'
-      '@aws/aurora-dsql-node-postgres-connector': '>=0.1.9'
-      '@aws/aurora-dsql-postgresjs-connector': '>=0.3.0'
-      '@cloudflare/workers-types': '>=4'
-      '@drizzle-team/minipg': '>=0.4.2'
-      '@effect/sql-d1': '>=4.0.0'
-      '@effect/sql-libsql': '>=4.0.0'
-      '@effect/sql-mysql2': '>=4.0.0'
-      '@effect/sql-pg': '>=4.0.0'
-      '@effect/sql-pglite': '>=4.0.0'
-      '@effect/sql-sqlite-bun': '>=4.0.0'
-      '@effect/sql-sqlite-do': '>=4.0.0'
-      '@effect/sql-sqlite-node': '>=4.0.0'
-      '@effect/sql-sqlite-wasm': '>=4.0.0'
-      '@electric-sql/pglite': '>=0.2.0'
-      '@libsql/client': '>=0.10.0'
-      '@libsql/client-wasm': '>=0.10.0'
-      '@neondatabase/serverless': '>=0.10.0'
-      '@op-engineering/op-sqlite': '>=17'
-      '@opentelemetry/api': ^1.4.1
-      '@planetscale/database': '>=1.13'
-      '@sinclair/typebox': '>=0.34.8'
-      '@sqlitecloud/drivers': '>=1.0.653'
-      '@tidbcloud/serverless': '*'
-      '@tursodatabase/database': '>=0.7.1'
-      '@tursodatabase/database-common': '>=0.7.1'
-      '@tursodatabase/database-wasm': '>=0.7.1'
-      '@tursodatabase/serverless': '>=1.4.0'
-      '@tursodatabase/sync': '>=0.7.1'
-      '@types/better-sqlite3': '*'
-      '@types/mssql': ^9.1.4
-      '@types/pg': '*'
-      '@types/sql.js': '*'
-      '@upstash/redis': '>=1.34.7'
-      '@vercel/postgres': '>=0.8.0'
-      '@xata.io/client': '*'
-      arktype: '>=2.0.0'
-      better-sqlite3: '>=9.3.0'
-      bun-types: '*'
-      effect: '>=4.0.0'
-      expo-sqlite: '>=14.0.0'
-      mssql: ^11.0.1
-      mysql2: '>=2'
-      pg: '>=8'
-      postgres: '>=3'
-      sql.js: '>=1'
-      sqlite3: '>=5'
-      typebox: '>=1.2.0'
-      valibot: '>=1.0.0-beta.7'
-      zod: ^3.25.0 || ^4.0.0
-    peerDependenciesMeta:
-      '@aws-sdk/client-rds-data':
-        optional: true
-      '@aws/aurora-dsql-node-postgres-connector':
-        optional: true
-      '@aws/aurora-dsql-postgresjs-connector':
-        optional: true
-      '@cloudflare/workers-types':
-        optional: true
-      '@drizzle-team/minipg':
-        optional: true
-      '@effect/sql-d1':
-        optional: true
-      '@effect/sql-libsql':
-        optional: true
-      '@effect/sql-mysql2':
-        optional: true
-      '@effect/sql-pg':
-        optional: true
-      '@effect/sql-pglite':
-        optional: true
-      '@effect/sql-sqlite-bun':
-        optional: true
-      '@effect/sql-sqlite-do':
-        optional: true
-      '@effect/sql-sqlite-node':
-        optional: true
-      '@effect/sql-sqlite-wasm':
-        optional: true
-      '@electric-sql/pglite':
-        optional: true
-      '@libsql/client':
-        optional: true
-      '@libsql/client-wasm':
-        optional: true
-      '@neondatabase/serverless':
-        optional: true
-      '@op-engineering/op-sqlite':
-        optional: true
-      '@opentelemetry/api':
-        optional: true
-      '@planetscale/database':
-        optional: true
-      '@sinclair/typebox':
-        optional: true
-      '@sqlitecloud/drivers':
-        optional: true
-      '@tidbcloud/serverless':
-        optional: true
-      '@tursodatabase/database':
-        optional: true
-      '@tursodatabase/database-common':
-        optional: true
-      '@tursodatabase/database-wasm':
-        optional: true
-      '@tursodatabase/serverless':
-        optional: true
-      '@tursodatabase/sync':
-        optional: true
-      '@types/better-sqlite3':
-        optional: true
-      '@types/mssql':
-        optional: true
-      '@types/pg':
-        optional: true
-      '@types/sql.js':
-        optional: true
-      '@upstash/redis':
-        optional: true
-      '@vercel/postgres':
-        optional: true
-      '@xata.io/client':
-        optional: true
-      arktype:
-        optional: true
-      better-sqlite3:
-        optional: true
-      bun-types:
-        optional: true
-      effect:
-        optional: true
-      expo-sqlite:
-        optional: true
-      mssql:
-        optional: true
-      mysql2:
-        optional: true
-      pg:
-        optional: true
-      postgres:
-        optional: true
-      sql.js:
-        optional: true
-      sqlite3:
-        optional: true
-      typebox:
-        optional: true
-      valibot:
-        optional: true
-      zod:
-        optional: true
 
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
@@ -6859,11 +6657,11 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.3.0
 
-  '@better-auth/cimd@1.7.12(19f0237334fb2dd363079494eeddedf0)':
+  '@better-auth/cimd@1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/oauth-provider@1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-auth@1.7.12(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))))(better-call@1.4.4(zod@4.6.7)))(better-auth@1.7.12(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))))(better-call@1.4.4(zod@4.6.7))':
     dependencies:
       '@better-auth/core': 1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5)
-      '@better-auth/oauth-provider': 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-auth@1.7.12(drizzle-kit@1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)))(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))))(better-call@1.4.4(zod@4.6.7))
-      better-auth: 1.7.12(drizzle-kit@1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)))(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0)))
+      '@better-auth/oauth-provider': 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-auth@1.7.12(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))))(better-call@1.4.4(zod@4.6.7))
+      better-auth: 1.7.12(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0)))
       better-call: 1.4.4(zod@4.6.7)
 
   '@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5)':
@@ -6877,19 +6675,10 @@ snapshots:
       nanostores: 1.5.5
       zod: 4.6.7
 
-  '@better-auth/drizzle-adapter@1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7))':
+  '@better-auth/drizzle-adapter@1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)':
     dependencies:
       '@better-auth/core': 1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5)
       '@better-auth/utils': 0.5.0
-    optionalDependencies:
-      drizzle-orm: 1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)
-
-  '@better-auth/drizzle-adapter@1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@7.0.2))(zod@4.6.7))':
-    dependencies:
-      '@better-auth/core': 1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5)
-      '@better-auth/utils': 0.5.0
-    optionalDependencies:
-      drizzle-orm: 1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@7.0.2))(zod@4.6.7)
 
   '@better-auth/kysely-adapter@1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(kysely@0.29.7)':
     dependencies:
@@ -6898,11 +6687,11 @@ snapshots:
     optionalDependencies:
       kysely: 0.29.7
 
-  '@better-auth/mcp@1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-auth@1.7.12(drizzle-kit@1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)))(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))))(better-call@1.4.4(zod@4.6.7))':
+  '@better-auth/mcp@1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-auth@1.7.12(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))))(better-call@1.4.4(zod@4.6.7))':
     dependencies:
       '@better-auth/core': 1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5)
-      '@better-auth/oauth-provider': 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-auth@1.7.12(drizzle-kit@1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)))(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))))(better-call@1.4.4(zod@4.6.7))
-      better-auth: 1.7.12(drizzle-kit@1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)))(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0)))
+      '@better-auth/oauth-provider': 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-auth@1.7.12(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))))(better-call@1.4.4(zod@4.6.7))
+      better-auth: 1.7.12(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0)))
       better-call: 1.4.4(zod@4.6.7)
       jose: 6.2.13
     transitivePeerDependencies:
@@ -6919,12 +6708,12 @@ snapshots:
       '@better-auth/core': 1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5)
       '@better-auth/utils': 0.5.0
 
-  '@better-auth/oauth-provider@1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-auth@1.7.12(drizzle-kit@1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)))(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))))(better-call@1.4.4(zod@4.6.7))':
+  '@better-auth/oauth-provider@1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-auth@1.7.12(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))))(better-call@1.4.4(zod@4.6.7))':
     dependencies:
       '@better-auth/core': 1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5)
       '@better-auth/utils': 0.5.0
       '@better-fetch/fetch': 1.3.2
-      better-auth: 1.7.12(drizzle-kit@1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)))(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0)))
+      better-auth: 1.7.12(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0)))
       better-call: 1.4.4(zod@4.6.7)
       jose: 6.2.13
       zod: 4.6.7
@@ -7263,13 +7052,6 @@ snapshots:
     optionalDependencies:
       '@nestjs/platform-express': 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/core@12.2.0)(supports-color@7.2.0)
       '@nestjs/websockets': 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/core@12.2.0)(@nestjs/platform-socket.io@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
-
-  '@nestjs/drizzle@0.0.2(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/core@12.2.0)(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7))(reflect-metadata@0.2.2)':
-    dependencies:
-      '@nestjs/common': 12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0)
-      '@nestjs/core': 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/platform-express@12.2.0)(@nestjs/websockets@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      drizzle-orm: 1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)
-      reflect-metadata: 0.2.2
 
   '@nestjs/event-emitter@12.0.1(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/core@12.2.0)':
     dependencies:
@@ -8491,10 +8273,10 @@ snapshots:
 
   baseline-browser-mapping@2.11.30: {}
 
-  better-auth@1.7.12(drizzle-kit@1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)))(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))):
+  better-auth@1.7.12(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))):
     dependencies:
       '@better-auth/core': 1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5)
-      '@better-auth/drizzle-adapter': 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7))
+      '@better-auth/drizzle-adapter': 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)
       '@better-auth/kysely-adapter': 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(kysely@0.29.7)
       '@better-auth/memory-adapter': 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)
       '@better-auth/mongo-adapter': 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)
@@ -8511,37 +8293,6 @@ snapshots:
       nanostores: 1.5.5
       zod: 4.6.7
     optionalDependencies:
-      drizzle-kit: 1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7))
-      drizzle-orm: 1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)
-      pg: 8.23.1
-      react: 19.3.1
-      react-dom: 19.3.1(react@19.3.1)
-      vitest: 5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))
-    transitivePeerDependencies:
-      - '@opentelemetry/api'
-
-  better-auth@1.7.12(drizzle-kit@1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@7.0.2))(zod@4.6.7)))(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@7.0.2))(zod@4.6.7))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))):
-    dependencies:
-      '@better-auth/core': 1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5)
-      '@better-auth/drizzle-adapter': 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@7.0.2))(zod@4.6.7))
-      '@better-auth/kysely-adapter': 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(kysely@0.29.7)
-      '@better-auth/memory-adapter': 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)
-      '@better-auth/mongo-adapter': 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)
-      '@better-auth/prisma-adapter': 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)
-      '@better-auth/telemetry': 1.7.12(@better-auth/core@1.7.12(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)
-      '@better-auth/utils': 0.5.0
-      '@better-fetch/fetch': 1.3.2
-      '@noble/ciphers': 2.4.0
-      '@noble/hashes': 2.4.0
-      better-call: 1.4.4(zod@4.6.7)
-      defu: 6.1.7
-      jose: 6.2.13
-      kysely: 0.29.7
-      nanostores: 1.5.5
-      zod: 4.6.7
-    optionalDependencies:
-      drizzle-kit: 1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@7.0.2))(zod@4.6.7))
-      drizzle-orm: 1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@7.0.2))(zod@4.6.7)
       pg: 8.23.1
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
@@ -9061,29 +8812,6 @@ snapshots:
   dotenv@17.4.2: {}
 
   dotenv@18.0.3: {}
-
-  drizzle-kit@1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)):
-    optionalDependencies:
-      drizzle-orm: 1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7)
-
-  drizzle-kit@1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@7.0.2))(zod@4.6.7)):
-    optionalDependencies:
-      drizzle-orm: 1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@7.0.2))(zod@4.6.7)
-    optional: true
-
-  drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@6.0.3))(zod@4.6.7):
-    optionalDependencies:
-      '@types/pg': 8.23.1
-      pg: 8.23.1
-      valibot: 1.5.0(typescript@6.0.3)
-      zod: 4.6.7
-
-  drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@7.0.2))(zod@4.6.7):
-    optionalDependencies:
-      '@types/pg': 8.23.1
-      pg: 8.23.1
-      valibot: 1.5.0(typescript@7.0.2)
-      zod: 4.6.7
 
   dunder-proto@1.0.1:
     dependencies:
@@ -11688,11 +11416,6 @@ snapshots:
   uuid@14.0.3: {}
 
   uuid@8.3.2: {}
-
-  valibot@1.5.0(typescript@6.0.3):
-    optionalDependencies:
-      typescript: 6.0.3
-    optional: true
 
   valibot@1.5.0(typescript@7.0.2):
     optionalDependencies:

@@ -35,37 +35,16 @@
  * đường phát hành gói của service; đây là công cụ di trú một lần nên
  * phần chụp cây viết trực tiếp trong script (service là đường chạy
  * thường xuyên, không phải đường di trú).
+ *
+ * Mọi truy cập dữ kiện qua handle Kysely của `@lms/db` (kho nghiệp
+ * vụ) và `@lms/db/system-bank` (kho ngân hàng); các câu đọc đặt bí
+ * danh camelCase cho cột để phần thân dưới giữ nguyên hình dạng dữ
+ * kiện như trước (đặc biệt là các mảng trung gian đưa vào checksum
+ * của gói YCCĐ — đổi hình dạng là đổi checksum).
  */
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { Pool } from 'pg';
-import {
-  curricula,
-  curriculumNodes,
-  learningOutcomes,
-  question,
-  questionAnswerKeys,
-  questionAnswers,
-  questionBankEntries,
-  questionBanks,
-  questionCategories,
-  questionLearningOutcomes,
-  qtypeEssayOptions,
-  qtypeMultichoiceOptions,
-  qtypeShortanswerOptions,
-  questionVersions,
-  stimuli,
-  subjects,
-} from '@lms/db';
-import {
-  systemOutcomePackageCurricula,
-  systemOutcomePackageNodes,
-  systemOutcomePackageOutcomes,
-  systemOutcomePackages,
-  systemQuestionVersionOutcomes,
-  systemQuestionVersions,
-  systemQuestions,
-} from '@lms/db/system-bank';
+import { createCentreKysely, sql, type JsonValue } from '@lms/db';
+import { createSystemBankKysely } from '@lms/db/system-bank';
 import { canonicalizeJson, checksumPackage, packageValidationError, type SystemQuestionPackage } from './system-bank-package';
 
 async function main(): Promise<void> {
@@ -80,79 +59,152 @@ async function main(): Promise<void> {
 
   const businessPool = new Pool({ connectionString: businessUrl });
   const bankPool = new Pool({ connectionString: bankUrl });
-  const business = drizzle({ client: businessPool });
-  const bank = drizzle({ client: bankPool });
+  const business = createCentreKysely(businessPool);
+  const bank = createSystemBankKysely(bankPool);
   try {
     const platformBanks = await business
-      .select({ id: questionBanks.id })
-      .from(questionBanks)
-      .where(and(eq(questionBanks.scope, 'platform'), eq(questionBanks.bankKind, 'question')));
+      .selectFrom('question_banks')
+      .select('id')
+      .where('scope', '=', 'platform')
+      .where('bank_kind', '=', 'question')
+      .execute();
     const platformBankIds = platformBanks.map((row) => row.id);
     const categories =
       platformBankIds.length === 0
         ? []
         : await business
-            .select({ id: questionCategories.id })
-            .from(questionCategories)
-            .where(inArray(questionCategories.bankId, platformBankIds));
+            .selectFrom('question_categories')
+            .select('id')
+            .where('bank_id', 'in', platformBankIds)
+            .execute();
     const categoryIds = categories.map((row) => row.id);
     const questions =
       categoryIds.length === 0
         ? []
-        : await business.select().from(question).where(inArray(question.category, categoryIds));
+        : await business
+            .selectFrom('question')
+            .select(['id', 'qtype'])
+            .where('category', 'in', categoryIds)
+            .execute();
     const questionIds = questions.map((row) => row.id);
     const entries =
       questionIds.length === 0
         ? []
         : await business
-            .select()
-            .from(questionBankEntries)
-            .where(inArray(questionBankEntries.questionId, questionIds));
+            .selectFrom('question_bank_entries')
+            .select([
+              'question_id as questionId',
+              'status',
+              'withdrawn_reason as withdrawnReason',
+              'withdrawn_by as withdrawnBy',
+              'withdrawn_at as withdrawnAt',
+            ])
+            .where('question_id', 'in', questionIds)
+            .execute();
     const entryByQuestion = new Map(entries.map((row) => [row.questionId, row]));
     const versions =
       questionIds.length === 0
         ? []
-        : await business.select().from(questionVersions).where(inArray(questionVersions.questionId, questionIds));
+        : await business
+            .selectFrom('question_versions')
+            .select([
+              'id',
+              'question_id as questionId',
+              'version',
+              'question_text as questionText',
+              'general_feedback as generalFeedback',
+              'stimulus_id as stimulusId',
+            ])
+            .where('question_id', 'in', questionIds)
+            .execute();
     const versionIds = versions.map((row) => row.id);
     const answers =
       versionIds.length === 0
         ? []
-        : await business.select().from(questionAnswers).where(inArray(questionAnswers.questionVersionId, versionIds));
+        : await business
+            .selectFrom('question_answers')
+            .select([
+              'question_version_id as questionVersionId',
+              'answer',
+              'is_correct as isCorrect',
+              'feedback',
+              'sort_order as sortOrder',
+            ])
+            .where('question_version_id', 'in', versionIds)
+            .execute();
     const answerKeys =
       versionIds.length === 0
         ? []
-        : await business.select().from(questionAnswerKeys).where(inArray(questionAnswerKeys.questionVersionId, versionIds));
+        : await business
+            .selectFrom('question_answer_keys')
+            .select(['question_version_id as questionVersionId', 'guidance', 'solution'])
+            .where('question_version_id', 'in', versionIds)
+            .execute();
     const multichoiceOptions =
       versionIds.length === 0
         ? []
         : await business
-            .select()
-            .from(qtypeMultichoiceOptions)
-            .where(inArray(qtypeMultichoiceOptions.questionVersionId, versionIds));
+            .selectFrom('qtype_multichoice_options')
+            .select([
+              'question_version_id as questionVersionId',
+              'shuffle_answers as shuffleAnswers',
+              'answer_numbering as answerNumbering',
+              'correct_feedback as correctFeedback',
+              'incorrect_feedback as incorrectFeedback',
+              'show_standard_instruction as showStandardInstruction',
+            ])
+            .where('question_version_id', 'in', versionIds)
+            .execute();
     const shortanswerOptions =
       versionIds.length === 0
         ? []
         : await business
-            .select()
-            .from(qtypeShortanswerOptions)
-            .where(inArray(qtypeShortanswerOptions.questionVersionId, versionIds));
+            .selectFrom('qtype_shortanswer_options')
+            .select([
+              'question_version_id as questionVersionId',
+              'use_case as useCase',
+              'numeric_answer as numericAnswer',
+              'numeric_max_length as numericMaxLength',
+              'numeric_allow_sign as numericAllowSign',
+              'numeric_allow_decimal as numericAllowDecimal',
+            ])
+            .where('question_version_id', 'in', versionIds)
+            .execute();
     const essayOptions =
       versionIds.length === 0
         ? []
-        : await business.select().from(qtypeEssayOptions).where(inArray(qtypeEssayOptions.questionVersionId, versionIds));
+        : await business
+            .selectFrom('qtype_essay_options')
+            .select([
+              'question_version_id as questionVersionId',
+              'response_format as responseFormat',
+              'response_required as responseRequired',
+              'response_field_lines as responseFieldLines',
+              'min_word_limit as minWordLimit',
+              'max_word_limit as maxWordLimit',
+              'grader_info as graderInfo',
+              'response_template as responseTemplate',
+            ])
+            .where('question_version_id', 'in', versionIds)
+            .execute();
     const stimulusIds = [...new Set(versions.map((row) => row.stimulusId).filter((id): id is string => id !== null))];
     const stimulusRows =
       stimulusIds.length === 0
         ? []
-        : await business.select().from(stimuli).where(inArray(stimuli.id, stimulusIds));
+        : await business.selectFrom('stimuli').select(['id', 'content']).where('id', 'in', stimulusIds).execute();
     const stimulusById = new Map(stimulusRows.map((row) => [row.id, row.content]));
     const links =
       questionIds.length === 0
         ? []
         : await business
-            .select()
-            .from(questionLearningOutcomes)
-            .where(inArray(questionLearningOutcomes.questionId, questionIds));
+            .selectFrom('question_learning_outcomes')
+            .select([
+              'question_id as questionId',
+              'learning_outcome_id as learningOutcomeId',
+              'cognitive_level as cognitiveLevel',
+            ])
+            .where('question_id', 'in', questionIds)
+            .execute();
 
     const answersByVersion = new Map<string, typeof answers>();
     for (const row of answers) {
@@ -188,25 +240,25 @@ async function main(): Promise<void> {
       }
       const bankStatus = status === 'hidden' ? 'withdrawn' : 'published';
       await bank
-        .insert(systemQuestions)
+        .insertInto('system_questions')
         .values({
           id: q.id,
           qtype: q.qtype,
           status: bankStatus,
-          withdrawnReason: entry?.withdrawnReason ?? null,
-          withdrawnBy: entry?.withdrawnBy ?? null,
-          withdrawnAt: entry?.withdrawnAt ?? null,
+          withdrawn_reason: entry?.withdrawnReason ?? null,
+          withdrawn_by: entry?.withdrawnBy ?? null,
+          withdrawn_at: entry?.withdrawnAt ?? null,
         })
-        .onConflictDoUpdate({
-          target: systemQuestions.id,
-          set: {
+        .onConflict((oc) =>
+          oc.column('id').doUpdateSet({
             qtype: q.qtype,
             status: bankStatus,
-            withdrawnReason: entry?.withdrawnReason ?? null,
-            withdrawnBy: entry?.withdrawnBy ?? null,
-            withdrawnAt: entry?.withdrawnAt ?? null,
-          },
-        });
+            withdrawn_reason: entry?.withdrawnReason ?? null,
+            withdrawn_by: entry?.withdrawnBy ?? null,
+            withdrawn_at: entry?.withdrawnAt ?? null,
+          }),
+        )
+        .execute();
       migratedQuestions += 1;
       const questionVersions = versions.filter((row) => row.questionId === q.id);
       const questionLinks = (linksByQuestion.get(q.id) ?? []).map((row) => ({
@@ -280,30 +332,35 @@ async function main(): Promise<void> {
           throw new Error(`system-bank-migrate: question ${q.id} version ${version.version} failed package validation: ${validation}`);
         }
         const checksum = checksumPackage(pkg);
+        // Cột `package` là jsonb: serialize tường minh kèm `::jsonb`
+        // như mọi đường ghi jsonb của hệ (driver `pg` không tự
+        // stringify giá trị object do Kysely truyền xuống).
+        const packageValue = sql<JsonValue>`${JSON.stringify(pkg)}::jsonb`;
         await bank
-          .insert(systemQuestionVersions)
+          .insertInto('system_question_versions')
           .values({
             id: version.id,
-            questionId: q.id,
+            question_id: q.id,
             version: version.version,
             checksum,
-            package: pkg as never,
+            package: packageValue,
           })
-          .onConflictDoUpdate({
-            target: systemQuestionVersions.id,
-            set: { questionId: q.id, version: version.version, checksum, package: pkg as never },
-          });
+          .onConflict((oc) =>
+            oc.column('id').doUpdateSet({ question_id: q.id, version: version.version, checksum, package: packageValue }),
+          )
+          .execute();
         await bank
-          .delete(systemQuestionVersionOutcomes)
-          .where(eq(systemQuestionVersionOutcomes.versionId, version.id));
+          .deleteFrom('system_question_version_outcomes')
+          .where('version_id', '=', version.id)
+          .execute();
         if (questionLinks.length > 0) {
-          await bank.insert(systemQuestionVersionOutcomes).values(
+          await bank.insertInto('system_question_version_outcomes').values(
             questionLinks.map((link) => ({
-              versionId: version.id,
-              outcomeId: link.outcomeId,
-              cognitiveLevel: link.cognitiveLevel,
+              version_id: version.id,
+              outcome_id: link.outcomeId,
+              cognitive_level: link.cognitiveLevel,
             })),
-          );
+          ).execute();
         }
         migratedVersions += 1;
       }
@@ -311,31 +368,45 @@ async function main(): Promise<void> {
 
     let packageInfo: { version: string; outcomes: number } | null = null;
     if (packageVersion) {
-      const subjectRows = await business.select().from(subjects);
+      const subjectRows = await business.selectFrom('subjects').select(['id', 'slug']).execute();
       const subjectIds = subjectRows.map((row) => row.id);
       const curriculumRows =
         subjectIds.length === 0
           ? []
-          : await business.select().from(curricula).where(inArray(curricula.subjectId, subjectIds));
+          : await business
+              .selectFrom('curricula')
+              .select(['id', 'subject_id as subjectId', 'grade'])
+              .where('subject_id', 'in', subjectIds)
+              .execute();
       const curriculumIds = curriculumRows.map((row) => row.id);
       const nodeRows =
         curriculumIds.length === 0
           ? []
-          : await business.select().from(curriculumNodes).where(inArray(curriculumNodes.curriculumId, curriculumIds));
+          : await business
+              .selectFrom('curriculum_nodes')
+              .select([
+                'id',
+                'curriculum_id as curriculumId',
+                'parent_id as parentId',
+                'title',
+                'kind',
+                'position',
+                'duration_periods as durationPeriods',
+                'duration_percent as durationPercent',
+              ])
+              .where('curriculum_id', 'in', curriculumIds)
+              .execute();
       const nodeIds = nodeRows.map((row) => row.id);
       const outcomeRows =
         nodeIds.length === 0
           ? []
           : await business
-              .select()
-              .from(learningOutcomes)
-              .where(
-                and(
-                  inArray(learningOutcomes.nodeId, nodeIds),
-                  isNull(learningOutcomes.tenantId),
-                  isNull(learningOutcomes.retiredAt),
-                ),
-              );
+              .selectFrom('learning_outcomes')
+              .select(['id', 'node_id as nodeId', 'position', 'content', 'source_kind as sourceKind', 'source_ref as sourceRef'])
+              .where('node_id', 'in', nodeIds)
+              .where('tenant_id', 'is', null)
+              .where('retired_at', 'is', null)
+              .execute();
       const subjectSlugById = new Map(subjectRows.map((row) => [row.id, row.slug]));
       const packageCurricula = curriculumRows.map((row) => ({
         curriculumId: row.id,
@@ -373,32 +444,58 @@ async function main(): Promise<void> {
           )
           .digest('hex'),
       );
-      const [pkgRow] = await bank
-        .insert(systemOutcomePackages)
+      const pkgRow = await bank
+        .insertInto('system_outcome_packages')
         .values({
           version: packageVersion,
           scope: 'all',
           checksum,
-          outcomeCount: packageOutcomes.length,
-          createdBy: null,
+          outcome_count: packageOutcomes.length,
+          created_by: null,
         })
-        .onConflictDoNothing({ target: systemOutcomePackages.version })
-        .returning();
+        .onConflict((oc) => oc.column('version').doNothing())
+        .returningAll()
+        .executeTakeFirst();
       if (pkgRow) {
         if (packageCurricula.length > 0) {
-          await bank.insert(systemOutcomePackageCurricula).values(
-            packageCurricula.map((row) => ({ packageId: pkgRow.id, ...row })),
-          );
+          await bank.insertInto('system_outcome_package_curricula').values(
+            packageCurricula.map((row) => ({
+              package_id: pkgRow.id,
+              curriculum_id: row.curriculumId,
+              subject_slug: row.subjectSlug,
+              grade: row.grade,
+            })),
+          ).execute();
         }
         if (packageNodes.length > 0) {
-          await bank.insert(systemOutcomePackageNodes).values(
-            packageNodes.map((row) => ({ packageId: pkgRow.id, ...row })),
-          );
+          await bank.insertInto('system_outcome_package_nodes').values(
+            packageNodes.map((row) => ({
+              package_id: pkgRow.id,
+              node_id: row.nodeId,
+              curriculum_id: row.curriculumId,
+              parent_id: row.parentId,
+              title: row.title,
+              kind: row.kind,
+              position: row.position,
+              duration_periods: row.durationPeriods,
+              duration_percent: row.durationPercent,
+            })),
+          ).execute();
         }
         if (packageOutcomes.length > 0) {
-          await bank.insert(systemOutcomePackageOutcomes).values(
-            packageOutcomes.map((row) => ({ packageId: pkgRow.id, ...row, content: row.content as never })),
-          );
+          await bank.insertInto('system_outcome_package_outcomes').values(
+            packageOutcomes.map((row) => ({
+              package_id: pkgRow.id,
+              outcome_id: row.outcomeId,
+              node_id: row.nodeId,
+              position: row.position,
+              // Cột `content` là jsonb (tài liệu YCCĐ): serialize
+              // tường minh kèm `::jsonb` như cột `package` ở trên.
+              content: sql<JsonValue>`${JSON.stringify(row.content)}::jsonb`,
+              source_kind: row.sourceKind,
+              source_ref: row.sourceRef,
+            })),
+          ).execute();
         }
         packageInfo = { version: packageVersion, outcomes: packageOutcomes.length };
       } else {
@@ -406,9 +503,9 @@ async function main(): Promise<void> {
       }
     }
 
-    const afterQuestions = await bank.select({ id: systemQuestions.id }).from(systemQuestions);
-    const afterVersions = await bank.select({ id: systemQuestionVersions.id }).from(systemQuestionVersions);
-    const afterLinks = await bank.select({ id: systemQuestionVersionOutcomes.id }).from(systemQuestionVersionOutcomes);
+    const afterQuestions = await bank.selectFrom('system_questions').select('id').execute();
+    const afterVersions = await bank.selectFrom('system_question_versions').select('id').execute();
+    const afterLinks = await bank.selectFrom('system_question_version_outcomes').select('id').execute();
     console.log('system-bank-migrate: done');
     console.log(`  before: questions=${questions.length} versions=${versions.length} distinct_stimuli=${stimulusIds.length} standards_links=${links.length}`);
     console.log(`  migrated: questions=${migratedQuestions} versions=${migratedVersions} skipped_drafts=${skippedDrafts} skipped_qtypes=${skippedQtypes}`);

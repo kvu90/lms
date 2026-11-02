@@ -1,11 +1,8 @@
-import { eq } from 'drizzle-orm';
-import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Kysely, PostgresDialect, sql } from 'kysely';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { CentreDb, CentreDB } from '../client';
-import { examDossiers } from '../exams.schema';
-import type { ExamVariant } from '../quiz.schema';
+import type { ExamVariant } from '../jsonb-types';
 import { buildTestDatabase, dropTestDatabase, withDatabase } from '../test-support/build-test-database';
 import { createTestKysely } from '../test-support/create-test-kysely';
 import { runInTestPlatformContext, TestTenantPool } from '../test-support/tenant-context';
@@ -24,15 +21,16 @@ import { ExamsRepository, type ExamRow } from './exams';
  *
  * Các chốt bằng chứng của nhóm theo hồ sơ chuẩn bị:
  * - Đọc/ghi jsonb của bộ hồ sơ (`spec_snapshot`,
- *   `dossier_spec_snapshot`) khớp hai ORM (T-7): cùng một dòng đọc
- *   qua repository Kysely và qua Drizzle deep-equal từng trường.
+ *   `dossier_spec_snapshot`) khớp oracle độc lập (T-7): cùng một
+ *   dòng đọc qua repository và qua Kysely thô ngoài repository
+ *   deep-equal từng trường.
  * - Patch cập nhật loại `undefined` tường minh (T-4).
  * - Tăng bộ đếm copy của đề giữ dạng biểu thức SQL nguyên tử
  *   (điểm nóng R-G3-1): SQL thực thi chứa đúng biểu thức
  *   `"exams"."copy_count" + 1`, cấm đọc-cộng-ghi.
  * - Các truy vấn ghép điều kiện động (đóng góp chưa chốt theo mode,
- *   hồ sơ đang hiệu lực có loại trừ) giữ đúng ngữ nghĩa của đường
- *   Drizzle (T-13: điều kiện vắng mặt không thành `where(undefined)`).
+ *   hồ sơ đang hiệu lực có loại trừ) giữ đúng ngữ nghĩa gốc
+ *   (T-13: điều kiện vắng mặt không thành `where(undefined)`).
  */
 const adminUrl =
   process.env.LMS_DB_TEST_ADMIN_URL ??
@@ -51,7 +49,6 @@ const CONTEXT_ID = '01a19887-6b35-7760-8e64-a5960bfd0900';
 let pool: TestTenantPool;
 let db: CentreDb;
 let repo: ExamsRepository;
-let drizzleDb: NodePgDatabase;
 
 let bankId = '';
 let targetBankId = '';
@@ -154,7 +151,6 @@ beforeAll(async () => {
   pool = new TestTenantPool({ connectionString: roleUrl.toString() });
   db = createTestKysely(pool).centre;
   repo = new ExamsRepository(db);
-  drizzleDb = drizzle({ client: pool });
   await platform(seedParents);
 }, 300_000);
 
@@ -304,18 +300,27 @@ describe('repository exams trên Kysely — đối chiếu hành vi', () => {
     expect((await platform(() => repo.listContributionsForBank(targetBankId))).map((c) => c.id)).toContain(contribution.id);
   });
 
-  it('bộ hồ sơ: spec_snapshot jsonb khớp hai ORM (T-7); findActiveDossier tôn trọng excludeId', async () => {
+  it('bộ hồ sơ: spec_snapshot jsonb khớp oracle độc lập (T-7); findActiveDossier tôn trọng excludeId', async () => {
     const paper = await platform(() => seedPaper());
     const snapshot = { totalScore: 10, cells: [{ qtype: 'essay', count: 1 }], note: null };
     const dossier = await platform(() =>
       repo.insertDossier({ examId: paper.id, proposerId: ACTOR_ID, targetBankId, specSnapshot: snapshot, status: 'pending' }),
     );
     expect(dossier.specSnapshot).toEqual(snapshot);
-    const viaDrizzle = await platform(async () => {
-      const rows = await drizzleDb.select().from(examDossiers).where(eq(examDossiers.id, dossier.id));
+    const viaOracle = await platform(async () => {
+      const rows = await db.selectFrom('exam_dossiers')
+        .select([
+          'id', 'created_at as createdAt', 'exam_id as examId', 'exam_version_id as examVersionId',
+          'exam_version_number as examVersionNumber', 'matrix_id as matrixId', 'matrix_version as matrixVersion',
+          'matrix_version_id as matrixVersionId', 'note', 'proposer_id as proposerId',
+          'result_exam_id as resultExamId', 'spec_snapshot as specSnapshot', 'status',
+          'target_bank_id as targetBankId', 'updated_at as updatedAt',
+        ])
+        .where('id', '=', dossier.id)
+        .execute();
       return rows[0];
     });
-    expect(viaDrizzle).toEqual(dossier);
+    expect(viaOracle).toEqual(dossier);
 
     expect((await platform(() => repo.findActiveDossier(paper.id, targetBankId)))!.id).toBe(dossier.id);
     expect(await platform(() => repo.findActiveDossier(paper.id, targetBankId, dossier.id))).toBeUndefined();

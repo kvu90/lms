@@ -78,7 +78,7 @@ describe('Hàm isMatrixContentSignatureConflict', () => {
     expect(isMatrixContentSignatureConflict(err)).toBe(true);
   });
 
-  it('nhận diện 23505 bọc trong cause của Drizzle, tên ràng buộc nằm trong message', () => {
+  it('nhận diện 23505 bọc trong cause của lớp truy cập dữ kiện, tên ràng buộc nằm trong message', () => {
     const pgError = Object.assign(
       new Error('duplicate key value violates unique constraint "exam_matrices_bank_content_signature_unique"'),
       { code: '23505' },

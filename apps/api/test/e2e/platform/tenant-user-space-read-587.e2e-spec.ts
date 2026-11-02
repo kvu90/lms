@@ -2,10 +2,9 @@ import { INestApplication } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Client } from 'pg';
+import { Client, Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { spaceRegistry } from '@lms/db/control-plane';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { createControlPlaneKysely } from '@lms/db/control-plane';
 import { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
 import { PermissionEvaluator } from '../../../src/modules/access/permission-evaluator.service';
 import { tenantAls } from '../../../src/modules/tenants/tenant-als';
@@ -142,7 +141,7 @@ async function withClient<T>(connectionString: string, fn: (client: Client) => P
   }
 }
 
-/** Áp một file migration SQL (tách theo dấu phân đoạn của Drizzle) lên một database qua kết nối cho trước. */
+/** Áp một file migration SQL (tách theo dấu phân đoạn của file) lên một database qua kết nối cho trước. */
 async function applySqlFile(connectionString: string, filePath: string, withUuidShim: boolean): Promise<void> {
   await withClient(connectionString, async (client) => {
     if (withUuidShim) {
@@ -250,22 +249,25 @@ describe('Tạo người dùng cho trung tâm cấp phát mới chỉ có ở kh
 
     // Dòng đăng ký kho riêng trong sổ, ghi trước khi ứng dụng
     // khởi động như các spec kho riêng trước.
-    await withClient(cpUrl(), async (client) => {
-      const cpDb = drizzle({ client });
-      await cpDb.insert(spaceRegistry).values([
+    const cpPool = new Pool({ connectionString: cpUrl() });
+    const cpDb = createControlPlaneKysely(cpPool);
+    try {
+      await cpDb.insertInto('space_registry').values([
         {
           slug: CENTRE_SLUG,
           name: 'Trung tâm TĐ6',
           kind: 'center',
           status: 'active',
-          databaseName: CENTRE_DATABASE,
-          storageMode: 'dedicated',
-          connectionRoleRef: CENTRE_ROLE,
-          secretRef: 'env:SPACE_TEST_TD6_URL',
-          schemaVersion: 'v1',
+          database_name: CENTRE_DATABASE,
+          storage_mode: 'dedicated',
+          connection_role_ref: CENTRE_ROLE,
+          secret_ref: 'env:SPACE_TEST_TD6_URL',
+          schema_version: 'v1',
         },
-      ]);
-    });
+      ]).execute();
+    } finally {
+      await cpDb.destroy();
+    }
 
     // Dữ kiện nền của trung tâm ghi THẲNG vào kho riêng, theo
     // đúng các bước nền của pipeline cấp phát: context hệ
@@ -308,7 +310,7 @@ describe('Tạo người dùng cho trung tâm cấp phát mới chỉ có ở kh
     const users = app.get(UsersService, { strict: false });
     const tenants = app.get(TenantsService, { strict: false });
     centreAdminUsername = uniqueName('admintd6');
-    const adminUser = await spaceDb.withSpaceDatabase(
+    const adminUser = await spaceDb.withSpaceKysely(
       CENTRE_SLUG,
       async () => {
         const user = await users.createUser({
@@ -433,7 +435,7 @@ describe('Tạo người dùng cho trung tâm cấp phát mới chỉ có ở kh
       expect(await evaluator.isSiteAdmin(sharedAdminId)).toBe(true);
       expect(await evaluator.isSiteAdmin(centreAdminId)).toBe(false);
     });
-    await spaceDb.withSpaceDatabase(
+    await spaceDb.withSpaceKysely(
       CENTRE_SLUG,
       async () => {
         expect(await evaluator.isSiteAdmin(centreAdminId)).toBe(true);

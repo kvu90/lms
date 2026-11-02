@@ -14,7 +14,7 @@
  *   schema `@lms/db` và được tạo bởi file baseline
  *   `packages/db/migrations/centre/20261025163710_baseline/migration.sql`.
  * - Ba bảng được NỐI VÀO CUỐI file baseline sau khi baseline đã phát
- *   hành. Drizzle bỏ qua cả thư mục baseline trên các database đã áp
+ *   hành. bộ máy cũ bỏ qua cả thư mục baseline trên các database đã áp
  *   nó (production, preview), nên các database đó KHÔNG bao giờ nhận
  *   được 3 bảng qua đường migration — trong khi luồng sửa câu hỏi
  *   (`QuestionsService`) cập nhật `system_question_imports` trong

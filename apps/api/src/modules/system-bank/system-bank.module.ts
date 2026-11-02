@@ -29,7 +29,7 @@ import { SystemBankService } from './system-bank.service';
  *   `SystemBankConnection` (kết nối riêng chuyên dụng), kèm hàm dựng
  *   lỗi chưa-cấu-hình là `ServiceUnavailableException` mang mã
  *   `system_bank.not_configured` — đúng hình dạng lỗi 503 mà đường
- *   Drizzle trước đây ném từ trong repository.
+ *   bộ máy cũ trước đây ném từ trong repository.
  * - Repository phía trung tâm nhận handle Kysely ĐỊNH TUYẾN THEO
  *   KHÔNG GIAN (`SpaceDatabaseService.routedKysely` qua
  *   SpaceRoutingModule): hai handle giữ tách biệt tuyệt đối, không

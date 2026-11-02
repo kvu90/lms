@@ -19,10 +19,10 @@
  * - Plugin cũng KHÔNG được đăng ký để làm cơ chế hoàn tất bước
  *   hai: schema của plugin khai trường user `twoFactorEnabled` kèm
  *   giá trị mặc định, tầng core chèn trường đó vào mọi payload tạo
- *   user, và adapter Drizzle từ chối trường không có trong ánh xạ
+ *   user, và adapter bộ máy cũ từ chối trường không có trong ánh xạ
  *   user của hệ (đã kiểm chứng: bật plugin là mọi đường tạo user
  *   qua cầu nối đều ném `The field "twoFactorEnabled" does not
- *   exist in the "user" Drizzle schema`). Thêm cột thật cho plugin
+ *   exist in the "user" bộ máy cũ schema`). Thêm cột thật cho plugin
  *   sẽ dựng nguồn trạng thái MFA thứ hai phải đồng bộ với
  *   `user_totp` — đúng điều thiết kế này cấm. Bước hoàn tất vì vậy
  *   nằm ở tầng Nest (`two-factor-completion.*` cùng thư mục, route

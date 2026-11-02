@@ -16,7 +16,7 @@ import { ClassesRepository } from './classes';
  * điểm dừng của điểm nối C-8/B.)
  *
  * Các tính chất chốt tại đây:
- * - Tra lớp theo mã tham gia giữ đúng hành vi của bản Drizzle:
+ * - Tra lớp theo mã tham gia giữ đúng hành vi của bản bộ máy cũ:
  *   mã là unique toàn hệ khi có đặt nên tra KHÔNG kèm tenant
  *   (lớp thuộc tenant khác vẫn phân giải được — đường tự báo
  *   danh xuyên tenant), trong khi tra theo mã lớp thì bó trong

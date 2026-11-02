@@ -1,16 +1,20 @@
 /**
- * Spec tích hợp của cầu nối migration Kysely (issue #639): chứng
- * minh trên database thật rằng bộ máy migration của package áp đủ
- * carrier, cấy nhật ký idempotent từ nhật ký Drizzle mô phỏng, chặn
- * database lạ, và giữ đúng ngữ nghĩa transaction/khoá mà runner
- * production dựa vào.
+ * Spec tích hợp của bộ máy migration của `@lms/db` (issue #639,
+ * hoàn thiện ở #663): chứng minh trên database thật rằng bộ máy áp
+ * đủ carrier với đúng số đếm kỳ vọng, hàm đọc nhật ký chỉ đọc
+ * `kysely_migration`, runner CLI dừng to tiếng trước database lạ,
+ * trạng thái "đã áp carrier, native đang chờ" được áp tiếp đúng
+ * phần native, và ngữ nghĩa transaction/khoá mà runner production
+ * dựa vào được giữ đúng.
  *
- * Lưu ý về "mô phỏng nhật ký Drizzle": spec tự tạo schema `drizzle`
- * + bảng `__drizzle_migrations` rồi chèn tên carrier — đó là mô
- * phỏng nhật ký mà drizzle-kit ghi, KHÔNG phải chạy drizzle-kit
- * thật (bộ máy cũ đã rời khỏi đường migrate của package). Điều
- * spec chứng minh là luật adoption đọc đúng nhật ký đó, không phải
- * hành vi của drizzle-kit.
+ * Lưu ý về "mô phỏng nhật ký cũ": một ca tự tạo schema `drizzle` +
+ * bảng `__drizzle_migrations` rồi chèn tên carrier — đó là mô
+ * phỏng nhật ký mà bộ máy cũ ghi, KHÔNG phải chạy bộ máy cũ thật.
+ * Điều ca đó chứng minh là hàm đọc nhật ký BỎ QUA nhật ký cũ sau
+ * khi gỡ Drizzle (issue #663): nguồn sự thật duy nhất là
+ * `kysely_migration`. (Trước #663 package còn bước cấy nhật ký
+ * chép tên từ nhật ký cũ sang; cửa sổ chuyển đổi đã đóng nên bước
+ * cấy và các ca kiểm của nó đã gỡ cùng PR này.)
  *
  * Môi trường: cụm PostgreSQL quản trị từ `LMS_DB_TEST_ADMIN_URL`
  * (hoặc suy từ `DATABASE_URL` như spec khói của harness). Các
@@ -26,7 +30,6 @@ import { Migrator, type MigrationProvider } from 'kysely/migration';
 import { Kysely, PostgresDialect } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildTestDatabase, dropTestDatabase, withDatabase } from '../test-support/build-test-database';
-import { adoptJournal } from './adopt-journal';
 import { FrozenSqlProvider, listMigrationNames } from './frozen-sql-provider';
 import { getAppliedMigrations } from './journal';
 import { installUuidv7Shim, MIGRATION_STORES, UUIDV7_SHIM } from './stores';
@@ -37,18 +40,17 @@ const adminUrl =
   (process.env.DATABASE_URL ? withDatabase(process.env.DATABASE_URL, 'postgres') : 'postgres://postgres:postgres@localhost:5432/postgres');
 
 const CENTRE_DB = 'lms_db_migrate_n2_centre';
-const ADOPT_DB = 'lms_db_migrate_n2_adopt';
 const STRANGE_DB = 'lms_db_migrate_n2_strange';
 const PROD_DB = 'lms_db_migrate_n2_prod';
 const T2_DB = 'lms_db_migrate_n2_t2';
 const T3_DB = 'lms_db_migrate_n2_t3';
 
 /**
- * Diện carrier đóng băng của kho control plane — tập mà bước cấy
- * nhật ký đối sánh (định nghĩa tại `stores.ts`). Khác với
- * `listMigrationNames` (mọi migration trong thư mục, gồm cả
- * migration native): nhật ký Drizzle và bước adoption chỉ biết tới
- * các carrier này.
+ * Diện carrier đóng băng của kho control plane (định nghĩa tại
+ * `stores.ts`). Khác với `listMigrationNames` (mọi migration trong
+ * thư mục, gồm cả migration native): diện này dùng để dựng trạng
+ * thái "mới áp carrier, native chưa áp" và để hậu kiểm đòi đúng
+ * các carrier thật phải có mặt trong nhật ký.
  */
 const CP_CARRIERS: string[] = MIGRATION_STORES['control-plane'].carrierNames;
 
@@ -100,8 +102,8 @@ async function freshDatabase(name: string): Promise<string> {
   return withDatabase(adminUrl, name);
 }
 
-/** Dựng nhật ký Drizzle mô phỏng với đúng tập tên cho trước (chỉ đọc bởi adoption). */
-async function mockDrizzleJournal(dbUrl: string, names: string[]): Promise<void> {
+/** Dựng nhật ký của bộ máy cũ mô phỏng với đúng tập tên cho trước (để chứng minh hàm đọc nhật ký bỏ qua nó sau #663). */
+async function mockLegacyJournal(dbUrl: string, names: string[]): Promise<void> {
   const client = new Client({ connectionString: dbUrl });
   await client.connect();
   try {
@@ -114,6 +116,23 @@ async function mockDrizzleJournal(dbUrl: string, names: string[]): Promise<void>
         `mock-hash-${name}`,
         0,
         name,
+      ]);
+    }
+  } finally {
+    await client.end();
+  }
+}
+
+/** Dựng bảng `kysely_migration` với đúng tập tên cho trước (trạng thái nhật ký lạ cho ca CLI). */
+async function mockKyselyJournal(dbUrl: string, names: string[]): Promise<void> {
+  const client = new Client({ connectionString: dbUrl });
+  await client.connect();
+  try {
+    await client.query('CREATE TABLE IF NOT EXISTS kysely_migration (name varchar(255) PRIMARY KEY, timestamp varchar(255) NOT NULL)');
+    for (const name of names) {
+      await client.query('INSERT INTO kysely_migration (name, timestamp) VALUES ($1, $2)', [
+        name,
+        new Date(0).toISOString(),
       ]);
     }
   } finally {
@@ -181,25 +200,22 @@ async function countPublic(dbUrl: string, kind: 'tables' | 'policies' | 'indexes
   }
 }
 
-describe('cầu nối migration Kysely cho ba kho', () => {
+describe('bộ máy migration của package cho ba kho', () => {
   let centreUrl = '';
-  let adoptUrl = '';
 
   beforeAll(async () => {
     centreUrl = await buildTestDatabase({ adminUrl, database: CENTRE_DB, store: 'centre' });
-    adoptUrl = await freshDatabase(ADOPT_DB);
   }, 300_000);
 
   afterAll(async () => {
     await dropTestDatabase(adminUrl, CENTRE_DB).catch(() => undefined);
-    await dropTestDatabase(adminUrl, ADOPT_DB).catch(() => undefined);
     await dropTestDatabase(adminUrl, STRANGE_DB).catch(() => undefined);
     await dropTestDatabase(adminUrl, PROD_DB).catch(() => undefined);
     await dropTestDatabase(adminUrl, T2_DB).catch(() => undefined);
     await dropTestDatabase(adminUrl, T3_DB).catch(() => undefined);
   });
 
-  it('áp đủ carrier kho trung tâm trên database trống với đúng số đếm của đường Drizzle', async () => {
+  it('áp đủ carrier kho trung tâm trên database trống với đúng số đếm kỳ vọng', async () => {
     const verifyPool = new Pool({ connectionString: centreUrl });
     const verifyDb = new Kysely({ dialect: new PostgresDialect({ pool: verifyPool }) });
     const result = await verifyStore(verifyDb, 'centre');
@@ -214,68 +230,7 @@ describe('cầu nối migration Kysely cho ba kho', () => {
     expect(await countPublic(centreUrl, 'indexes')).toBe(416);
   });
 
-  it('cấy nhật ký từ nhật ký Drizzle mô phỏng rồi migrateToLatest là no-op, không tạo bảng carrier', async () => {
-    // Nhật ký Drizzle chỉ chứa tên carrier (bộ máy cũ không biết tới
-    // migration native) — cấy đúng diện carrier đóng băng của kho.
-    const carrierNames = [...CP_CARRIERS];
-    expect(carrierNames).toHaveLength(2);
-    await mockDrizzleJournal(adoptUrl, carrierNames);
-    const pool = new Pool({ connectionString: adoptUrl });
-    const db = new Kysely({ dialect: new PostgresDialect({ pool }) });
-    try {
-      expect(await adoptJournal(db, carrierNames)).toBe('adopted');
-      expect(await kyselyNames(adoptUrl)).toEqual([...carrierNames].sort());
-      // Bước áp ở ca này chỉ xét diện carrier (provider lọc đúng tập
-      // carrier): sau adoption, migrateToLatest phải là no-op. Việc
-      // áp migration native trên database đã có schema carrier thuộc
-      // ca trạng thái production ở dưới.
-      const migrator = new Migrator({ db, provider: providerOnly(packageMigrationsDir('control-plane'), carrierNames) });
-      const { error, results } = await migrator.migrateToLatest();
-      expect(error).toBeUndefined();
-      expect(results ?? []).toHaveLength(0);
-      // No-op thật: bảng carrier KHÔNG được tạo (migrateToLatest
-      // không thực thi câu SQL carrier nào sau adoption).
-      expect(await tableExists(adoptUrl, 'space_registry')).toBe(false);
-      expect(await kyselyNames(adoptUrl)).toEqual([...carrierNames].sort());
-    } finally {
-      await db.destroy().catch(() => undefined);
-    }
-  });
-
-  it('adoption lần hai là no-op và dữ kiện mẫu còn nguyên', async () => {
-    const carrierNames = [...CP_CARRIERS];
-    const client = new Client({ connectionString: adoptUrl });
-    await client.connect();
-    try {
-      await client.query('CREATE TABLE IF NOT EXISTS adoption_sample (id int PRIMARY KEY, note text)');
-      await client.query("INSERT INTO adoption_sample VALUES (1, 'mau') ON CONFLICT (id) DO NOTHING");
-    } finally {
-      await client.end();
-    }
-    const pool = new Pool({ connectionString: adoptUrl });
-    const db = new Kysely({ dialect: new PostgresDialect({ pool }) });
-    try {
-      expect(await adoptJournal(db, carrierNames)).toBe('already-adopted');
-      // Cùng diện carrier như ca cấy: database mô phỏng này chưa có
-      // schema carrier nên bước áp chỉ xét provider lọc carrier.
-      const migrator = new Migrator({ db, provider: providerOnly(packageMigrationsDir('control-plane'), carrierNames) });
-      const { error } = await migrator.migrateToLatest();
-      expect(error).toBeUndefined();
-    } finally {
-      await db.destroy().catch(() => undefined);
-    }
-    const check = new Client({ connectionString: adoptUrl });
-    await check.connect();
-    try {
-      const rows = await check.query('SELECT note FROM adoption_sample WHERE id = 1');
-      expect(rows.rows[0]?.note).toBe('mau');
-      expect(await kyselyNames(adoptUrl)).toEqual([...carrierNames].sort());
-    } finally {
-      await check.end();
-    }
-  });
-
-  it('hàm đọc tương thích trả đúng nguồn theo từng trạng thái kho', async () => {
+  it('hàm đọc nhật ký chỉ đọc kysely_migration: database trống trả tập rỗng, nhật ký cũ bị bỏ qua, nhật ký Kysely trả đúng tập tên', async () => {
     const carrierNames = [...CP_CARRIERS];
     const fresh = await freshDatabase('lms_db_migrate_n2_dual');
     try {
@@ -286,39 +241,35 @@ describe('cầu nối migration Kysely cho ba kho', () => {
       } finally {
         await empty.end();
       }
-      await mockDrizzleJournal(fresh, carrierNames);
-      const drizzly = new Client({ connectionString: fresh });
-      await drizzly.connect();
+      // Database CHỈ có nhật ký của bộ máy cũ (chưa từng qua bộ máy
+      // này): sau #663 không còn đường đọc dự phòng — tập đã áp là
+      // rỗng, đúng hệ quả đã chốt khi đóng cửa sổ chuyển đổi.
+      await mockLegacyJournal(fresh, carrierNames);
+      const legacyOnly = new Client({ connectionString: fresh });
+      await legacyOnly.connect();
       try {
-        expect(await getAppliedMigrations(drizzly)).toEqual([...carrierNames].sort());
+        expect(await getAppliedMigrations(legacyOnly)).toEqual([]);
       } finally {
-        await drizzly.end();
+        await legacyOnly.end();
       }
-      const adopted = new Client({ connectionString: adoptUrl });
-      await adopted.connect();
+      const migrated = new Client({ connectionString: centreUrl });
+      await migrated.connect();
       try {
-        expect(await getAppliedMigrations(adopted)).toEqual([...carrierNames].sort());
+        expect(await getAppliedMigrations(migrated)).toEqual(['20261025163710_baseline']);
       } finally {
-        await adopted.end();
+        await migrated.end();
       }
     } finally {
       await dropTestDatabase(adminUrl, 'lms_db_migrate_n2_dual').catch(() => undefined);
     }
   });
 
-  it('tên lạ trong nhật ký Drizzle làm adoption dừng và runner CLI thoát mã khác 0', async () => {
-    const carrierNames = [...CP_CARRIERS];
+  it('tên lạ trong nhật ký Kysely làm runner CLI thoát mã khác 0', async () => {
     const strangeUrl = await freshDatabase(STRANGE_DB);
-    await mockDrizzleJournal(strangeUrl, [...carrierNames, '99999999999999_ten_la_khong_thuoc_carrier']);
-    const pool = new Pool({ connectionString: strangeUrl });
-    const db = new Kysely({ dialect: new PostgresDialect({ pool }) });
-    try {
-      await expect(adoptJournal(db, carrierNames)).rejects.toThrow();
-      expect(await kyselyNames(strangeUrl).catch(() => [] as string[])).toEqual([]);
-    } finally {
-      await db.destroy().catch(() => undefined);
-    }
-    // Đường CLI tương ứng (runner của package) cũng phải thoát mã khác 0.
+    await mockKyselyJournal(strangeUrl, ['99999999999999_ten_la_khong_thuoc_bo_migration']);
+    // Đường CLI của package phải dừng to tiếng trước database lạ
+    // (Migrator từ chối tập đã áp lạ, hoặc hậu kiểm lệch số dòng
+    // nhật ký kỳ vọng) — thoát mã khác 0, không áp lặng lẽ.
     const run = spawnSync(
       process.execPath,
       [join(process.cwd(), 'dist', 'migrate', 'run.js'), 'control-plane'],
@@ -327,7 +278,7 @@ describe('cầu nối migration Kysely cho ba kho', () => {
     expect(run.status).not.toBe(0);
   });
 
-  it('database đã nhận nuôi với nhật ký chỉ có carrier và migration native đang chờ: adoption khớp diện carrier, migrateToLatest áp native, chạy lại là no-op', async () => {
+  it('database có nhật ký chỉ gồm carrier và migration native đang chờ: migrateToLatest áp native, chạy lại là no-op', async () => {
     // Ca tái hiện sự cố deploy sau PR #687 (issue #689): trạng thái
     // của database production lúc lỗi — schema đã dựng bằng carrier,
     // nhật ký chỉ có các dòng carrier, migration native của kho chưa
@@ -340,22 +291,19 @@ describe('cầu nối migration Kysely cho ba kho', () => {
     const pool = new Pool({ connectionString: prodUrl });
     const db = new Kysely({ dialect: new PostgresDialect({ pool }) });
     try {
-      // Dựng trạng thái production: shim + adoption trên database
-      // trống (fresh), rồi chỉ áp carrier bằng provider lọc — trạng
-      // thái cuối tương đương database đã nhận nuôi ngoài production
-      // (schema do chính SQL carrier dựng, nhật ký chỉ có carrier).
+      // Dựng trạng thái production: shim trên database trống, rồi
+      // chỉ áp carrier bằng provider lọc — trạng thái cuối tương
+      // đương database production đã áp carrier (schema do chính
+      // SQL carrier dựng, nhật ký chỉ có carrier).
       await installUuidv7Shim(db);
-      expect(await adoptJournal(db, [...CP_CARRIERS])).toBe('fresh');
       const carrierMigrator = new Migrator({ db, provider: providerOnly(dir, CP_CARRIERS) });
       const firstRun = await carrierMigrator.migrateToLatest();
       expect(firstRun.error).toBeUndefined();
       expect(await kyselyNames(prodUrl)).toEqual([...CP_CARRIERS].sort());
       expect(await registryCreatedAtDefault(prodUrl)).toContain('now()');
 
-      // Lượt runner trên trạng thái production: adoption đối sánh
-      // đúng diện carrier (không đòi tên native có sẵn trong nhật
-      // ký), rồi migrateToLatest áp đúng migration native đang chờ.
-      expect(await adoptJournal(db, [...CP_CARRIERS])).toBe('already-adopted');
+      // Lượt runner trên trạng thái production: migrateToLatest áp
+      // đúng migration native đang chờ (không đòi gì thêm ở nhật ký).
       const migrator = new Migrator({ db, provider: new FrozenSqlProvider(dir) });
       const { error, results } = await migrator.migrateToLatest();
       expect(error).toBeUndefined();
@@ -366,9 +314,7 @@ describe('cầu nối migration Kysely cho ba kho', () => {
       const verified = await verifyStore(db, 'control-plane');
       expect(verified.ok).toBe(true);
 
-      // Chạy lại toàn trình trên database đã áp đủ: no-op sạch,
-      // không lỗi khớp nhật ký.
-      expect(await adoptJournal(db, [...CP_CARRIERS])).toBe('already-adopted');
+      // Chạy lại toàn trình trên database đã áp đủ: no-op sạch.
       const again = await migrator.migrateToLatest();
       expect(again.error).toBeUndefined();
       expect(again.results ?? []).toHaveLength(0);
@@ -394,7 +340,8 @@ describe('cầu nối migration Kysely cho ba kho', () => {
   });
 
   it('shim được cài ngoài carrier: hàm uuidv7() gọi được mà không ghi vào nhật ký', async () => {
-    const pool = new Pool({ connectionString: adoptUrl });
+    const shimUrl = await freshDatabase('lms_db_migrate_n2_shim');
+    const pool = new Pool({ connectionString: shimUrl });
     const db = new Kysely({ dialect: new PostgresDialect({ pool }) });
     try {
       await installUuidv7Shim(db);
@@ -402,7 +349,7 @@ describe('cầu nối migration Kysely cho ba kho', () => {
       // PG18 shim viết tay trong schema public thỏa kiểm này. Điểm
       // chung cần chứng minh: sau bước tiền-migration, uuidv7()
       // gọi được — và nhật ký không bị ghi thêm bởi bước shim.
-      const check = new Client({ connectionString: adoptUrl });
+      const check = new Client({ connectionString: shimUrl });
       await check.connect();
       try {
         const fn = await check.query("SELECT uuidv7() AS id");
@@ -412,6 +359,7 @@ describe('cầu nối migration Kysely cho ba kho', () => {
       }
     } finally {
       await db.destroy().catch(() => undefined);
+      await dropTestDatabase(adminUrl, 'lms_db_migrate_n2_shim').catch(() => undefined);
     }
   });
 

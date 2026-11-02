@@ -15,7 +15,8 @@
  *
  * Mọi bước đều idempotent: chạy lại ở mỗi lần stack khởi động là an
  * toàn và không đổi dữ kiện. Script KHÔNG tạo bảng — bảng do bộ
- * migration riêng của kho ngân hàng tạo (`drizzle-system-bank`).
+ * migration riêng của kho ngân hàng tạo (chạy qua runner của
+ * `@lms/db`).
  * Chưa cấu hình `SYSTEM_BANK_DATABASE_URL` thì bỏ qua lặng lẽ
  * (thoát 0) để các môi trường chưa dùng kho ngân hàng không gãy —
  * chuỗi migrate trong compose.yaml cũng chỉ chạy bước này và bước

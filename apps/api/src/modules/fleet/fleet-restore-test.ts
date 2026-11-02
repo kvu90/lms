@@ -90,7 +90,7 @@ function newestBackupFile(dir: string): string | null {
 /**
  * Đếm số bảng THUỘC SCHEMA PUBLIC mà mục lục của tệp dump khai
  * (dòng TOC dạng TABLE của schema public, không tính TABLE DATA và
- * không tính các schema hệ thống như schema `drizzle` chứa bảng
+ * không tính các schema hệ thống như schema nhật ký của bộ máy cũ chứa bảng
  * nhật ký migration) — cùng phạm vi với số bảng đọc từ `pg_tables`
  * sau khôi phục để hai con số đối chiếu được với nhau.
  */

@@ -15,7 +15,5 @@ catalogs:
     typescript: 6.0.3
 minimumReleaseAgeExclude:
   - bullmq@6.4.0
-  - drizzle-kit@1.0.0-rc.5
-  - drizzle-orm@1.0.0-rc.5
 
 autoInstallPeers: false

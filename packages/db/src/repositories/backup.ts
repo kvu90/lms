@@ -1,5 +1,5 @@
 /**
- * Repository của cụm BACKUP trên Kysely — chuyển đổi Drizzle →
+ * Repository của cụm BACKUP trên Kysely — chuyển đổi bộ máy cũ →
  * Kysely thuộc nhóm G8 của chiến dịch chuyển tầng dữ liệu (issue
  * #648).
  *

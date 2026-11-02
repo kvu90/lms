@@ -1,12 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
-import { and, eq, sql } from 'drizzle-orm';
+import { sql } from '@lms/db';
 import { CompletionRecalculateProcessor } from '../../../src/processors/completion-recalculate.processor';
 import { EnrolExpiryProcessor } from '../../../src/processors/enrol-expiry.processor';
-import {
-  courseCompletionCriteria, courseCompletionCritCompl, courseCompletions, courseCompletionSettings,
-  courseModulesCompletion, enrol, outboxEvents, userEnrolments,
-} from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
@@ -43,28 +39,28 @@ describe('Ghi danh và hoàn thành của worker: bộ xử lý enrol-expiry + c
   // chủ lớp là user fixture riêng; mỗi lần gọi dựng một lớp mới.
   async function fixtureClassId(): Promise<string> {
     const ownerId = '01980000-0000-7000-8000-00000000c1a5';
-    await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${ownerId}, 'wk-class-owner', 'wk-class-owner@x.io', false, false) on conflict (id) do nothing`);
-    const coh = await db.execute(sql`insert into cohort (tenant_id, name, context_id, component, visible) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture cohort', '01990000-0000-7000-8000-0000000000a1', 'class', false) returning id`);
+    await sql`insert into users (id, username, email, suspended, deleted) values (${ownerId}, 'wk-class-owner', 'wk-class-owner@x.io', false, false) on conflict (id) do nothing`.execute(db);
+    const coh = await sql`insert into cohort (tenant_id, name, context_id, component, visible) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture cohort', '01990000-0000-7000-8000-0000000000a1', 'class', false) returning id`.execute(db);
     const cohId = (coh.rows[0] as { id: string }).id;
-    const cls = await db.execute(sql`insert into classes (tenant_id, name, owner_id, cohort_id) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture class', ${ownerId}, ${cohId}) returning id`);
+    const cls = await sql`insert into classes (tenant_id, name, owner_id, cohort_id) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture class', ${ownerId}, ${cohId}) returning id`.execute(db);
     return (cls.rows[0] as { id: string }).id;
   }
   beforeAll(async () => {
     harness = await bootWorkerModuleAsOrdinaryRole();
     context = harness.context;
     db = harness.adminDb;
-    await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
+    await sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`.execute(db);
     // Tạo category+course+section thật qua SQL thô (các FK trong DB dùng chung đòi hỏi dòng thật;
     // góc nhìn schema của worker chủ ý chỉ mang các bảng mà processor của nó chạm tới).
-    const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`worker-cat-${suffix}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
+    const catRows = await sql`insert into course_categories (name, path, tenant_id) values (${`worker-cat-${suffix}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`.execute(db);
     const catId = (catRows.rows[0] as { id: string }).id;
-    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, class_id) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'Worker course', ${`wk${suffix}`}, ${await fixtureClassId()}) returning id`);
+    const courseRows = await sql`insert into course (category, tenant_id, full_name, short_name, class_id) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'Worker course', ${`wk${suffix}`}, ${await fixtureClassId()}) returning id`.execute(db);
     courseId = (courseRows.rows[0] as { id: string }).id;
-    const sectionRows = await db.execute(sql`insert into course_sections (course, section) values (${courseId}, 0) returning id`);
+    const sectionRows = await sql`insert into course_sections (course, section) values (${courseId}, 0) returning id`.execute(db);
     const sectionId = (sectionRows.rows[0] as { id: string }).id;
-    const [inst] = await db.insert(enrol).values({ courseId: courseId, enrol: 'manual', status: 0 }).returning();
+    const inst = await db.insertInto('enrol').values({ course_id: courseId, enrol: 'manual', status: 0 }).returningAll().executeTakeFirstOrThrow();
     instanceId = inst.id;
-    const cmRows = await db.execute(sql`insert into course_modules (course, section, component) values (${courseId}, ${sectionId}, 'mod_page') returning id`);
+    const cmRows = await sql`insert into course_modules (course, section, component) values (${courseId}, ${sectionId}, 'mod_page') returning id`.execute(db);
     cmId = (cmRows.rows[0] as { id: string }).id;
   });
   afterAll(async () => { await harness.close(); });
@@ -72,15 +68,15 @@ describe('Ghi danh và hoàn thành của worker: bộ xử lý enrol-expiry + c
   it('enrol-expiry chuyển ghi danh ACTIVE đã quá timeEnd thành SUSPENDED và ghi sự kiện outbox; ghi danh tương lai không động tới', async () => {
     const past = new Date(Date.now() - 3600_000);
     const future = new Date(Date.now() + 3600_000);
-    const [expired] = await db.insert(userEnrolments).values({ enrolId: instanceId, userId: userId, status: 0, timeStart: new Date(Date.now() - 7200_000), timeEnd: past }).returning();
-    const [alive] = await db.insert(userEnrolments).values({ enrolId: instanceId, userId: userIdB, status: 0, timeStart: new Date(), timeEnd: future }).returning();
+    const expired = await db.insertInto('user_enrolments').values({ enrol_id: instanceId, user_id: userId, status: 0, time_start: new Date(Date.now() - 7200_000), time_end: past }).returningAll().executeTakeFirstOrThrow();
+    const alive = await db.insertInto('user_enrolments').values({ enrol_id: instanceId, user_id: userIdB, status: 0, time_start: new Date(), time_end: future }).returningAll().executeTakeFirstOrThrow();
     const processor = context.get(EnrolExpiryProcessor);
     const result = await processor.process({ data: {} } as never);
     expect(result.suspendedIds).toContain(expired.id);
     expect(result.suspendedIds).not.toContain(alive.id);
-    const [row] = await db.select().from(userEnrolments).where(eq(userEnrolments.id, expired.id));
+    const row = await db.selectFrom('user_enrolments').selectAll().where('id', '=', expired.id).executeTakeFirst();
     expect(row.status).toBe(1);
-    const events = await db.select().from(outboxEvents).where(eq(outboxEvents.type, 'user_enrolment_suspended'));
+    const events = await db.selectFrom('outbox_events').selectAll().where('type', '=', 'user_enrolment_suspended').execute();
     expect((events as { payload: { enrolmentId?: string } }[]).some((e) => e.payload.enrolmentId === expired.id)).toBe(true);
     // Idempotent: lượt quét thứ hai không chuyển nó lần nữa.
     const second = await processor.process({ data: {} } as never);
@@ -96,10 +92,10 @@ describe('Ghi danh và hoàn thành của worker: bộ xử lý enrol-expiry + c
     // vỡ ràng buộc duy nhất của user_enrolments).
     const userC = `01900000-0000-7000-8000-${String(900400 + (suffix % 10000)).padStart(12, '0')}`;
     const userD = `01900000-0000-7000-8000-${String(900500 + (suffix % 10000)).padStart(12, '0')}`;
-    const [soon] = await db.insert(userEnrolments).values({ enrolId: instanceId, userId: userC, status: 0, timeStart: new Date(), timeEnd: inWindow }).returning();
-    const [later] = await db.insert(userEnrolments).values({ enrolId: instanceId, userId: userD, status: 0, timeStart: new Date(), timeEnd: outWindow }).returning();
-    const warningsFor = async (enrolmentId: string) => (await db.select().from(outboxEvents)
-      .where(eq(outboxEvents.type, 'enrol_expiry_warning')))
+    const soon = await db.insertInto('user_enrolments').values({ enrol_id: instanceId, user_id: userC, status: 0, time_start: new Date(), time_end: inWindow }).returningAll().executeTakeFirstOrThrow();
+    const later = await db.insertInto('user_enrolments').values({ enrol_id: instanceId, user_id: userD, status: 0, time_start: new Date(), time_end: outWindow }).returningAll().executeTakeFirstOrThrow();
+    const warningsFor = async (enrolmentId: string) => (await db.selectFrom('outbox_events').selectAll()
+      .where('type', '=', 'enrol_expiry_warning').execute())
       .filter((e: { payload: { enrolmentId?: string } }) => e.payload.enrolmentId === enrolmentId);
     const first = await processor.process({ data: {} } as never);
     expect(first.warnedIds).toContain(soon.id);
@@ -117,57 +113,57 @@ describe('Ghi danh và hoàn thành của worker: bộ xử lý enrol-expiry + c
 
   it('completion-recalculate tính lại hoàn thành khoá học từ tiêu chí hiện tại (AND), và mở lại khi tiêu chí thắt chặt', async () => {
     const processor = context.get(CompletionRecalculateProcessor);
-    await db.insert(courseModulesCompletion).values({ courseModuleId: cmId, userId: userId, completionState: 1, viewed: true });
-    await db.insert(courseCompletionSettings).values({ course: courseId, method: 1 }).onConflictDoNothing();
-    await db.insert(courseCompletionCriteria).values({ course: courseId, criteriaType: 'module', moduleInstance: cmId, sortOrder: 0 });
+    await db.insertInto('course_modules_completion').values({ course_module_id: cmId, user_id: userId, completion_state: 1, viewed: true }).execute();
+    await db.insertInto('course_completion_settings').values({ course: courseId, method: 1 }).onConflict((oc: any) => oc.doNothing()).execute();
+    await db.insertInto('course_completion_criteria').values({ course: courseId, criteria_type: 'module', module_instance: cmId, sort_order: 0 }).execute();
     const result = await processor.process({ data: { courseId } } as never);
     expect(result.users).toBeGreaterThan(0);
-    let [cc] = await db.select().from(courseCompletions)
-      .where(and(eq(courseCompletions.course, courseId), eq(courseCompletions.userId, userId)));
+    let cc = await db.selectFrom('course_completions').selectAll()
+      .where('course', '=', courseId).where('user_id', '=', userId).executeTakeFirst();
     expect(cc.status).toBe('complete');
-    expect(cc.timeCompleted).toBeTruthy();
+    expect(cc.time_completed).toBeTruthy();
 
     // Thêm một tiêu chí date trong tương lai ⇒ việc tính lại mở lại completion.
-    await db.insert(courseCompletionCriteria).values({ course: courseId, criteriaType: 'date', date: new Date('2100-01-01'), sortOrder: 1 });
+    await db.insertInto('course_completion_criteria').values({ course: courseId, criteria_type: 'date', date: new Date('2100-01-01'), sort_order: 1 }).execute();
     await processor.process({ data: { courseId } } as never);
-    [cc] = await db.select().from(courseCompletions)
-      .where(and(eq(courseCompletions.course, courseId), eq(courseCompletions.userId, userId)));
+    cc = await db.selectFrom('course_completions').selectAll()
+      .where('course', '=', courseId).where('user_id', '=', userId).executeTakeFirst();
     expect(cc.status).not.toBe('complete');
-    expect(cc.timeCompleted).toBeNull();
+    expect(cc.time_completed).toBeNull();
   });
 
   it('completion-recalculate đánh giá các loại tiêu chí Moodle còn lại (course, self, duration, unenrol) như bộ đánh giá API', async () => {
     const processor = context.get(CompletionRecalculateProcessor);
     const statusOf = async (uid: string) => {
-      const [row] = await db.select().from(courseCompletions)
-        .where(and(eq(courseCompletions.course, courseId), eq(courseCompletions.userId, uid)));
+      const row = await db.selectFrom('course_completions').selectAll()
+        .where('course', '=', courseId).where('user_id', '=', uid).executeTakeFirst();
       return row?.status as string | undefined;
     };
     const replaceCriteria = async (rows: Record<string, unknown>[]) => {
-      await db.delete(courseCompletionCriteria).where(eq(courseCompletionCriteria.course, courseId));
+      await db.deleteFrom('course_completion_criteria').where('course', '=', courseId).execute();
       for (const [i, r] of rows.entries()) {
-        await db.insert(courseCompletionCriteria).values({ course: courseId, sortOrder: i, ...r });
+        await db.insertInto('course_completion_criteria').values({ course: courseId, sort_order: i, ...r }).execute();
       }
     };
 
     // course (tiên quyết): chưa hoàn thành cho tới khi dòng completion đã lưu
     // của khoá học tiên quyết hoàn thành.
-    const prereqRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, class_id) values ((select category from course where id = ${courseId}), (select tenant_id from course where id = ${courseId}), 'Prereq course', ${`wkpre${suffix}`}, ${await fixtureClassId()}) returning id`);
+    const prereqRows = await sql`insert into course (category, tenant_id, full_name, short_name, class_id) values ((select category from course where id = ${courseId}), (select tenant_id from course where id = ${courseId}), 'Prereq course', ${`wkpre${suffix}`}, ${await fixtureClassId()}) returning id`.execute(db);
     const prereqId = (prereqRows.rows[0] as { id: string }).id;
-    await replaceCriteria([{ criteriaType: 'course', courseInstance: prereqId }]);
+    await replaceCriteria([{ criteria_type: 'course', course_instance: prereqId }]);
     await processor.process({ data: { courseId } } as never);
     expect(await statusOf(userId)).not.toBe('complete');
-    await db.insert(courseCompletions).values({ userId: userId, course: prereqId, status: 'complete', timeCompleted: new Date() });
+    await db.insertInto('course_completions').values({ user_id: userId, course: prereqId, status: 'complete', time_completed: new Date() }).execute();
     await processor.process({ data: { courseId } } as never);
     expect(await statusOf(userId)).toBe('complete');
 
     // self: cần một dòng bằng chứng crit_compl cho tiêu chí.
-    await db.delete(courseCompletionCriteria).where(eq(courseCompletionCriteria.course, courseId));
-    const [selfCritRow] = await db.insert(courseCompletionCriteria)
-      .values({ course: courseId, criteriaType: 'self', sortOrder: 0 }).returning();
+    await db.deleteFrom('course_completion_criteria').where('course', '=', courseId).execute();
+    const selfCritRow = await db.insertInto('course_completion_criteria')
+      .values({ course: courseId, criteria_type: 'self', sort_order: 0 }).returningAll().executeTakeFirstOrThrow();
     await processor.process({ data: { courseId } } as never);
     expect(await statusOf(userId)).not.toBe('complete');
-    await db.insert(courseCompletionCritCompl).values({ criteriaId: selfCritRow.id, userId: userId, markedBy: userId });
+    await db.insertInto('course_completion_crit_compl').values({ criteria_id: selfCritRow.id, user_id: userId, marked_by: userId }).execute();
     await processor.process({ data: { courseId } } as never);
     expect(await statusOf(userId)).toBe('complete');
 
@@ -176,31 +172,31 @@ describe('Ghi danh và hoàn thành của worker: bộ xử lý enrol-expiry + c
     // "manual completion by others". Worker chỉ đọc bằng chứng;
     // ai được phép ghi các dòng này là kiểm tra role phía API (issue #23 F1).
     // Cần một dòng role thật: criteria.role_id có FK tới role.id.
-    const roleRows = await db.execute(sql`insert into role (name, short_name) values ('Worker marker role', ${`wkmarker${suffix}`}) returning id`);
+    const roleRows = await sql`insert into role (name, short_name) values ('Worker marker role', ${`wkmarker${suffix}`}) returning id`.execute(db);
     const markerRoleId = (roleRows.rows[0] as { id: string }).id;
-    await db.delete(courseCompletionCriteria).where(eq(courseCompletionCriteria.course, courseId));
-    const [roleCritRow] = await db.insert(courseCompletionCriteria)
-      .values({ course: courseId, criteriaType: 'role', roleId: markerRoleId, sortOrder: 0 }).returning();
+    await db.deleteFrom('course_completion_criteria').where('course', '=', courseId).execute();
+    const roleCritRow = await db.insertInto('course_completion_criteria')
+      .values({ course: courseId, criteria_type: 'role', role_id: markerRoleId, sort_order: 0 }).returningAll().executeTakeFirstOrThrow();
     await processor.process({ data: { courseId } } as never);
     expect(await statusOf(userId)).not.toBe('complete');
-    await db.insert(courseCompletionCritCompl).values({ criteriaId: roleCritRow.id, userId: userId, markedBy: userIdB });
+    await db.insertInto('course_completion_crit_compl').values({ criteria_id: roleCritRow.id, user_id: userId, marked_by: userIdB }).execute();
     await processor.process({ data: { courseId } } as never);
     expect(await statusOf(userId)).toBe('complete');
 
     // duration: neo trên timeStart của ghi danh (cách đây 10 ngày ở đây).
     const userIdC = `01900000-0000-7000-8000-${String(900200 + (suffix % 10000)).padStart(12, '0')}`;
-    await db.insert(userEnrolments).values({ enrolId: instanceId, userId: userIdC, status: 0, timeStart: new Date(Date.now() - 10 * 86_400_000) });
-    await replaceCriteria([{ criteriaType: 'duration', enrolPeriodDays: 30 }]);
+    await db.insertInto('user_enrolments').values({ enrol_id: instanceId, user_id: userIdC, status: 0, time_start: new Date(Date.now() - 10 * 86_400_000) }).execute();
+    await replaceCriteria([{ criteria_type: 'duration', enrol_period_days: 30 }]);
     await processor.process({ data: { courseId } } as never);
     expect(await statusOf(userIdC)).not.toBe('complete');
-    await replaceCriteria([{ criteriaType: 'duration', enrolPeriodDays: 7 }]);
+    await replaceCriteria([{ criteria_type: 'duration', enrol_period_days: 7 }]);
     await processor.process({ data: { courseId } } as never);
     expect(await statusOf(userIdC)).toBe('complete');
 
     // unenrol: một user có dòng completion đã lưu nhưng không còn ghi danh sống.
     const userIdD = `01900000-0000-7000-8000-${String(900300 + (suffix % 10000)).padStart(12, '0')}`;
-    await db.insert(courseCompletions).values({ userId: userIdD, course: courseId, status: 'in_progress', timeStarted: new Date() });
-    await replaceCriteria([{ criteriaType: 'unenrol' }]);
+    await db.insertInto('course_completions').values({ user_id: userIdD, course: courseId, status: 'in_progress', time_started: new Date() }).execute();
+    await replaceCriteria([{ criteria_type: 'unenrol' }]);
     await processor.process({ data: { courseId } } as never);
     expect(await statusOf(userIdD)).toBe('complete');
     // ...trong khi một user vẫn đang ghi danh thì KHÔNG thoả mãn nó.

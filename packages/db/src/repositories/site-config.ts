@@ -1,5 +1,5 @@
 /**
- * Repository CẤU HÌNH SITE trên Kysely — chuyển đổi Drizzle →
+ * Repository CẤU HÌNH SITE trên Kysely — chuyển đổi bộ máy cũ →
  * Kysely của chiến dịch chuyển tầng dữ liệu (issue #641, nhóm G1).
  *
  * Vai trò: mọi truy cập tới ba bảng của tầng hạ tầng — `config`
@@ -16,7 +16,7 @@
  * `plugin_config_platform_plugin_name_unique` trên `(plugin, name)
  * WHERE tenant_id is null` — vì vậy mệnh đề xung đột của upsert
  * PHẢI mang vị từ của chỉ số đó để PostgreSQL suy ra đúng chỉ số
- * đích (đường Drizzle trước đây khai bằng `targetWhere`). Phía
+ * đích (đường cũ trước đây khai bằng `targetWhere`). Phía
  * Kysely, vị từ này là `.where(...)` gọi trên builder xung đột
  * TRƯỚC `doUpdateSet` (nó biên dịch thành `indexWhere` của nút
  * ON CONFLICT, đặt ngay sau đích xung đột) — khác hẳn `.where`
@@ -34,7 +34,7 @@
  * (tên bảng/cột snake_case), cột được chọn bằng danh sách tường
  * minh có bí danh camelCase, giá trị jsonb ghi qua helper
  * serialize + ép kiểu `::jsonb` (mẫu `jsonbValue` của pilot; giá
- * trị `null` giữ nguyên là SQL NULL như đường Drizzle), điều
+ * trị `null` giữ nguyên là SQL NULL như đường bộ máy cũ), điều
  * kiện động của `listAudit` dựng bằng `.where` xâu chuỗi trên
  * builder giữ lại (mẫu an toàn của thử nghiệm T-13 — không bao
  * giờ truyền `where(undefined)`). Repository không import từ
@@ -69,7 +69,7 @@ function jsonbValue(value: unknown): RawBuilder<Json> {
   return sql<Json>`${JSON.stringify(value as Json)}::jsonb`;
 }
 
-/** Giá trị jsonb sẽ ghi: `null`/vắng mặt giữ là SQL NULL như đường Drizzle, còn lại serialize qua `jsonbValue`. */
+/** Giá trị jsonb sẽ ghi: `null`/vắng mặt giữ là SQL NULL như đường bộ máy cũ, còn lại serialize qua `jsonbValue`. */
 function storedJsonb(value: unknown): RawBuilder<Json> | null {
   return value === null || value === undefined ? null : jsonbValue(value);
 }

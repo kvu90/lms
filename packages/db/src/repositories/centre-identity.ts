@@ -1,5 +1,5 @@
 /**
- * Repository NHẬN DIỆN TRUNG TÂM trên Kysely — chuyển đổi Drizzle →
+ * Repository NHẬN DIỆN TRUNG TÂM trên Kysely — chuyển đổi bộ máy cũ →
  * Kysely của chiến dịch chuyển tầng dữ liệu (issue #641, nhóm G1).
  *
  * Vai trò: mọi truy cập tới ba bảng `centre_identity`,
@@ -113,7 +113,7 @@ export class CentreIdentityRepository {
     }
     // Patch cập nhật dựng tường minh theo từng trường có mặt: trường
     // vắng mặt (`undefined`) KHÔNG được chạm tới — cùng ngữ nghĩa
-    // rải-có-điều-kiện của đường Drizzle trước đây, và là quy tắc
+    // rải-có-điều-kiện của đường cũ trước đây, và là quy tắc
     // T-4 (không để `undefined` lọt vào set).
     const set: Updateable<CentreDB['centre_identity']> = { updated_at: new Date() };
     if (patch.displayName !== undefined) set.display_name = patch.displayName;

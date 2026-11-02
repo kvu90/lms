@@ -14,11 +14,10 @@ import { OutboxService } from './outbox.service';
  * cho đúng slug đó qua `getKyselyForSpace` (hàm chuẩn bị không
  * tác dụng phụ khi đã chuẩn bị — trả đúng handle đã chốt), ngữ
  * cảnh không mang slug thì dùng facade định tuyến (kho chung).
- * Lý do phải chuẩn bị tường minh: bảng đã-chuẩn-bị của hai facade
- * là hai bảng riêng, phiên mở bằng đường chuẩn bị phía Drizzle
- * (guard ngữ cảnh, `withSpaceDatabase`, điểm vào xác thực) không
- * tự chuẩn bị phía Kysely, và facade Kysely fail-closed cho
- * trung tâm kho riêng chưa chuẩn bị phía Kysely.
+ * Lý do phải chuẩn bị tường minh: facade Kysely fail-closed cho
+ * trung tâm kho riêng chưa được chuẩn bị trong phiên, và các
+ * đường ghi không mang transaction không đi qua bước chuẩn bị
+ * của tầng gắn ngữ cảnh.
  */
 function spaceKyselyResolver(spaceDb: SpaceDatabaseService): () => Promise<CentreDb> {
   return async () => {

@@ -30,13 +30,10 @@
  * quyền chạy script của đội vận hành trên máy triển khai là
  * ranh giới; không gác capability ở tầng này.
  */
-import { Client } from 'pg';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { and, eq, isNotNull } from 'drizzle-orm';
+import { Pool } from 'pg';
+import { createCentreKysely, sql as kyselySql } from '@lms/db';
 import { normalizeSpaceSlug } from './centre-provision';
 import { FleetRegistryWriter } from '../fleet/fleet-registry-writer';
-import { relations } from '../../db/relations';
-import { classes, tenantMemberships, tenants } from '../../db/schema';
 
 /** Đầu vào của một lượt lấp thư mục. */
 export type SpaceDirectoryBackfillOptions = {
@@ -102,27 +99,30 @@ export async function runSpaceDirectoryBackfill(
     if (!centreUrl) throw new Error(`Connection URL env var ${secretEnvVar} is not set in this environment`);
 
     // ---- Đọc dữ kiện thật tại kho đích ----
-    const centreClient = new Client({ connectionString: centreUrl });
-    await centreClient.connect();
+    const centrePool = new Pool({ connectionString: centreUrl, max: 1 });
+    const db = createCentreKysely(centrePool);
     let membershipRows: { userId: string; status: string }[] = [];
     let classRows: { id: string; joinCode: string | null }[] = [];
     try {
       // GUC platform ở mức phiên: các bảng nghiệp vụ FORCE RLS,
       // công cụ vận hành đọc toàn không gian như các runner khác.
-      await centreClient.query(`SELECT set_config('app.platform', 'on', false)`);
-      const db = drizzle({ client: centreClient, relations });
-      const [tenant] = await db.select().from(tenants).where(eq(tenants.slug, slug)).limit(1);
+      await kyselySql`SELECT set_config('app.platform', 'on', false)`.execute(db);
+      const tenant = await db.selectFrom('tenants').selectAll()
+        .where('slug', '=', slug).limit(1).executeTakeFirst();
       if (!tenant) throw new Error(`Tenant ${slug} does not exist in its own store`);
       membershipRows = await db
-        .select({ userId: tenantMemberships.userId, status: tenantMemberships.status })
-        .from(tenantMemberships)
-        .where(eq(tenantMemberships.tenantId, tenant.id));
+        .selectFrom('tenant_memberships')
+        .select(['user_id as userId', 'status'])
+        .where('tenant_id', '=', tenant.id)
+        .execute();
       classRows = await db
-        .select({ id: classes.id, joinCode: classes.joinCode })
-        .from(classes)
-        .where(and(eq(classes.tenantId, tenant.id), isNotNull(classes.joinCode)));
+        .selectFrom('classes')
+        .select(['id', 'join_code as joinCode'])
+        .where('tenant_id', '=', tenant.id)
+        .where('join_code', 'is not', null)
+        .execute();
     } finally {
-      await centreClient.end().catch(() => undefined);
+      await db.destroy().catch(() => undefined);
     }
     log(`[directory-backfill] ${slug}: ${membershipRows.length} membership(s), ${classRows.length} class join code(s) in the space store`);
 

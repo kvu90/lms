@@ -30,7 +30,7 @@ import { UsersService } from './users.service';
   // chuyển sang `@lms/db` trên Kysely nên module lắp nó bằng
   // factory provider trên facade định tuyến `routedKysely`; trước
   // đây repository tự inject handle qua nhà cung cấp kết nối
-  // Drizzle nên module chưa cần cạnh import này.
+  // bộ máy cũ nên module chưa cần cạnh import này.
   imports: [AccessModule, CustomFieldsModule, EventsModule, SpaceRoutingModule, forwardRef(() => BetterAuthModule), forwardRef(() => AuthModule)],
   controllers: [UsersController],
   providers: [

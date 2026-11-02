@@ -5,8 +5,8 @@ import { SpaceDatabaseService } from './db/routing/space-database.service';
 
 /**
  * Hình dáng row outbox mà writer phản chiếu — khai tay đúng các cột
- * writer đọc (trước đây suy từ định nghĩa bảng Drizzle dùng chung
- * `@lms/db`; bảng Drizzle bị xoá ở hạng mục gỡ Drizzle nên kiểu phải
+ * writer đọc (trước đây suy từ định nghĩa bảng bộ máy cũ dùng chung
+ * `@lms/db`; bảng bộ máy cũ bị xoá ở hạng mục gỡ bộ máy cũ nên kiểu phải
  * sống độc lập với nó). `payload` thu hẹp về record vì writer chỉ đọc
  * payload dạng object; `seq` là số thứ tự đã được phía gọi (relay)
  * chuyển về số từ giá trị int8 thô của kho.
@@ -67,7 +67,7 @@ function str(value: unknown): string | null {
  * phiên của kho chứa dòng outbox (kho chung ở ngữ cảnh platform, kho
  * riêng trong phiên theo trung tâm đã chuẩn bị phía Kysely), nên dòng
  * `event_log` và tra cứu context đều vào đúng kho đó — cùng đích kho
- * với handle Drizzle định tuyến trước đây. Cột jsonb `payload` khi ghi
+ * với handle bộ máy cũ định tuyến trước đây. Cột jsonb `payload` khi ghi
  * đi qua serialize tường minh + `::jsonb` (khuôn pilot: driver `pg`
  * hiểu mảng cấp cao nhất là mảng PostgreSQL nếu không serialize).
  */

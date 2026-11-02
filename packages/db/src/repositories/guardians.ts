@@ -1,6 +1,6 @@
 /**
  * Repository của cụm LIÊN KẾT GIÁM HỘ trên Kysely — một phần của
- * nhóm G9 trong chiến dịch chuyển tầng dữ liệu Drizzle → Kysely
+ * nhóm G9 trong chiến dịch chuyển tầng dữ liệu sang Kysely
  * (issue #649).
  *
  * Vai trò: mọi truy cập tới bảng `guardian_links` (liên kết giám hộ
@@ -74,7 +74,7 @@ export interface GuardianLinkRow {
  * Dữ kiện ghi một liên kết giám hộ mới. Các trường có default ở
  * database (khoá chính UUIDv7, `status`, hai mốc thời gian) và các
  * trường nullable đều không bắt buộc — trường vắng mặt để database
- * quyết định, đúng hợp đồng `$inferInsert` của đường Drizzle trước
+ * quyết định, đúng hợp đồng `$inferInsert` của đường bộ máy cũ trước
  * đây.
  */
 export interface NewGuardianLink {
@@ -136,7 +136,7 @@ function guardianLinkInsertValues(values: NewGuardianLink): Insertable<CentreDB[
  * Ánh xạ một patch cập nhật liên kết (camelCase) sang set update
  * (snake_case), LOẠI mọi trường `undefined` — patch chứa trường nào
  * thì chỉ trường đó đổi, đúng ngữ nghĩa bỏ qua `undefined` của đường
- * Drizzle trước đây (quy tắc T-4).
+ * bộ máy cũ trước đây (quy tắc T-4).
  */
 function guardianLinkUpdateSet(patch: Partial<GuardianLinkRow>): Updateable<CentreDB['guardian_links']> {
   const set: Updateable<CentreDB['guardian_links']> = {};

@@ -5,7 +5,7 @@ import type { CourseRow } from './courses';
 /**
  * Kho dữ liệu lớp học trên Kysely (issue #645, nhóm G5 của chiến
  * dịch chuyển tầng dữ liệu sang Kysely): TOÀN BỘ bề mặt của
- * `ClassesRepository` cũ ở `apps/api` (Drizzle) được chuyển nguyên
+ * `ClassesRepository` cũ ở `apps/api`  được chuyển nguyên
  * vẹn sang đây — bảng `classes`, các truy vấn vật chất hoá phía lớp
  * (khoá của lớp, ghi danh active/đình chỉ suy từ instance cohort),
  * mã tham gia và hàng chờ tự báo danh. Ba lệnh ghi của giao dịch
@@ -22,7 +22,7 @@ import type { CourseRow } from './courses';
  *   từng trường (thử nghiệm T-4).
  * - Khoá chính `uuidv7()` do database sinh (phụ lục U): insert bỏ
  *   qua `id` và lấy id qua `returning`.
- * - Hai truy vấn `selectDistinct` của bản Drizzle cũ dùng
+ * - Hai truy vấn `selectDistinct` của bản cũ trước chuyển đổi dùng
  *   `SelectQueryBuilder#distinct` tương đương (đính chính C-1 của
  *   chiến dịch: `distinct` là họ API CÓ dùng, lớp A).
  * - `count(*)` ép `::int` tường minh để giữ kiểu `number` của hợp

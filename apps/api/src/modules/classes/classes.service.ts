@@ -1033,7 +1033,7 @@ export class ClassesService implements OnModuleInit {
     // tài khoản khác hẳn cùng định danh).
     const owner = spaceSlug
       ? await tenantAls.run({ platform: true }, () =>
-          this.spaceDb.withSpaceDatabase(spaceSlug, () => this.users.getByIdOrUndefined(row.ownerId)),
+          this.spaceDb.withSpaceKysely(spaceSlug, () => this.users.getByIdOrUndefined(row.ownerId)),
         )
       : await this.users.getByIdOrUndefined(row.ownerId);
     return {
@@ -1054,12 +1054,11 @@ export class ClassesService implements OnModuleInit {
    * Lớp thuộc không gian kho riêng (phân giải qua thư mục mã —
    * thiết kế C1): TOÀN BỘ các bước ghi của luồng (đảm bảo
    * membership, thêm vào roster, ghi outbox, tạo yêu cầu chờ
-   * duyệt) chạy trong kho của lớp qua chuẩn bị kép hai facade
-   * (`withSpaceDatabase` + `withSpaceKysely` — thân luồng dùng cả
-   * repository Kysely lẫn đường Drizzle của membership/outbox),
-   * bọc platform đặt ngoài khung định tuyến như các đường kho
-   * riêng khác; kho chung không nhận bất kỳ lượt ghi nào của
-   * luồng này.
+   * duyệt) chạy trong kho của lớp qua phiên theo trung tâm của
+   * khung định tuyến (`withSpaceKysely` — thân luồng chỉ còn dùng
+   * repository Kysely và đường outbox Kysely), bọc platform đặt
+   * ngoài khung định tuyến như các đường kho riêng khác; kho
+   * chung không nhận bất kỳ lượt ghi nào của luồng này.
    */
   async joinByCode(actorId: string, joinCode: string): Promise<JoinClassResult> {
     const { row, spaceSlug } = await this.resolveClassByJoinCode(joinCode);
@@ -1089,13 +1088,11 @@ export class ClassesService implements OnModuleInit {
       return { outcome: 'pending' as const, class: view };
     };
     if (spaceSlug) {
-      // Thân luồng dùng cả hai họ repository (nhóm/ghi danh chờ
-      // duyệt đã chuyển Kysely; membership của tenant và outbox
-      // vẫn phía Drizzle) nên phải chuẩn bị đủ cả hai facade:
-      // bọc `withSpaceKysely` trong `withSpaceDatabase` để mọi
-      // truy vấn của thân đều có bảng đã-chuẩn-bị của facade mình.
+      // Mọi truy vấn của thân luồng đi qua facade Kysely của khung
+      // định tuyến: mở phiên theo trung tâm để kho của lớp được
+      // chuẩn bị và ngữ cảnh mang slug của nó.
       return tenantAls.run({ platform: true }, () =>
-        this.spaceDb.withSpaceDatabase(spaceSlug, () => this.spaceDb.withSpaceKysely(spaceSlug, body)),
+        this.spaceDb.withSpaceKysely(spaceSlug, body),
       );
     }
     return this.tenantContext.run({ platform: true }, body);

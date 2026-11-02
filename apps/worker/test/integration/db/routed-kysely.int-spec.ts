@@ -14,16 +14,13 @@
  * `databaseName` trong sổ.
  */
 import type { ConfigService } from '@nestjs/config';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { Client, Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createCentreKysely, type CentreDb } from '@lms/db';
-import { spaceRegistry } from '@lms/db/control-plane';
+import { createControlPlaneKysely } from '@lms/db/control-plane';
 import { buildTestDatabase, dropTestDatabase, withDatabase } from '@lms/db/test-support';
 import { SpaceRoutingError } from '../../../src/db/routing/space-connection-resolver';
-import type { SpaceDatabase } from '../../../src/db/routing/space-database.service';
 import { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
-import { relations } from '../../../src/db/relations';
 import { TenantAwarePool } from '../../../src/db/tenant-pool';
 import { tenantAls } from '../../../src/db/tenant-als';
 
@@ -69,7 +66,6 @@ async function rowsIn(dbUrl: string, id: string): Promise<number> {
 describe('Facade Kysely định tuyến phía worker (integration)', () => {
   let service: SpaceDatabaseService;
   let sharedPool: TenantAwarePool;
-  let sharedDb: SpaceDatabase;
   let sharedKysely: CentreDb;
   let sharedUrl = '';
   let centreAUrl = '';
@@ -96,32 +92,30 @@ describe('Facade Kysely định tuyến phía worker (integration)', () => {
         DATABASE_SSL: false,
       }),
     );
-    // Ghi dòng đăng ký qua Drizzle trên một pool đọc sổ riêng.
+    // Ghi dòng đăng ký qua Kysely trên một pool đọc sổ riêng.
     const registryPool = new Pool({ connectionString: cpUrl });
-    const registryDb = drizzle({ client: registryPool });
-    await registryDb.insert(spaceRegistry).values([
+    const registryDb = createControlPlaneKysely(registryPool);
+    await registryDb.insertInto('space_registry').values([
       {
         slug: CENTRE_A_SLUG, name: 'Trung tâm A w639', kind: 'center', status: 'active',
-        databaseName: CENTRE_A_DATABASE, storageMode: 'dedicated',
-        connectionRoleRef: adminUser, secretRef: 'env:SPACE_TEST_A_W639_URL', schemaVersion: 'v1',
+        database_name: CENTRE_A_DATABASE, storage_mode: 'dedicated',
+        connection_role_ref: adminUser, secret_ref: 'env:SPACE_TEST_A_W639_URL', schema_version: 'v1',
       },
       {
         slug: CENTRE_B_SLUG, name: 'Trung tâm B w639', kind: 'center', status: 'active',
-        databaseName: CENTRE_B_DATABASE, storageMode: 'dedicated',
-        connectionRoleRef: adminUser, secretRef: 'env:SPACE_TEST_B_W639_URL', schemaVersion: 'v1',
+        database_name: CENTRE_B_DATABASE, storage_mode: 'dedicated',
+        connection_role_ref: adminUser, secret_ref: 'env:SPACE_TEST_B_W639_URL', schema_version: 'v1',
       },
       {
         slug: SHARED_SLUG, name: 'Trang chính w639', kind: 'platform', status: 'active',
-        databaseName: SHARED_DATABASE, storageMode: 'shared',
-        connectionRoleRef: adminUser, secretRef: 'env:SPACE_TEST_SHARED_W639_URL', schemaVersion: 'v1',
+        database_name: SHARED_DATABASE, storage_mode: 'shared',
+        connection_role_ref: adminUser, secret_ref: 'env:SPACE_TEST_SHARED_W639_URL', schema_version: 'v1',
       },
-    ]);
+    ]).execute();
     await registryPool.end();
 
     sharedPool = new TenantAwarePool({ connectionString: sharedUrl });
-    sharedDb = drizzle({ client: sharedPool, relations });
     sharedKysely = createCentreKysely(sharedPool);
-    service.bindSharedDatabase(sharedDb);
     service.bindSharedKysely(sharedKysely);
   }, 180_000);
 

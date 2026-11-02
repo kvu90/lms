@@ -16,7 +16,7 @@
  *      bộ harness test của repo vẫn replay SQL mang dữ liệu.
  *   4. Chạy CLI kysely-codegen với file cấu hình riêng của kho
  *      (`scripts/codegen/<kho>.json`: override từng cột jsonb có
- *      `$type<…>` bên phía Drizzle + customImports trỏ về nơi định
+ *      khai báo kiểu tường minh + customImports trỏ về nơi định
  *      nghĩa kiểu thật) và ghi ra `src/types/<kho>-db.d.ts`.
  *
  * Kết nối quản trị lấy từ biến môi trường `DB_TYPES_ADMIN_URL`; thiếu

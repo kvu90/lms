@@ -3,10 +3,9 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { generate } from 'otplib';
-import { Client } from 'pg';
+import { Client, Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { spaceRegistry } from '@lms/db/control-plane';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { createControlPlaneKysely } from '@lms/db/control-plane';
 import { emitSpaceRegistryChanged } from '../../../src/db/routing/space-routing-events';
 import { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
 import { CAP_ALLOW } from '../../../src/modules/access/domain/permission';
@@ -36,7 +35,7 @@ import {
  * ứng dụng khởi động. Dòng tenant của mỗi không gian được sao từ kho
  * chung vào đúng kho của nó (trạng thái sau di trú mà đợt #587 sẽ
  * tạo); quản trị đầu tiên của mỗi không gian được tạo BẰNG CHÍNH
- * service của ứng dụng bên trong `withSpaceDatabase` của không gian
+ * service của ứng dụng bên trong `withSpaceKysely` của không gian
  * đó (tài khoản + membership nội bộ + vai trò mang `tenant:manage`
  * tại context của tenant) — không ghi tay dòng role/membership bằng
  * SQL. Tài khoản kiểm chứng trong các ca sau đó được tạo qua ĐƯỜNG
@@ -125,7 +124,7 @@ async function withClient<T>(connectionString: string, fn: (client: Client) => P
   }
 }
 
-/** Áp một file migration SQL (tách theo dấu phân đoạn của Drizzle) lên một database qua kết nối cho trước. */
+/** Áp một file migration SQL (tách theo dấu phân đoạn của file) lên một database qua kết nối cho trước. */
 async function applySqlFile(connectionString: string, filePath: string, withUuidShim: boolean): Promise<void> {
   await withClient(connectionString, async (client) => {
     if (withUuidShim) {
@@ -299,24 +298,30 @@ describe('Hồ sơ thành viên theo trung tâm và tách site chính (đầu-cu
     // nhật lên dòng đã có (nếu seed lúc boot đã ghi dòng kho chung
     // cho `trang-chinh`) hoặc chèn mới — hai trường hợp đều về
     // cùng trạng thái: site chính ở kho riêng của nó.
-    await withClient(clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD), async (client) => {
-      const cpDb = drizzle({ client });
+    const cpPool = new Pool({ connectionString: clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD) });
+    const cpDb = createControlPlaneKysely(cpPool);
+    try {
       const inserted = await cpDb
-        .insert(spaceRegistry)
+        .insertInto('space_registry')
         .values([
           {
             slug: CENTRE_A_SLUG, name: 'Trung tâm A 584', kind: 'center', status: 'active',
-            databaseName: CENTRE_A_DATABASE, storageMode: 'dedicated', connectionRoleRef: CENTRE_A_ROLE,
-            secretRef: 'env:SPACE_TEST_A_584_URL', schemaVersion: 'v1',
+            database_name: CENTRE_A_DATABASE, storage_mode: 'dedicated', connection_role_ref: CENTRE_A_ROLE,
+            secret_ref: 'env:SPACE_TEST_A_584_URL', schema_version: 'v1',
           },
           {
             slug: CENTRE_B_SLUG, name: 'Trung tâm B 584', kind: 'center', status: 'active',
-            databaseName: CENTRE_B_DATABASE, storageMode: 'dedicated', connectionRoleRef: CENTRE_B_ROLE,
-            secretRef: 'env:SPACE_TEST_B_584_URL', schemaVersion: 'v1',
+            database_name: CENTRE_B_DATABASE, storage_mode: 'dedicated', connection_role_ref: CENTRE_B_ROLE,
+            secret_ref: 'env:SPACE_TEST_B_584_URL', schema_version: 'v1',
           },
         ])
-        .returning({ id: spaceRegistry.id, slug: spaceRegistry.slug });
+        .returning(['id', 'slug'])
+        .execute();
       registryAId = inserted.find((row) => row.slug === CENTRE_A_SLUG)!.id;
+    } finally {
+      await cpDb.destroy();
+    }
+    await withClient(clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD), async (client) => {
       const main = await client.query(
         `INSERT INTO space_registry (slug, name, kind, status, database_name, storage_mode, connection_role_ref, secret_ref, schema_version)
          VALUES ('${MAIN_SLUG}', 'Trang chính (spec 584)', 'platform', 'active', $1, 'dedicated', $2, 'env:SPACE_TEST_MAIN_584_URL', 'v1')
@@ -370,7 +375,7 @@ describe('Hồ sơ thành viên theo trung tâm và tách site chính (đầu-cu
     const createSpaceAdmin = async (slug: string, tenantId: string, host: string, prefix: string) => {
       const username = uniqueName(prefix);
       const email = `${username}@example.com`;
-      const created = await spaceDb.withSpaceDatabase(slug, async () => {
+      const created = await spaceDb.withSpaceKysely(slug, async () => {
         const user = await users.createUser({ username, email, password: STRONG_PASSWORD, firstName: 'Admin', lastName: 'Spec584' });
         await tenants.ensureActiveMembership(tenantId, user.id);
         const ctx = await contexts.ensureTenantContext(tenantId);
@@ -596,8 +601,8 @@ describe('Hồ sơ thành viên theo trung tâm và tách site chính (đầu-cu
       }),
       'create MFA user at A',
     )) as { id: string };
-    const { secret } = await spaceDb.withSpaceDatabase(CENTRE_A_SLUG, () => totp.setup(mfaUser.id, mfaUsername));
-    await spaceDb.withSpaceDatabase(CENTRE_A_SLUG, async () => totp.confirm(mfaUser.id, await generate({ secret })));
+    const { secret } = await spaceDb.withSpaceKysely(CENTRE_A_SLUG, () => totp.setup(mfaUser.id, mfaUsername));
+    await spaceDb.withSpaceKysely(CENTRE_A_SLUG, async () => totp.confirm(mfaUser.id, await generate({ secret })));
     const challenged = await http(app).post('/api/v1/auth/token').set('Host', HOST_A).send({ username: mfaUsername, password: STRONG_PASSWORD });
     expect(challenged.status).toBe(201);
     expect((challenged.body as { mfaRequired?: boolean }).mfaRequired).toBe(true);
@@ -796,7 +801,7 @@ describe('Hồ sơ thành viên theo trung tâm và tách site chính (đầu-cu
       const spaceDb = app.get(SpaceDatabaseService, { strict: false });
       const users = app.get(UsersService, { strict: false });
       const username = uniqueName('refresh-missing');
-      const user = await spaceDb.withSpaceDatabase(centreCSlug, async () => users.createUser({
+      const user = await spaceDb.withSpaceKysely(centreCSlug, async () => users.createUser({
         username, email: `${username}@example.com`, password: STRONG_PASSWORD, firstName: 'Refresh', lastName: 'Missing',
       }), { tenantId: createdC.id });
       const refreshToken = randomBytes(48).toString('base64url');

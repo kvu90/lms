@@ -9,7 +9,7 @@
  * số đếm kỳ vọng riêng và biến môi trường kết nối riêng — bảng này
  * là nơi duy nhất ghi các giá trị đó, để runner, hậu kiểm và harness
  * không tự chế bản sao lệch nhau. Số đếm kỳ vọng đo lại tại thời điểm thi công PR-N2 từ
- * database dựng bằng đường Drizzle (mốc phương án: trung tâm 202
+ * database dựng bằng đường bộ máy cũ (mốc phương án: trung tâm 202
  * bảng + 21 policy RLS + 416 index, control plane 6 bảng, ngân
  * hàng hệ thống 10 bảng).
  */
@@ -29,7 +29,7 @@ export interface ExpectedStoreCounts {
   /**
    * Số dòng trong `kysely_migration` sau khi áp đủ — là TỔNG số
    * migration của kho (carrier đóng băng + migration native), KHÔNG
-   * phải số carrier: bước cấy nhật ký chỉ đối sánh diện carrier
+   * phải số carrier: hậu kiểm carrier chỉ đối sánh diện carrier
    * (`MigrationStore.carrierNames`), còn hậu kiểm đếm toàn bộ nhật ký
    * sau một lượt migrate trọn. Thêm một migration native thì cả thư
    * mục lẫn con số này cùng tăng trong cùng PR.
@@ -46,10 +46,10 @@ export interface MigrationStore {
   migrationsDirName: string;
   /**
    * Tên các migration carrier đóng băng của kho, theo thứ tự áp —
-   * diện mà bước cấy nhật ký (adoption) đối sánh. Đây là tập ĐÃ ĐÓNG
-   * theo định nghĩa: carrier là các migration thời Drizzle được giữ
-   * nguyên từng byte để cấy vào nhật ký Kysely của database đang
-   * sống, không bao giờ có carrier mới. Mọi migration viết sau chiến
+   * diện mà hậu kiểm migration đối sánh. Đây là tập ĐÃ ĐÓNG
+   * theo định nghĩa: carrier là các migration thời bộ máy cũ được giữ
+   * nguyên từng byte để áp vào database đang sống qua nhật ký
+   * Kysely, không bao giờ có carrier mới. Mọi migration viết sau chiến
    * dịch chuyển ORM là migration native — nằm cùng thư mục, được
    * `migrateToLatest()` áp như migration mới, và TUYỆT ĐỐI không
    * thêm vào danh sách này (thêm vào là đòi nhật ký của database

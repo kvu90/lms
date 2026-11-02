@@ -73,7 +73,7 @@ export class BetterAuthService {
     // Better Auth và closure đồng bộ ngược đều chạy trên facade
     // `routedKysely` — facade tự phân giải kho đích theo ngữ cảnh ALS
     // của request (kho chung mặc định, kho riêng khi Host đã chuẩn bị),
-    // giữ đúng ngữ nghĩa của handle Drizzle định tuyến trước đây.
+    // giữ đúng ngữ nghĩa của handle bộ máy cũ định tuyến trước đây.
     spaceDb: SpaceDatabaseService,
     passwordService: PasswordService,
     // Cổng mail auth (chặng 2.5): Nest chích từ MailModule. Phải là
@@ -164,7 +164,7 @@ export class BetterAuthService {
 
     this.auth = createBetterAuth({
       // Facade `routedKysely` đã mang đúng kiểu `CentreDb` của factory —
-      // không còn ép kiểu ở biên DI như thời handle Drizzle.
+      // không còn ép kiểu ở biên DI như thời handle bộ máy cũ.
       db: spaceDb.routedKysely,
       secret,
       baseURL,

@@ -4,9 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
 import { FileCleanupProcessor } from '../../../src/processors/file-cleanup.processor';
-import { files } from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
@@ -28,10 +26,7 @@ const STORAGE = '/tmp/lms-worker-test-files';
 describe('Worker: bộ xử lý file-cleanup chỉ xoá file vật lý không còn tham chiếu', () => {
   let context: INestApplicationContext;
   let harness: OrdinaryWorkerModuleHarness;
-  let db: {
-    insert: (table: typeof files) => { values: (v: typeof files.$inferInsert) => Promise<unknown> };
-    delete: (table: typeof files) => { where: (cond: unknown) => Promise<unknown> };
-  };
+  let db: OrdinaryWorkerModuleHarness['adminDb'];
   const content = Buffer.from(`orphan-content-${Date.now()}`);
   const hash = createHash('sha256').update(content).digest('hex');
   const physical = join(STORAGE, hash.slice(0, 2), hash.slice(2, 4), hash);
@@ -42,10 +37,10 @@ describe('Worker: bộ xử lý file-cleanup chỉ xoá file vật lý không c�
     db = harness.adminDb as never;
     await mkdir(join(physical, '..'), { recursive: true });
     await writeFile(physical, content);
-    await db.insert(files).values({
-      contentHash: hash, contextId: '01900000-0000-7000-8000-0000000000aa', component: 'core_user', fileArea: 'profile',
-      itemId: null, filePath: '/', fileName: 'orphan.txt', fileSize: content.length,
-    });
+    await db.insertInto('files').values({
+      content_hash: hash, context_id: '01900000-0000-7000-8000-0000000000aa', component: 'core_user', file_area: 'profile',
+      item_id: null, file_path: '/', file_name: 'orphan.txt', file_size: content.length,
+    }).execute();
   });
   afterAll(async () => { await harness.close(); });
 
@@ -58,7 +53,7 @@ describe('Worker: bộ xử lý file-cleanup chỉ xoá file vật lý không c�
   });
 
   it('xoá file vật lý khi bản ghi cuối cùng đã mất', async () => {
-    await db.delete(files).where(eq(files.contentHash, hash));
+    await db.deleteFrom('files').where('content_hash', '=', hash).execute();
     const processor = context.get(FileCleanupProcessor);
     const result = await processor.process({ data: { contentHash: hash } } as never);
     expect(result.removed).toBe(true);

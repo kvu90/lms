@@ -11,7 +11,7 @@ import type { CentreDb, CentreTx, CentreDB } from '../client';
  * Kho dữ liệu nhắn tin và thông báo trên Kysely (issue #658, nhóm
  * G11 — nhóm cuối của chiến dịch chuyển tầng dữ liệu sang Kysely):
  * chuyển nguyên vẹn bề mặt của `MessagingRepository` cũ ở
- * `apps/api` (Drizzle, 2.250 dòng) sang đây — conversation, thành
+ * `apps/api` (bộ máy cũ, 2.250 dòng) sang đây — conversation, thành
  * viên, message, block, notification, nhật ký dispatch, cùng các
  * phép đọc bảng dùng chung (role/context/enrol/ghi danh/lớp/khoá)
  * mà các cổng nghiệp vụ của messaging cần.
@@ -676,7 +676,7 @@ export class MessagingRepository {
     private readonly store: MessagingStorePort,
   ) {}
 
-  /** Mở một transaction trên kho trung tâm (thay `dbHandle.transaction` của bản Drizzle). */
+  /** Mở một transaction trên kho trung tâm (thay `dbHandle.transaction` của bản bộ máy cũ). */
   async transaction<T>(fn: (tx: MessagingTx) => Promise<T>): Promise<T> {
     return this.handle.transaction().execute(fn);
   }

@@ -1,6 +1,6 @@
 /**
  * Repository của cụm HOÀN THÀNH (completion) trên Kysely — một phần
- * của nhóm G9 trong chiến dịch chuyển tầng dữ liệu Drizzle → Kysely
+ * của nhóm G9 trong chiến dịch chuyển tầng dữ liệu sang Kysely
  * (issue #649).
  *
  * Vai trò: mọi truy cập tới bốn bảng của miền hoàn thành tập trung
@@ -20,7 +20,7 @@
  *   cờ "cần tổng hợp lại".
  *
  * Ba thao tác ghi dạng ghi/đè (upsert) khoá theo khoá duy nhất tự
- * nhiên của bảng và CHỈ cập nhật đúng các cột mà đường Drizzle trước
+ * nhiên của bảng và CHỈ cập nhật đúng các cột mà đường bộ máy cũ trước
  * đây cập nhật khi trùng khoá — các cột còn lại của dòng đã có (ví
  * dụ `time_enrolled` của bản ghi hoàn thành khoá học) giữ nguyên khi
  * ghi đè. Repository không chứa luật nghiệp vụ: tính trạng thái, gác
@@ -314,7 +314,7 @@ export class CompletionRepository {
    * khoá duy nhất cặp cm + user), chỉ các cột trạng thái đổi: trạng
    * thái, cờ đã xem và người ghi đè (trường nào vắng mặt trong dữ
    * kiện ghi thì giữ nguyên giá trị đã có), kèm mốc cập nhật hiện
-   * tại — đúng tập cột của nhánh cập nhật ở đường Drizzle trước đây.
+   * tại — đúng tập cột của nhánh cập nhật ở đường cũ trước đây.
    */
   async upsertCmCompletion(v: NewCmCompletion, db: CompletionDb = this.db()): Promise<CmCompletionRow> {
     const set: Updateable<CentreDB['course_modules_completion']> = { updated_at: new Date() };
@@ -520,7 +520,7 @@ export class CompletionRepository {
    * đầu/hoàn thành đổi theo dữ kiện ghi (trường vắng mặt thì giữ
    * nguyên), mốc gắn cờ tổng hợp lại luôn lấy thời điểm ghi — cột
    * `time_enrolled` không nằm trong nhánh cập nhật nên giữ nguyên
-   * như đường Drizzle trước đây.
+   * như đường cũ trước đây.
    */
   async upsertCourseCompletion(v: NewCourseCompletion, db: CompletionDb = this.db()): Promise<CourseCompletionRow> {
     const set: Updateable<CentreDB['course_completions']> = { re_aggregate: new Date() };

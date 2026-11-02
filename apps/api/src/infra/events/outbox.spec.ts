@@ -1,11 +1,6 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { eq } from 'drizzle-orm';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createCentreKysely, type CentreDb } from '@lms/db';
-import { relations } from '../../db/relations';
-import { outboxEvents } from '../../db/schema';
-import type { Database } from '../../db/database';
 import { OutboxService } from './outbox.service';
 
 /**
@@ -21,98 +16,80 @@ import { OutboxService } from './outbox.service';
  * relay nữa; dòng chưa phát giữ `publishedAt` null cho tới khi
  * relay của worker chạy.
  *
- * Service được dựng trực tiếp trên MỘT pool vật lý dùng chung cho
- * cả hai ORM (handle Kysely của chính service + handle Drizzle
- * cho đường ghi chuyển tiếp và cho việc đọc khẳng định) để đối
- * chiếu hai đường ghi trên cùng một kho thật: đường Kysely chuẩn
- * (`enqueueKysely`, `enqueueStandalone`) và đường Drizzle chuyển
- * tiếp (`enqueue`) phải cho cùng hình dạng dòng.
+ * Service được dựng trực tiếp trên handle Kysely của chính nó;
+ * mọi khẳng định đọc lại qua cùng handle đó. Đường ghi duy nhất
+ * là `enqueueKysely` trong transaction của phía gọi, cộng đường
+ * `enqueueStandalone` tự mở transaction riêng (đường ghi bộ máy cũ
+ * chuyển tiếp đã xoá ở issue #663).
  */
 describe('Outbox giao dịch (DB thật, lms_test_api)', () => {
   let pool: Pool;
-  let db: Database;
   let kysely: CentreDb;
   let outbox: OutboxService;
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    db = drizzle({ client: pool, relations });
     kysely = createCentreKysely(pool);
     outbox = new OutboxService(kysely);
   });
 
   beforeEach(async () => {
-    await db.delete(outboxEvents);
+    await kysely.deleteFrom('outbox_events').execute();
   });
 
   afterAll(async () => {
-    // Instance Kysely sở hữu pool dùng chung: destroy() đóng luôn
-    // pool, nên đây là thao tác dọn dẹp cuối cùng của spec.
+    // Instance Kysely sở hữu pool: destroy() đóng luôn pool, nên
+    // đây là thao tác dọn dẹp cuối cùng của spec.
     await kysely.destroy();
   });
 
   it('ghi sự kiện vào outbox khi transaction commit (chưa phát: publishedAt null cho tới khi relay worker chạy)', async () => {
-    await db.transaction(async (tx) => {
-      await outbox.enqueue(tx, {
+    await kysely.transaction().execute(async (tx) => {
+      await outbox.enqueueKysely(tx, {
         aggregate: 'test', type: 'Test.Committed', payload: { n: 1 },
       });
     });
 
-    const rows = await db.select().from(outboxEvents);
+    const rows = await kysely.selectFrom('outbox_events').selectAll().execute();
     expect(rows).toHaveLength(1);
     expect(rows[0]?.type).toBe('Test.Committed');
     expect(rows[0]?.payload).toEqual({ n: 1 });
-    expect(rows[0]?.publishedAt).toBeNull();
+    expect(rows[0]?.published_at).toBeNull();
   });
 
   it('không ghi sự kiện nào khi transaction rollback', async () => {
     await expect(
-      db.transaction(async (tx) => {
-        await outbox.enqueue(tx, {
+      kysely.transaction().execute(async (tx) => {
+        await outbox.enqueueKysely(tx, {
           aggregate: 'test', type: 'Test.RolledBack', payload: { n: 2 },
         });
         throw new Error('business failure — roll back');
       }),
     ).rejects.toThrow('business failure');
 
-    const rows = await db
-      .select()
-      .from(outboxEvents)
-      .where(eq(outboxEvents.type, 'Test.RolledBack'));
+    const rows = await kysely
+      .selectFrom('outbox_events')
+      .selectAll()
+      .where('type', '=', 'Test.RolledBack')
+      .execute();
     expect(rows).toHaveLength(0);
   });
 
-  it('đường Kysely ghi sự kiện vào outbox trong cùng transaction với nghiệp vụ khi transaction commit', async () => {
+  it('ghi sự kiện kèm payload có mảng cấp cao nhất trong cùng transaction khi commit', async () => {
     await kysely.transaction().execute(async (tx) => {
       await outbox.enqueueKysely(tx, {
         aggregate: 'test', type: 'Test.KyselyCommitted', payload: { n: 3, tags: ['a', 'b'] },
       });
     });
 
-    const rows = await db
-      .select()
-      .from(outboxEvents)
-      .where(eq(outboxEvents.type, 'Test.KyselyCommitted'));
+    const rows = await kysely
+      .selectFrom('outbox_events')
+      .selectAll()
+      .where('type', '=', 'Test.KyselyCommitted')
+      .execute();
     expect(rows).toHaveLength(1);
     expect(rows[0]?.payload).toEqual({ n: 3, tags: ['a', 'b'] });
-    expect(rows[0]?.publishedAt).toBeNull();
-  });
-
-  it('đường Kysely không ghi sự kiện nào khi transaction của nghiệp vụ rollback', async () => {
-    await expect(
-      kysely.transaction().execute(async (tx) => {
-        await outbox.enqueueKysely(tx, {
-          aggregate: 'test', type: 'Test.KyselyRolledBack', payload: { n: 4 },
-        });
-        throw new Error('business failure — roll back');
-      }),
-    ).rejects.toThrow('business failure');
-
-    const rows = await db
-      .select()
-      .from(outboxEvents)
-      .where(eq(outboxEvents.type, 'Test.KyselyRolledBack'));
-    expect(rows).toHaveLength(0);
+    expect(rows[0]?.published_at).toBeNull();
   });
 
   it('enqueueStandalone tự mở transaction Kysely riêng và dòng sự kiện tồn tại ngay sau khi hàm trả về', async () => {
@@ -120,10 +97,11 @@ describe('Outbox giao dịch (DB thật, lms_test_api)', () => {
       aggregate: 'test', type: 'Test.Standalone', payload: { n: 5 },
     });
 
-    const rows = await db
-      .select()
-      .from(outboxEvents)
-      .where(eq(outboxEvents.type, 'Test.Standalone'));
+    const rows = await kysely
+      .selectFrom('outbox_events')
+      .selectAll()
+      .where('type', '=', 'Test.Standalone')
+      .execute();
     expect(rows).toHaveLength(1);
     expect(rows[0]?.payload).toEqual({ n: 5 });
   });
@@ -146,10 +124,11 @@ describe('Outbox giao dịch (DB thật, lms_test_api)', () => {
       await deadKysely.destroy().catch(() => undefined);
     }
 
-    const rows = await db
-      .select()
-      .from(outboxEvents)
-      .where(eq(outboxEvents.type, 'Test.StandaloneResolved'));
+    const rows = await kysely
+      .selectFrom('outbox_events')
+      .selectAll()
+      .where('type', '=', 'Test.StandaloneResolved')
+      .execute();
     expect(rows).toHaveLength(1);
     expect(rows[0]?.payload).toEqual({ n: 6 });
   });

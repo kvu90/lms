@@ -47,7 +47,7 @@ const SESSION_COOKIE_PATTERN = new RegExp(`(?:^|;\\s*)(?:__Secure-)?${BETTER_AUT
  * guard ghim trung tâm nên tự phân giải không gian từ địa chỉ
  * request như `JwtAuthStrategy`: địa chỉ thuộc trung tâm ở kho
  * riêng thì phiên VÀ tài khoản đều phải đọc từ CHÍNH kho của trung
- * tâm đó (`withSpaceDatabase` chuẩn bị pool + bọc ALS cho cả hai
+ * tâm đó (`withSpaceKysely` chuẩn bị pool + bọc ALS cho cả hai
  * lượt đọc — handle định tuyến của app uỷ thác theo slug của ngữ
  * cảnh nên cùng một lời gọi `getSession`/`getByIdOrUndefined` đọc
  * đúng kho đích). Tài khoản chỉ tồn tại ở kho riêng vì vậy qua
@@ -91,7 +91,7 @@ export class BetterAuthSessionGuard {
       space = await resolveDedicatedSpace(this.spaceDb, req.headers['host']);
       const readSession = () => auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
       resolved = space
-        ? await this.spaceDb.withSpaceDatabase(space.slug, readSession)
+        ? await this.spaceDb.withSpaceKysely(space.slug, readSession)
         : await readSession();
     } catch {
       // Cookie hỏng chữ ký/định dạng, hoặc kho riêng không mở
@@ -109,7 +109,7 @@ export class BetterAuthSessionGuard {
     let user: Awaited<ReturnType<typeof this.users.getByIdOrUndefined>>;
     try {
       user = space
-        ? await this.spaceDb.withSpaceDatabase(space.slug, () =>
+        ? await this.spaceDb.withSpaceKysely(space.slug, () =>
             this.users.getByIdOrUndefined(sessionUserId),
           )
         : await this.users.getByIdOrUndefined(sessionUserId);

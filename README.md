@@ -8,7 +8,7 @@ liệu, định dạng file hay giao thức của Moodle — xem báo cáo nghi�
 
 ```
 apps/
-  api/      REST API NestJS 12 (TypeScript 6), Drizzle ORM, BullMQ, cache Redis
+  api/      REST API NestJS 12 (TypeScript 6), Kysely, BullMQ, cache Redis
   worker/   Tiến trình nền NestJS 12: các processor BullMQ, outbox relay, các job chạy theo lịch
   web/      SPA React + Vite + React Router (TypeScript 7), shadcn/ui + Tailwind
 packages/
@@ -221,16 +221,18 @@ ghim/trở ngại hiện tại:
 
 - Các app NestJS (`api`, `worker`): TypeScript **6.0.3** — `nest build`/toolchain của Nest
   chưa hỗ trợ TypeScript 7. Mọi thứ còn lại: 7.0.2.
-- Drizzle: `drizzle-orm@rc` / `drizzle-kit@rc` (1.0.0-rc.5) qua tích
-  hợp `@nestjs/drizzle` chính thức, đúng như chương Drizzle chính thức của NestJS.
+- Tầng dữ liệu: Kysely qua package `@lms/db` — kiểu của ba kho sinh
+  bằng `kysely-codegen` từ database thật, migration viết tay và áp
+  bằng runner của chính package (các carrier đóng băng giữ nguyên
+  từng byte).
 - Test runner: Vitest ở mọi nơi — không dùng Jest.
 
 ## Các đơn giản hoá đã biết
 
-- Schema cơ sở dữ liệu là DÙNG CHUNG, không nhân đôi: schema canonical
-  nằm ở `packages/db` (chia theo bounded context, xem mục
-  Quy ước) và được cả API lẫn worker import — worker không còn giữ
-  bản sao schema rút gọn của riêng mình.
+- Hình dạng cơ sở dữ liệu là DÙNG CHUNG, không nhân đôi: kiểu sinh
+  canonical nằm ở `packages/db` (sinh từ database thật bằng
+  `kysely-codegen`) và được cả API lẫn worker dùng qua các
+  repository của package — worker không giữ bản sao riêng.
 - Script `dev` của API là `tsc --watch` + `node --watch` thay vì Nest
   CLI, để bản build giống hệt CI (`tsc`).
 
@@ -254,15 +256,15 @@ ghim/trở ngại hiện tại:
   API công khai và cho logic nghiệp vụ không hiển nhiên; **mọi tài liệu bằng tiếng Việt**
   — README, các tài liệu còn giữ trong repo, AGENTS.md và cả tài liệu API —
   không có ngoại lệ tiếng Anh cho bất kỳ tài liệu nào.
-- **Schema cơ sở dữ liệu chia theo bounded context**: schema nằm ở
-  package dùng chung `packages/db` — mỗi module sở hữu các bảng
-  Drizzle của mình tại `packages/db/src/<module>.schema.ts`,
-  các bảng hạ tầng của platform nằm ở
-  `packages/db/src/infrastructure.schema.ts`, và index của package
-  là barrel duy nhất mà cả API lẫn worker import (file
-  `apps/api/src/db/schema.ts` của API chỉ re-export barrel đó cho
-  `drizzle.config.ts` và Drizzle module). Tên bảng/cột không bao giờ đổi
-  khi một file schema di chuyển.
+- **Hình dạng cơ sở dữ liệu chia theo bounded context**: hình dạng
+  bảng của cả ba kho nằm ở package dùng chung `packages/db` dưới
+  dạng kiểu sinh từ database thật (`packages/db/src/types/`), và
+  mỗi bounded context sở hữu repository của mình tại
+  `packages/db/src/repositories/` — cả API lẫn worker chỉ truy cập
+  dữ kiện qua các repository và handle Kysely của package.
+  Migration nằm ở `packages/db/migrations/<kho>` và áp bằng runner
+  của package. Tên bảng/cột không bao giờ đổi khi tổ chức code
+  thay đổi.
 - **Đặt tên & vệ sinh repo**: mọi thứ được đặt tên theo
   nghiệp vụ / bounded context — **không có nhãn giai đoạn** trong code, comment, tên ca
   test hay tiêu đề commit; **không bao giờ commit sản phẩm đã biên dịch** (`dist/`,

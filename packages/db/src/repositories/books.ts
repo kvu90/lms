@@ -1,7 +1,7 @@
 /**
  * Repository của cụm SÁCH GIÁO KHOA trên Kysely — hạng mục nhân
  * rộng G7 của chiến dịch chuyển tầng dữ liệu (issue #647), chuyển
- * từ repository Drizzle cũ ở
+ * từ repository cũ trước chuyển đổi ở
  * `apps/api/src/modules/books/books.repository.ts`.
  *
  * Vai trò: mọi truy cập tới bốn bảng của kho trung tâm thuộc tầng
@@ -23,13 +23,13 @@
  * mọi giá trị where là tham số bắt buộc. Điều kiện lọc động của
  * `listBooks` (môn/kind tuỳ chọn) được xâu chuỗi bằng các mệnh đề
  * `.where` nối tiếp — khuôn T-13 đã chốt ở hạng mục nền, không
- * chép dạng `where(undefined)` của Drizzle. Cột jsonb
+ * chép dạng `where(undefined)` của bộ máy cũ. Cột jsonb
  * `book_records.source` không mang hình dạng `$type` ở phía
- * Drizzle cũ nên kiểu công khai ở biên là `unknown` như trước, và
+ * bộ máy cũ nên kiểu công khai ở biên là `unknown` như trước, và
  * mọi lần ghi đều đi qua helper serialize `::jsonb` duy nhất trong
  * file này.
  *
- * Hai hành vi giữ nguyên có chủ đích từ đường Drizzle cũ:
+ * Hai hành vi giữ nguyên có chủ đích từ đường cũ trước chuyển đổi:
  * - `listBooks` sắp xếp ở tầng ứng dụng (khối lớp, rồi position,
  *   rồi thời gian tạo) sau khi đọc, không đẩy `ORDER BY` xuống
  *   truy vấn.
@@ -231,7 +231,7 @@ const BOOK_RECORD_COLUMNS = [
  * (khuôn của pilot: driver `pg` tự stringify object thường nhưng
  * hiểu MẢNG cấp cao nhất là mảng PostgreSQL, khiến cột jsonb lỗi
  * `invalid input syntax for type json`). Cột `source` không mang
- * hình dạng `$type` ở phía Drizzle cũ nên giá trị ở biên là
+ * hình dạng `$type` ở phía bộ máy cũ nên giá trị ở biên là
  * `unknown` — helper ghim kiểu biểu thức về `JsonValue` của
  * codegen để khớp kiểu cột khi biên dịch, thay vì suy kiểu từ
  * giá trị như khuôn generic của pilot.
@@ -390,7 +390,7 @@ export class BookRepository {
    * Liệt kê sách, tuỳ chọn lọc theo môn và loại. Điều kiện lọc
    * động được xâu chuỗi bằng `.where` nối tiếp (khuôn T-13); thứ
    * tự cuối cùng sắp ở tầng ứng dụng: khối lớp tăng dần, rồi
-   * position, rồi thời gian tạo — như đường Drizzle cũ.
+   * position, rồi thời gian tạo — như đường cũ trước chuyển đổi.
    */
   async listBooks(subjectId?: string, kind?: string, db: RepoDb = this.db()): Promise<BookRow[]> {
     let query = db.selectFrom('books').select(BOOK_COLUMNS);

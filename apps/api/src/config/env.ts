@@ -257,7 +257,7 @@ export function validateEnv(config: Record<string, unknown>): Env {
 }
 
 /**
- * Dựng tham số `connection` cho Drizzle từ URL và cờ TLS.
+ * Dựng tham số `connection` cho bộ máy cũ từ URL và cờ TLS.
  *
  * Không bật TLS thì trả nguyên chuỗi (hành vi cũ). Bật thì trả PoolConfig
  * có `ssl.rejectUnauthorized = false` — chứng chỉ của nhà cung cấp

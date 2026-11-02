@@ -12,7 +12,7 @@ import { SpaceDatabaseService } from './db/routing/space-database.service';
  * trung tâm (`SpaceDatabaseService.routedKysely`): các lượt ghi đều chạy
  * trong ngữ cảnh platform hoặc phiên theo trung tâm mà phía gọi đã mở,
  * nên handle vào đúng kho của ngữ cảnh đó — cùng đích kho với handle
- * Drizzle định tuyến trước đây.
+ * bộ máy cũ định tuyến trước đây.
  */
 @Injectable()
 export class TaskLogService {

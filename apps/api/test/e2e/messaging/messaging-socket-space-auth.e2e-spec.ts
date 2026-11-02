@@ -5,11 +5,10 @@ import { createHmac, randomUUID } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
-import { Client } from 'pg';
+import { Client, Pool } from 'pg';
 import { io, type Socket } from 'socket.io-client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { spaceRegistry } from '@lms/db/control-plane';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { createControlPlaneKysely } from '@lms/db/control-plane';
 
 /**
  * Better Auth phải bật ngay từ lúc AppModule được import (khuôn của
@@ -127,7 +126,7 @@ async function withClient<T>(connectionString: string, fn: (client: Client) => P
   }
 }
 
-/** Áp một file migration SQL (tách theo dấu phân đoạn của Drizzle) lên một database qua kết nối cho trước. */
+/** Áp một file migration SQL (tách theo dấu phân đoạn của file) lên một database qua kết nối cho trước. */
 async function applySqlFile(connectionString: string, filePath: string, withUuidShim: boolean): Promise<void> {
   await withClient(connectionString, async (client) => {
     if (withUuidShim) {
@@ -354,22 +353,25 @@ describe('Socket realtime tại địa chỉ trung tâm ở kho riêng (đầu-c
     process.env.CONTROL_PLANE_DATABASE_URL = clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD);
     process.env.SPACE_TEST_SOCK587_URL = clusterUrl('postgres', CENTRE_ROLE, CENTRE_PASSWORD);
 
-    await withClient(clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD), async (client) => {
-      const cpDb = drizzle({ client });
-      await cpDb.insert(spaceRegistry).values([
+    const cpPool = new Pool({ connectionString: clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD) });
+    const cpDb = createControlPlaneKysely(cpPool);
+    try {
+      await cpDb.insertInto('space_registry').values([
         {
           slug: CENTRE_SLUG,
           name: 'Trung tâm socket 587',
           kind: 'center',
           status: 'active',
-          databaseName: CENTRE_DATABASE,
-          storageMode: 'dedicated',
-          connectionRoleRef: CENTRE_ROLE,
-          secretRef: 'env:SPACE_TEST_SOCK587_URL',
-          schemaVersion: 'v1',
+          database_name: CENTRE_DATABASE,
+          storage_mode: 'dedicated',
+          connection_role_ref: CENTRE_ROLE,
+          secret_ref: 'env:SPACE_TEST_SOCK587_URL',
+          schema_version: 'v1',
         },
-      ]);
-    });
+      ]).execute();
+    } finally {
+      await cpDb.destroy();
+    }
 
     helpers = await import('../../support/identity-access-helpers');
     app = await createMountedTestApp();

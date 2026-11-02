@@ -388,7 +388,7 @@ export class ProgramImportService {
    *   dung mới, hồi sinh).
    * - Pha D: chèn dòng mới.
    *
-   * @param tx - Transaction Drizzle của bản ghi đang nạp.
+   * @param tx - Transaction bộ máy cũ của bản ghi đang nạp.
    * @param nodeId - Node nội dung của bản ghi.
    * @param sourceRef - Truy vết nguồn ghi trên các dòng chèn mới.
    * @param writes - Các lệnh ghi do diffOutcomes sinh ra.

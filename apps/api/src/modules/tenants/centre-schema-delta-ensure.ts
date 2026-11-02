@@ -7,8 +7,8 @@
  *
  * Vì sao cần bước này thay vì chỉ trông vào migration: phần delta
  * được gộp thêm vào CUỐI các file migration ĐÃ PHÁT HÀNH (baseline
- * nghiệp vụ và migration control plane đã có), mà `drizzle-kit
- * migrate` chỉ áp các thư mục chưa có tên trong bảng theo dõi nên
+ * nghiệp vụ và migration control plane đã có), mà bộ máy
+ * migration chỉ áp các thư mục chưa có tên trong bảng theo dõi nên
  * sẽ bỏ qua lặng lẽ phần gộp thêm trên database đã có. Không có
  * bước ensure, sau merge api phục vụ endpoint mới trong khi các
  * bảng còn thiếu (lỗi 500) và health check vẫn xanh vì nó không

@@ -8,7 +8,7 @@ import { MessagingRepository, type MessagingStorePort } from './messaging';
  * DỊCH, không cần database: driver ghi lại truy vấn đã biên dịch
  * (SQL + thứ tự tham số) thay cho kết nối thật.
  *
- * Ba điểm ghép cần khoá (đúng ba điểm `sql.join` của bản Drizzle
+ * Ba điểm ghép cần khoá (đúng ba điểm `sql.join` của bản bộ máy cũ
  * cũ tại repository messaging):
  * - Danh sách `IN` của `eventTypes`: 0 phần tử thì KHÔNG có mảnh
  *   IN nào trong WHERE (tầng gọi gác danh sách rỗng — `IN ()`

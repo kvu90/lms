@@ -1,7 +1,7 @@
 /**
  * Repository của cụm LỊCH trên Kysely — hạng mục nhân rộng G7 của
  * chiến dịch chuyển tầng dữ liệu (issue #647), chuyển từ repository
- * Drizzle cũ ở `apps/api/src/modules/calendar/calendar.repository.ts`.
+ * bộ máy cũ ở `apps/api/src/modules/calendar/calendar.repository.ts`.
  *
  * Vai trò: mọi truy cập tới ba bảng của kho trung tâm thuộc module
  * lịch — `calendar_events` (sự kiện, kèm chuỗi lặp và exception),
@@ -23,7 +23,7 @@
  *   minh có bí danh, giá trị ghi được ánh xạ từng trường
  *   camelCase → snake_case ở các hàm ánh xạ trong file này. Kiểu
  *   dòng công khai khai ngay trong file này, không import từ file
- *   schema Drizzle (file schema bị xoá ở hạng mục gỡ Drizzle).
+ *   schema bộ máy cũ (file schema bị xoá ở hạng mục gỡ bộ máy cũ).
  * - Giá trị `undefined` bị LOẠI khỏi values/set trước khi gọi
  *   builder (thử nghiệm T-4 đã đo ở pilot: `undefined` lọt vào
  *   mệnh đề WHERE biên dịch thành placeholder gắn NULL và lặng lẽ
@@ -317,7 +317,7 @@ export class CalendarRepository {
       .executeTakeFirst();
   }
 
-  /** Cập nhật sự kiện; mốc `updated_at` luôn được làm mới ở đây như đường Drizzle trước đây. */
+  /** Cập nhật sự kiện; mốc `updated_at` luôn được làm mới ở đây như đường cũ trước đây. */
   async updateEvent(id: string, patch: Partial<CalendarEventRow>, db: RepoDb = this.db()): Promise<void> {
     await db
       .updateTable('calendar_events')

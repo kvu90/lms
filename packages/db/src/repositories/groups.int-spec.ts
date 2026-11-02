@@ -15,7 +15,7 @@ import { GroupsRepository } from './groups';
  * phỏng handle.
  *
  * Các tính chất chốt tại đây:
- * - Ba điểm `onConflictDoNothing` của bản Drizzle cũ giữ đúng
+ * - Ba điểm `onConflictDoNothing` của bản cũ trước chuyển đổi giữ đúng
  *   ngữ nghĩa: thêm thành viên nhóm trùng không lỗi, đưa nhóm
  *   vào grouping trùng không nhân đôi liên kết, và
  *   `addCohortMember` trả `true` đúng lần chèn thật, `false`
@@ -86,7 +86,7 @@ describe('GroupsRepository trên Kysely (issue #645)', () => {
 
     // Unique thật của `groups_members` là (group, user, component,
     // item_id): chống trùng của `onConflictDoNothing` chỉ neo được
-    // khi item_id khác null — đúng hành vi của bản Drizzle cũ.
+    // khi item_id khác null — đúng hành vi của bản cũ trước chuyển đổi.
     const componentUser = randomUUID();
     const itemId = randomUUID();
     await repo.addMember(group.id, componentUser, 'auto', itemId);

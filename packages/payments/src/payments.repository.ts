@@ -77,7 +77,7 @@ export interface PaymentRow {
  * Nullability theo đúng kiểu sinh codegen của kho trung tâm (nguồn
  * thật là DB): `created_by`, `approval_level`,
  * `approval_threshold` đều nullable trong DB — khác với khai báo
- * `.notNull()` cũ của schema Drizzle; contract `@lms/contracts`
+ * `.notNull()` cũ của schema bộ máy cũ; contract `@lms/contracts`
  * cũng đã khai nullable cho đúng ba trường này nên phía gọi không
  * đổi gì.
  */

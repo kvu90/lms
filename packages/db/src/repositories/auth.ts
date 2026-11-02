@@ -1,5 +1,5 @@
 /**
- * Repository của cụm XÁC THỰC trên Kysely — chuyển đổi Drizzle →
+ * Repository của cụm XÁC THỰC trên Kysely — chuyển đổi bộ máy cũ →
  * Kysely của chiến dịch chuyển tầng dữ liệu (issue #641, nhóm G1).
  *
  * Vai trò: mọi truy cập tới bốn bảng của kho trung tâm thuộc cụm

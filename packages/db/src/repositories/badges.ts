@@ -1,7 +1,7 @@
 /**
  * Repository của cụm HUY HIỆU trên Kysely — hạng mục nhân rộng G7
  * của chiến dịch chuyển tầng dữ liệu (issue #647), chuyển từ
- * repository Drizzle cũ ở
+ * repository cũ trước chuyển đổi ở
  * `apps/api/src/modules/badges/badges.repository.ts`.
  *
  * Vai trò: mọi truy cập tới bốn bảng của kho trung tâm thuộc
@@ -23,12 +23,12 @@
  * mọi giá trị where là tham số bắt buộc. Ba cột jsonb của cụm
  * (`badge_criteria.params`, `badge_issued.snapshot`,
  * `badge_issued.evidence`) không mang hình dạng `$type` ở phía
- * Drizzle cũ nên kiểu công khai ở biên là `unknown` như trước, và
+ * bộ máy cũ nên kiểu công khai ở biên là `unknown` như trước, và
  * mọi lần ghi đều đi qua helper serialize `::jsonb` duy nhất trong
  * file này (driver `pg` hiểu MẢNG cấp cao nhất là mảng PostgreSQL
  * thay vì JSON — xem sổ tay).
  *
- * Hai điểm giữ nguyên hành vi của đường Drizzle cũ, có chủ đích:
+ * Hai điểm giữ nguyên hành vi của đường cũ trước chuyển đổi, có chủ đích:
  * - `insertIssued`/`insertManualAward`: khi insert bỏ qua vì
  *   trùng khoá tự nhiên không trả dòng nào, dòng đã có được đọc
  *   lại qua HANDLE GỐC của repository — không qua handle giao dịch
@@ -231,7 +231,7 @@ const BADGE_MANUAL_AWARD_COLUMNS = [
  * hiểu MẢNG cấp cao nhất là mảng PostgreSQL, khiến cột jsonb lỗi
  * `invalid input syntax for type json`). Khác pilot ở một điểm:
  * ba cột jsonb của cụm này không mang hình dạng `$type` ở phía
- * Drizzle cũ nên giá trị ở biên là `unknown` — helper ghim kiểu
+ * bộ máy cũ nên giá trị ở biên là `unknown` — helper ghim kiểu
  * biểu thức về `JsonValue` của codegen để khớp kiểu cột khi biên
  * dịch, thay vì suy kiểu từ giá trị như khuôn generic của pilot.
  */
@@ -398,7 +398,7 @@ export class BadgesRepository {
     return db.selectFrom('badge').select(BADGE_COLUMNS).orderBy('id', 'asc').execute();
   }
 
-  /** Cập nhật huy hiệu; mốc `updated_at` luôn được làm mới ở đây như đường Drizzle trước đây. */
+  /** Cập nhật huy hiệu; mốc `updated_at` luôn được làm mới ở đây như đường cũ trước đây. */
   async updateBadge(id: string, patch: Partial<BadgeRow>, db: RepoDb = this.db()): Promise<void> {
     await db
       .updateTable('badge')
@@ -436,7 +436,7 @@ export class BadgesRepository {
    * Ghi bản ghi cấp phát huy hiệu cho user. Trùng cặp
    * (badge, user) thì insert là no-op và dòng đã cấp được đọc lại
    * qua handle gốc — cấp hai lần cho cùng một user chỉ cho một
-   * bản ghi, như hành vi đường Drizzle cũ.
+   * bản ghi, như hành vi đường cũ trước chuyển đổi.
    */
   async insertIssued(values: NewIssued, db: RepoDb = this.db()): Promise<IssuedRow> {
     const rows = await db
@@ -511,7 +511,7 @@ export class BadgesRepository {
    * Ghi một lần cấp thủ công. Chỉ số duy nhất của bảng là bộ ba
    * (badge, recipient, issuer) nhưng dòng đã có được đọc lại theo
    * cặp (badge, recipient) — giữ nguyên bất đối xứng này của
-   * đường Drizzle cũ.
+   * đường cũ trước chuyển đổi.
    */
   async insertManualAward(values: NewManualAward, db: RepoDb = this.db()): Promise<ManualAwardRow> {
     const rows = await db

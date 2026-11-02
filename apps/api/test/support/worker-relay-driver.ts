@@ -1,13 +1,9 @@
 import 'reflect-metadata';
 import { Queue } from 'bullmq';
-import { isNotNull, isNull } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { createCentreKysely, outboxEvents, type CentreDb } from '@lms/db';
+import { createCentreKysely, type CentreDb } from '@lms/db';
 import { redisConnectionFromUrl } from '../../../worker/src/config/env';
 import { tenantAls } from '../../../worker/src/db/tenant-als';
 import { TenantAwarePool } from '../../../worker/src/db/tenant-pool';
-import { relations } from '../../../worker/src/db/relations';
 import { EventLogWriter } from '../../../worker/src/event-log-writer.service';
 import { TaskLogService } from '../../../worker/src/task-log.service';
 import type { ConfigService } from '@nestjs/config';
@@ -35,11 +31,11 @@ import {
  * `@lms/api`, không có tiến trình worker chạy kèm): tay cầm Kysely
  * trên `TenantAwarePool` của worker (gắn GUC theo ALS như module
  * thật — relay, `EventLogWriter` và `TaskLogService` của worker
- * đều chạy trên handle Kysely định tuyến từ issue #664), bảng định
+ * đều chạy trên handle Kysely định tuyến), bảng định
  * tuyến `OUTBOX_EVENT_QUEUE_ROUTES` và một `Queue` BullMQ thật cho
  * mỗi hàng đợi có mặt trong bảng đó (cùng cấu hình kết nối Redis
  * và cùng chính sách job mặc định như `worker.module.ts`). Tay cầm
- * Drizzle trên cùng pool chỉ còn phục vụ việc đọc trạng thái đóng
+ * Kysely trên cùng pool còn phục vụ việc đọc trạng thái đóng
  * dấu của chính cầu dẫn (không thuộc đường relay).
  *
  * Vì sao import thẳng code production của worker thay vì dựng một
@@ -76,7 +72,6 @@ import {
  */
 let relay: OutboxRelayScheduler | null = null;
 let pool: TenantAwarePool | null = null;
-let sharedDb: NodePgDatabase<typeof relations> | null = null;
 let sharedKysely: CentreDb | null = null;
 let queues: Queue[] = [];
 /**
@@ -89,12 +84,13 @@ let queues: Queue[] = [];
  */
 let cleanupOutboxIds = new Set<string>();
 
-function getSharedDb(): NodePgDatabase<typeof relations> {
-  if (!sharedDb) {
-    pool = new TenantAwarePool({ connectionString: process.env.DATABASE_URL });
-    sharedDb = drizzle({ client: pool, relations });
+/** Handle Kysely dùng chung của cầu dẫn, dựng lười trên pool dùng chung. */
+function getSharedKysely(): CentreDb {
+  if (!sharedKysely) {
+    pool ??= new TenantAwarePool({ connectionString: process.env.DATABASE_URL });
+    sharedKysely = createCentreKysely(pool);
   }
-  return sharedDb;
+  return sharedKysely;
 }
 
 /**
@@ -107,12 +103,9 @@ function getSharedDb(): NodePgDatabase<typeof relations> {
  * theo trung tâm được kiểm chứng ở chính các suite của worker).
  */
 function getWorkerSpaceDb(): SpaceDatabaseService {
-  getSharedDb();
-  if (!sharedKysely) {
-    sharedKysely = createCentreKysely(pool!);
-  }
+  const kysely = getSharedKysely();
   return {
-    routedKysely: sharedKysely,
+    routedKysely: kysely,
     listRegisteredSpaces: async () => [],
     withSpaceKysely: async () => {
       throw new Error('cầu dẫn relay không dẫn lượt quét theo trung tâm');
@@ -172,24 +165,21 @@ function getRelay(): OutboxRelayScheduler {
  * sẽ làm mù các dòng của tenant nếu thiếu ngữ cảnh (xem ghi chú
  * TENANT-1 ở relay của worker).
  *
- * @param db Tay cầm Drizzle dùng chung của cầu dẫn.
- * @param stamped `true` để lấy các dòng đã có dấu `publishedAt`,
+ * @param db Tay cầm Kysely dùng chung của cầu dẫn.
+ * @param stamped `true` để lấy các dòng đã có dấu `published_at`,
  *   `false` để lấy các dòng chưa có dấu.
  * @returns Tập id các dòng khớp trạng thái đóng dấu.
  */
 async function readOutboxIdsByStampState(
-  db: NodePgDatabase<typeof relations>,
+  db: CentreDb,
   stamped: boolean,
 ): Promise<Set<string>> {
   const rows = await tenantAls.run({ platform: true }, async () => {
     return await db
-      .select({ id: outboxEvents.id })
-      .from(outboxEvents)
-      .where(
-        stamped
-          ? isNotNull(outboxEvents.publishedAt)
-          : isNull(outboxEvents.publishedAt),
-      );
+      .selectFrom('outbox_events')
+      .select('id')
+      .where('published_at', stamped ? 'is not' : 'is', null)
+      .execute();
   });
   return new Set(rows.map((row) => row.id));
 }
@@ -234,7 +224,7 @@ async function readOutboxIdsByStampState(
  */
 export async function flushWorkerRelay(): Promise<number> {
   const target = getRelay();
-  const db = getSharedDb();
+  const db = getSharedKysely();
   const unpublishedBefore = await readOutboxIdsByStampState(db, false);
   const publishedBefore = await readOutboxIdsByStampState(db, true);
   let published = 0;
@@ -310,7 +300,6 @@ export async function closeWorkerRelayDriver(): Promise<void> {
   if (pool) {
     const closing = pool;
     pool = null;
-    sharedDb = null;
     sharedKysely = null;
     await closing.end();
   }

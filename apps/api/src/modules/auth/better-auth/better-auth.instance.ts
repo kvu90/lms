@@ -47,7 +47,7 @@ export const BETTER_AUTH_BASE_PATH = '/api/v1/auth';
  * `supportsArrays === false` → `JSON.stringify`); cột vật lý của hệ
  * là `text[]` nên chuỗi JSON `["a","b"]` bị Postgres từ chối bằng
  * `malformed array literal` (đã bắt tại e2e mcp-as-oauth: DCR +
- * authorize 500). Adapter Drizzle cũ không lộ vấn đề này vì nó khai
+ * authorize 500). Adapter bộ máy cũ không lộ vấn đề này vì nó khai
  * `supportsArrays: true` cho pg.
  *
  * Cách sửa (giữ nguyên schema vật lý, không migration): factory
@@ -56,7 +56,7 @@ export const BETTER_AUTH_BASE_PATH = '/api/v1/auth';
  * (`adapter.options.adapterConfig` — cùng tham chiếu mà
  * `transformInput`/`transformOutput` của lõi đọc, kiểm chứng tại
  * `factory.mjs`). Khai báo này là ĐÚNG với DB thật: Postgres `text[]`
- * hỗ trợ mảng nguyên sinh, đúng như adapter Drizzle đã khai cho pg;
+ * hỗ trợ mảng nguyên sinh, đúng như adapter bộ máy cũ đã khai cho pg;
  * chiều đọc cũng đối xứng (pg trả `text[]` thành mảng JS, lõi không
  * còn phân tích JSON). Phải lật cả hai đường: adapter ngoài (ghi
  * thường) và adapter giao dịch (luồng OAuth chạy ghi client trong
@@ -328,7 +328,7 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
     trustedOrigins: deps.trustedOrigins,
     socialProviders: buildSocialProviders(deps.socialProviders),
     // ── Ánh xạ model → bảng/cột (issue #654, D2) ─────────────────────
-    // Schema bóng Drizzle đã xoá: ánh xạ sống ở chính options này theo
+    // Schema bóng bộ máy cũ đã xoá: ánh xạ sống ở chính options này theo
     // cơ chế chính thức của Better Auth (core `db/get-tables`: đọc
     // `options.<model>.modelName` + `options.<model>.fields.<field>`).
     // Chỉ override các cột camelCase → snake_case; cột một từ và bảng
@@ -489,7 +489,7 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
       // sống ở `user_totp` — đăng ký một mình không gác được gì;
       // (2) schema của plugin khai trường user `twoFactorEnabled`
       // kèm giá trị mặc định, tầng core chèn trường đó vào mọi
-      // payload tạo user và adapter Drizzle từ chối vì ánh xạ user
+      // payload tạo user và adapter bộ máy cũ từ chối vì ánh xạ user
       // của hệ không có trường này — bật plugin là hỏng mọi đường
       // tạo user (đã kiểm chứng trên bản 1.7.12 đã ghim). Thêm cột
       // thật sẽ dựng nguồn trạng thái MFA thứ hai phải đồng bộ với
@@ -747,7 +747,7 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
       //   "uuid" và adapter Kysely khai `supportsUUIDs: true` khi
       //   `type: 'postgres'`, `shouldGenerateId` = false nên field id
       //   không có defaultValue phía ứng dụng, default uuidv7() của
-      //   cột vẫn thắng. Cơ chế này thay thế cơ chế phía Drizzle cũ
+      //   cột vẫn thắng. Cơ chế này thay thế cơ chế phía bộ máy cũ
       //   (đã kiểm chứng lại bằng ca DB thật ở issue #654: bản ghi
       //   user/session/account/verification đều mang id UUIDv7 do DB
       //   sinh, id tất định dạng UUID không ném 22P02).

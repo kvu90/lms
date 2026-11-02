@@ -6,18 +6,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
-import { eq, sql } from 'drizzle-orm';
 import Redis from 'ioredis';
 import { Server } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { io as clientIo, type Socket as ClientSocket } from 'socket.io-client';
-import {
-  message,
-  messageConversationMembers,
-  messageConversations,
-  messageUsersBlocked,
-  outboxEvents,
-} from '@lms/db';
+import { sql, type JsonValue } from '@lms/db';
 import { conversationRoom, userRoom } from '@lms/messaging';
 import { OutboxRelayScheduler } from '../../../src/outbox-relay.scheduler';
 import {
@@ -144,28 +137,30 @@ describe('Worker — phân phối realtime messaging qua hàng đợi (issue #52
   // --- fixture -----------------------------------------------------
 
   async function makeUser(id: string): Promise<void> {
-    await db.execute(sql`insert into users (id, username, email, first_name, last_name, suspended, deleted) values (${id}, ${`u521-${id.slice(-8)}`}, ${`u521-${id.slice(-8)}@x.io`}, 'An', 'Nguyễn', false, false) on conflict (id) do nothing`);
+    await sql`insert into users (id, username, email, first_name, last_name, suspended, deleted) values (${id}, ${`u521-${id.slice(-8)}`}, ${`u521-${id.slice(-8)}@x.io`}, 'An', 'Nguyễn', false, false) on conflict (id) do nothing`.execute(db);
   }
 
   async function makeTenant(id: string): Promise<void> {
-    await db.execute(sql`insert into tenants (id, slug, name, kind) values (${id}, ${`t521-${id.slice(-8)}`}, 'Trung tâm 521', 'center') on conflict (id) do nothing`);
+    await sql`insert into tenants (id, slug, name, kind) values (${id}, ${`t521-${id.slice(-8)}`}, 'Trung tâm 521', 'center') on conflict (id) do nothing`.execute(db);
   }
 
   async function makeConversation(opts: { type: number; tenantId: string | null; memberIds: string[] }): Promise<string> {
     const id = randomUUID();
-    await db.insert(messageConversations).values({
-      id, type: opts.type, tenantId: opts.tenantId, lastMessageSeq: 0,
-    });
+    await db.insertInto('message_conversations').values({
+      id, type: opts.type, tenant_id: opts.tenantId, last_message_seq: 0,
+    }).execute();
     for (const userId of opts.memberIds) {
-      await db.insert(messageConversationMembers).values({ conversationId: id, userId });
+      await db.insertInto('message_conversation_members').values({ conversation_id: id, user_id: userId }).execute();
     }
     return id;
   }
 
   async function setLastReadSeq(conversationId: string, userId: string, seq: number): Promise<void> {
-    await db.update(messageConversationMembers)
-      .set({ lastReadSeq: seq })
-      .where(sql`${messageConversationMembers.conversationId} = ${conversationId} and ${messageConversationMembers.userId} = ${userId}`);
+    await db.updateTable('message_conversation_members')
+      .set({ last_read_seq: seq })
+      .where('conversation_id', '=', conversationId)
+      .where('user_id', '=', userId)
+      .execute();
   }
 
   async function makeMessage(opts: {
@@ -173,32 +168,33 @@ describe('Worker — phân phối realtime messaging qua hàng đợi (issue #52
     recalledAt?: Date; recalledBy?: string; replyToMessageId?: string;
   }): Promise<string> {
     const id = randomUUID();
-    await db.insert(message).values({
+    await db.insertInto('message').values({
       id,
-      conversationId: opts.conversationId,
-      userIdFrom: opts.userIdFrom,
+      conversation_id: opts.conversationId,
+      user_id_from: opts.userIdFrom,
       subject: '',
-      fullMessage: opts.text,
-      smallMessage: opts.text,
+      full_message: opts.text,
+      small_message: opts.text,
       seq: opts.seq,
-      replyToMessageId: opts.replyToMessageId ?? null,
-      recalledAt: opts.recalledAt ?? null,
-      recalledBy: opts.recalledBy ?? null,
-    });
-    await db.update(messageConversations)
-      .set({ lastMessageSeq: opts.seq })
-      .where(eq(messageConversations.id, opts.conversationId));
+      reply_to_message_id: opts.replyToMessageId ?? null,
+      recalled_at: opts.recalledAt ?? null,
+      recalled_by: opts.recalledBy ?? null,
+    }).execute();
+    await db.updateTable('message_conversations')
+      .set({ last_message_seq: opts.seq })
+      .where('id', '=', opts.conversationId)
+      .execute();
     return id;
   }
 
   async function insertOutbox(type: string, payload: Record<string, unknown>, tenantId: string | null): Promise<string> {
     // Id của dòng outbox BẮT BUỘC là uuid v7 như production (mặc
-    // định của cột và `$defaultFn` phía API đều sinh v7): relay
+    // định của cột đều sinh v7): relay
     // chuyển tiếp theo thứ tự id tăng dần, nên id ngẫu nhiên v4 sẽ
     // làm thứ tự chuyển tiếp lệch khỏi thứ tự ghi — giữ v7 để ca
     // thứ tự seq kiểm chứng đúng tiền đề của cơ chế thật.
     const id = uuidv7();
-    await db.insert(outboxEvents).values({ id, aggregate: 'messaging', type, payload, tenantId });
+    await db.insertInto('outbox_events').values({ id, aggregate: 'messaging', type, payload: sql<JsonValue>`${JSON.stringify(payload)}::jsonb`, tenant_id: tenantId }).execute();
     return id;
   }
 
@@ -368,8 +364,10 @@ describe('Worker — phân phối realtime messaging qua hàng đợi (issue #52
     await waitUntil(() => eventsOf('b4', 'message.new').length === 1, 10000, 'B nhận tin khi còn là thành viên');
 
     // Gỡ B khỏi conversation (membership chốt lại ở DB).
-    await db.delete(messageConversationMembers)
-      .where(sql`${messageConversationMembers.conversationId} = ${convId} and ${messageConversationMembers.userId} = ${b}`);
+    await db.deleteFrom('message_conversation_members')
+      .where('conversation_id', '=', convId)
+      .where('user_id', '=', b)
+      .execute();
 
     await sendAndDistribute({ conversationId: convId, userIdFrom: a, seq: 2, text: 'sau khi gỡ', tenantId });
     // A (còn là thành viên) nhận tin mới: lượt phân phối đã thật sự chạy.
@@ -446,7 +444,7 @@ describe('Worker — phân phối realtime messaging qua hàng đợi (issue #52
     // Biên đã-đọc của A được ghi vào outbox TRƯỚC, quan hệ chặn có
     // SAU (consumer tiêu thụ sự kiện sau khi chặn đã hiệu lực).
     const outboxId = await insertOutbox('message_conversation_read', { conversationId: convId, userId: a, lastReadSeq: 1 }, tenantId);
-    await db.insert(messageUsersBlocked).values({ userId: a, blockedUserId: b });
+    await db.insertInto('message_users_blocked').values({ user_id: a, blocked_user_id: b }).execute();
     await relay.publishPending();
     await waitDistributed(outboxId);
 
@@ -467,7 +465,7 @@ describe('Worker — phân phối realtime messaging qua hàng đợi (issue #52
     const outboxId = await insertOutbox('message_sent', {
       conversationId: convId, messageId, seq: 1, fromUserId: a,
     }, tenantId);
-    await db.insert(messageUsersBlocked).values({ userId: b, blockedUserId: a });
+    await db.insertInto('message_users_blocked').values({ user_id: b, blocked_user_id: a }).execute();
     await relay.publishPending();
     await waitDistributed(outboxId);
 
@@ -491,16 +489,16 @@ describe('Worker — phân phối realtime messaging qua hàng đợi (issue #52
     await relay.publishPending();
     // Processor xử lý lại đúng job đó (mô phỏng job bị phát lại
     // ngoài cửa sổ chống trùng của hàng đợi): dấu theo outboxId chặn.
-    const [row] = await db.select().from(outboxEvents).where(eq(outboxEvents.id, outboxId));
+    const row = await db.selectFrom('outbox_events').selectAll().where('id', '=', outboxId).executeTakeFirst();
     const jobData: OutboxEventJobData = {
       outboxId,
-      seq: row!.seq,
+      seq: Number(row!.seq),
       aggregate: 'messaging',
       type: 'message_sent',
       payload: row!.payload as Record<string, unknown>,
       spaceSlug: null,
       tenantId,
-      occurredAt: row!.occurredAt.toISOString(),
+      occurredAt: row!.occurred_at.toISOString(),
     };
     await processor.process({ data: jobData } as never);
     await settle();
@@ -522,7 +520,7 @@ describe('Worker — phân phối realtime messaging qua hàng đợi (issue #52
     // "Đời DB mới": toàn bộ dòng outbox của conversation này biến
     // mất (như khi DB được dựng lại) — cơ chế hàng đợi không giữ
     // watermark nào nên không có mốc cũ nào làm mù sự kiện mới.
-    await db.delete(outboxEvents).where(sql`${outboxEvents.payload} ->> 'conversationId' = ${convId}`);
+    await db.deleteFrom('outbox_events').where(sql<boolean>`payload ->> 'conversationId' = ${convId}`).execute();
 
     const second = await sendAndDistribute({ conversationId: convId, userIdFrom: a, seq: 2, text: 'đời mới', tenantId });
     expect(second.outboxId).not.toBe(first.outboxId);
@@ -566,9 +564,11 @@ describe('Worker — phân phối realtime messaging qua hàng đợi (issue #52
     const convId = await makeConversation({ type: 2, tenantId, memberIds: [a, b, c] });
     await connectClient('b12', { userId: b, tenantId, conversationIds: [convId] });
     await connectClient('c12', { userId: c, tenantId, conversationIds: [convId] });
-    await db.update(messageConversationMembers)
+    await db.updateTable('message_conversation_members')
       .set({ muted: true })
-      .where(sql`${messageConversationMembers.conversationId} = ${convId} and ${messageConversationMembers.userId} = ${b}`);
+      .where('conversation_id', '=', convId)
+      .where('user_id', '=', b)
+      .execute();
 
     await sendAndDistribute({ conversationId: convId, userIdFrom: a, seq: 1, text: 'tin cho nhóm đã tắt', tenantId });
     await waitUntil(() => eventsOf('b12', 'conversation.updated').length === 1, 10000, 'B nhận conversation.updated');

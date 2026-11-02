@@ -29,6 +29,12 @@
       // chỉ test mới import, cùng cơ chế ánh xạ dist như trên.
       "@lms/db/test-support": [
         "../../packages/db/dist/test-support/index.d.ts"
+      ],
+      // Điểm vào bộ máy migration của @lms/db (issue #663): các
+      // runner phía API áp migration qua `applyStoreMigrations`
+      // của package — cùng cơ chế ánh xạ dist như trên.
+      "@lms/db/migrate": [
+        "../../packages/db/dist/migrate/apply.d.ts"
       ]
     },
     // Chương trình typecheck (noEmit) bao gồm cả cầu dẫn test
@@ -42,7 +48,6 @@
   "include": [
     "src",
     "test",
-    "drizzle.config.ts",
     "vitest.config.ts"
   ]
 }

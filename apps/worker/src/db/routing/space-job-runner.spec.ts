@@ -10,7 +10,7 @@ import { SpaceJobRunner } from './space-job-runner';
  * các ca khoá đúng quyết định phiên cho từng hình job: job của
  * trung tâm ở kho riêng chạy trong phiên theo trung tâm mang cả
  * tenant của job, và phiên kho riêng chuẩn bị cả handle Kysely
- * (bảng chuẩn bị tách riêng với phía Drizzle); job ở kho chung
+ * (bảng chuẩn bị tách riêng với phía bộ máy cũ); job ở kho chung
  * và job không mang slug chạy trong ngữ cảnh platform như hiện
  * tại; job mà đích phân giải lỗi thì bị lỗi thay vì chạy trên
  * platform (vòng sửa theo phán quyết điều phối PR #602).
@@ -44,7 +44,7 @@ function makeRunner(options?: { target?: ResolvedSpaceConnection; resolveError?:
       if (options?.resolveError) throw options.resolveError;
       return options?.target ?? DEDICATED_TARGET;
     }),
-    withSpaceDatabase: vi.fn(
+    withSpaceKysely: vi.fn(
       async (
         slug: string,
         fn: (db: unknown) => Promise<unknown>,
@@ -59,8 +59,9 @@ function makeRunner(options?: { target?: ResolvedSpaceConnection; resolveError?:
         );
       },
     ),
-    // Vật giả cho bước chuẩn bị phía Kysely của phiên kho riêng
-    // (runner gọi trước khi mở phiên Drizzle).
+    // (Bước chuẩn bị handle của kho đích chạy bên trong chính
+    // `withSpaceKysely` của khung thật, nên vật giả không cần
+    // điểm chuẩn bị riêng.)
     getKyselyForSpace: vi.fn(async () => ({})),
   };
   const runner = new SpaceJobRunner(spaceDb as unknown as SpaceDatabaseService);
@@ -75,7 +76,6 @@ describe('Bộ chạy job theo trung tâm', () => {
       async () => tenantAls.getStore(),
     );
     expect(sessions).toEqual([{ slug: 'trung-tam-a', context: { tenantId: 'tenant-a' } }]);
-    expect(spaceDb.getKyselyForSpace).toHaveBeenCalledWith('trung-tam-a');
     expect(observed?.spaceSlug).toBe('trung-tam-a');
     expect(observed?.tenantId).toBe('tenant-a');
   });
@@ -86,7 +86,7 @@ describe('Bộ chạy job theo trung tâm', () => {
       { spaceSlug: 'truong-mac-dinh', tenantId: 'tenant-truong' },
       async () => tenantAls.getStore(),
     );
-    expect(spaceDb.withSpaceDatabase).not.toHaveBeenCalled();
+    expect(spaceDb.withSpaceKysely).not.toHaveBeenCalled();
     expect(spaceDb.getKyselyForSpace).not.toHaveBeenCalled();
     expect(observed?.platform).toBe(true);
     expect(observed?.spaceSlug).toBeUndefined();
@@ -111,7 +111,7 @@ describe('Bộ chạy job theo trung tâm', () => {
       }),
     ).rejects.toBe(failure);
     expect(ran).toBe(false);
-    expect(spaceDb.withSpaceDatabase).not.toHaveBeenCalled();
+    expect(spaceDb.withSpaceKysely).not.toHaveBeenCalled();
   });
 
   it('không đọc được control plane khi phân giải thì job bị lỗi thay vì chạy trên platform', async () => {
@@ -124,7 +124,7 @@ describe('Bộ chạy job theo trung tâm', () => {
       }),
     ).rejects.toBe(failure);
     expect(ran).toBe(false);
-    expect(spaceDb.withSpaceDatabase).not.toHaveBeenCalled();
+    expect(spaceDb.withSpaceKysely).not.toHaveBeenCalled();
   });
 
   it('role kết nối lệch sổ đăng ký khi phân giải thì job bị lỗi thay vì chạy trên platform', async () => {
@@ -137,7 +137,7 @@ describe('Bộ chạy job theo trung tâm', () => {
       }),
     ).rejects.toBe(failure);
     expect(ran).toBe(false);
-    expect(spaceDb.withSpaceDatabase).not.toHaveBeenCalled();
+    expect(spaceDb.withSpaceKysely).not.toHaveBeenCalled();
   });
 
   it('thiếu bí mật kết nối khi phân giải thì job bị lỗi thay vì chạy trên platform', async () => {
@@ -150,7 +150,7 @@ describe('Bộ chạy job theo trung tâm', () => {
       }),
     ).rejects.toBe(failure);
     expect(ran).toBe(false);
-    expect(spaceDb.withSpaceDatabase).not.toHaveBeenCalled();
+    expect(spaceDb.withSpaceKysely).not.toHaveBeenCalled();
   });
 
   it('worker chưa cấu hình control plane thì job chạy trên platform như trước đợt định tuyến, không ném lỗi', async () => {
@@ -163,7 +163,7 @@ describe('Bộ chạy job theo trung tâm', () => {
       { spaceSlug: 'trung-tam-chua-cau-hinh', tenantId: 'tenant-x' },
       async () => tenantAls.getStore(),
     );
-    expect(spaceDb.withSpaceDatabase).not.toHaveBeenCalled();
+    expect(spaceDb.withSpaceKysely).not.toHaveBeenCalled();
     expect(observed?.platform).toBe(true);
   });
 

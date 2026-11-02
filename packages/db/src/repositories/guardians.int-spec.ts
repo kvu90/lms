@@ -1,18 +1,7 @@
-import { and, asc, eq, inArray, isNotNull, lte, ne, sql as drizzleSql } from 'drizzle-orm';
-import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { sql } from 'kysely';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { CentreDb } from '../client';
-import {
-  assignments as assignmentsTable,
-  assignSubmissions,
-  courseModules,
-  courseModulesCompletion,
-  examAttempts,
-  examPins,
-  examVersions,
-} from '../index';
 import { buildTestDatabase, dropTestDatabase, withDatabase } from '../test-support/build-test-database';
 import { createTestKysely } from '../test-support/create-test-kysely';
 import {
@@ -37,10 +26,12 @@ import { GuardiansRepository } from './guardians';
  * Ngoài hành vi của từng phương thức, spec này là bằng chứng nghiệm
  * thu "phạm vi dữ kiện chỉ-đọc giữ nguyên trước/sau" của bề mặt phụ
  * huynh: hai truy vấn khó nhất (quiz có hạn nộp và đếm tiến độ theo
- * khoá) được chạy SONG SONG bằng hai bản thực thi — bản Drizzle cũ
- * (sao nguyên văn từ repository phía ứng dụng trước chuyển đổi, giữ
- * lại trong file này chỉ để đối chiếu) và bản Kysely mới — trên
- * CÙNG một bộ dữ kiện mẫu, và kết quả phải khớp nhau từng dòng.
+ * khoá) được chạy SONG SONG bằng hai bản thực thi — bản cũ (sao
+ * nguyên văn logic từ repository phía ứng dụng trước chuyển đổi,
+ * giữ lại trong file này chỉ để đối chiếu; từ #663 bản sao này
+ * dựng bằng Kysely thô vì ORM cũ đã rời khỏi cây) và bản
+ * repository hiện hành — trên CÙNG một bộ dữ kiện mẫu, và kết
+ * quả phải khớp nhau từng dòng.
  * Dữ kiện mẫu được dựng có chủ đích để bắt đúng điểm nóng của nhóm:
  * - Một attempt xem trước (preview = true) cạnh một attempt thật:
  *   điều kiện preview nằm trong ON của left join nên quiz chỉ có
@@ -65,7 +56,6 @@ const UNTIL = new Date('2026-11-06T00:00:00.000Z');
 
 let tenantPool: TestTenantPool;
 let db: CentreDb;
-let drizzleDb: NodePgDatabase;
 let linksRepo: GuardiansRepository;
 let viewRepo: GuardianViewRepository;
 
@@ -77,86 +67,80 @@ let courseId = '';
 let cmQuizId = '';
 let cmAssignId = '';
 
-/** Bản thực thi Drizzle cũ của quizDueRows (sao nguyên văn để đối chiếu trước/sau). */
+/** Bản thực thi cũ của quizDueRows (sao nguyên văn logic để đối chiếu trước/sau; dựng bằng Kysely thô). */
 async function oldQuizDueRows(courseIds: string[], studentUserId: string, until: Date) {
   if (!courseIds.length) return [];
-  return drizzleDb
-    .select({
-      cmId: courseModules.id,
-      courseId: courseModules.course,
-      name: drizzleSql<string>`coalesce(${examPins.name}, ${examVersions.name})`,
-      dueAt: examPins.timeClose,
-      attemptState: examAttempts.state,
-    })
-    .from(courseModules)
-    .innerJoin(examPins, eq(examPins.id, courseModules.instanceId))
-    .innerJoin(examVersions, eq(examVersions.id, examPins.examVersionId))
-    .leftJoin(examAttempts, and(
-      eq(examAttempts.pinId, examPins.id),
-      eq(examAttempts.userId, studentUserId),
-      eq(examAttempts.preview, false),
-    ))
-    .where(and(
-      inArray(courseModules.course, courseIds),
-      eq(courseModules.component, 'mod_quiz'),
-      eq(courseModules.visible, true),
-      eq(courseModules.deletionInProgress, false),
-      isNotNull(examPins.timeClose),
-      lte(examPins.timeClose, until),
-    ))
-    .orderBy(asc(examPins.timeClose));
+  return db
+    .selectFrom('course_modules')
+    .innerJoin('exam_pins', 'exam_pins.id', 'course_modules.instance_id')
+    .innerJoin('exam_versions', 'exam_versions.id', 'exam_pins.exam_version_id')
+    .leftJoin('exam_attempts', (join) => join
+      .onRef('exam_attempts.pin_id', '=', 'exam_pins.id')
+      .on('exam_attempts.user_id', '=', studentUserId)
+      .on('exam_attempts.preview', '=', false))
+    .select([
+      'course_modules.id as cmId',
+      'course_modules.course as courseId',
+      sql<string>`coalesce(exam_pins.name, exam_versions.name)`.as('name'),
+      'exam_pins.time_close as dueAt',
+      'exam_attempts.state as attemptState',
+    ])
+    .where('course_modules.course', 'in', courseIds)
+    .where('course_modules.component', '=', 'mod_quiz')
+    .where('course_modules.visible', '=', true)
+    .where('course_modules.deletion_in_progress', '=', false)
+    .where('exam_pins.time_close', 'is not', null)
+    .where('exam_pins.time_close', '<=', until)
+    .orderBy('exam_pins.time_close')
+    .execute();
 }
 
-/** Bản thực thi Drizzle cũ của courseProgressRows (sao nguyên văn để đối chiếu trước/sau). */
+/** Bản thực thi cũ của courseProgressRows (sao nguyên văn logic để đối chiếu trước/sau; dựng bằng Kysely thô). */
 async function oldCourseProgressRows(courseIds: string[], studentUserId: string) {
   if (!courseIds.length) return [];
-  return drizzleDb
-    .select({
-      courseId: courseModules.course,
-      total: drizzleSql<number>`count(*)::int`,
-      completed: drizzleSql<number>`count(${courseModulesCompletion.id})::int`,
-    })
-    .from(courseModules)
-    .leftJoin(courseModulesCompletion, and(
-      eq(courseModulesCompletion.courseModuleId, courseModules.id),
-      eq(courseModulesCompletion.userId, studentUserId),
-      ne(courseModulesCompletion.completionState, 0),
-    ))
-    .where(and(
-      inArray(courseModules.course, courseIds),
-      eq(courseModules.visible, true),
-      eq(courseModules.deletionInProgress, false),
-      ne(courseModules.completion, 0),
-    ))
-    .groupBy(courseModules.course);
+  return db
+    .selectFrom('course_modules')
+    .leftJoin('course_modules_completion', (join) => join
+      .onRef('course_modules_completion.course_module_id', '=', 'course_modules.id')
+      .on('course_modules_completion.user_id', '=', studentUserId)
+      .on('course_modules_completion.completion_state', '<>', 0))
+    .select([
+      'course_modules.course as courseId',
+      sql<number>`count(*)::int`.as('total'),
+      sql<number>`count(course_modules_completion.id)::int`.as('completed'),
+    ])
+    .where('course_modules.course', 'in', courseIds)
+    .where('course_modules.visible', '=', true)
+    .where('course_modules.deletion_in_progress', '=', false)
+    .where('course_modules.completion', '<>', 0)
+    .groupBy('course_modules.course')
+    .execute();
 }
 
-/** Bản thực thi Drizzle cũ của assignmentDueRows (sao nguyên văn để đối chiếu trước/sau). */
+/** Bản thực thi cũ của assignmentDueRows (sao nguyên văn logic để đối chiếu trước/sau; dựng bằng Kysely thô). */
 async function oldAssignmentDueRows(courseIds: string[], studentUserId: string, until: Date) {
   if (!courseIds.length) return [];
-  return drizzleDb
-    .select({
-      cmId: courseModules.id,
-      courseId: courseModules.course,
-      name: assignmentsTable.name,
-      dueAt: assignmentsTable.dueDate,
-      submissionStatus: assignSubmissions.status,
-    })
-    .from(courseModules)
-    .innerJoin(assignmentsTable, eq(assignmentsTable.id, courseModules.instanceId))
-    .leftJoin(assignSubmissions, and(
-      eq(assignSubmissions.assignmentId, assignmentsTable.id),
-      eq(assignSubmissions.userId, studentUserId),
-    ))
-    .where(and(
-      inArray(courseModules.course, courseIds),
-      eq(courseModules.component, 'mod_assign'),
-      eq(courseModules.visible, true),
-      eq(courseModules.deletionInProgress, false),
-      isNotNull(assignmentsTable.dueDate),
-      lte(assignmentsTable.dueDate, until),
-    ))
-    .orderBy(asc(assignmentsTable.dueDate));
+  return db
+    .selectFrom('course_modules')
+    .innerJoin('assignments', 'assignments.id', 'course_modules.instance_id')
+    .leftJoin('assign_submissions', (join) => join
+      .onRef('assign_submissions.assignment_id', '=', 'assignments.id')
+      .on('assign_submissions.user_id', '=', studentUserId))
+    .select([
+      'course_modules.id as cmId',
+      'course_modules.course as courseId',
+      'assignments.name as name',
+      'assignments.due_date as dueAt',
+      'assign_submissions.status as submissionStatus',
+    ])
+    .where('course_modules.course', 'in', courseIds)
+    .where('course_modules.component', '=', 'mod_assign')
+    .where('course_modules.visible', '=', true)
+    .where('course_modules.deletion_in_progress', '=', false)
+    .where('assignments.due_date', 'is not', null)
+    .where('assignments.due_date', '<=', until)
+    .orderBy('assignments.due_date')
+    .execute();
 }
 
 /** Chèn một course module mẫu và trả id. */
@@ -217,7 +201,6 @@ beforeAll(async () => {
 
   tenantPool = new TestTenantPool({ connectionString: roleUrl.toString() });
   db = createTestKysely(tenantPool).centre;
-  drizzleDb = drizzle({ client: tenantPool });
   linksRepo = new GuardiansRepository(db);
   viewRepo = new GuardianViewRepository(db);
 
@@ -482,7 +465,7 @@ describe('GuardianViewRepository trên database thật', () => {
     });
   });
 
-  it('quizDueRows: chỉ attempt thật được nối (attempt xem trước không sinh dòng), tên lấy từ phiên bản đề khi pin không có tên — khớp bản Drizzle cũ trên cùng dữ kiện', async () => {
+  it('quizDueRows: chỉ attempt thật được nối (attempt xem trước không sinh dòng), tên lấy từ phiên bản đề khi pin không có tên — khớp bản cũ trên cùng dữ kiện', async () => {
     await runInTestTenantContext(tenantId, async () => {
       const rows = await viewRepo.quizDueRows([courseId], studentId, UNTIL);
       expect(rows).toEqual([
@@ -499,7 +482,7 @@ describe('GuardianViewRepository trên database thật', () => {
     });
   });
 
-  it('assignmentDueRows: bài tập kèm trạng thái bài nộp của học sinh — khớp bản Drizzle cũ trên cùng dữ kiện', async () => {
+  it('assignmentDueRows: bài tập kèm trạng thái bài nộp của học sinh — khớp bản cũ trên cùng dữ kiện', async () => {
     await runInTestTenantContext(tenantId, async () => {
       const rows = await viewRepo.assignmentDueRows([courseId], studentId, UNTIL);
       expect(rows).toEqual([
@@ -529,7 +512,7 @@ describe('GuardianViewRepository trên database thật', () => {
     });
   });
 
-  it('courseProgressRows: module có trạng thái hoàn thành 0 vẫn tính vào tổng nhưng không tính đã xong (điều kiện nằm trong ON) — khớp bản Drizzle cũ trên cùng dữ kiện', async () => {
+  it('courseProgressRows: module có trạng thái hoàn thành 0 vẫn tính vào tổng nhưng không tính đã xong (điều kiện nằm trong ON) — khớp bản cũ trên cùng dữ kiện', async () => {
     await runInTestTenantContext(tenantId, async () => {
       const rows = await viewRepo.courseProgressRows([courseId], studentId);
       expect(rows).toEqual([{ courseId, total: 3, completed: 1 }]);

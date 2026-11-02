@@ -38,7 +38,7 @@ import type { MailMessage } from '../../../src/modules/mail/mail.types';
  * 6405565755 trên #7, thi công cùng PR này): user do cầu nối tạo là
  * user do bên tin cậy tạo cho mailbox đã biết nên được tạo với
  * email_verified = true, và instance ghim generateId "uuid" (id
- * thường vẫn do PostgreSQL tự sinh UUIDv7 vì adapter drizzle khai
+ * thường vẫn do PostgreSQL tự sinh UUIDv7 vì adapter khai
  * supportsUUIDs; chỉ id tất định của verification lock mới đổi sang
  * dạng UUID, hết lỗi 22P02). Nhờ đó đăng nhập OTP cho user bridge
  * không còn chạy đường revoke xoá credential: ca bên dưới khẳng định

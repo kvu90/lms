@@ -1,6 +1,6 @@
 /**
  * Repository của bảng MCP IDEMPOTENCY trên Kysely — chuyển đổi
- * Drizzle → Kysely thuộc nhóm G8 của chiến dịch chuyển tầng dữ
+ * bộ máy cũ → Kysely thuộc nhóm G8 của chiến dịch chuyển tầng dữ
  * liệu (issue #648).
  *
  * Vai trò: truy cập bảng `mcp_idempotency_keys` của kho trung tâm

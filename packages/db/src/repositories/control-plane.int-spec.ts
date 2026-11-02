@@ -1,18 +1,10 @@
-import { eq } from 'drizzle-orm';
-import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { sql } from 'kysely';
 import { Migrator } from 'kysely/migration';
 import { join } from 'node:path';
 import { Client, Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createControlPlaneKysely, type ControlPlaneDb } from '../client';
-import {
-  spaceRegistry,
-  spaceRegistryHistory,
-  spaceSchemaMigrationRuns,
-  type SpaceRegistrySnapshot,
-} from '../control-plane.schema';
-import { adoptJournal } from '../migrate/adopt-journal';
+import type { SpaceRegistrySnapshot } from '../jsonb-types';
 import { FrozenSqlProvider } from '../migrate/frozen-sql-provider';
 import { MIGRATION_STORES } from '../migrate/stores';
 import { verifyStore } from '../migrate/verify';
@@ -39,15 +31,16 @@ import {
  * playbook ở `AGENTS.md` của package):
  * - T-4: ngữ nghĩa `undefined` trong values/set/where của Kysely
  *   (đo cả SQL biên dịch lẫn kết quả chạy thật).
- * - T-7 (phần control plane): contract hai ORM trên cùng database —
- *   cùng một dòng đọc qua Drizzle và qua Kysely cho kiểu runtime
- *   từng cột đại diện (jsonb snapshot, timestamptz, uuid, text).
- * - T-10: hình dạng lỗi `pg` hai ORM đặt cạnh nhau cho ca trùng
- *   `database_name` dedicated và ca trùng slug.
+ * - T-7 (phần control plane): contract kiểu runtime trên cùng
+ *   database — cùng một dòng đọc qua oracle độc lập (Kysely thô
+ *   ngoài repository) và qua repository cho kiểu runtime từng
+ *   cột đại diện (jsonb snapshot, timestamptz, uuid, text).
+ * - T-10: hình dạng lỗi `pg` cho ca trùng `database_name`
+ *   dedicated và ca trùng slug.
  * - U5: insert không truyền id nhận id khớp regex UUIDv7 qua
  *   `returning`; insert có id tường minh giữ nguyên id.
- * Và đo T-1 (registry ~20 instance) + kiểm chứng cầu nối trên kho
- * control plane ở cả hai đường (từ rỗng / đã nhận nuôi no-op).
+ * Và đo T-1 (registry ~20 instance) + kiểm chứng bộ máy migration
+ * trên kho control plane ở cả hai đường (từ rỗng / đã áp đủ no-op).
  */
 const adminUrl =
   process.env.LMS_DB_TEST_ADMIN_URL ??
@@ -63,7 +56,6 @@ let cpUrl = '';
 let pool: Pool;
 let db: ControlPlaneDb;
 let repo: ControlPlaneRepository;
-let drizzleDb: NodePgDatabase;
 
 /** Dữ kiện đăng ký mẫu; slug truyền vào để các ca không giẫm nhau. */
 function registration(slug: string, patch: Partial<NewSpaceRegistration> = {}): NewSpaceRegistration {
@@ -104,7 +96,6 @@ beforeAll(async () => {
   pool = new Pool({ connectionString: cpUrl });
   db = createControlPlaneKysely(pool);
   repo = new ControlPlaneRepository(db);
-  drizzleDb = drizzle({ client: pool });
 }, 300_000);
 
 afterAll(async () => {
@@ -260,8 +251,8 @@ describe('repository control plane trên Kysely — đối chiếu hành vi', ()
     const [listed] = await repo.listHistory(created!.id);
     expect(listed!.after).toEqual(snapshot);
     // Khớp từng byte ở tầng lưu trữ: văn bản jsonb đã lưu của dòng
-    // ghi qua Kysely phải bằng văn bản của dòng ghi qua Drizzle với
-    // cùng một snapshot (xem thêm ca hai ORM ở mục T-7).
+    // ghi qua repository phải parse lại đúng snapshot (xem thêm ca
+    // contract kiểu runtime ở mục T-7).
     const raw = await db
       .selectFrom('space_registry_history')
       .select(sql<string>`after::text`.as('stored'))
@@ -423,85 +414,108 @@ describe('T-4 — ngữ nghĩa undefined trong values/set/where của Kysely (đ
   });
 });
 
-describe('T-7 (phần control plane) + T-10 — contract hai ORM trên cùng database', () => {
-  it('T-7: cùng một dòng đọc qua Drizzle và qua Kysely cho kiểu runtime và giá trị khớp nhau từng cột đại diện', async () => {
-    const [drizzleRow] = await drizzleDb
-      .insert(spaceRegistry)
+describe('T-7 (phần control plane) + T-10 — contract kiểu runtime và hình dạng lỗi pg trên cùng database', () => {
+  it('T-7: cùng một dòng đọc qua oracle độc lập và qua repository cho kiểu runtime và giá trị khớp nhau từng cột đại diện', async () => {
+    const oracleRow = await db
+      .insertInto('space_registry')
       .values({
         slug: 't7-space',
         name: 'T7',
         kind: 'center',
         status: 'active',
-        databaseName: 'db_t7',
-        storageMode: 'dedicated',
-        connectionRoleRef: 'role_t7',
-        secretRef: 'env:T7_URL',
-        schemaVersion: 'v1',
+        database_name: 'db_t7',
+        storage_mode: 'dedicated',
+        connection_role_ref: 'role_t7',
+        secret_ref: 'env:T7_URL',
+        schema_version: 'v1',
         plan: null,
       })
-      .returning();
+      .returningAll()
+      .executeTakeFirstOrThrow();
     const kyselyRow = await repo.findSpaceBySlug('t7-space');
     expect(kyselyRow).toBeDefined();
-    expect(kyselyRow!.id).toBe(drizzleRow!.id);
+    expect(kyselyRow!.id).toBe(oracleRow.id);
     expect(typeof kyselyRow!.id).toBe('string');
     expect(kyselyRow!.createdAt).toBeInstanceOf(Date);
-    expect(drizzleRow!.createdAt).toBeInstanceOf(Date);
-    expect(kyselyRow!.createdAt.toISOString()).toBe(drizzleRow!.createdAt.toISOString());
+    expect(oracleRow.created_at).toBeInstanceOf(Date);
+    expect(kyselyRow!.createdAt.toISOString()).toBe((oracleRow.created_at as Date).toISOString());
     expect(kyselyRow!.plan).toBeNull();
     expect(kyselyRow!.secretRef).toBe('env:T7_URL');
 
-    // jsonb snapshot: ghi qua Drizzle, đọc qua repository và ngược lại.
-    const snapshot = snapshotOf(drizzleRow!);
-    const [drizzleHistory] = await drizzleDb
-      .insert(spaceRegistryHistory)
-      .values({ spaceId: drizzleRow!.id, actorId: ACTOR_ID, action: 'create', before: null, after: snapshot })
-      .returning();
-    const viaRepo = await repo.listHistory(drizzleRow!.id);
+    // jsonb snapshot: ghi qua oracle độc lập, đọc qua repository và ngược lại.
+    const snapshot = snapshotOf({
+      id: oracleRow.id,
+      slug: oracleRow.slug,
+      name: oracleRow.name,
+      kind: oracleRow.kind,
+      status: oracleRow.status,
+      databaseName: oracleRow.database_name,
+      storageMode: oracleRow.storage_mode,
+      connectionRoleRef: oracleRow.connection_role_ref,
+      secretRef: oracleRow.secret_ref,
+      schemaVersion: oracleRow.schema_version,
+      plan: oracleRow.plan,
+    });
+    const oracleHistory = await db
+      .insertInto('space_registry_history')
+      .values({
+        space_id: oracleRow.id,
+        actor_id: ACTOR_ID,
+        action: 'create',
+        before: null,
+        after: sql`${JSON.stringify(snapshot)}::jsonb`,
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    const viaRepo = await repo.listHistory(oracleRow.id);
     expect(viaRepo).toHaveLength(1);
     expect(viaRepo[0]!.after).toEqual(snapshot);
     expect(viaRepo[0]!.before).toBeNull();
     expect(viaRepo[0]!.createdAt).toBeInstanceOf(Date);
-    expect(drizzleHistory!.after).toEqual(snapshot);
+    expect(oracleHistory.after).toEqual(snapshot);
 
     const viaRepoWrite = await repo.insertHistory({
-      spaceId: drizzleRow!.id,
+      spaceId: oracleRow.id,
       actorId: ACTOR_ID,
       action: 'update',
       before: snapshot,
       after: snapshot,
     });
-    const [drizzleReadBack] = await drizzleDb
-      .select()
-      .from(spaceRegistryHistory)
-      .where(eq(spaceRegistryHistory.id, viaRepoWrite.id));
-    expect(drizzleReadBack!.before).toEqual(snapshot);
-    expect(drizzleReadBack!.after).toEqual(snapshot);
+    const oracleReadBack = await db
+      .selectFrom('space_registry_history')
+      .select(['before', 'after'])
+      .where('id', '=', viaRepoWrite.id)
+      .executeTakeFirstOrThrow();
+    expect(oracleReadBack.before).toEqual(snapshot);
+    expect(oracleReadBack.after).toEqual(snapshot);
 
     // Khớp từng byte ở tầng lưu trữ: cùng một snapshot ghi qua hai
-    // ORM cho văn bản jsonb đã lưu giống hệt nhau.
+    // đường (oracle thô và repository) cho văn bản jsonb đã lưu
+    // giống hệt nhau.
     const storedTexts = await db
       .selectFrom('space_registry_history')
       .select(sql<string>`after::text`.as('stored'))
-      .where('space_id', '=', drizzleRow!.id)
+      .where('space_id', '=', oracleRow.id)
       .execute();
     expect(storedTexts).toHaveLength(2);
     expect(storedTexts[0]!.stored).toBe(storedTexts[1]!.stored);
 
-    // steps jsonb (mảng) qua đường repository, đọc lại bằng Drizzle.
+    // steps jsonb (mảng) qua đường repository, đọc lại bằng oracle độc lập.
     const run = await repo.insertMigrationRun({
-      spaceId: drizzleRow!.id,
+      spaceId: oracleRow.id,
       runId: 't7-run',
       fromVersion: null,
       toVersion: 'v1',
       status: 'success',
       steps: [{ name: 'baseline', status: 'success' }],
     });
-    const [drizzleRun] = await drizzleDb
-      .select()
-      .from(spaceSchemaMigrationRuns)
-      .where(eq(spaceSchemaMigrationRuns.id, run.id));
-    expect(drizzleRun!.steps).toEqual([{ name: 'baseline', status: 'success' }]);
-    expect(drizzleRun!.startedAt).toBeInstanceOf(Date);
+    const oracleRun = await db
+      .selectFrom('space_schema_migration_runs')
+      .select(['steps', 'started_at as startedAt'])
+      .where('id', '=', run.id)
+      .executeTakeFirstOrThrow();
+    expect(oracleRun.steps).toEqual([{ name: 'baseline', status: 'success' }]);
+    expect(oracleRun.startedAt).toBeInstanceOf(Date);
     expect(run.startedAt).toBeInstanceOf(Date);
   });
 
@@ -514,9 +528,9 @@ describe('T-7 (phần control plane) + T-10 — contract hai ORM trên cùng dat
     expect(result.rows[0]!.n).toBe(0);
   });
 
-  it('T-10: ca trùng database_name dedicated — Kysely ném lỗi pg trực tiếp, Drizzle bọc qua cause, cả hai đều được nhận diện', async () => {
+  it('T-10: ca trùng database_name dedicated — lỗi pg trực tiếp được nhận diện ở cả đường thô lẫn đường repository', async () => {
     await repo.insertSpaceIfAbsent(registration('t10-first'));
-    // Qua Kysely (insert thẳng, không onConflict): lỗi pg nguyên bản.
+    // Insert thẳng (không onConflict): lỗi pg nguyên bản.
     let kyselyError: unknown;
     try {
       await db
@@ -540,29 +554,6 @@ describe('T-7 (phần control plane) + T-10 — contract hai ORM trên cùng dat
     expect(ke.constraint).toBe(DEDICATED_DATABASE_NAME_UNIQUE_INDEX);
     expect(ke.cause).toBeUndefined();
     expect(isDedicatedDatabaseNameConflict(kyselyError)).toBe(true);
-
-    // Qua Drizzle: lớp lỗi truy vấn không mang code/constraint ở
-    // ngoài; lỗi pg gốc nằm ở cause.
-    let drizzleError: unknown;
-    try {
-      await drizzleDb.insert(spaceRegistry).values({
-        slug: 't10-third',
-        name: 'T10',
-        kind: 'center',
-        status: 'active',
-        databaseName: 'db_t10_first',
-        storageMode: 'dedicated',
-        connectionRoleRef: 'role_t10',
-      });
-    } catch (err) {
-      drizzleError = err;
-    }
-    expect(drizzleError).toBeDefined();
-    const de = drizzleError as { code?: unknown; cause?: { code?: unknown; constraint?: unknown } };
-    expect(de.code).toBeUndefined();
-    expect(de.cause?.code).toBe('23505');
-    expect(de.cause?.constraint).toBe(DEDICATED_DATABASE_NAME_UNIQUE_INDEX);
-    expect(isDedicatedDatabaseNameConflict(drizzleError)).toBe(true);
 
     // Đường repository (insert có onConflict theo slug): va chạm
     // database_name vẫn ném và được nhận diện — đây là ca service
@@ -601,21 +592,20 @@ describe('T-7 (phần control plane) + T-10 — contract hai ORM trên cùng dat
   });
 });
 
-describe('cầu nối migration trên kho control plane — hai đường', () => {
-  it('đường từ rỗng: database dựng bằng cầu nối có đủ 6 bảng, 3 dòng nhật ký và hậu kiểm của package đạt', async () => {
+describe('bộ máy migration trên kho control plane — hai đường', () => {
+  it('đường từ rỗng: database dựng bằng bộ máy migration có đủ 6 bảng, 3 dòng nhật ký và hậu kiểm của package đạt', async () => {
     const counts = await verifyStore(db, 'control-plane');
     expect(counts.tables).toBe(6);
     expect(counts.journalRows).toBe(3);
   });
 
-  it('đường đã nhận nuôi: cấy nhật ký trả already-adopted và migrateToLatest là no-op, dữ kiện còn nguyên', async () => {
-    // Diện đối sánh của adoption là carrier đóng băng (2 tên); nhật
-    // ký của database này có cả tên migration native đã áp — tên
-    // thừa thuộc diện native được phép, không làm adoption lệch.
+  it('đường đã có nhật ký đầy đủ: migrateToLatest là no-op, dữ kiện còn nguyên', async () => {
+    // Nhật ký của database này có đủ carrier đóng băng (2 tên) lẫn
+    // tên migration native đã áp — hậu kiểm sự có mặt của carrier
+    // chỉ đòi các carrier thật phải có mặt, tên native là phần
+    // thừa được phép.
     const carrierNames = MIGRATION_STORES['control-plane'].carrierNames;
     expect(carrierNames).toHaveLength(2);
-    const outcome = await adoptJournal(db, carrierNames);
-    expect(outcome).toBe('already-adopted');
     const migrator = new Migrator({ db, provider: new FrozenSqlProvider(join(process.cwd(), 'migrations', 'control-plane')) });
     const { error, results } = await migrator.migrateToLatest();
     expect(error).toBeUndefined();

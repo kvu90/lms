@@ -215,7 +215,7 @@ export class TenantsService {
    */
   async getTenantInSpace(slug: string): Promise<TenantRow | undefined> {
     return tenantAls.run({ platform: true }, () =>
-      this.spaceDb.withSpaceDatabase(slug, () => this.repo.getTenantBySlug(slug)),
+      this.spaceDb.withSpaceKysely(slug, () => this.repo.getTenantBySlug(slug)),
     );
   }
 
@@ -227,14 +227,14 @@ export class TenantsService {
    * điển hình là bước làm mới phiên phải biết membership trong kho
    * còn hiệu lực hay đã kết thúc trước khi cấp token mới. Trả
    * `undefined` khi kho riêng không có dòng membership của cặp
-   * này. Tra cứu bọc ngữ cảnh platform và `withSpaceDatabase` theo
+   * này. Tra cứu bọc ngữ cảnh platform và `withSpaceKysely` theo
    * đúng khuôn của `getTenantInSpace`: bảng membership cũng mang
    * RLS theo tenant và ngữ cảnh của nơi gọi không đáng tin cho
    * việc tra cứu này.
    */
   async getMembershipInSpace(slug: string, tenantId: string, userId: string): Promise<TenantMembershipRow | undefined> {
     return tenantAls.run({ platform: true }, () =>
-      this.spaceDb.withSpaceDatabase(slug, () => this.repo.getMembership(tenantId, userId)),
+      this.spaceDb.withSpaceKysely(slug, () => this.repo.getMembership(tenantId, userId)),
     );
   }
 
@@ -323,7 +323,7 @@ export class TenantsService {
   // đăng ký chế độ kho của slug đó; tenant ở kho chung thì chạy
   // nguyên đường platform như cũ, tenant ở kho riêng thì chạy
   // NGUYÊN thân InContext (gồm mọi cổng capability) trong
-  // `withSpaceDatabase(slug)` để các lượt đọc vào đúng kho đích.
+  // `withSpaceKysely(slug)` để các lượt đọc vào đúng kho đích.
   // Các method còn lại của bề mặt này giữ nguyên khuôn platform:
   // chúng hoặc là thao tác vòng đời do platform chủ trì trên dòng
   // thư mục ở kho chung (tạo/sửa tenant), hoặc là đường ghi
@@ -414,7 +414,7 @@ export class TenantsService {
    *    nào vào kho chung — nên tra kho chung trước sẽ kết luận
    *    sai "không tồn tại" cho đúng trung tâm đang phục vụ
    *    request. Lượt đọc bọc ngữ cảnh platform NGOÀI
-   *    `withSpaceDatabase` theo đúng khuôn `getTenantInSpace`:
+   *    `withSpaceKysely` theo đúng khuôn `getTenantInSpace`:
    *    bảng `tenants` mang RLS theo `app.tenant_id` và ngữ cảnh
    *    của nơi gọi không đáng tin cho việc tra cứu này. Không
    *    gian của ngữ cảnh chưa đăng ký hoặc tầng định tuyến chưa
@@ -436,7 +436,7 @@ export class TenantsService {
     if (contextSlug) {
       try {
         const inContextSpace = await tenantAls.run({ platform: true }, () =>
-          this.spaceDb.withSpaceDatabase(contextSlug, () => this.repo.getTenant(tenantId)),
+          this.spaceDb.withSpaceKysely(contextSlug, () => this.repo.getTenant(tenantId)),
         );
         if (inContextSpace) return inContextSpace;
       } catch (err) {
@@ -454,8 +454,8 @@ export class TenantsService {
   /**
    * Chạy một thân đọc `InContext` tại ĐÚNG kho của tenant đích
    * (thiết kế A1): tenant ở kho riêng thì thân chạy trong
-   * `withSpaceDatabase(slug)` — bọc platform đặt NGOÀI
-   * `withSpaceDatabase` theo khuôn `getTenantInSpace`, vì khung
+   * `withSpaceKysely(slug)` — bọc platform đặt NGOÀI
+   * `withSpaceKysely` theo khuôn `getTenantInSpace`, vì khung
    * định tuyến hợp ngữ cảnh cha vào store của nó (platform còn
    * nguyên), trong khi bọc platform ở trong sẽ thay toàn bộ
    * store và đánh rơi slug. Tenant ở kho chung (hoặc không tra
@@ -464,7 +464,7 @@ export class TenantsService {
   private async runInTenantTargetStore<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
     const target = await this.spaceTargetForTenant(tenantId);
     if (target?.dedicated) {
-      return tenantAls.run({ platform: true }, () => this.spaceDb.withSpaceDatabase(target.slug, fn));
+      return tenantAls.run({ platform: true }, () => this.spaceDb.withSpaceKysely(target.slug, fn));
     }
     return tenantAls.run({ platform: true }, fn);
   }
@@ -566,7 +566,7 @@ export class TenantsService {
    *
    * Handle uỷ thác (D5 #657): tầng dùng chung `@lms/enrol` đã
    * chuyển sang Kysely nên điểm này uỷ thác bằng tay cầm Kysely
-   * đã định tuyến của API (`spaceDb.routedKysely`); handle Drizzle
+   * đã định tuyến của API (`spaceDb.routedKysely`); handle bộ máy cũ
    * thô inject riêng cho điểm này đã gỡ. Điểm uỷ thác là một
    * thao tác độc lập, không ghép transaction với bất kỳ thao tác
    * nào khác, nên không tồn tại giao dịch lai.
@@ -795,7 +795,7 @@ export class TenantsService {
     if (!spaceTenant) {
       throw new NotFoundException({ message: `Tenant ${slug} is not ready in its own store`, code: 'tenant.not_found' });
     }
-    const view = await this.spaceDb.withSpaceDatabase(slug, async () => {
+    const view = await this.spaceDb.withSpaceKysely(slug, async () => {
       await this.assertTenantManager(actorId, spaceTenant.id);
       const user = await this.users.createUser({
         username: dto.username,
@@ -915,10 +915,10 @@ export class TenantsService {
    * thành viên (issue #587, hạng mục 3 — thiết kế B1): thư mục
    * chỉ là chỉ mục định tuyến — tên/trạng thái của trung tâm và
    * trạng thái membership THẬT đều đọc tại kho đích trong
-   * `withSpaceDatabase`, đối chiếu bằng `spaceUserId` của mục.
+   * `withSpaceKysely`, đối chiếu bằng `spaceUserId` của mục.
    * Trung tâm không còn active hoặc membership ở kho đích
    * không còn active → trả `null` (không thuộc bộ chọn). Chuẩn
-   * bị kho đích lỗi thì `withSpaceDatabase` ném ra nguyên
+   * bị kho đích lỗi thì `withSpaceKysely` ném ra nguyên
    * trạng: bộ chọn lỗi tường minh thay vì lặng lẽ thiếu một
    * trung tâm.
    *
@@ -931,7 +931,7 @@ export class TenantsService {
     spaceUserId: string,
     activeTenantId?: string,
   ): Promise<MyTenant | null> {
-    return this.spaceDb.withSpaceDatabase(spaceSlug, async () => {
+    return this.spaceDb.withSpaceKysely(spaceSlug, async () => {
       const tenant = await this.repo.getTenantBySlug(spaceSlug);
       if (!tenant || tenant.status !== 'active') return null;
       const membership = await this.repo.getMembership(tenant.id, spaceUserId);

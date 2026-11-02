@@ -20,7 +20,7 @@ import { SocialRepository } from './social';
  * không mô phỏng handle.
  *
  * Các hành vi được khoá ở đây là các điểm rủi ro của lượt chuyển
- * đổi Drizzle → Kysely: id sinh bởi `DEFAULT uuidv7()` qua
+ * đổi bộ máy cũ → Kysely: id sinh bởi `DEFAULT uuidv7()` qua
  * returning (phụ lục U của phương án chiến dịch); ngữ nghĩa loại
  * `undefined` khi ghi (T-4) — patch chỉ đổi trường được truyền;
  * jsonb ghi qua helper serialize `::jsonb` đọc lại đúng hình dạng
@@ -180,7 +180,7 @@ describe('repository xã hội trên Kysely', () => {
     // Nhánh không user: ti_user_id NULL được PostgreSQL coi là
     // phân biệt trong chỉ số duy nhất (chỉ số không khai NULLS NOT
     // DISTINCT) nên lần gắn không user là một dòng độc lập — đúng
-    // hành vi của đường Drizzle cũ với cùng câu ON CONFLICT, giữ
+    // hành vi của đường cũ trước chuyển đổi với cùng câu ON CONFLICT, giữ
     // nguyên ở lượt chuyển đổi này.
     const shared = await social.insertInstance({ ...base });
     expect(shared.id).not.toBe(personal1.id);

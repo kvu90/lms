@@ -3,8 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ConfigService } from '@nestjs/config';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { Client } from 'pg';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { Client, Pool } from 'pg';
 import {
   OutboxWriterService,
   PaymentsRepository,
@@ -12,8 +11,7 @@ import {
   SepayMatchingService,
 } from '@lms/payments';
 import { createCentreKysely } from '@lms/db';
-import { spaceRegistry } from '@lms/db/control-plane';
-import { relations } from '../../../src/db/relations';
+import { createControlPlaneKysely } from '@lms/db/control-plane';
 import { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
 import { tenantAls } from '../../../src/db/tenant-als';
 import { TenantAwarePool } from '../../../src/db/tenant-pool';
@@ -113,7 +111,7 @@ async function withClient<T>(connectionString: string, fn: (client: Client) => P
   }
 }
 
-/** Áp một file migration SQL (tách theo dấu phân đoạn của Drizzle) lên một database qua kết nối cho trước. */
+/** Áp một file migration SQL (tách theo dấu phân đoạn statement-breakpoint) lên một database qua kết nối cho trước. */
 async function applySqlFile(connectionString: string, filePath: string): Promise<void> {
   await withClient(connectionString, async (client) => {
     const version = await client.query<{ server_version_num: string }>('SHOW server_version_num');
@@ -353,30 +351,33 @@ describe('Kích hoạt ghi danh trả phí theo không gian của payment (integ
     // khớp `connectionRoleRef`), trung tâm kho chung, trung tâm
     // lỗi trỏ một bí mật không tồn tại.
     process.env.SPACE_TEST_TD1_URL = clusterUrl('postgres');
-    await withClient(clusterUrl(CP_DATABASE), async (client) => {
-      const cpDb = drizzle({ client });
-      await cpDb.insert(spaceRegistry).values([
+    const cpSeedPool = new Pool({ connectionString: clusterUrl(CP_DATABASE) });
+    try {
+      const cpDb = createControlPlaneKysely(cpSeedPool);
+      await cpDb.insertInto('space_registry').values([
         {
           slug: CENTRE_SLUG, name: 'Trung tâm kho riêng td1', kind: 'center', status: 'active',
-          databaseName: CENTRE_DATABASE, storageMode: 'dedicated', connectionRoleRef: businessRole,
-          secretRef: 'env:SPACE_TEST_TD1_URL', schemaVersion: 'v1',
+          database_name: CENTRE_DATABASE, storage_mode: 'dedicated', connection_role_ref: businessRole,
+          secret_ref: 'env:SPACE_TEST_TD1_URL', schema_version: 'v1',
         },
         {
           slug: SHARED_SLUG, name: 'Trung tâm kho chung td1', kind: 'center', status: 'active',
-          databaseName: businessDatabase, storageMode: 'shared', connectionRoleRef: businessRole,
-          secretRef: 'env:DATABASE_URL', schemaVersion: 'v1',
+          database_name: businessDatabase, storage_mode: 'shared', connection_role_ref: businessRole,
+          secret_ref: 'env:DATABASE_URL', schema_version: 'v1',
         },
         {
           slug: BROKEN_SLUG, name: 'Trung tâm lỗi td1', kind: 'center', status: 'active',
-          databaseName: 'lms_test_centre_td1_broken', storageMode: 'dedicated', connectionRoleRef: businessRole,
-          secretRef: 'env:SPACE_TEST_TD1_MISSING_URL', schemaVersion: 'v1',
+          database_name: 'lms_test_centre_td1_broken', storage_mode: 'dedicated', connection_role_ref: businessRole,
+          secret_ref: 'env:SPACE_TEST_TD1_MISSING_URL', schema_version: 'v1',
         },
-      ]);
-    });
+      ]).execute();
+    } finally {
+      await cpSeedPool.end();
+    }
 
     // Đồ thị service của nhịp quét — đúng ngăn xếp production,
     // handle inject là handle ĐỊNH TUYẾN của khung như module
-    // worker gắn; handle kho chung THÔ gắn vào khung như factory
+    // worker gắn; handle Kysely kho chung gắn vào khung như factory
     // của module làm lúc khởi động.
     spaceDb = new SpaceDatabaseService({
       get: (key: string) =>
@@ -389,11 +390,9 @@ describe('Kích hoạt ghi danh trả phí theo không gian của payment (integ
         })[key],
     } as unknown as ConfigService);
     sharedPool = new TenantAwarePool({ connectionString: process.env.DATABASE_URL! });
-    const rawShared = drizzle({ client: sharedPool, relations });
-    spaceDb.bindSharedDatabase(rawShared);
-    // Handle Kysely trên CÙNG pool (đúng như factory của module
-    // worker) cho repository + writer của `@lms/payments` và cho
-    // toàn bộ adapter của worker qua khung định tuyến này: điểm
+    // Handle Kysely trên pool dùng chung (đúng như factory của
+    // module worker) cho repository + writer của `@lms/payments` và
+    // cho toàn bộ adapter của worker qua khung định tuyến này: điểm
     // phân giải không gian chỉ cần khung, hai adapter kích hoạt
     // và settlement chạy trên handle Kysely định tuyến của khung.
     spaceDb.bindSharedKysely(createCentreKysely(sharedPool));

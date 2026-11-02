@@ -21,7 +21,7 @@ import type {
  * Danh sách cột tường minh có bí danh camelCase cho các bảng mà các
  * contributor tích hợp sẵn đọc/ghi (chuyển Kysely, issue #648): dòng
  * đọc ra giữ đúng hình dạng camelCase của archive như khi còn đọc
- * qua Drizzle; insert/update viết bằng tên cột snake_case của
+ * qua bộ máy cũ; insert/update viết bằng tên cột snake_case của
  * database. Kiểu dòng tương ứng nằm ở `backup-archive.types.ts`.
  */
 const COURSE_COLUMNS = [

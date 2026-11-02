@@ -37,7 +37,7 @@ export function countUserVisibleCharacters(text: string): number {
   return [...text].length;
 }
 
-/** Lỗi vi phạm ràng buộc duy nhất của Postgres (kể cả khi drizzle bọc lỗi gốc trong `cause`). */
+/** Lỗi vi phạm ràng buộc duy nhất của Postgres (kể cả khi lớp truy cập dữ kiện bọc lỗi gốc trong `cause`). */
 function isUniqueViolation(err: unknown): boolean {
   let current: unknown = err;
   for (let depth = 0; depth < 4 && current && typeof current === 'object'; depth += 1) {

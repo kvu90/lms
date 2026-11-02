@@ -1,15 +1,8 @@
-import { asc, eq } from 'drizzle-orm';
-import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { sql as drizzleSql } from 'drizzle-orm';
 import { sql } from 'kysely';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createCentreKysely, type CentreDb } from '../client';
-import type { LearningOutcomeDoc } from '../curriculum.schema';
-import type { ExamVariant } from '../quiz.schema';
-import {
-  question, questionBankContributions, questionBankEntries, questionBanks, questionCategories,
-} from '../questions.schema';
+import type { ExamVariant, LearningOutcomeDoc } from '../jsonb-types';
 import { buildTestDatabase, dropTestDatabase, withDatabase } from '../test-support/build-test-database';
 import { QuestionBanksRepository, type QuestionBankRow } from './question-banks';
 
@@ -28,11 +21,12 @@ import { QuestionBanksRepository, type QuestionBankRow } from './question-banks'
  *   (phụ lục U); insert có id tường minh (hình dạng `buildBank`
  *   cấp id trước để dựng context) giữ đúng id đó.
  * - Mọi đường đọc bank/category/câu hỏi-kèm-entry khớp oracle
- *   Drizzle (nguyên văn truy vấn của repository cũ) trên CÙNG dữ
- *   kiện mẫu, gồm hình dạng lồng `{ q, entry }` của phép nối.
+ *   độc lập (cùng truy vấn dựng bằng Kysely thô ngoài repository)
+ *   trên CÙNG dữ kiện mẫu, gồm hình dạng lồng `{ q, entry }` của
+ *   phép nối.
  * - CTE đệ quy gom YCCĐ theo node cho cùng tập id với chính thân
- *   SQL cũ chạy qua đường execute của Drizzle (điểm nóng của
- *   nhóm: bản Kysely bỏ lớp ép kiểu `as unknown as { rows }` nhờ
+ *   SQL cũ chạy qua đường execute thô (điểm nóng của nhóm: bản
+ *   Kysely bỏ lớp ép kiểu `as unknown as { rows }` nhờ
  *   `QueryResult.rows` đã có kiểu — kết quả phải không đổi).
  * - Tín hiệu sử dụng (đếm slot theo `count(*)::int`, đề chứa câu,
  *   pin dùng câu có distinct) và tra cứu người (tên hiển thị có
@@ -60,7 +54,6 @@ const TX_BANK_ID = '019276a1-4444-7000-8000-0000000000b2';
 let pool: Pool;
 let db: CentreDb;
 let repo: QuestionBanksRepository;
-let drizzleDb: NodePgDatabase;
 
 interface Seed {
   tenantId: string;
@@ -268,7 +261,6 @@ beforeAll(async () => {
   pool = new Pool({ connectionString: storeUrl });
   db = createCentreKysely(pool);
   repo = new QuestionBanksRepository(db);
-  drizzleDb = drizzle({ client: pool });
   seed = await seedData();
 }, 180_000);
 
@@ -277,6 +269,19 @@ afterAll(async () => {
   if (pool) await pool.end().catch(() => undefined);
   if (adminUrl) await dropTestDatabase(adminUrl, TEST_DB);
 });
+
+/** Bí danh đọc dòng `question_banks` về đúng hình dạng `QuestionBankRow` của repository (dùng cho oracle). */
+const BANK_ROW_COLUMNS = [
+  'id', 'tenant_id as tenantId', 'name', 'bank_kind as bankKind', 'scope',
+  'owner_id as ownerId', 'scope_ref_id as scopeRefId', 'context_id as contextId',
+  'status', 'created_by as createdBy', 'created_at as createdAt', 'updated_at as updatedAt',
+] as const;
+
+/** Bí danh đọc dòng `question_categories` về đúng hình dạng dòng category của repository (dùng cho oracle). */
+const CATEGORY_ROW_COLUMNS = [
+  'id', 'name', 'context_id as contextId', 'bank_id as bankId', 'info', 'parent',
+  'sort_order as sortOrder', 'stamp', 'created_at as createdAt', 'updated_at as updatedAt',
+] as const;
 
 describe('QuestionBanksRepository trên Kysely (issue #644)', () => {
   it('insertBank không truyền id nhận id UUIDv7 do database sinh và đọc lại nguyên vẹn', async () => {
@@ -294,9 +299,11 @@ describe('QuestionBanksRepository trên Kysely (issue #644)', () => {
     expect(await repo.getBank(EXPLICIT_BANK_ID)).toEqual(bank);
   });
 
-  it('tra cứu bank theo scope và theo lô khớp oracle Drizzle trên cùng dữ kiện', async () => {
-    const personal = await drizzleDb.select().from(questionBanks)
-      .where(eq(questionBanks.scope, 'personal'));
+  it('tra cứu bank theo scope và theo lô khớp oracle độc lập trên cùng dữ kiện', async () => {
+    const personal = await db.selectFrom('question_banks')
+      .select(BANK_ROW_COLUMNS)
+      .where('scope', '=', 'personal')
+      .execute();
     expect(await repo.getPersonalBank(seed.u1)).toEqual(personal[0]);
     expect(await repo.getSchoolBank(seed.tenantId)).toEqual(seed.schoolBank);
     expect(await repo.getPlatformBank()).toEqual(seed.platformBank);
@@ -312,8 +319,10 @@ describe('QuestionBanksRepository trên Kysely (issue #644)', () => {
     const byScopeRefs = await repo.listBanksByScopeRefs('course', [COURSE_ID]);
     expect(byScopeRefs.map((b) => b.id)).toEqual([seed.courseBank.id]);
 
-    const oracleAll = await drizzleDb.select().from(questionBanks)
-      .orderBy(asc(questionBanks.createdAt), asc(questionBanks.id));
+    const oracleAll = await db.selectFrom('question_banks')
+      .select(BANK_ROW_COLUMNS)
+      .orderBy('created_at').orderBy('id')
+      .execute();
     const mine = await repo.listBanks();
     // Bỏ bank id tường minh vừa thêm ở ca trên khỏi phép so tập đầy đủ.
     expect(mine.filter((b) => b.id !== EXPLICIT_BANK_ID)).toEqual(
@@ -322,18 +331,51 @@ describe('QuestionBanksRepository trên Kysely (issue #644)', () => {
   });
 
   it('listCategoriesOfBank chỉ gồm category của bank, sắp xếp theo thời gian tạo rồi id như bản cũ', async () => {
-    const oracle = (await drizzleDb.select().from(questionCategories)
-      .where(eq(questionCategories.bankId, seed.schoolBank.id)))
+    const oracle = (await db.selectFrom('question_categories')
+      .select(CATEGORY_ROW_COLUMNS)
+      .where('bank_id', '=', seed.schoolBank.id)
+      .execute())
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id));
     const mine = await repo.listCategoriesOfBank(seed.schoolBank.id);
     expect(mine.map((c) => c.id)).toEqual([seed.catA, seed.catA2, seed.catB]);
     expect(mine).toEqual(oracle);
   });
 
-  it('listQuestionsWithEntryInCategories trả hình dạng lồng { q, entry } khớp oracle Drizzle', async () => {
-    const oracle = await drizzleDb.select({ q: question, entry: questionBankEntries }).from(question)
-      .innerJoin(questionBankEntries, eq(questionBankEntries.questionId, question.id))
-      .where(eq(question.category, seed.catA));
+  it('listQuestionsWithEntryInCategories trả hình dạng lồng { q, entry } khớp oracle độc lập', async () => {
+    const joined = await db.selectFrom('question')
+      .innerJoin('question_bank_entries', 'question_bank_entries.question_id', 'question.id')
+      .select([
+        'question.id as qId', 'question.category as qCategory', 'question.qtype as qQtype',
+        'question.created_by as qCreatedBy', 'question.modified_by as qModifiedBy',
+        'question.derived_from_question_id as qDerivedFromQuestionId',
+        'question.derived_from_version_id as qDerivedFromVersionId',
+        'question.derived_from_bank_id as qDerivedFromBankId',
+        'question.original_author_id as qOriginalAuthorId',
+        'question.source_kind as qSourceKind', 'question.source_ref as qSourceRef',
+        'question.idnumber as qIdnumber', 'question.copy_count as qCopyCount',
+        'question.created_at as qCreatedAt', 'question.updated_at as qUpdatedAt',
+        'question_bank_entries.id as eId', 'question_bank_entries.question_category_id as eQuestionCategoryId',
+        'question_bank_entries.question_id as eQuestionId', 'question_bank_entries.latest_version as eLatestVersion',
+        'question_bank_entries.status as eStatus', 'question_bank_entries.withdrawn_reason as eWithdrawnReason',
+        'question_bank_entries.withdrawn_by as eWithdrawnBy', 'question_bank_entries.withdrawn_at as eWithdrawnAt',
+        'question_bank_entries.created_at as eCreatedAt', 'question_bank_entries.updated_at as eUpdatedAt',
+      ])
+      .where('question.category', '=', seed.catA)
+      .execute();
+    const oracle = joined.map((r) => ({
+      q: {
+        id: r.qId, category: r.qCategory, qtype: r.qQtype, createdBy: r.qCreatedBy, modifiedBy: r.qModifiedBy,
+        derivedFromQuestionId: r.qDerivedFromQuestionId, derivedFromVersionId: r.qDerivedFromVersionId,
+        derivedFromBankId: r.qDerivedFromBankId, originalAuthorId: r.qOriginalAuthorId,
+        sourceKind: r.qSourceKind, sourceRef: r.qSourceRef, idnumber: r.qIdnumber, copyCount: r.qCopyCount,
+        createdAt: r.qCreatedAt, updatedAt: r.qUpdatedAt,
+      },
+      entry: {
+        id: r.eId, questionCategoryId: r.eQuestionCategoryId, questionId: r.eQuestionId,
+        latestVersion: r.eLatestVersion, status: r.eStatus, withdrawnReason: r.eWithdrawnReason,
+        withdrawnBy: r.eWithdrawnBy, withdrawnAt: r.eWithdrawnAt, createdAt: r.eCreatedAt, updatedAt: r.eUpdatedAt,
+      },
+    }));
     const mine = await repo.listQuestionsWithEntryInCategories([seed.catA]);
     expect(mine.map((r) => r.q.id)).toEqual([seed.q1, seed.q2]);
     expect(mine).toEqual(oracle);
@@ -370,17 +412,17 @@ describe('QuestionBanksRepository trên Kysely (issue #644)', () => {
     expect(await repo.listUserIdsWithArchetypes(['student'])).toEqual([seed.u2]);
   });
 
-  it('listOutcomeIdsForNode gom YCCĐ của node và mọi node con cháu — cùng tập với thân SQL cũ qua Drizzle', async () => {
+  it('listOutcomeIdsForNode gom YCCĐ của node và mọi node con cháu — cùng tập với thân SQL cũ qua execute thô', async () => {
     const oracleFor = async (nodeId: string): Promise<string[]> => {
-      const result = await drizzleDb.execute(drizzleSql`
+      const result = await sql<{ id: string }>`
         WITH RECURSIVE tree AS (
           SELECT id FROM curriculum_nodes WHERE id = ${nodeId}
           UNION ALL
           SELECT n.id FROM curriculum_nodes n JOIN tree t ON n.parent_id = t.id
         )
         SELECT id FROM learning_outcomes WHERE node_id IN (SELECT id FROM tree)
-      `);
-      return (result as unknown as { rows: { id: string }[] }).rows.map((r) => r.id);
+      `.execute(db);
+      return result.rows.map((r) => r.id);
     };
     expect([...(await repo.listOutcomeIdsForNode(seed.nodeRoot))].sort())
       .toEqual([seed.oRoot, seed.oChild, seed.oGrand].sort());
@@ -396,9 +438,17 @@ describe('QuestionBanksRepository trên Kysely (issue #644)', () => {
     expect(c1?.status).toBe('pending');
     expect(c1?.proposerId).toBe(seed.u2);
 
-    const oracle = await drizzleDb.select().from(questionBankContributions)
-      .where(eq(questionBankContributions.targetBankId, seed.schoolBank.id))
-      .orderBy(asc(questionBankContributions.createdAt), asc(questionBankContributions.id));
+    const oracle = await db.selectFrom('question_bank_contributions')
+      .select([
+        'id', 'target_bank_id as targetBankId', 'question_id as questionId',
+        'target_question_id as targetQuestionId', 'proposer_id as proposerId', 'mode', 'status',
+        'note', 'content_hash as contentHash', 'near_duplicate_of as nearDuplicateOf',
+        'reviewer_id as reviewerId', 'reject_reason as rejectReason',
+        'result_question_id as resultQuestionId', 'created_at as createdAt', 'updated_at as updatedAt',
+      ])
+      .where('target_bank_id', '=', seed.schoolBank.id)
+      .orderBy('created_at').orderBy('id')
+      .execute();
     expect(await repo.listContributions({ targetBankId: seed.schoolBank.id })).toEqual(oracle);
     expect((await repo.listContributions({ targetBankId: seed.schoolBank.id, proposerId: seed.u1 })).map((c) => c.id))
       .toEqual([seed.c2]);
@@ -430,8 +480,9 @@ describe('QuestionBanksRepository trên Kysely (issue #644)', () => {
 
     await repo.deleteQuestionRow(seed.q2);
     expect(await repo.listQuestionsWithEntryInCategories([seed.catA])).toHaveLength(1);
-    const left = await drizzleDb.select().from(questionBankEntries)
-      .where(eq(questionBankEntries.questionId, seed.q2));
+    const left = await db.selectFrom('question_bank_entries').selectAll()
+      .where('question_id', '=', seed.q2)
+      .execute();
     expect(left).toEqual([]);
   });
 

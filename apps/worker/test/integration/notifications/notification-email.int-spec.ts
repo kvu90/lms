@@ -1,9 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { sql, type CentreDb } from '@lms/db';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { notificationDispatchLog, pluginConfig, userPreferences } from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
@@ -84,7 +83,7 @@ function buildFakeI18n() {
 describe('Kênh email thông báo của worker + digest hàng ngày (NB-5, issue #174)', () => {
   let context: INestApplicationContext;
   let harness: OrdinaryWorkerModuleHarness;
-  let db: any;
+  let db: CentreDb;
   const suffix = Date.now() % 100000;
   const userActive = `01920000-0000-7000-8000-${String(120000 + suffix).padStart(12, '0')}`;
   const userPrefOff = `01920000-0000-7000-8000-${String(220000 + suffix).padStart(12, '0')}`;
@@ -116,17 +115,17 @@ describe('Kênh email thông báo của worker + digest hàng ngày (NB-5, issue
       [userThrow, `nb5-t-${suffix}`, false],
     ];
     for (const [id, username, suspended] of rows) {
-      await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${id}, ${username}, ${`${username}@x.io`}, ${suspended}, false) on conflict (id) do nothing`);
+      await sql`insert into users (id, username, email, suspended, deleted) values (${id}, ${username}, ${`${username}@x.io`}, ${suspended}, false) on conflict (id) do nothing`.execute(db);
     }
     // Người dùng đã tắt email của calendar_reminder ở tuỳ chọn v2.
-    await db.insert(userPreferences).values({
-      userId: userPrefOff, name: 'message_provider_calendar_reminder_email_v2', value: 'off',
-    }).onConflictDoNothing();
+    await db.insertInto('user_preferences').values({
+      user_id: userPrefOff, name: 'message_provider_calendar_reminder_email_v2', value: 'off',
+    }).onConflict((oc) => oc.doNothing()).execute();
     // Người dùng đã tắt email của grade_updated ở tuỳ chọn v2 — ca
     // digest tôn trọng tuỳ chọn tại lúc tổng hợp dùng người này.
-    await db.insert(userPreferences).values({
-      userId: userDigestOff, name: 'message_provider_grade_updated_email_v2', value: 'off',
-    }).onConflictDoNothing();
+    await db.insertInto('user_preferences').values({
+      user_id: userDigestOff, name: 'message_provider_grade_updated_email_v2', value: 'off',
+    }).onConflict((oc) => oc.doNothing()).execute();
     // Hai processor tự dựng bằng tay phải chạy bằng kết nối role
     // thường của harness — dùng `db` quản trị ở đây sẽ đưa phần xử
     // lý cần kiểm chứng quay lại superuser và vô hiệu hoá lát #294.
@@ -144,8 +143,9 @@ describe('Kênh email thông báo của worker + digest hàng ngày (NB-5, issue
   }) as never;
 
   async function logRow(dedupeKey: string) {
-    const rows = await db.select().from(notificationDispatchLog)
-      .where(eq(notificationDispatchLog.dedupeKey, dedupeKey));
+    const rows = await db.selectFrom('notification_dispatch_log').selectAll()
+      .where('dedupe_key', '=', dedupeKey)
+      .execute();
     return rows[0];
   }
 
@@ -178,10 +178,10 @@ describe('Kênh email thông báo của worker + digest hàng ngày (NB-5, issue
   });
 
   async function seedQueued(userId: string, key: string, subject: string, provider = 'grade_updated') {
-    await db.insert(notificationDispatchLog).values({
-      userId, provider, channel: 'email', status: 'digest-queued',
-      subject, dedupeKey: key,
-    }).onConflictDoNothing();
+    await db.insertInto('notification_dispatch_log').values({
+      user_id: userId, provider, channel: 'email', status: 'digest-queued',
+      subject, dedupe_key: key,
+    }).onConflict((oc) => oc.doNothing()).execute();
   }
 
   it('lượt quét digest gửi ĐÚNG MỘT email tổng hợp cho mỗi người dùng, đóng các mục thành digest-sent, và không bao giờ gửi lại', async () => {
@@ -257,8 +257,8 @@ describe('Kênh email thông báo của worker + digest hàng ngày (NB-5, issue
     // SAU khi các mục đã xếp hàng: mục grade_updated bị chặn ở lúc
     // tổng hợp; mục admin_announcement là loại bắt buộc P2 — chính
     // sách site không chặn được nó ở bất kỳ đường phát nào.
-    await db.insert(pluginConfig).values({ plugin: 'notifications', name: 'provider_grade_updated_enabled', value: 'false' }).onConflictDoNothing();
-    await db.insert(pluginConfig).values({ plugin: 'notifications', name: 'provider_admin_announcement_enabled', value: 'false' }).onConflictDoNothing();
+    await db.insertInto('plugin_config').values({ plugin: 'notifications', name: 'provider_grade_updated_enabled', value: 'false' }).onConflict((oc) => oc.doNothing()).execute();
+    await db.insertInto('plugin_config').values({ plugin: 'notifications', name: 'provider_admin_announcement_enabled', value: 'false' }).onConflict((oc) => oc.doNothing()).execute();
     try {
       await seedQueued(userPolicy, `nb5-dg8-${suffix}`, 'Có điểm mới: Toán 7');
       await seedQueued(userMandatory, `nb5-dg9-${suffix}`, 'Thông báo quản trị & an toàn', 'admin_announcement');
@@ -272,10 +272,10 @@ describe('Kênh email thông báo của worker + digest hàng ngày (NB-5, issue
       expect(mandatoryMail).toHaveLength(1);
       expect(mandatoryMail[0]!.text).toContain('Thông báo quản trị & an toàn');
     } finally {
-      await db.delete(pluginConfig).where(and(
-        eq(pluginConfig.plugin, 'notifications'),
-        inArray(pluginConfig.name, ['provider_grade_updated_enabled', 'provider_admin_announcement_enabled']),
-      ));
+      await db.deleteFrom('plugin_config')
+        .where('plugin', '=', 'notifications')
+        .where('name', 'in', ['provider_grade_updated_enabled', 'provider_admin_announcement_enabled'])
+        .execute();
     }
   });
 

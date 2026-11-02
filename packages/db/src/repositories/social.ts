@@ -1,7 +1,7 @@
 /**
  * Repository của cụm XÃ HỘI trên Kysely — hạng mục nhân rộng G7
  * của chiến dịch chuyển tầng dữ liệu (issue #647), chuyển từ
- * repository Drizzle cũ ở
+ * repository cũ trước chuyển đổi ở
  * `apps/api/src/modules/social/social.repository.ts`.
  *
  * Vai trò: mọi truy cập tới bảy bảng của kho trung tâm thuộc
@@ -451,7 +451,7 @@ export class SocialRepository {
    * không trả dòng nào) thì đọc lại dòng đã có theo đúng khoá tự
    * nhiên — nhánh `ti_user_id` phân biệt tường minh: có user thì
    * so bằng, không có thì `IS NULL`, giữ nguyên hai nhánh của
-   * đường Drizzle trước đây.
+   * đường cũ trước đây.
    */
   async insertInstance(values: NewTagInstance, db: RepoDb = this.db()): Promise<TagInstanceRow> {
     const rows = await db

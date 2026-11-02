@@ -292,7 +292,7 @@ async function createAsApp(cimdFetch?: (input: unknown, init?: unknown) => Promi
     // (transport Node chính chủ chặn loopback theo chính sách SSRF —
     // spec chạy metadata server trên 127.0.0.1 nên phải tiêm fetch).
     // Issue #654 (D2): factory nhận handle Kysely định tuyến
-    // (`routedKysely`), không còn handle Drizzle — override này phải
+    // (`routedKysely`), không còn handle của bộ máy cũ — override này phải
     // chích SpaceDatabaseService như BetterAuthService thật làm.
     moduleBuilder = moduleBuilder.overrideProvider(BetterAuthService).useFactory({
       factory: (spaceDb: InstanceType<typeof SpaceDatabaseService>, passwordService: InstanceType<typeof PasswordService>) => {

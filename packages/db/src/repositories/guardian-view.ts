@@ -1,6 +1,6 @@
 /**
  * Repository của BỀ MẶT PHỤ HUYNH CHỈ-XEM trên Kysely — một phần của
- * nhóm G9 trong chiến dịch chuyển tầng dữ liệu Drizzle → Kysely
+ * nhóm G9 trong chiến dịch chuyển tầng dữ liệu sang Kysely
  * (issue #649).
  *
  * Vai trò: mọi truy vấn đọc phục vụ bề mặt tổng quan của phụ huynh
@@ -35,7 +35,7 @@
  * codegen; bên ngoài trả các hình dạng camelCase như phía tiêu thụ
  * đang dùng qua bí danh cột tường minh và các mảnh `sql` giữ nguyên
  * ép kiểu `::int` cho phép đếm (kiểu runtime của `count` qua `pg` là
- * int8 — ép `::int` giữ kết quả là `number` như đường Drizzle, thử
+ * int8 — ép `::int` giữ kết quả là `number` như đường bộ máy cũ, thử
  * nghiệm T-7). Mọi giá trị trong mệnh đề WHERE đều là tham số bắt
  * buộc; tập khoá rỗng được chặn ngay ở đầu phương thức (trả mảng
  * rỗng, không chạy truy vấn) như đường cũ. Repository không import
