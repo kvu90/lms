@@ -12,7 +12,6 @@ import {
 import { deriveCentreSecretEnvVar } from '../../../src/modules/tenants/centre-provision';
 import { FleetRegistryWriter } from '../../../src/modules/fleet/fleet-registry-writer';
 import { AccessRepository } from '@lms/db/repositories/access';
-import { createCentreKysely, sql as kyselySql } from '@lms/db';
 import { ContextsService } from '../../../src/modules/access/contexts.service';
 import { RolesService } from '../../../src/modules/access/roles.service';
 import { PlanLimitsService } from '../../../src/modules/access/plan-limits.service';
