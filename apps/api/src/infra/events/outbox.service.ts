@@ -30,10 +30,27 @@ export interface OutboxTx {
  * phía gọi vẫn mở transaction Drizzle; nó chỉ được gỡ khi điểm gọi
  * Drizzle cuối cùng đã chuyển sang Kysely (hạng mục gỡ Drizzle
  * cuối chiến dịch đối chiếu điểm này không còn tồn tại).
+ *
+ * Riêng đường standalone cần một hàm phân giải handle riêng
+ * (`resolveStandaloneDb`, tham số constructor thứ hai, tuỳ chọn):
+ * bảng đã-chuẩn-bị của hai facade là hai bảng riêng — một phiên
+ * làm việc mở bằng đường chuẩn bị phía Drizzle (guard ngữ cảnh
+ * không gian, `withSpaceDatabase`, các điểm vào xác thực) KHÔNG
+ * chuẩn bị phía Kysely, nên đọc thẳng facade Kysely trong phiên
+ * đó cho trung tâm kho riêng sẽ fail-closed theo luật định tuyến.
+ * Hàm phân giải (tầng wiring cấp) chuẩn bị phía Kysely cho đúng
+ * slug trong ngữ cảnh rồi mới trả handle, giữ nguyên hành vi
+ * trước chuyển đổi (đường standalone luôn ghi được vào kho của
+ * trung tâm đang hiệu lực). Điểm dựng tay ngoài tầng wiring
+ * (runner cấp phát, spec) truyền handle của đúng kho đích nên
+ * không cần hàm phân giải — khi đó handle chính là đích ghi.
  */
 @Injectable()
 export class OutboxService {
-  constructor(private readonly db: CentreDb) {}
+  constructor(
+    private readonly db: CentreDb,
+    private readonly resolveStandaloneDb?: () => Promise<CentreDb>,
+  ) {}
 
   /**
    * Phân giải tenant hiệu lực và payload của một sự kiện — nhà duy
@@ -101,9 +118,16 @@ export class OutboxService {
       .execute();
   }
 
-  /** Hàm tiện ích: đưa vào hàng đợi trong một transaction Kysely ngắn riêng trên handle của service. */
+  /**
+   * Hàm tiện ích: đưa vào hàng đợi trong một transaction Kysely
+   * ngắn riêng. Handle đích lấy qua hàm phân giải standalone khi
+   * tầng wiring có cấp (xem TSDoc của lớp — phiên mở bằng đường
+   * chuẩn bị phía Drizzle cần được chuẩn bị phía Kysely trước),
+   * không thì dùng thẳng handle của service.
+   */
   async enqueueStandalone(input: OutboxEventInput): Promise<void> {
-    await this.db.transaction().execute(async (tx) => {
+    const db = this.resolveStandaloneDb ? await this.resolveStandaloneDb() : this.db;
+    await db.transaction().execute(async (tx) => {
       await this.enqueueKysely(tx, input);
     });
   }

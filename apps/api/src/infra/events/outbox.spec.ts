@@ -127,4 +127,30 @@ describe('Outbox giao dịch (DB thật, lms_test_api)', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.payload).toEqual({ n: 5 });
   });
+
+  it('enqueueStandalone ghi qua handle do hàm phân giải cấp khi tầng wiring có cấp hàm phân giải', async () => {
+    // Handle chính trỏ vào đầu mối chết (cổng 1): nếu đường
+    // standalone dùng handle chính thay vì handle của hàm phân
+    // giải, lượt ghi sẽ chết ở kết nối — ca này ghim đúng hợp
+    // đồng "phiên chưa chuẩn bị phía Kysely vẫn ghi được qua hàm
+    // phân giải" mà tầng wiring dựa vào.
+    const deadKysely = createCentreKysely(
+      new Pool({ connectionString: 'postgres://postgres:postgres@localhost:1/khong_ton_tai' }),
+    );
+    const resolved = new OutboxService(deadKysely, async () => kysely);
+    try {
+      await resolved.enqueueStandalone({
+        aggregate: 'test', type: 'Test.StandaloneResolved', payload: { n: 6 },
+      });
+    } finally {
+      await deadKysely.destroy().catch(() => undefined);
+    }
+
+    const rows = await db
+      .select()
+      .from(outboxEvents)
+      .where(eq(outboxEvents.type, 'Test.StandaloneResolved'));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.payload).toEqual({ n: 6 });
+  });
 });

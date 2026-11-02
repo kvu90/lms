@@ -62,7 +62,25 @@ function str(value: unknown): string | null {
 export class EventLogWriter {
   private readonly logger = new Logger(EventLogWriter.name);
 
-  constructor(private readonly db: CentreDb) {}
+  /**
+   * @param db - Handle Kysely kho trung tâm (ở tầng ứng dụng là
+   * facade định tuyến theo không gian).
+   * @param resolveDb - Hàm phân giải handle theo ngữ cảnh, tuỳ
+   * chọn — cùng lý do với đường standalone của `OutboxService`:
+   * phiên mở bằng đường chuẩn bị phía Drizzle chưa chuẩn bị phía
+   * Kysely, nên tầng wiring cấp hàm này để chuẩn bị phía Kysely
+   * cho slug đang hiệu lực trước khi ghi; điểm dựng tay trên
+   * handle của đúng kho đích thì không cần.
+   */
+  constructor(
+    private readonly db: CentreDb,
+    private readonly resolveDb?: () => Promise<CentreDb>,
+  ) {}
+
+  /** Handle hiệu lực cho lượt ghi hiện tại: qua hàm phân giải khi tầng wiring có cấp, không thì handle của service. */
+  private async handle(): Promise<CentreDb> {
+    return this.resolveDb ? this.resolveDb() : this.db;
+  }
 
   async record(row: OutboxRowLike): Promise<void> {
     try {
@@ -96,7 +114,7 @@ export class EventLogWriter {
       // Cột `payload` jsonb đi qua serialize tường minh kèm
       // `::jsonb` theo khuôn ghi jsonb của `@lms/db` (driver `pg`
       // hiểu MẢNG cấp cao nhất là mảng PostgreSQL nếu ghi thẳng).
-      await this.db
+      await (await this.handle())
         .insertInto('event_log')
         .values({
           event_type: row.type,
@@ -124,7 +142,7 @@ export class EventLogWriter {
   /** Tra cứu context khoá học chỉ đọc; context vắng thì cột để null (payload vẫn mang courseId). */
   private async courseContextId(courseId: string): Promise<string | null> {
     if (!UUID_RE.test(courseId)) return null;
-    const rows = await this.db
+    const rows = await (await this.handle())
       .selectFrom('context')
       .select('id')
       .where('context_level', '=', COURSE_CONTEXT_LEVEL)
