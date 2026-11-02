@@ -13,7 +13,8 @@ import {
   type SpaceRegistrySnapshot,
 } from '../control-plane.schema';
 import { adoptJournal } from '../migrate/adopt-journal';
-import { FrozenSqlProvider, listCarrierNames } from '../migrate/frozen-sql-provider';
+import { FrozenSqlProvider } from '../migrate/frozen-sql-provider';
+import { MIGRATION_STORES } from '../migrate/stores';
 import { verifyStore } from '../migrate/verify';
 import { buildTestDatabase, dropTestDatabase, withDatabase } from '../test-support/build-test-database';
 import {
@@ -608,8 +609,11 @@ describe('cầu nối migration trên kho control plane — hai đường', () =
   });
 
   it('đường đã nhận nuôi: cấy nhật ký trả already-adopted và migrateToLatest là no-op, dữ kiện còn nguyên', async () => {
-    const carrierNames = listCarrierNames(join(process.cwd(), 'migrations', 'control-plane'));
-    expect(carrierNames).toHaveLength(3);
+    // Diện đối sánh của adoption là carrier đóng băng (2 tên); nhật
+    // ký của database này có cả tên migration native đã áp — tên
+    // thừa thuộc diện native được phép, không làm adoption lệch.
+    const carrierNames = MIGRATION_STORES['control-plane'].carrierNames;
+    expect(carrierNames).toHaveLength(2);
     const outcome = await adoptJournal(db, carrierNames);
     expect(outcome).toBe('already-adopted');
     const migrator = new Migrator({ db, provider: new FrozenSqlProvider(join(process.cwd(), 'migrations', 'control-plane')) });
