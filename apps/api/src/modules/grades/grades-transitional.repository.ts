@@ -17,22 +17,30 @@ import { gradeGrades, gradeGradesHistory } from '../../db/schema';
  * nguyên tử trọn gói trong MỘT transaction — ghi/cập nhật dòng
  * điểm + ghi dòng lịch sử + chèn dòng outbox `grade_updated` — và
  * phía outbox của ba luồng này (`OutboxService.enqueue`) vẫn ở
- * Drizzle, thuộc đợt D1 (issue #653), trong khi repository Kysely
- * không nhận handle Drizzle. Biến thể Kysely `enqueueKysely` đã có
- * trên main (vào qua PR #672 theo điểm C-8 của chiến dịch) nhưng
- * chủ hấp thụ và lật các luồng còn lại vẫn là đợt D1 #653, nên ba
- * luồng giữ nguyên trạng thái ở đây. Kiểm kê tại issue #644 xác nhận ba luồng này là toàn
- * bộ bề mặt giao dịch của cụm grades và ba phương thức ghi dưới
- * đây chỉ được gọi bên trong chúng.
+ * Drizzle, trong khi repository Kysely không nhận handle Drizzle.
+ * Biến thể Kysely `enqueueKysely` đã có trên main (vào qua PR #672
+ * theo điểm C-8 của chiến dịch). Kiểm kê tại issue #644 xác nhận
+ * ba luồng này là toàn bộ bề mặt giao dịch của cụm grades và ba
+ * phương thức ghi dưới đây chỉ được gọi bên trong chúng.
  *
  * File này CHỈ chứa đúng các lệnh ghi ba luồng đó dùng — mở
  * transaction, upsert dòng điểm, cập nhật dòng điểm, chèn dòng
  * lịch sử — không đọc, không logic thêm; thân các lệnh ghi giữ
- * nguyên văn của repository cũ. Chủ đóng: đợt D1 (issue #653) —
- * khi OutboxService chuyển sang Kysely, ba luồng lật điểm mở
- * transaction sang Kysely, dời lời gọi về `upsertGrade` /
- * `updateGrade` / `insertHistory` của repository phía Kysely và
- * XOÁ file này; issue #663 (gỡ Drizzle) đối chiếu không còn sót.
+ * nguyên văn của repository cũ.
+ *
+ * Chủ đóng: issue #663 (đợt gỡ Drizzle) trong vai trò THỰC THI —
+ * không phải đợt D1 (issue #653). PR #680 là PR duy nhất của
+ * #653 (luật 1 issue = 1 PR): diff của nó không chạm
+ * `grades.service.ts` và giữ nguyên biến thể `enqueue` phía
+ * Drizzle, vì các phía gọi như ba luồng này vẫn còn ở Drizzle —
+ * theo cả hai thứ tự merge, #653 đều đóng theo PR #680 mà không
+ * lật được ba luồng, nên ghi #653 làm chủ đóng sẽ để điểm này mồ
+ * côi chủ. Ở đợt gỡ Drizzle, đường `enqueue` phía Drizzle buộc
+ * phải xoá, nên PR #663 phải lật ba luồng sang transaction
+ * Kysely, dời lời gọi về `upsertGrade` / `updateGrade` /
+ * `insertHistory` của repository phía Kysely kèm `enqueueKysely`,
+ * XOÁ file này, và đối chiếu kiểm kê không còn sót điểm chuyển
+ * tiếp nào. Nghĩa vụ thực thi này đã ghi trên issue #663.
  */
 @Injectable()
 export class GradesTransitionalRepository {
