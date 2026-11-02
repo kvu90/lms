@@ -1,4 +1,8 @@
 import { Module } from '@nestjs/common';
+import { GuardianViewRepository } from '@lms/db/repositories/guardian-view';
+import { GuardiansRepository } from '@lms/db/repositories/guardians';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
+import { SpaceRoutingModule } from '../../db/routing/space-routing.module';
 import { EventsModule } from '../../infra/events/events.module';
 import { AccessModule } from '../access/access.module';
 import { DashboardModule } from '../dashboard/dashboard.module';
@@ -7,9 +11,7 @@ import { TenantsModule } from '../tenants/tenants.module';
 import { UsersModule } from '../users/users.module';
 import { GuardianController, GuardianLinksController } from './guardians.controller';
 import { GuardianDigestService } from './guardian-digest.service';
-import { GuardianViewRepository } from './guardian-view.repository';
 import { GuardianViewService } from './guardian-view.service';
-import { GuardiansRepository } from './guardians.repository';
 import { GuardiansService } from './guardians.service';
 
 /**
@@ -28,12 +30,29 @@ import { GuardiansService } from './guardians.service';
  * không còn phụ thuộc MessagingModule — đường phát thông báo của
  * digest là `NotificationDeliveryService.notify` phía worker, dùng
  * chung hàng đợi phát kênh ngoài với phía API.
+ *
+ * Hai repository của module (liên kết giám hộ và bề mặt chỉ-xem) nằm
+ * ở `@lms/db/repositories/*` trên Kysely và được dựng ở đây bằng
+ * factory trên facade định tuyến kho trung tâm
+ * (`SpaceDatabaseService.routedKysely`) — cùng khuôn lắp ráp của các
+ * module đã chuyển đổi.
  */
 @Module({
-  imports: [AccessModule, UsersModule, GradesModule, EventsModule, DashboardModule, TenantsModule],
+  imports: [AccessModule, UsersModule, GradesModule, EventsModule, DashboardModule, TenantsModule, SpaceRoutingModule],
   controllers: [GuardianLinksController, GuardianController],
   providers: [
-    GuardiansRepository, GuardiansService, GuardianViewRepository, GuardianViewService,
+    {
+      provide: GuardiansRepository,
+      useFactory: (spaceDb: SpaceDatabaseService) => new GuardiansRepository(spaceDb.routedKysely),
+      inject: [SpaceDatabaseService],
+    },
+    GuardiansService,
+    {
+      provide: GuardianViewRepository,
+      useFactory: (spaceDb: SpaceDatabaseService) => new GuardianViewRepository(spaceDb.routedKysely),
+      inject: [SpaceDatabaseService],
+    },
+    GuardianViewService,
     GuardianDigestService,
   ],
   exports: [GuardiansService],

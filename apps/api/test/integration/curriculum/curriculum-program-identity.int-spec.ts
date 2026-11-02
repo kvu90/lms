@@ -6,7 +6,7 @@ import { ADMIN, adminToken, createTestApp, http, login, systemContextId, uniqueN
 import { ProgramImportService } from '../../../src/modules/curriculum/program-import.service';
 import { ProgramDumpService } from '../../../src/modules/curriculum/program-dump.service';
 import { CurriculumService } from '../../../src/modules/curriculum/curriculum.service';
-import { QuestionsRepository } from '../../../src/modules/questions/questions.repository';
+import { QuestionsRepository } from '@lms/db/repositories/questions';
 import { QuizService } from '../../../src/modules/quiz/quiz.service';
 import {
   loadProgramDataset, programAncestorNodeId, programCurriculumId, programDatasetByKey, programLessonNodeId,

@@ -13,6 +13,7 @@ import {
 } from '@lms/db';
 import { tenantAls } from '../db/tenant-als';
 import { resolveDefaultTenantId } from '../db/default-tenant';
+import { SpaceDatabaseService } from '../db/routing/space-database.service';
 import { NotificationDeliveryService } from '../notification-delivery.service';
 
 /** Các trường hồ sơ chuẩn mà lá `profile` đọc từ bảng users (khớp phía API; ngoài ra lá nhận custom field theo shortName). */
@@ -53,6 +54,7 @@ export class BadgeAwardProcessor extends WorkerHost {
     @InjectDrizzle() private readonly db: Database,
     private readonly i18n: I18nService,
     private readonly delivery: NotificationDeliveryService,
+    private readonly spaceDb: SpaceDatabaseService,
   ) { super(); }
 
   private async leafSatisfied(leaf: { badgeId: string; criteriaType: string; params: unknown }, userId: string): Promise<boolean> {
@@ -197,7 +199,7 @@ export class BadgeAwardProcessor extends WorkerHost {
           .where(eq(course.id, badgeRow.courseId));
         tenantId = courseRow?.tenantId ?? null;
       }
-      if (!tenantId) tenantId = await resolveDefaultTenantId(this.db, userId);
+      if (!tenantId) tenantId = await resolveDefaultTenantId(this.spaceDb.routedKysely, userId);
       // Phát qua hàm luật phân phối chung của worker (lát #174-A, xem
       // docblock đầu file): truyền `courseId` của huy hiệu để ghi đè
       // tắt tiếng theo khoá (NB-4) áp đúng như đường API — huy hiệu

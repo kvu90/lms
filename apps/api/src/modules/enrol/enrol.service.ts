@@ -1,9 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { InjectDrizzle } from '@nestjs/drizzle';
 import { OnEvent } from '@nestjs/event-emitter';
 import { I18nService } from '@nestjs/i18n';
 import { CohortMaterializationSurface } from '@lms/enrol';
+import { type CentreTx } from '@lms/db';
+import { EnrolRepository, type EnrolRow, type UserEnrolmentRow } from '@lms/db/repositories/enrol';
 import { OutboxService } from '../../infra/events/outbox.service';
-import type { DbTx } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { isRoleContextConflictError, RoleSeparationService } from '../access/role-separation.service';
 import { ENROL_ASSIGNMENT_COMPONENT, RolesService } from '../access/roles.service';
@@ -13,7 +16,7 @@ import { GroupsService } from '../groups/groups.service';
 import { MessagingService } from '../messaging/messaging.service';
 import { tenantAls } from '../tenants/tenant-als';
 import { TenantsService } from '../tenants/tenants.service';
-import { EnrolRepository, type EnrolRow, type UserEnrolmentRow } from './enrol.repository';
+import { EnrolTransitionalRepository } from './enrol-transitional.repository';
 
 /** Dòng gán vai thuộc về một enrol instance: đúng dòng này (và chỉ dòng này) bị gỡ khi instance rút/đổi vai (issue #157). */
 interface EnrolAssignmentRow { id: string; roleId: string; component: string; itemId: string | null }
@@ -66,12 +69,16 @@ export class EnrolService implements OnModuleInit {
    * danh lõi, đường gỡ ghi danh lõi và hai điểm vào vật chất hoá
    * theo sự kiện thành viên cohort sống ở tầng dữ liệu dùng chung
    * để tiến trình khác (worker) gọi được cùng một định nghĩa.
-   * Service này dựng bề mặt bằng tay cầm Drizzle của repository,
-   * dịch vụ outbox của API và cổng ngữ cảnh platform của API, rồi
-   * dịch lỗi của bề mặt (mang mã kỹ thuật) về exception HTTP mang
-   * cùng mã và thông điệp như trước khi trích xuất. Phần thuộc về
-   * tiến trình API ở lại đây: kiểm capability của người thao tác,
-   * tin nhắn chào mừng, và các đường quản trị instance.
+   * Service này dựng bề mặt bằng tay cầm Drizzle đã định tuyến
+   * (đúng handle mà repository enrol giữ trước khi chuyển Kysely —
+   * bề mặt này thuộc D5 #657 và tiếp tục nhận handle Drizzle ở
+   * tầng wiring như hiện nay, handle định tuyến còn tồn tại tới
+   * #663), dịch vụ outbox của API và cổng ngữ cảnh platform của
+   * API, rồi dịch lỗi của bề mặt (mang mã kỹ thuật) về exception
+   * HTTP mang cùng mã và thông điệp như trước khi trích xuất.
+   * Phần thuộc về tiến trình API ở lại đây: kiểm capability của
+   * người thao tác, tin nhắn chào mừng, và các đường quản trị
+   * instance.
    */
   private readonly materialization: CohortMaterializationSurface;
 
@@ -86,9 +93,11 @@ export class EnrolService implements OnModuleInit {
     private readonly i18n: I18nService,
     private readonly tenants: TenantsService,
     private readonly roleSeparation: RoleSeparationService,
+    private readonly txRepo: EnrolTransitionalRepository,
+    @InjectDrizzle() private readonly db: Database,
   ) {
     this.materialization = new CohortMaterializationSurface({
-      db: this.repo.dbHandle,
+      db: this.db,
       outbox: this.outbox,
       // Cổng ngữ cảnh platform GIỮ `spaceSlug` của ngữ cảnh hiện
       // tại (Phần A, issue #587 — A4, đúng khuôn
@@ -503,23 +512,30 @@ export class EnrolService implements OnModuleInit {
     // khoá với đình chỉ do hệ thống đồng bộ áp (job đối soát
     // class-enrol-reconcile chỉ tôn trọng/không kích hoạt lại đúng các
     // dòng mang vết người này — issue #184, ca "miễn môn").
-    const apply = async (db: DbTx): Promise<void> => {
-      await this.repo.updateUserEnrolment(ue.id, { status: suspended ? ENROL_SUSPENDED : ENROL_ACTIVE, modifierId: actorId }, db);
-      await this.outbox.enqueue(db, {
-        aggregate: 'enrol', type: suspended ? 'user_enrolment_suspended' : 'user_enrolment_reactivated',
-        payload: { courseId: instance.courseId, userId, instanceId, actorId },
-      });
+    const eventInput = {
+      aggregate: 'enrol', type: suspended ? 'user_enrolment_suspended' : 'user_enrolment_reactivated',
+      payload: { courseId: instance.courseId, userId, instanceId, actorId },
     };
     if (tx) {
       // Bên gọi đang ở trong transaction của nó (settle hoàn tiền —
       // issue #490): ghi bằng ĐÚNG transaction đó để rollback của
-      // settle cũng huỷ việc đình chỉ này. Dòng trả về dựng từ dữ kiện
-      // đã biết vì đọc lại qua pool sẽ không thấy thay đổi chưa
-      // commit; bên gọi đường này (payments) không dùng dòng trả về.
-      await apply(tx);
+      // settle cũng huỷ việc đình chỉ này. Điểm nối C-8/C: chữ ký
+      // transaction Drizzle của điểm vào này giữ nguyên cho tới
+      // khi D4 (#656) chuyển payments — lệnh ghi chạy qua
+      // repository chuyển tiếp Drizzle, dòng outbox qua `enqueue`
+      // Drizzle như cũ. Dòng trả về dựng từ dữ kiện đã biết vì đọc
+      // lại qua pool sẽ không thấy thay đổi chưa commit; bên gọi
+      // đường này (payments) không dùng dòng trả về.
+      await this.txRepo.updateUserEnrolment(ue.id, { status: suspended ? ENROL_SUSPENDED : ENROL_ACTIVE, modifierId: actorId }, tx);
+      await this.outbox.enqueue(tx, eventInput);
       return { ...ue, status: suspended ? ENROL_SUSPENDED : ENROL_ACTIVE, modifierId: actorId };
     }
-    await this.repo.dbHandle.transaction(apply);
+    // Đường tự mở transaction: transaction Kysely của repository
+    // cụm + biến thể enqueue phía Kysely (điểm nối C-8/A).
+    await this.repo.transaction(async (txKysely: CentreTx) => {
+      await this.repo.updateUserEnrolment(ue.id, { status: suspended ? ENROL_SUSPENDED : ENROL_ACTIVE, modifierId: actorId }, txKysely);
+      await this.outbox.enqueueKysely(txKysely, eventInput);
+    });
     return (await this.repo.getUserEnrolment(instanceId, userId))!;
   }
 
@@ -638,9 +654,9 @@ export class EnrolService implements OnModuleInit {
     const flipped: string[] = [];
     for (const ue of expired) {
       const instance = await this.repo.getInstance(ue.enrolId);
-      await this.repo.dbHandle.transaction(async (tx) => {
+      await this.repo.transaction(async (tx) => {
         await this.repo.updateUserEnrolment(ue.id, { status: ENROL_SUSPENDED }, tx);
-        await this.outbox.enqueue(tx, {
+        await this.outbox.enqueueKysely(tx, {
           aggregate: 'enrol', type: 'user_enrolment_suspended',
           payload: { courseId: instance?.courseId, userId: ue.userId, instanceId: ue.enrolId, reason: 'expired' },
         });

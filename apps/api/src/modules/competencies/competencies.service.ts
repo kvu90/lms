@@ -12,7 +12,7 @@ import { UsersService } from '../users/users.service';
 import {
   CompetenciesRepository, type CompetencyRow, type EvidenceRow, type FrameworkRow,
   type PlanRow, type TemplateRow, type UsercompRow,
-} from './competencies.repository';
+} from '@lms/db/repositories/competencies';
 
 export const PLAN_STATUS = { DRAFT: 0, ACTIVE: 1, WAITING_FOR_REVIEW: 2, IN_REVIEW: 3, COMPLETE: 4 } as const;
 export const USERCOMP_REVIEW = { NONE: 0, WAITING: 1, IN_REVIEW: 2 } as const;
@@ -390,7 +390,7 @@ export class CompetenciesService implements OnModuleInit {
    */
   private async createFrameworkFromExport(doc: FrameworkExportDoc, overrides?: { shortName?: string; idNumber?: string }): Promise<FrameworkRow> {
     this.validateFrameworkExport(doc);
-    const frameworkId = await this.repo.dbHandle.transaction(async (tx) => {
+    const frameworkId = await this.repo.transaction(async (tx) => {
       const framework = await this.repo.insertFramework({
         shortName: overrides?.shortName ?? doc.framework.shortName,
         idNumber: overrides?.idNumber ?? doc.framework.idNumber,
@@ -596,7 +596,7 @@ export class CompetenciesService implements OnModuleInit {
     const canRate = await this.evaluator.hasCapability(actorId, 'competency:usercompetencyreview', await this.systemCtx());
     const usercomp = await this.getOrCreateUsercomp(input.userId, input.competencyId, { planId: input.planId, courseId: input.courseId });
     let evidence!: EvidenceRow;
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       evidence = await this.repo.insertEvidence({
         userCompetencyId: usercomp.id, actionUserId: actorId, action: 'evidence',
         description: input.description, url: input.url ?? null,
@@ -617,7 +617,7 @@ export class CompetenciesService implements OnModuleInit {
           description: 'Sent for review with evidence', grade: null,
         }, tx);
       }
-      await this.outbox.enqueue(tx, {
+      await this.outbox.enqueueKysely(tx, {
         aggregate: 'competency', type: 'competency_evidence_added',
         payload: { userId: input.userId, competencyId: input.competencyId, evidenceId: evidence.id },
       });
@@ -882,7 +882,7 @@ export class CompetenciesService implements OnModuleInit {
     const existing = await this.repo.findPlanFromTemplate(userId, template.id);
     if (existing) return null;
     const competencies = await this.repo.listTemplateCompetencies(template.id);
-    const plan = await this.repo.dbHandle.transaction(async (tx) => {
+    const plan = await this.repo.transaction(async (tx) => {
       const created = await this.repo.insertPlan({
         name: template.shortName, description: template.description, userId: userId,
         templateId: template.id, status: PLAN_STATUS.ACTIVE, dueDate: template.dueDate,

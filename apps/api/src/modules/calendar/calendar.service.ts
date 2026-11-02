@@ -8,7 +8,7 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
 import { EnrolService } from '../enrol/enrol.service';
 import { GroupsService } from '../groups/groups.service';
-import { CalendarRepository, type CalendarEventRow, type CalendarExportTokenRow, type CalendarSubscriptionRow } from './calendar.repository';
+import { CalendarRepository, type CalendarEventRow, type CalendarExportTokenRow, type CalendarSubscriptionRow } from '@lms/db/repositories/calendar';
 import { serializeCalendar } from './domain/ics';
 import { formatRrule, occurrenceStarts, parseRrule } from './domain/rrule';
 
@@ -137,7 +137,7 @@ export class CalendarService {
     const starts = occurrenceStarts(start, spec);
     const occurrences: CalendarEventRow[] = [];
     let root: CalendarEventRow | undefined;
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       root = await this.repo.insertEvent({ ...base, timeStart: starts[0]!, rrule: formatRrule(spec), repeatId: null }, tx);
       await this.repo.updateEvent(root.id, { repeatId: root.id }, tx);
       root = { ...root, repeatId: root.id };
@@ -145,7 +145,7 @@ export class CalendarService {
       for (const s of starts.slice(1)) {
         occurrences.push(await this.repo.insertEvent({ ...base, timeStart: s, repeatId: root.id }, tx));
       }
-      await this.outbox.enqueue(tx, { aggregate: 'calendar', type: 'calendar_event_created', payload: { eventId: root.id, eventType: input.eventType, series: true, count: starts.length } });
+      await this.outbox.enqueueKysely(tx, { aggregate: 'calendar', type: 'calendar_event_created', payload: { eventId: root.id, eventType: input.eventType, series: true, count: starts.length } });
     });
     return { event: root!, occurrences };
   }

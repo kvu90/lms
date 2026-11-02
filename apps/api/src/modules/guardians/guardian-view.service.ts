@@ -10,7 +10,7 @@ import type {
 import { DashboardService } from '../dashboard/dashboard.service';
 import { GradesService } from '../grades/grades.service';
 import { UsersService } from '../users/users.service';
-import { GuardianViewRepository } from './guardian-view.repository';
+import { GuardianViewRepository } from '@lms/db/repositories/guardian-view';
 import { GuardiansService } from './guardians.service';
 
 /** Trần số việc trong tóm tắt tuần trả về (việc tuần này + quá hạn). */

@@ -6,7 +6,7 @@ import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsRepository } from '../tenants/tenants.repository';
 import { TenantsService } from '../tenants/tenants.service';
 import { UsersService } from '../users/users.service';
-import { GuardiansRepository, type GuardianLinkRow } from './guardians.repository';
+import { GuardiansRepository, type GuardianLinkRow } from '@lms/db/repositories/guardians';
 
 /** Capability quản lý liên kết giám hộ (PH-0, issue #116). */
 export const GUARDIAN_MANAGE_CAPABILITY = 'guardian:manage';

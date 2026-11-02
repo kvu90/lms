@@ -185,7 +185,19 @@ export class SpaceProgramPackageService {
             .from(subjects);
           const programPresent = Number(subjectCount?.count ?? 0) > 0;
           if (!programPresent) {
-            await restoreProgramDumpSql(this.db, dumpSql, { anchorContextId: system.id });
+            // Từ issue #646, `restoreProgramDumpSql` chạy trên
+            // handle Kysely: lấy handle Kysely của ĐÚNG kho đích
+            // theo slug (kho riêng thì pool riêng của kho đó, kho
+            // chung thì handle kho chung) — cùng kho đích mà các
+            // câu Drizzle xung quanh đang ghi. Restore mở
+            // transaction riêng của nó trên handle đó; các câu
+            // Drizzle trước/sau vẫn là các câu tự-commit độc lập
+            // như trước, không thành giao dịch lai.
+            await restoreProgramDumpSql(
+              await this.spaceDb.getKyselyForSpace(slug),
+              dumpSql,
+              { anchorContextId: system.id },
+            );
             restored = true;
           }
           await this.db.insert(programPackageInstalls).values({

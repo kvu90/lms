@@ -5,7 +5,7 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
 import { FilesService } from '../files/files.service';
 import { SearchService } from '../search/search.service';
-import { ContentBankRepository, type ContentFilters, type ContentRow } from './content-bank.repository';
+import { ContentBankRepository, type ContentFilters, type ContentRow } from '@lms/db/repositories/content-bank';
 
 /** Các loại nội dung đã đăng ký — loại nội dung là extension point, bản này cài 'file-based' generic. */
 export const CONTENT_TYPES = ['file-based'] as const;

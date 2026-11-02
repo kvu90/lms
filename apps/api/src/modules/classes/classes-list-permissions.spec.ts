@@ -15,8 +15,9 @@ import type { TenantsService } from '../tenants/tenants.service';
 import type { UsersService } from '../users/users.service';
 import type { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import type { ControlPlaneRepository } from '@lms/db/repositories/control-plane';
-import type { ClassesRepository, ClassRow } from './classes.repository';
+import type { ClassesRepository, ClassRow } from '@lms/db/repositories/classes';
 import { ClassesService } from './classes.service';
+import type { ClassesTransitionalRepository } from './classes-transitional.repository';
 
 /**
  * Bộ spec phân quyền cho danh sách lớp (DL-06): khi `listClasses`
@@ -214,6 +215,7 @@ function makeWorld(opts: WorldOptions = {}) {
     // Thư mục control plane chưa cấu hình trong thế giới kiểm
     // chứng này: các đường mã tham gia giữ hành vi kho chung.
     { isConfigured: () => false } as unknown as ControlPlaneRepository,
+    {} as unknown as ClassesTransitionalRepository,
   );
   return { service, evaluator, contextsService, groups, rows };
 }

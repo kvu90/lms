@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
-import { SocialRepository, type NoteRow } from './social.repository';
+import { SocialRepository, type NoteRow } from '@lms/db/repositories/social';
 
 /**
  * NotesModule (Moodle core_notes): ghi chú VỀ một người dùng, ở ba trạng thái
