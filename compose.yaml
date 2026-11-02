@@ -320,8 +320,96 @@ services:
         condition: service_healthy
     command: ["node", "dist/modules/seed/review-seed.js"]
 
+  # Keycloak — nền xác thực tập trung của hệ thống (issue #704):
+  # quản lý đăng nhập và tài khoản người dùng ở một chỗ duy nhất;
+  # quyền nghiệp vụ vẫn do từng trung tâm quyết định trong dữ
+  # kiện của chính trung tâm đó, Keycloak không quyết định
+  # quyền. Hai service dưới đây chỉ cộng thêm vào stack — không
+  # service hiện hữu nào phụ thuộc vào chúng nên hành vi của các
+  # service hiện hữu không đổi.
+  #
+  # Dữ kiện danh tính của Keycloak (realm, người dùng,
+  # organization) nằm trong PostgreSQL RIÊNG của nó (service
+  # kc-db ngay dưới) trên volume có tên keycloak-db-data — không
+  # dùng chung cụm Postgres của ứng dụng và không được mất khi
+  # container bị tạo lại ở các lần deploy.
+  #
+  # Realm `lms` được nạp ở lần khởi động đầu tiên bằng cơ chế
+  # nạp realm lúc khởi động (--import-realm) từ file
+  # deploy/keycloak/lms-realm.json trong repo, gắn chỉ đọc vào
+  # service keycloak. Keycloak chỉ nạp realm khi nó chưa tồn
+  # tại; các lần khởi động sau bỏ qua file này.
+  kc-db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      # Một biến bí mật duy nhất cho cả hai phía của cùng một
+      # mật khẩu: POSTGRES_PASSWORD ở đây (phía server) và
+      # KC_DB_PASSWORD của service keycloak (phía client) cùng
+      # nội suy từ KEYCLOAK_DB_PASSWORD của môi trường triển
+      # khai.
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?Can dat KEYCLOAK_DB_PASSWORD trong file .env}
+    volumes:
+      # PostgreSQL 17 giữ bố cục thư mục dữ kiện cổ điển
+      # /var/lib/postgresql/data — khác service postgres của
+      # stack (PostgreSQL 18, mount tại /var/lib/postgresql).
+      - keycloak-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.5
+    restart: unless-stopped
+    command: ["start", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://kc-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?Can dat KEYCLOAK_DB_PASSWORD trong file .env}
+      # Tài khoản quản trị bootstrap của Keycloak: tài khoản
+      # `admin` này được Keycloak tạo ở lần khởi động đầu tiên
+      # từ chính hai biến ở đây; chỉ dùng để vào Admin Console
+      # của Keycloak.
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Can dat KEYCLOAK_ADMIN_PASSWORD trong file .env}
+      # Địa chỉ công khai duy nhất của Keycloak: trình duyệt
+      # chỉ gặp Keycloak qua tên miền này (Cloudflare Tunnel
+      # trỏ auth.fuckr.net về cổng host 8085 ở dưới), nên issuer
+      # trong token luôn mang tiền tố
+      # https://auth.fuckr.net/realms/.
+      KC_HOSTNAME: https://auth.fuckr.net
+      # TLS kết thúc ở Cloudflare Tunnel phía trước; container
+      # chỉ nhận HTTP nội bộ và tin các header X-Forwarded-*.
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      # Cổng host dành riêng cho Keycloak; web vẫn là cửa vào
+      # của ứng dụng như trước.
+      - "8085:8080"
+    volumes:
+      # File realm của repo (xem ghi chú ở đầu khối Keycloak
+      # này). Compose chạy với toàn bộ checkout của repo làm
+      # thư mục dự án — các service build trong file này đều
+      # dùng context `.` ở gốc repo — nên đường dẫn tương đối
+      # này trỏ đúng vào checkout khi nền tảng triển khai chạy
+      # stack, và cập nhật file realm trong repo là đủ để lần
+      # dựng đầu tiên trên môi trường mới nạp đúng realm.
+      - ./deploy/keycloak/lms-realm.json:/opt/keycloak/data/import/lms-realm.json:ro
+    depends_on:
+      kc-db:
+        condition: service_healthy
+
 volumes:
   pgdata:
   redisdata:
   api-files:
   fleet-backups:
+  # Dữ kiện PostgreSQL riêng của Keycloak (issue #704) — xem
+  # service kc-db trong khối services.
+  keycloak-db-data:
