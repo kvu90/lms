@@ -1,8 +1,6 @@
-import { and, eq, inArray, isNull, like, or, sql } from 'drizzle-orm';
-import { context } from '@lms/db';
 import { uuidIdSchema } from '@lms/contracts';
 import { SharedDomainError } from './errors';
-import type { ContextRow, EnrolDatabase } from './types';
+import { CONTEXT_COLUMNS, type ContextRow, type EnrolDatabase } from './types';
 
 /**
  * Thao tác trên cây context phân quyền ở tầng dữ liệu dùng chung.
@@ -35,19 +33,18 @@ export const CONTEXT_LEVELS = { SYSTEM: 10, TENANT: 20, USER: 30, COURSECAT: 40,
 /**
  * Lấy context theo id; undefined nếu không tồn tại.
  *
- * @param db - tay cầm Drizzle của host.
+ * @param db - tay cầm Kysely của host.
  * @param id - id của context.
  */
 export async function getContextById(db: EnrolDatabase, id: string): Promise<ContextRow | undefined> {
-  const [row] = await db.select().from(context).where(eq(context.id, id));
-  return row;
+  return db.selectFrom('context').select(CONTEXT_COLUMNS).where('id', '=', id).executeTakeFirst();
 }
 
 /**
  * Lấy context theo cặp (contextLevel, instanceId) — khoá tự nhiên
  * của cây context; undefined nếu chưa được tạo.
  *
- * @param db - tay cầm Drizzle của host.
+ * @param db - tay cầm Kysely của host.
  * @param contextLevel - cấp context (xem {@link CONTEXT_LEVELS}).
  * @param instanceId - id của đối tượng mà context đại diện; null cho context hệ thống.
  */
@@ -56,9 +53,14 @@ export async function getContextByLevelInstance(
   contextLevel: number,
   instanceId: string | null,
 ): Promise<ContextRow | undefined> {
-  const [row] = await db.select().from(context)
-    .where(and(eq(context.contextLevel, contextLevel), instanceId === null ? isNull(context.instanceId) : eq(context.instanceId, instanceId)));
-  return row;
+  return db
+    .selectFrom('context')
+    .select(CONTEXT_COLUMNS)
+    .where((eb) => eb.and([
+      eb('context.context_level', '=', contextLevel),
+      instanceId === null ? eb('context.instance_id', 'is', null) : eb('context.instance_id', '=', instanceId),
+    ]))
+    .executeTakeFirst();
 }
 
 /**
@@ -68,7 +70,7 @@ export async function getContextByLevelInstance(
  * dữ liệu ném lỗi cú pháp uuid: các guard của host chạy trước pipe
  * validate nên id thô trên URL tới được đây.
  *
- * @param db - tay cầm Drizzle của host.
+ * @param db - tay cầm Kysely của host.
  * @param id - id của context.
  * @throws SharedDomainError mã `access.context_not_found`.
  */
@@ -83,7 +85,7 @@ export async function getContextOrThrow(db: EnrolDatabase, id: string): Promise<
  * khi khoá chưa có context — mọi khoá thật đều có context, thiếu là
  * dữ kiện hỏng chứ không phải trường hợp nghiệp vụ.
  *
- * @param db - tay cầm Drizzle của host.
+ * @param db - tay cầm Kysely của host.
  * @param courseId - id của khoá học.
  * @throws SharedDomainError mã `course.context_missing`.
  */
@@ -93,34 +95,50 @@ export async function getCourseContextId(db: EnrolDatabase, courseId: string): P
   return ctx.id;
 }
 
+/** Dữ kiện chèn của một dòng context (hình camelCase như hợp đồng cũ). */
+interface NewContext {
+  contextLevel: number;
+  instanceId: string | null;
+  path: string;
+  depth: number;
+}
+
 /**
  * Chèn context mới; path/depth được tính và cập nhật sau khi có id.
  *
- * @param db - tay cầm Drizzle của host.
+ * @param db - tay cầm Kysely của host.
  * @param values - dữ kiện chèn của dòng context.
  */
-async function insertContext(db: EnrolDatabase, values: typeof context.$inferInsert): Promise<ContextRow> {
-  const [row] = await db.insert(context).values(values).returning();
-  return row!;
+async function insertContext(db: EnrolDatabase, values: NewContext): Promise<ContextRow> {
+  return db
+    .insertInto('context')
+    .values({
+      context_level: values.contextLevel,
+      instance_id: values.instanceId,
+      path: values.path,
+      depth: values.depth,
+    })
+    .returning(CONTEXT_COLUMNS)
+    .executeTakeFirstOrThrow();
 }
 
 /**
  * Cập nhật path vật chất hoá và depth của context sau khi chèn.
  *
- * @param db - tay cầm Drizzle của host.
+ * @param db - tay cầm Kysely của host.
  * @param id - id của context.
  * @param path - path vật chất hoá mới.
  * @param depth - độ sâu mới trong cây.
  */
 async function updateContextPath(db: EnrolDatabase, id: string, path: string, depth: number): Promise<void> {
-  await db.update(context).set({ path, depth }).where(eq(context.id, id));
+  await db.updateTable('context').set({ path, depth }).where('id', '=', id).execute();
 }
 
 /**
  * Tạo context con dưới một context cha, tính path/depth; idempotent
  * theo khoá tự nhiên (level, instance).
  *
- * @param db - tay cầm Drizzle của host.
+ * @param db - tay cầm Kysely của host.
  * @param contextLevel - cấp context.
  * @param instanceId - id của đối tượng mà context đại diện.
  * @param parentId - id của context cha; bỏ trống thì cha là context hệ thống.
@@ -151,7 +169,7 @@ export async function createContext(
  * Đảm bảo context hệ thống (level 10, instance null) tồn tại; được
  * tạo lười và là gốc của mọi path. Idempotent.
  *
- * @param db - tay cầm Drizzle của host.
+ * @param db - tay cầm Kysely của host.
  */
 export async function ensureSystemContext(db: EnrolDatabase): Promise<ContextRow> {
   const existing = await getContextByLevelInstance(db, CONTEXT_LEVELS.SYSTEM, null);
@@ -169,7 +187,7 @@ export async function ensureSystemContext(db: EnrolDatabase): Promise<ContextRow
  * nên cây của tenant tách hẳn khỏi cây của tenant khác; phép đánh
  * giá quyền dùng nó làm neo cổng membership.
  *
- * @param db - tay cầm Drizzle của host.
+ * @param db - tay cầm Kysely của host.
  * @param tenantId - id của tenant.
  */
 export async function ensureTenantContext(db: EnrolDatabase, tenantId: string): Promise<ContextRow> {
@@ -184,12 +202,18 @@ export async function ensureTenantContext(db: EnrolDatabase, tenantId: string): 
  * tố path) — cơ chế đánh dấu dirty đứng sau việc vô hiệu hoá cache
  * của phép đánh giá quyền.
  *
- * @param db - tay cầm Drizzle của host.
+ * @param db - tay cầm Kysely của host.
  * @param pathPrefix - path của context gốc của cây con cần bump.
  */
 export async function bumpContextVersions(db: EnrolDatabase, pathPrefix: string): Promise<void> {
-  await db.update(context).set({ version: sql`${context.version} + 1` })
-    .where(or(eq(context.path, pathPrefix), like(context.path, `${pathPrefix}/%`)));
+  await db
+    .updateTable('context')
+    .set({ version: (eb) => eb('version', '+', 1) })
+    .where((eb) => eb.or([
+      eb('path', '=', pathPrefix),
+      eb('path', 'like', `${pathPrefix}/%`),
+    ]))
+    .execute();
 }
 
 /**
@@ -197,7 +221,7 @@ export async function bumpContextVersions(db: EnrolDatabase, pathPrefix: string)
  * vô hiệu hoá kết quả đã cache của nó và của mọi context con cháu.
  * Context không tồn tại thì bỏ qua (không có cache nào cần vô hiệu).
  *
- * @param db - tay cầm Drizzle của host.
+ * @param db - tay cầm Kysely của host.
  * @param contextId - id của context.
  */
 export async function markContextDirty(db: EnrolDatabase, contextId: string): Promise<void> {
@@ -208,10 +232,10 @@ export async function markContextDirty(db: EnrolDatabase, contextId: string): Pr
 /**
  * Lấy nhiều context theo danh sách id trong một truy vấn.
  *
- * @param db - tay cầm Drizzle của host.
+ * @param db - tay cầm Kysely của host.
  * @param ids - danh sách id context.
  */
 export async function getContextsByIds(db: EnrolDatabase, ids: string[]): Promise<ContextRow[]> {
   if (ids.length === 0) return [];
-  return db.select().from(context).where(inArray(context.id, ids));
+  return db.selectFrom('context').select(CONTEXT_COLUMNS).where('id', 'in', ids).execute();
 }

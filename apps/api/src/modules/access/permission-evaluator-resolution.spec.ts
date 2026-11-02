@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Cache } from 'cache-manager';
 import type { ConfigService } from '@nestjs/config';
-import type { AccessRepository, ContextRow } from './access.repository';
+import type { AccessRepository, ContextRow } from '@lms/db/repositories/access';
 import type { ContextsService } from './contexts.service';
 import { CAPABILITY_DEFINITIONS } from './domain/capabilities';
 import { PermissionEvaluator } from './permission-evaluator.service';

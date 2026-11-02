@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
-import { PlanLimitsCore, type EffectivePlanLimit, type EnrolDatabase, type TenantSlotFacts } from '@lms/enrol';
-import type { Database, DbTx } from '../../db/database';
+import { type CentreTx } from '@lms/db';
+import { PlanLimitsCore, type EffectivePlanLimit, type TenantSlotFacts } from '@lms/enrol';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { tenantAls } from '../tenants/tenant-als';
 import { delegateToSharedCore } from './translate-shared-error';
 
@@ -16,8 +16,8 @@ export type { EffectivePlanLimit, TenantSlotFacts } from '@lms/enrol';
  * (tầng dữ liệu, trên schema dùng chung `@lms/db`) để mọi bề mặt
  * vật chất hoá ghi danh — API tại đây, worker khi nó dựng consumer
  * đồng bộ cohort — áp đúng MỘT định nghĩa duy nhất. Service này chỉ
- * còn là lớp bọc của API: dựng lõi bằng tay cầm Drizzle của API và
- * cổng ngữ cảnh platform của API (bản sao `tenantAls` của tiến
+ * còn là lớp bọc của API: dựng lõi bằng tay cầm Kysely đã định tuyến của API
+ * (`SpaceDatabaseService.routedKysely`) và cổng ngữ cảnh platform của API (bản sao `tenantAls` của tiến
  * trình này), rồi dịch lỗi của lõi (mang mã kỹ thuật) về exception
  * HTTP mang cùng mã và thông điệp như trước khi trích xuất.
  *
@@ -38,15 +38,15 @@ export type { EffectivePlanLimit, TenantSlotFacts } from '@lms/enrol';
 export class PlanLimitsService {
   private readonly core: PlanLimitsCore;
 
-  constructor(@InjectDrizzle() db: Database) {
+  constructor(spaceDb: SpaceDatabaseService) {
     // Cổng ngữ cảnh platform GIỮ `spaceSlug` của ngữ cảnh hiện tại
     // (Phần A, issue #587 — A4, đúng khuôn
-    // `access.repository.ts`): khi lõi kiểm hạn mức được gọi trong
+    // `permission-evaluator.service.ts`): khi lõi kiểm hạn mức được gọi trong
     // request của một trung tâm ở kho riêng, các lượt đọc xuyên
     // tenant của nó phải chạy trên kho của trung tâm đó, không rơi
     // về kho chung. Chỉ đổi đích dữ kiện, không đổi tầm nhìn RLS
     // (cờ `platform: true` giữ nguyên).
-    this.core = new PlanLimitsCore(db, (fn) => {
+    this.core = new PlanLimitsCore(spaceDb.routedKysely, (fn) => {
       const spaceSlug = tenantAls.getStore()?.spaceSlug;
       return tenantAls.run({ platform: true, ...(spaceSlug ? { spaceSlug } : {}) }, fn);
     });
@@ -56,11 +56,21 @@ export class PlanLimitsService {
    * Suy tenant sở hữu một context: context tenant là tổ tiên có
    * `context_level = 20` trong `path` vật chất hoá của context (hoặc
    * chính context đó). Trả null khi context không thuộc tenant nào.
+   *
+   * Bên gọi có transaction Kysely đang mở thì truyền transaction
+   * đó để việc đọc thấy đúng trạng thái trong giao dịch: đường gán
+   * vai của `roles.service` tạo context lớp trong cùng transaction
+   * rồi cần suy tenant của chính context vừa tạo — đọc qua handle
+   * mặc định ngoài transaction sẽ trượt dòng chưa commit và trả
+   * null, làm cổng slot giáo viên bị bỏ qua lặng lẽ. Không truyền
+   * thì lõi đọc qua handle mặc định của nó. Toàn bộ đường
+   * createContext/assignRole/setCapabilityOverride nay chạy trên
+   * làn Kysely nên facade chỉ còn handle Kysely như phần còn lại
+   * của service — lõi dùng chung cũng chỉ nhận handle Kysely,
+   * không còn nhánh đọc bằng transaction Drizzle.
    */
-  async tenantIdForContext(contextId: string, tx?: DbTx): Promise<string | null> {
-    // Handle transaction của API và handle của package dùng chung cùng
-    // là handle Drizzle trên Postgres — ép kiểu tại biên uỷ quyền này.
-    return delegateToSharedCore(() => this.core.tenantIdForContext(contextId, tx as unknown as EnrolDatabase | undefined));
+  async tenantIdForContext(contextId: string, tx?: CentreTx): Promise<string | null> {
+    return delegateToSharedCore(() => this.core.tenantIdForContext(contextId, tx));
   }
 
   /** Hạn mức slot gói trung tâm hiệu lực của một tenant. */

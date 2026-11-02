@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Cache } from 'cache-manager';
 import type { ConfigService } from '@nestjs/config';
 import type { SpaceDatabaseService } from '../../db/routing/space-database.service';
-import { AccessRepository, type ContextRow } from './access.repository';
+import { AccessRepository, type ContextRow } from '@lms/db/repositories/access';
 import { ContextsService } from './contexts.service';
 import { CAP_ALLOW } from './domain/permission';
 import { PermissionEvaluator } from './permission-evaluator.service';

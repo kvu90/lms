@@ -1,11 +1,14 @@
 /**
- * Ca tích hợp của các wrapper Kysely TỐI THIỂU trong
- * `TenantDbService` (issue #639, mức pilot cần): `withTenantKysely`
- * / `withPlatformKysely` / `withCurrentKysely` phải giữ cùng ngữ
- * nghĩa transaction + GUC như bản Drizzle, nhưng chạy trên handle
- * Kysely định tuyến — và GIỮ `spaceSlug` của ngữ cảnh cha (điểm
- * khác biệt có chủ đích so với bản Drizzle, vốn thay toàn bộ store
- * ALS nên làm rơi slug định tuyến kho).
+ * Ca tích hợp của các wrapper Kysely trong `TenantDbService`
+ * (issue #639 dựng ba wrapper giao dịch ở mức pilot cần, issue
+ * #655 hoàn thiện nốt hai runner ngữ cảnh ALS): các wrapper phải
+ * giữ cùng ngữ nghĩa transaction + GUC như bản Drizzle, nhưng chạy
+ * trên handle Kysely định tuyến — và GIỮ `spaceSlug` của ngữ cảnh
+ * cha (điểm khác biệt có chủ đích so với bản Drizzle, vốn thay
+ * toàn bộ store ALS nên làm rơi slug định tuyến kho). Hai runner
+ * (`runInTenantContextKysely` / `runInPlatformContextKysely`)
+ * không mở transaction: GUC đi theo đường pool gắn theo ngữ cảnh
+ * ALS ở mức phiên.
  *
  * Ca dựng `TenantDbService` trực tiếp với một `SpaceDatabaseService`
  * giả chỉ mang `routedKysely` thật (các wrapper Kysely chỉ dùng
@@ -41,7 +44,7 @@ async function currentSetting(db: CentreDb, key: string): Promise<string> {
   return (rows.rows[0] as { v: string } | undefined)?.v ?? '';
 }
 
-describe('Wrapper Kysely tối thiểu của TenantDbService (integration)', () => {
+describe('Wrapper Kysely của TenantDbService (integration)', () => {
   let pool: TenantAwarePool;
   let kysely: CentreDb;
   let service: TenantDbService;
@@ -113,6 +116,29 @@ describe('Wrapper Kysely tối thiểu của TenantDbService (integration)', () 
       });
       await service.withPlatformKysely(async () => {
         expect(tenantAls.getStore()?.spaceSlug).toBe('slug-cha-639');
+      });
+    });
+  });
+
+  it('runner ngữ cảnh Kysely gắn GUC theo ngữ cảnh ALS qua pool cho truy vấn ngoài transaction', async () => {
+    await service.runInTenantContextKysely(TENANT_ID, async () => {
+      expect(await currentSetting(kysely, 'app.tenant_id')).toBe(TENANT_ID);
+      expect(await currentSetting(kysely, 'app.platform')).toBe('off');
+    });
+    await service.runInPlatformContextKysely(async () => {
+      expect(await currentSetting(kysely, 'app.platform')).toBe('on');
+    });
+  });
+
+  it('runner ngữ cảnh Kysely giữ spaceSlug của ngữ cảnh cha', async () => {
+    await tenantAls.run({ spaceSlug: 'slug-cha-639', tenantId: TENANT_ID }, async () => {
+      await service.runInTenantContextKysely(TENANT_ID, async () => {
+        expect(tenantAls.getStore()?.spaceSlug).toBe('slug-cha-639');
+        expect(tenantAls.getStore()?.tenantId).toBe(TENANT_ID);
+      });
+      await service.runInPlatformContextKysely(async () => {
+        expect(tenantAls.getStore()?.spaceSlug).toBe('slug-cha-639');
+        expect(tenantAls.getStore()?.platform).toBe(true);
       });
     });
   });

@@ -1,20 +1,44 @@
 import { Injectable } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, eq } from 'drizzle-orm';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { enrol, userEnrolments } from '@lms/db';
 import {
   CohortMaterializationSurface,
   ENROL_ACTIVE,
   SharedDomainError,
+  type EnrolInstanceRow,
 } from '@lms/enrol';
 import type { PaidEnrolActivationPort } from '@lms/payments';
 import { tenantAls } from './db/tenant-als';
-import type { relations } from './db/relations';
 import { WorkerEnrolOutboxService } from './worker-enrol-outbox.service';
 import { WorkerPaymentSpaceScope } from './worker-payment-space-scope.service';
 
-type Database = NodePgDatabase<typeof relations>;
+/**
+ * Danh sách cột đọc của một dòng `enrol` mà adapter này nạp —
+ * đúng hình dạng `EnrolRow` mà phễu ghi danh dùng chung
+ * (`CohortMaterializationSurface.enrolUserInternal`) nhận, dùng
+ * chung cho lượt đọc instance đích: bí danh camelCase tường minh
+ * theo khuôn danh sách cột của `@lms/db`.
+ */
+const ENROL_COLUMNS = [
+  'id',
+  'course_id as courseId',
+  'enrol',
+  'name',
+  'role_id as roleId',
+  'status',
+  'enrol_period as enrolPeriod',
+  'time_start as timeStart',
+  'time_end as timeEnd',
+  'enrolment_key as enrolmentKey',
+  'custom_int1 as customInt1',
+  'custom_int2 as customInt2',
+  'custom_text1 as customText1',
+  'cost',
+  'currency',
+  'payment_account_id as paymentAccountId',
+  'send_welcome_message as sendWelcomeMessage',
+  'welcome_message as welcomeMessage',
+  'created_at as createdAt',
+  'updated_at as updatedAt',
+] as const;
 
 /**
  * Cài đặt phía worker cho cổng kích hoạt ghi danh có phí
@@ -73,12 +97,11 @@ export class WorkerPaidEnrolActivationService implements PaidEnrolActivationPort
   private readonly materialization: CohortMaterializationSurface;
 
   constructor(
-    @InjectDrizzle() private readonly db: Database,
     enrolOutbox: WorkerEnrolOutboxService,
     private readonly spaceScope: WorkerPaymentSpaceScope,
   ) {
     this.materialization = new CohortMaterializationSurface({
-      db: this.db,
+      db: this.spaceScope.routedKysely,
       outbox: enrolOutbox,
       // Phạm vi platform của bề mặt giữ nguyên `spaceSlug` của
       // ngữ cảnh đang chạy (cùng khuôn `CohortSyncService`): phạm
@@ -105,15 +128,23 @@ export class WorkerPaidEnrolActivationService implements PaidEnrolActivationPort
       await tenantAls.run(
         { platform: true, spaceSlug: tenantAls.getStore()?.spaceSlug },
         async () => {
-          const [instance] = await this.db.select().from(enrol).where(eq(enrol.id, itemId));
+          const instance: EnrolInstanceRow | undefined = await this.spaceScope.routedKysely
+            .selectFrom('enrol')
+            .select(ENROL_COLUMNS)
+            .where('id', '=', itemId)
+            .executeTakeFirst();
           if (!instance) {
             throw new SharedDomainError('enrol.instance_not_found', `Enrol instance ${itemId} not found`);
           }
           if (instance.enrol !== 'fee') {
             throw new SharedDomainError('enrol.not_fee', 'Instance is not a fee enrol instance');
           }
-          const [existing] = await this.db.select().from(userEnrolments)
-            .where(and(eq(userEnrolments.enrolId, itemId), eq(userEnrolments.userId, userId)));
+          const existing = await this.spaceScope.routedKysely
+            .selectFrom('user_enrolments')
+            .select('status')
+            .where('enrol_id', '=', itemId)
+            .where('user_id', '=', userId)
+            .executeTakeFirst();
           if (existing && existing.status === ENROL_ACTIVE) return;
           // modifierId = chính người mua, đúng vết của đường API.
           await this.materialization.enrolUserInternal(instance, userId, userId);

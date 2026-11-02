@@ -11,7 +11,6 @@ import { QuizModule } from '../quiz/quiz.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { QuestionBanksController } from './question-banks.controller';
 import { QuestionBanksService } from './question-banks.service';
-import { QuestionBanksTransitionalRepository } from './question-banks-transitional.repository';
 import { QuestionsController, QuestionUsagesController, StimuliController } from './questions.controller';
 import { QuestionsService } from './questions.service';
 
@@ -37,11 +36,10 @@ import { QuestionsService } from './questions.service';
  * tĩnh theo một database cố định.
  *
  * QuestionBanksRepository cũng là repository Kysely của `@lms/db`
- * (issue #644), dựng bằng cùng khuôn factory. Riêng giao dịch
- * `buildBank` còn giữ phía Drizzle (điểm chuyển tiếp C-7) nên
- * module đăng ký thêm `QuestionBanksTransitionalRepository` phía
- * Drizzle cho đúng hai lệnh ghi của luồng đó; chủ đóng C-7 là PR
- * merge cuối trong ba issue #644/#651/#653.
+ * (issue #644), dựng bằng cùng khuôn factory. Giao dịch
+ * `buildBank` đã lật sang Kysely cùng đợt access (#651) khi điểm
+ * chuyển tiếp C-7 được hấp thụ — không còn repository chuyển
+ * tiếp phía Drizzle cho luồng này.
  */
 @Module({
   imports: [AccessModule, EventsModule, GroupsModule, TenantsModule, FilesModule, SpaceRoutingModule, forwardRef(() => QuizModule)],
@@ -57,7 +55,7 @@ import { QuestionsService } from './questions.service';
       useFactory: (spaceDb: SpaceDatabaseService) => new QuestionBanksRepository(spaceDb.routedKysely),
       inject: [SpaceDatabaseService],
     },
-    QuestionsService, QuestionBanksTransitionalRepository, QuestionBanksService,
+    QuestionsService, QuestionBanksService,
   ],
   exports: [QuestionsService, QuestionBanksService],
 })

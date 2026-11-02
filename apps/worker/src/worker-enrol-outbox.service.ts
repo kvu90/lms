@@ -1,72 +1,65 @@
 import { Injectable } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { outboxEvents } from '@lms/db';
-import type { SharedOutboxEventInput, SharedOutboxPort, SharedOutboxTx } from '@lms/enrol';
-import type { relations } from './db/relations';
-
-type Database = NodePgDatabase<typeof relations>;
+import {
+  type SharedOutboxEventInput,
+  type SharedOutboxPort,
+} from '@lms/enrol';
+import { sql, type CentreDB, type CentreTx } from '@lms/db';
+import { SpaceDatabaseService } from './db/routing/space-database.service';
 
 /**
  * Cổng ghi outbox phía worker cho bề mặt vật chất hoá cohort dùng
- * chung (`@lms/enrol`) — ĐIỂM NỐI của chiến dịch chuyển Kysely
- * trong PR #683 (D4).
+ * chung (`@lms/enrol`).
  *
- * Vì sao không uỷ thác cho `OutboxWriterService` của `@lms/payments`
- * nữa: writer đó từ PR này đã Kysely-only (`tx.insertInto(…)`),
- * trong khi mọi nơi gọi cổng này (khâu settle hoàn tiền, kích hoạt
- * ghi danh cấp lớp) đều truyền transaction Drizzle đang mở — ghi
- * qua writer sẽ gãy ở runtime vì transaction Drizzle không có
- * `insertInto`. File này vì vậy tự ghi dòng outbox trên chính
- * transaction Drizzle nhận được, với ngữ nghĩa `enqueue` VERBATIM
- * từ bản Drizzle gốc của `OutboxWriterService` (main, trước PR
- * #683): cùng khuôn dòng (aggregate, type, payload, tenant_id),
- * tenant chỉ lấy từ tham số tường minh của nơi gọi, và gương
- * `tenantId` vào payload khi payload chưa có khoá đó.
+ * Cổng này ghi trực tiếp bằng Kysely với ĐÚNG ngữ nghĩa của
+ * `OutboxWriterService` — tenant CHỈ lấy từ tham số tường minh của
+ * nơi gọi, không lấy từ ALS (các lời gọi outbox của bề mặt enrol
+ * không mang `tenantId` tường minh nên dòng ghi mang `tenantId`
+ * null — ĐÚNG hành vi hiện hành của nhịp matching phía API,
+ * consumer `setInterval` chạy ngoài mọi request nên ALS luôn rỗng;
+ * relay và các consumer đã xử lý các sự kiện enrol mang tenant null
+ * này từ trước, không có gì thay đổi ở đây); tenant được gương vào
+ * payload khi payload chưa có khoá `tenantId`.
  *
- * Tenant mang `null` khi nơi gọi không chỉ định: ĐÚNG hành vi hiện
- * hành của các luồng worker này (các luồng chạy ngoài mọi request
- * nên không có ngữ cảnh ALS để lấy tenant; relay và các consumer
- * đã xử lý các sự kiện enrol mang tenant null này từ trước, không
- * có gì thay đổi ở đây).
- *
- * Chủ đóng: W2b #661. Khi #661 lật các transaction của worker sang
- * Kysely thì cổng này quay lại uỷ thác cho writer Kysely của
- * `@lms/payments` (hoặc bị xoá nếu cổng outbox dùng chung đã bao
- * được các nơi gọi); issue #663 đối chiếu không còn sót.
+ * Mọi luồng ghi của worker (bề mặt enrol và các luồng thanh toán
+ * trả phí: kích hoạt ghi danh lớp, đối soát thanh toán) đều mở
+ * transaction Kysely và ghi qua cổng `enqueue` trên chính
+ * transaction đó — hợp đồng duy nhất của cổng này.
  */
 @Injectable()
 export class WorkerEnrolOutboxService implements SharedOutboxPort {
-  constructor(@InjectDrizzle() private readonly db: Database) {}
+  constructor(private readonly spaceDb: SpaceDatabaseService) {}
 
   /**
-   * Ghi sự kiện trong transaction nghiệp vụ đang mở.
+   * Ghi sự kiện trong transaction Kysely nghiệp vụ đang mở.
    *
-   * @param tx - transaction Drizzle của nơi gọi (bề mặt enrol).
+   * @param tx - transaction Kysely của nơi gọi.
    * @param input - sự kiện cần ghi.
    */
-  async enqueue(tx: SharedOutboxTx, input: SharedOutboxEventInput): Promise<void> {
+  async enqueue(tx: CentreTx, input: SharedOutboxEventInput): Promise<void> {
     const tenantId = input.tenantId ?? null;
     const payload = tenantId && input.payload['tenantId'] === undefined
       ? { ...input.payload, tenantId }
       : input.payload;
-    await tx.insert(outboxEvents).values({
-      aggregate: input.aggregate,
-      type: input.type,
-      payload,
-      tenantId,
-    });
+    await tx
+      .insertInto('outbox_events')
+      .values({
+        aggregate: input.aggregate,
+        type: input.type,
+        // Cột `payload` jsonb đi qua serialize tường minh kèm
+        // `::jsonb` theo khuôn ghi jsonb của `@lms/db` (xem cổng
+        // outbox của worker trong `cohort-sync.service.ts`).
+        payload: sql<CentreDB['outbox_events']['payload']>`${JSON.stringify(payload)}::jsonb`,
+        tenant_id: tenantId,
+      })
+      .execute();
   }
 
   /**
-   * Ghi sự kiện trong một transaction ngắn riêng (transaction
-   * Drizzle, như bản gốc — không mở transaction Kysely).
+   * Ghi sự kiện trong một transaction Kysely ngắn riêng.
    *
    * @param input - sự kiện cần ghi.
    */
   async enqueueStandalone(input: SharedOutboxEventInput): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      await this.enqueue(tx, input);
-    });
+    await this.spaceDb.routedKysely.transaction().execute((trx) => this.enqueue(trx, input));
   }
 }

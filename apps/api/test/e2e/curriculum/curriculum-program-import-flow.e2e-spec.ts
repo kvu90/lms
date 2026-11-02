@@ -154,6 +154,7 @@ describe('Nhập chương trình K0a (dataset GDPT 2018 đã kiểm chứng → 
           expect(mine.length, `${record.id} must have no outcomes`).toBe(0);
           // Node nội dung vẫn phải tồn tại đúng vị trí với tựa nguyên văn.
           const atPath = lessons.filter((l) => l.title === record.content
+            && l.outcomes.length === 0
             && JSON.stringify(l.path) === JSON.stringify(expectedPath(record)));
           expect(atPath.length, `${record.id} lesson at path`).toBe(1);
           continue;

@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { Observable, Subject } from 'rxjs';
 import { redisTlsFromUrl } from '../../config/env';
-import { MessagingRepository } from './messaging.repository';
+import { MessagingRepository } from '@lms/db/repositories/messaging';
 import { tenantAls } from '../tenants/tenant-als';
 
 /**
@@ -95,7 +95,7 @@ export class NotificationUnreadStreamService implements OnModuleInit, OnModuleDe
       subjects.add(subject);
       const subscription = subject.subscribe(subscriber);
 
-      void this.repo.countUnreadNotifications(userId).then(
+      void this.repo.countUnreadNotifications(userId, tenantAls.getStore()?.tenantId).then(
         (unread) => { if (!subject.closed) subject.next({ type: 'unread-count', data: { unread } }); },
         () => undefined,
       );
@@ -126,7 +126,10 @@ export class NotificationUnreadStreamService implements OnModuleInit, OnModuleDe
       const tenantId = await this.repo.getUserDefaultTenantId(userId).catch(() => null);
       const unread = await tenantAls.run(
         tenantId ? { tenantId } : { platform: true },
-        () => this.repo.countUnreadNotifications(userId),
+        // Vòng ALS vẫn giữ (nó lập cả ngữ cảnh pool/RLS); tenantId
+        // đồng thời truyền tường minh xuống repository vì
+        // repository tại `@lms/db` không đọc ALS (issue #658).
+        () => this.repo.countUnreadNotifications(userId, tenantId ?? undefined),
       );
       for (const subject of subjects) {
         if (!subject.closed) subject.next({ type: 'unread-count', data: { unread } });

@@ -10,7 +10,8 @@ import {
 import type { Server, Socket } from 'socket.io';
 import { Public } from '../../common/public.decorator';
 import { SpaceDatabaseService } from '../../db/routing/space-database.service';
-import { blankRecalledContent, MessagingRepository } from './messaging.repository';
+import { MessagingRepository } from '@lms/db/repositories/messaging';
+import { blankRecalledContent } from '@lms/messaging';
 import { MessagingSocketAuth } from './messaging-socket-auth';
 import { conversationRoom, toWireMessage, userRoom } from '@lms/messaging';
 import { MessagingRealtimeService } from './messaging-realtime.service';

@@ -1,12 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import { OnEvent } from '@nestjs/event-emitter';
 import { I18nService } from '@nestjs/i18n';
 import { CohortMaterializationSurface } from '@lms/enrol';
 import { type CentreTx } from '@lms/db';
 import { EnrolRepository, type EnrolRow, type UserEnrolmentRow } from '@lms/db/repositories/enrol';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { OutboxService } from '../../infra/events/outbox.service';
-import type { Database } from '../../db/database';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { isRoleContextConflictError, RoleSeparationService } from '../access/role-separation.service';
 import { ENROL_ASSIGNMENT_COMPONENT, RolesService } from '../access/roles.service';
@@ -68,12 +67,10 @@ export class EnrolService implements OnModuleInit {
    * danh lõi, đường gỡ ghi danh lõi và hai điểm vào vật chất hoá
    * theo sự kiện thành viên cohort sống ở tầng dữ liệu dùng chung
    * để tiến trình khác (worker) gọi được cùng một định nghĩa.
-   * Service này dựng bề mặt bằng tay cầm Drizzle đã định tuyến
-   * (đúng handle mà repository enrol giữ trước khi chuyển Kysely —
-   * bề mặt này thuộc D5 #657 và tiếp tục nhận handle Drizzle ở
-   * tầng wiring như hiện nay, handle định tuyến còn tồn tại tới
-   * #663), dịch vụ outbox của API và cổng ngữ cảnh platform của
-   * API, rồi dịch lỗi của bề mặt (mang mã kỹ thuật) về exception
+   * Service này dựng bề mặt bằng tay cầm Kysely đã định tuyến của
+   * API (D5 #657 — cùng handle `routedKysely` mà repository enrol
+   * dùng), bộ điều hợp outbox Kysely của API (xem dưới) và cổng ngữ
+   * cảnh platform của API, rồi dịch lỗi của bề mặt (mang mã kỹ thuật) về exception
    * HTTP mang cùng mã và thông điệp như trước khi trích xuất.
    * Phần thuộc về tiến trình API ở lại đây: kiểm capability của
    * người thao tác, tin nhắn chào mừng, và các đường quản trị
@@ -92,14 +89,25 @@ export class EnrolService implements OnModuleInit {
     private readonly i18n: I18nService,
     private readonly tenants: TenantsService,
     private readonly roleSeparation: RoleSeparationService,
-    @InjectDrizzle() private readonly db: Database,
+    private readonly spaceDb: SpaceDatabaseService,
   ) {
     this.materialization = new CohortMaterializationSurface({
-      db: this.db,
-      outbox: this.outbox,
+      db: spaceDb.routedKysely,
+      // Bộ điều hợp cổng outbox của bề mặt sang đường ghi Kysely
+      // của `OutboxService` (biến thể `enqueueKysely`, chuẩn từ
+      // PR #672): cùng ngữ nghĩa phân giải tenant qua ALS như
+      // đường Drizzle cũ, chỉ khác handle transaction. Mọi đường
+      // ghi outbox còn lại của service này cũng đi qua biến thể
+      // Kysely (vd `setSuspended` gọi thẳng `enqueueKysely` bằng
+      // transaction của bên gọi — điểm nối C-8/C đã đóng ở PR
+      // #683), không còn đường ghi Drizzle nào trong service.
+      outbox: {
+        enqueue: (tx, input) => this.outbox.enqueueKysely(tx, input),
+        enqueueStandalone: (input) => spaceDb.routedKysely.transaction().execute((trx) => this.outbox.enqueueKysely(trx, input)),
+      },
       // Cổng ngữ cảnh platform GIỮ `spaceSlug` của ngữ cảnh hiện
       // tại (Phần A, issue #587 — A4, đúng khuôn
-      // `access.repository.ts`): khi bề mặt vật chất hoá được gọi
+      // `permission-evaluator.service.ts`): khi bề mặt vật chất hoá được gọi
       // trong request của một trung tâm ở kho riêng, các lượt
       // đọc/ghi xuyên tenant của nó phải chạy trên kho của trung
       // tâm đó, không rơi về kho chung. Chỉ đổi đích dữ kiện,

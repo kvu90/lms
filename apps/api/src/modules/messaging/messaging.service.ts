@@ -10,7 +10,7 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { SiteConfigService } from '../site-config/site-config.service';
 import { UsersService } from '../users/users.service';
-import { MessagingRepository, type ConversationRow, type MessageRow, type MessageWithQuoteRow, type ReportRow } from './messaging.repository';
+import { MessagingRepository, type ConversationRow, type MessageRow, type MessageWithQuoteRow, type ReportRow } from '@lms/db/repositories/messaging';
 import { MessagingRealtimeService } from './messaging-realtime.service';
 import { MessagingSendThrottleService } from './messaging-send-throttle.service';
 import { NotificationUnreadStreamService } from './notification-unread-stream.service';

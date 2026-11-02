@@ -1,8 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
-import { eq } from 'drizzle-orm';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { classes, cohortMembers } from '@lms/db';
 import {
   CohortMaterializationSurface,
   ensureActiveTenantMembership,
@@ -10,11 +6,8 @@ import {
 } from '@lms/enrol';
 import type { PaidClassEnrolActivationPort } from '@lms/payments';
 import { tenantAls } from './db/tenant-als';
-import type { relations } from './db/relations';
 import { WorkerEnrolOutboxService } from './worker-enrol-outbox.service';
 import { WorkerPaymentSpaceScope } from './worker-payment-space-scope.service';
-
-type Database = NodePgDatabase<typeof relations>;
 
 /**
  * Cài đặt phía worker cho cổng kích hoạt ghi danh cấp lớp
@@ -60,8 +53,8 @@ type Database = NodePgDatabase<typeof relations>;
  *
  * Tính nguyên tử của bước 6–7 (phân xử 6509434733 trên PR #552):
  * chèn thành viên + cả hai dòng outbox nằm trong CÙNG một
- * `db.transaction` (dùng `enrolOutbox.enqueue(tx, …)`), không phải
- * ba transaction riêng biệt như trước. Lỗi ở bất kỳ bước nào cũng
+ * transaction Kysely (dùng `enrolOutbox.enqueue(tx, …)`), không
+ * phải ba transaction riêng biệt như trước. Lỗi ở bất kỳ bước nào cũng
  * rollback toàn bộ: lần chạy lại sau đó thấy chưa thuộc roster và
  * chạy đủ cả ba bước ghi. Ngược lại, nếu chèn đã commit mà ghi
  * outbox lỗi giữa chừng thì nhịp vẫn lật payment thành `succeeded`
@@ -94,12 +87,11 @@ export class WorkerPaidClassEnrolActivationService implements PaidClassEnrolActi
   private readonly materialization: CohortMaterializationSurface;
 
   constructor(
-    @InjectDrizzle() private readonly db: Database,
     private readonly enrolOutbox: WorkerEnrolOutboxService,
     private readonly spaceScope: WorkerPaymentSpaceScope,
   ) {
     this.materialization = new CohortMaterializationSurface({
-      db: this.db,
+      db: this.spaceScope.routedKysely,
       outbox: enrolOutbox,
       // Phạm vi platform của bề mặt giữ nguyên `spaceSlug` của
       // ngữ cảnh đang chạy (cùng khuôn `CohortSyncService`): phạm
@@ -126,7 +118,11 @@ export class WorkerPaidClassEnrolActivationService implements PaidClassEnrolActi
       await tenantAls.run(
         { platform: true, spaceSlug: tenantAls.getStore()?.spaceSlug },
         async () => {
-          const [row] = await this.db.select().from(classes).where(eq(classes.id, itemId));
+          const row = await this.spaceScope.routedKysely
+            .selectFrom('classes')
+            .select(['id', 'status', 'cohort_id as cohortId', 'tenant_id as tenantId'])
+            .where('id', '=', itemId)
+            .executeTakeFirst();
           if (!row) {
             throw new SharedDomainError('class.not_found', `Class ${itemId} not found`);
           }
@@ -135,16 +131,20 @@ export class WorkerPaidClassEnrolActivationService implements PaidClassEnrolActi
           }
           // Đã thuộc roster (kích hoạt lặp / webhook replay) → dừng tại đây.
           if (await this.materialization.isCohortMember(row.cohortId, userId)) return;
-          await ensureActiveTenantMembership(this.db, row.tenantId, userId);
+          await ensureActiveTenantMembership(this.spaceScope.routedKysely, row.tenantId, userId);
           await this.materialization.roleSeparationChecks.assertCohortMembershipAllowed(userId, row.cohortId);
           // Chèn thành viên + cả hai dòng outbox trong CÙNG một
-          // transaction: lỗi ở bước nào cũng rollback toàn bộ, lần chạy
-          // lại thấy chưa thuộc roster và chạy đủ cả ba bước ghi.
-          await this.db.transaction(async (tx) => {
-            const inserted = await tx.insert(cohortMembers)
-              .values({ cohortId: row.cohortId, userId })
-              .onConflictDoNothing()
-              .returning();
+          // transaction Kysely: lỗi ở bước nào cũng rollback toàn
+          // bộ, lần chạy lại thấy chưa thuộc roster và chạy đủ cả
+          // ba bước ghi. Hai dòng outbox đi qua cổng `enqueue`
+          // trên chính transaction đó.
+          await this.spaceScope.routedKysely.transaction().execute(async (tx) => {
+            const inserted = await tx
+              .insertInto('cohort_members')
+              .values({ cohort_id: row.cohortId, user_id: userId })
+              .onConflict((oc) => oc.doNothing())
+              .returningAll()
+              .execute();
             if (inserted.length === 0) return;
             await this.enrolOutbox.enqueue(tx, {
               aggregate: 'cohort', type: 'cohort_member_added',

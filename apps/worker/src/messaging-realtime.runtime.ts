@@ -1,17 +1,13 @@
 import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import {
   createMessagingDistributionService,
   createMessagingDistributionStore,
   type MessagingDistributionService,
 } from '@lms/messaging';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import Redis from 'ioredis';
-import type { relations } from './db/relations';
+import { SpaceDatabaseService } from './db/routing/space-database.service';
 import { createMessagingRealtimeEmitter, type MessagingRealtimeEmitterHandle } from './messaging-realtime-emitter';
-
-type Database = NodePgDatabase<typeof relations>;
 
 /**
  * Runtime của consumer phân phối realtime messaging ở worker
@@ -31,7 +27,7 @@ export class MessagingRealtimeRuntime implements OnModuleDestroy {
   private readonly emitterHandle: MessagingRealtimeEmitterHandle;
 
   constructor(
-    @InjectDrizzle() db: Database,
+    spaceDb: SpaceDatabaseService,
     @Inject(ConfigService) config: ConfigService,
   ) {
     const logger = new Logger('MessagingDistribution');
@@ -42,7 +38,12 @@ export class MessagingRealtimeRuntime implements OnModuleDestroy {
       logger.warn(`Redis của consumer phân phối messaging lỗi: ${error.message}`);
     });
     this.distribution = createMessagingDistributionService({
-      store: createMessagingDistributionStore(db),
+      // Tầng store dùng chung nay nhận handle Kysely (issue #658):
+      // truyền facade định tuyến theo không gian của worker —
+      // cùng handle mà các processor của job hiện hành dùng qua
+      // SpaceJobRunner, nên ngữ cảnh kho/GUC của lượt phân phối
+      // không đổi so với đường Drizzle trước đây.
+      store: createMessagingDistributionStore(spaceDb.routedKysely),
       emitter: this.emitterHandle.emitter,
       logger: {
         warn: (message) => logger.warn(message),

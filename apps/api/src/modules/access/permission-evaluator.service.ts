@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Cache } from 'cache-manager';
 import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { tenantAls } from '../tenants/tenant-als';
-import { AccessRepository, type ContextRow } from './access.repository';
+import { AccessRepository, type ContextRow } from '@lms/db/repositories/access';
 import { ContextsService } from './contexts.service';
 import { CAPABILITY_DEFINITIONS, CONTEXT_LEVELS } from './domain/capabilities';
 import { aggregateRoleResults, evaluateSingleRole, type RoleOverridePoint } from './domain/permission';
@@ -207,9 +207,10 @@ export class PermissionEvaluator {
    * không thu hẹp — hành vi cũ giữ nguyên. Đổi trạng thái membership
    * phải markContextDirty(context tenant) để cache cũ hết hiệu lực.
    *
-   * Dữ kiện cổng (thông tin tenant + membership) được repository đọc
-   * trong ngữ cảnh platform tường minh, không phụ thuộc phiên tenant
-   * của người gọi — hai bảng `tenants`/`tenant_memberships` bật FORCE
+   * Dữ kiện cổng (thông tin tenant + membership) được đọc trong ngữ
+   * cảnh platform tường minh do evaluator lập (`platformScope`),
+   * không phụ thuộc phiên tenant của người gọi — hai bảng
+   * `tenants`/`tenant_memberships` bật FORCE
    * RLS theo tenant của phiên nên đọc bằng phiên thường sẽ làm bản ghi
    * của tenant khác vô hình. Vì vậy `undefined` tại đây chỉ còn nghĩa
    * tenant không tồn tại; path vẫn mang context tenant mà dữ kiện cổng
@@ -239,6 +240,40 @@ export class PermissionEvaluator {
   }
 
   /**
+   * Ngữ cảnh platform GIỮ KHÔNG GIAN của request cho bốn phép đọc dữ
+   * kiện cổng (issue #651, bước nâng lớp bọc — trước đây nằm trong
+   * repository, nay lập ở tầng service vì repository cấm đọc ALS).
+   *
+   * Lý do: `tenants` và `tenant_memberships` là hai bảng FORCE RLS
+   * neo theo tenant của PHIÊN cơ sở dữ liệu — đọc bằng phiên của
+   * người gọi thì bản ghi của tenant khác vô hình, và kết quả
+   * `undefined`/thiếu dòng không phân biệt được "bị RLS che" với
+   * "không tồn tại". Cổng tenant là một kiểm soát an toàn, nên dữ
+   * kiện của nó không được phụ thuộc phiên của người gọi: sau phép
+   * đọc ở ngữ cảnh platform, `undefined` chỉ còn nghĩa thật là
+   * tenant không tồn tại, và evaluator dựa vào đó để từ chối khi
+   * không xác minh được (fail-closed).
+   *
+   * Đường kho riêng (issue #584): ngữ cảnh platform ở đây giữ nguyên
+   * không gian của request — bọc platform thuần túy sẽ đánh rơi slug
+   * khỏi ALS khiến handle định tuyến rơi về kho chung, và cổng sẽ
+   * đọc membership của kho chung thay vì kho của trung tâm — tài
+   * khoản chỉ tồn tại ở kho riêng bị từ chối oan ở mọi cổng
+   * capability. Giữ slug thì phép đọc vẫn ở đúng kho của request,
+   * chỉ khác ở mức GUC platform (bỏ qua RLS) như ý đồ ban đầu.
+   *
+   * KHÁC BIỆT VỚI BIẾN THỂ PLATFORM THUẦN: `isPlatformSiteAdmin`
+   * dùng `tenantAls.run({ platform: true })` KHÔNG kèm slug — cố
+   * tình lược slug để handle định tuyến và khoá cache rơi về kho
+   * chung (cổng đăng nhập platform ghim kho chung). Hai biến thể
+   * không được gộp: gộp nhầm hướng nào cũng sai kho.
+   */
+  private platformScope<T>(fn: () => Promise<T>): Promise<T> {
+    const spaceSlug = tenantAls.getStore()?.spaceSlug;
+    return tenantAls.run({ platform: true, ...(spaceSlug ? { spaceSlug } : {}) }, fn);
+  }
+
+  /**
    * Thông tin cổng của tenant (kind + status), tra cache trước, chỉ
    * xuống DB khi cache chưa có. Khoá cache nhúng `version` của context
    * tenant: mọi thay đổi làm đổi kết quả cổng — đổi trạng thái tenant,
@@ -248,12 +283,15 @@ export class PermissionEvaluator {
    * cùng điều kiện như cache kết quả đánh giá. Trạng thái "không xác
    * minh được" (DB trả `undefined`) KHÔNG được cache: nó là căn cứ
    * fail-closed và phải được đọc lại ở lượt sau như trước.
+   *
+   * Phép đọc DB chạy trong `platformScope` (giữ không gian request)
+   * — repository không tự lập ngữ cảnh này.
    */
   private async tenantGateInfo(tenantCtx: ContextRow): Promise<{ kind: string; status: string } | undefined> {
     const cacheKey = `access:gateinfo:${tenantCtx.instanceId}:v${tenantCtx.version}`;
     const cached = await this.cache.get<{ kind: string; status: string }>(cacheKey);
     if (cached !== undefined && cached !== null) return cached;
-    const info = await this.repo.getTenantGateInfo(tenantCtx.instanceId!);
+    const info = await this.platformScope(() => this.repo.getTenantGateInfo(tenantCtx.instanceId!));
     if (info) await this.cache.set(cacheKey, info, ACCESS_CACHE_TTL_MS);
     return info;
   }
@@ -270,7 +308,7 @@ export class PermissionEvaluator {
     const cacheKey = `access:member:${tenantCtx.instanceId}:${userId}:v${tenantCtx.version}`;
     const cached = await this.cache.get<string | null>(cacheKey);
     if (cached !== undefined) return cached ?? undefined;
-    const status = await this.repo.getMembershipStatus(tenantCtx.instanceId!, userId);
+    const status = await this.platformScope(() => this.repo.getMembershipStatus(tenantCtx.instanceId!, userId));
     await this.cache.set(cacheKey, status ?? null, ACCESS_CACHE_TTL_MS);
     return status;
   }
@@ -418,10 +456,10 @@ export class PermissionEvaluator {
       if (tenantCtx?.instanceId) tenantIds.add(tenantCtx.instanceId);
     }
     const gateInfoByTenant = new Map(
-      (await this.repo.getTenantGateInfos([...tenantIds])).map((info) => [info.id, info]),
+      (await this.platformScope(() => this.repo.getTenantGateInfos([...tenantIds]))).map((info) => [info.id, info]),
     );
     const membershipByTenant = new Map(
-      (await this.repo.getMembershipStatuses([...tenantIds], userId)).map((m) => [m.tenantId, m.status]),
+      (await this.platformScope(() => this.repo.getMembershipStatuses([...tenantIds], userId))).map((m) => [m.tenantId, m.status]),
     );
     const gateByTarget = new Map<string, TenantGate>();
     for (const target of targets) {

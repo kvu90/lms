@@ -3,10 +3,13 @@
 # này, Cloudflare Tunnel công bố service web ra ngoài).
 #
 # Topology GIỮ NGUYÊN một-origin như đường chạy production hiện hành:
-# trình duyệt chỉ nói chuyện với service web (cổng duy nhất được publish
-# ra host); web proxy /api/*, /socket.io/*, /mcp và /.well-known/* về
-# service api qua mạng nội bộ của compose (LMS_API_INTERNAL_URL), nên
-# cookie đăng nhập và realtime hoạt động đúng như trước.
+# trình duyệt chỉ nói chuyện với service web (cổng web là cổng duy nhất
+# của ứng dụng được publish ra host); web proxy /api/*, /socket.io/*,
+# /mcp và /.well-known/* về service api qua mạng nội bộ của compose
+# (LMS_API_INTERNAL_URL), nên cookie đăng nhập và realtime hoạt động
+# đúng như trước. Ngoài cổng web, stack chỉ còn publish cổng 8085 của
+# Keycloak — và cổng đó bị bind vào loopback của host, chỉ Cloudflare
+# Tunnel chạy ngay trên host mới tới được (xem khối Keycloak ở dưới).
 #
 # Cách dùng:
 #   cp .env.example .env   # rồi điền các giá trị bí mật thật
@@ -198,8 +201,9 @@ services:
       PORT: 8080
       LMS_API_INTERNAL_URL: http://api:3100
     ports:
-      # Cổng duy nhất của stack được publish ra host. Khi gắn Cloudflare
-      # Tunnel, tunnel trỏ vào đúng cổng này của máy host.
+      # Cổng của ứng dụng được publish ra host. Khi gắn Cloudflare
+      # Tunnel, tunnel trỏ vào đúng cổng này của máy host. (Keycloak
+      # có cổng riêng 8085 nhưng chỉ bind loopback — xem khối đó.)
       - "${WEB_PORT:-8080}:8080"
     depends_on:
       api:
@@ -320,8 +324,166 @@ services:
         condition: service_healthy
     command: ["node", "dist/modules/seed/review-seed.js"]
 
+  # Keycloak — nền xác thực tập trung của hệ thống (issue #704):
+  # Keycloak quản lý danh tính, organization và gán vai cấp
+  # trung tâm; app phân giải và thực thi capability nghiệp vụ
+  # theo ngữ cảnh. Hai service dưới đây chỉ cộng thêm vào
+  # stack — không service hiện hữu nào phụ thuộc vào chúng nên
+  # hành vi của các service hiện hữu không đổi.
+  #
+  # Dữ kiện danh tính của Keycloak (realm, người dùng,
+  # organization) nằm trong PostgreSQL RIÊNG của nó (service
+  # kc-db ngay dưới) trên volume có tên keycloak-db-data — không
+  # dùng chung cụm Postgres của ứng dụng và không được mất khi
+  # container bị tạo lại ở các lần deploy.
+  #
+  # Realm `lms` được nạp ở lần khởi động đầu tiên bằng cơ chế
+  # nạp realm lúc khởi động (--import-realm): file
+  # deploy/keycloak/lms-realm.json trong repo được đóng gói
+  # sẵn vào image của service keycloak (Dockerfile.keycloak ở
+  # gốc repo COPY file vào /opt/keycloak/data/import/ trong
+  # image). Keycloak chỉ nạp realm khi nó chưa tồn tại; các
+  # lần khởi động sau bỏ qua file này.
+  #
+  # Hai service này chạy trên mạng riêng keycloak-net (khai ở
+  # khối networks cuối file), tách khỏi mạng mặc định của
+  # stack: kc-db chỉ cần nói chuyện với keycloak, và các
+  # container của ứng dụng không còn đường mạng nội bộ nào
+  # tới Keycloak.
+  kc-db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      # Một biến bí mật duy nhất cho cả hai phía của cùng một
+      # mật khẩu: POSTGRES_PASSWORD ở đây (phía server) và
+      # KC_DB_PASSWORD của service keycloak (phía client) cùng
+      # nội suy từ KEYCLOAK_DB_PASSWORD của môi trường triển
+      # khai.
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?Can dat KEYCLOAK_DB_PASSWORD trong file .env}
+    volumes:
+      # PostgreSQL 17 giữ bố cục thư mục dữ kiện cổ điển
+      # /var/lib/postgresql/data — khác service postgres của
+      # stack (PostgreSQL 18, mount tại /var/lib/postgresql).
+      - keycloak-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks:
+      - keycloak-net
+
+  keycloak:
+    build:
+      context: .
+      dockerfile: Dockerfile.keycloak
+    restart: unless-stopped
+    command: ["start", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://kc-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?Can dat KEYCLOAK_DB_PASSWORD trong file .env}
+      # Tài khoản quản trị BOOTSTRAP của Keycloak: tài khoản
+      # `admin` thuộc realm master với quyền quản trị đầy đủ
+      # (không chỉ quyền vào Admin Console), được Keycloak tạo
+      # ở lần khởi động đầu tiên từ hai biến ở đây. Đây là tài
+      # khoản TẠM của lần dựng đầu: KEYCLOAK_ADMIN_PASSWORD
+      # bắt buộc phải có ở lần deploy đầu tiên để bootstrap tạo
+      # được tài khoản; sau khi đã có tài khoản quản trị lâu
+      # dài thì xoá tài khoản tạm này và gỡ biến khỏi môi
+      # trường triển khai theo quy trình kết thúc bootstrap ở
+      # mục nghiệm thu của issue #704. Nội suy dùng dạng
+      # ${...:-} (mặc định rỗng) thay cho dạng bắt buộc
+      # ${...:?} để việc gỡ biến sau này không chặn deploy.
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-}
+      # Địa chỉ công khai duy nhất của Keycloak: trình duyệt
+      # chỉ gặp Keycloak qua tên miền này (Cloudflare Tunnel
+      # trỏ auth.fuckr.net về cổng host 8085 ở dưới), nên issuer
+      # trong token luôn mang tiền tố
+      # https://auth.fuckr.net/realms/.
+      KC_HOSTNAME: https://auth.fuckr.net
+      # TLS kết thúc ở Cloudflare Tunnel phía trước; container
+      # chỉ nhận HTTP nội bộ và tin các header X-Forwarded-*.
+      # Biên tin cậy của việc tin header này: từ ngoài host,
+      # cổng 8085 ở dưới bị bind vào loopback nên chỉ
+      # cloudflared chạy ngay trên host mới tới được cổng; từ
+      # trong stack, keycloak đã tách sang mạng riêng
+      # keycloak-net nên các container của ứng dụng không còn
+      # đường mạng nội bộ nào tới keycloak:8080; tiến trình
+      # chạy ngay trên host vốn thuộc biên tin cậy của host.
+      # Vì vậy vẫn không đặt KC_PROXY_TRUSTED_ADDRESSES: chưa
+      # có bằng chứng về địa chỉ peer mà container thật sự
+      # nhìn thấy phía sau docker proxy trên mạng riêng — địa
+      # chỉ đó sẽ đối chiếu từ log của Keycloak ở bước nghiệm
+      # thu hậu merge trước khi quyết định có ghim hay không.
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: "true"
+      # Bật thêm endpoint metrics trên cùng cổng quản trị 9000:
+      # readiness (/health/ready) khi đó kiểm cả connection
+      # pool tới kc-db, nên healthcheck ở dưới phản ánh đúng
+      # việc Keycloak đã dùng được database của nó. Cổng 9000
+      # không publish ra host — chỉ healthcheck trong container
+      # và vận hành qua exec mới dùng tới.
+      KC_METRICS_ENABLED: "true"
+    ports:
+      # Cổng host dành riêng cho Keycloak, bind vào loopback
+      # (127.0.0.1) thay vì mọi giao diện của host: Cloudflare
+      # Tunnel chạy ngay trên host và ingress của nó trỏ
+      # localhost:8085, nên bind loopback là đủ cho đường công
+      # khai qua auth.fuckr.net, đồng thời không ai ngoài chính
+      # host vào thẳng được cổng này để vượt qua tunnel hay giả
+      # mạo các header X-Forwarded-* mà Keycloak tin
+      # (KC_PROXY_HEADERS ở trên). Web vẫn là cửa vào của ứng
+      # dụng như trước.
+      - "127.0.0.1:8085:8080"
+    depends_on:
+      kc-db:
+        condition: service_healthy
+    healthcheck:
+      # Image Keycloak không có curl: thăm readiness bằng Bash
+      # /dev/tcp — mở kết nối TCP tới cổng quản trị 9000, gửi
+      # request HTTP và đòi dòng trạng thái đáp án chứa 200.
+      # start_period dài để lần khởi động đầu (tạo schema và
+      # nạp realm) không bị tính là lỗi. Healthcheck chỉ để
+      # quan sát trạng thái và cho CI chờ readiness — không cơ
+      # chế nào restart container theo healthcheck, nên
+      # database chập chờn không làm Keycloak bị khởi động lại.
+      # Biến $status của shell trong lệnh dưới đây PHẢI viết
+      # thành $$status: Compose nội suy mọi $... ngay trong
+      # chuỗi lệnh của healthcheck, viết một $ thì biến bị thay
+      # bằng chuỗi rỗng trước khi lệnh tới container và probe
+      # hỏng lặng lẽ (đã vấp ở lượt CI đầu của healthcheck này:
+      # log job có cảnh báo "status variable is not set" trong
+      # khi Keycloak khởi động và nạp realm hoàn toàn bình
+      # thường).
+      test: ["CMD", "bash", "-c", 'exec 3<>/dev/tcp/127.0.0.1/9000 || exit 1; printf "GET /health/ready HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n" >&3; IFS= read -r status <&3; case "$$status" in *" 200 "*) exit 0 ;; *) exit 1 ;; esac']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    networks:
+      - keycloak-net
+
 volumes:
   pgdata:
   redisdata:
   api-files:
   fleet-backups:
+  # Dữ kiện PostgreSQL riêng của Keycloak (issue #704) — xem
+  # service kc-db trong khối services.
+  keycloak-db-data:
+
+networks:
+  # Mạng riêng của cặp Keycloak (issue #704): chỉ kc-db và
+  # keycloak thuộc mạng này, và cả hai rời mạng mặc định của
+  # stack — kc-db không lộ diện với các container của ứng
+  # dụng, keycloak trên mạng nội bộ chỉ còn nhận kết nối từ
+  # kc-db, cộng cổng loopback đã publish cho Cloudflare
+  # Tunnel trên host. Các service hiện hữu không khai
+  # networks nên vẫn ở mạng mặc định như trước.
+  keycloak-net:
