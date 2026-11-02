@@ -1,23 +1,25 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, eq } from 'drizzle-orm';
 import { uuidIdSchema } from '@lms/contracts';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type { relations } from './db/relations';
-import { context as contextTable, eventLog, outboxEvents } from '@lms/db';
-
-type Database = NodePgDatabase<typeof relations>;
-
-type OutboxRow = typeof outboxEvents.$inferSelect;
+import { sql, type CentreDB } from '@lms/db';
+import { SpaceDatabaseService } from './db/routing/space-database.service';
 
 /**
- * Hình dáng row outbox mà writer phản chiếu — suy thẳng từ định nghĩa bảng
- * dùng chung `@lms/db` (trước đây là interface chép tay). `payload`
- * thu hẹp về record vì writer chỉ đọc payload dạng object.
+ * Hình dáng row outbox mà writer phản chiếu — khai tay đúng các cột
+ * writer đọc (trước đây suy từ định nghĩa bảng Drizzle dùng chung
+ * `@lms/db`; bảng Drizzle bị xoá ở hạng mục gỡ Drizzle nên kiểu phải
+ * sống độc lập với nó). `payload` thu hẹp về record vì writer chỉ đọc
+ * payload dạng object; `seq` là số thứ tự đã được phía gọi (relay)
+ * chuyển về số từ giá trị int8 thô của kho.
  */
-export type OutboxRowLike = Pick<OutboxRow, 'id' | 'seq' | 'aggregate' | 'type' | 'occurredAt' | 'tenantId'> & {
+export interface OutboxRowLike {
+  id: string;
+  seq: number;
+  aggregate: string;
+  type: string;
+  occurredAt: Date;
+  tenantId: string | null;
   payload: Record<string, unknown> | null;
-};
+}
 
 const COURSE_CONTEXT_LEVEL = 50;
 
@@ -58,12 +60,22 @@ function str(value: unknown): string | null {
  * vào `event_log` với payload đã chuẩn hoá (component / action / actor /
  * related user / course / object / IP). Việc phản chiếu KHÔNG BAO GIỜ làm gãy relay:
  * lỗi được ghi log và nuốt, ngữ nghĩa phát hành giữ nguyên không đổi.
+ *
+ * @remarks
+ * Mọi truy vấn đi qua handle Kysely định tuyến
+ * (`SpaceDatabaseService.routedKysely`): relay gọi writer ngay trong
+ * phiên của kho chứa dòng outbox (kho chung ở ngữ cảnh platform, kho
+ * riêng trong phiên theo trung tâm đã chuẩn bị phía Kysely), nên dòng
+ * `event_log` và tra cứu context đều vào đúng kho đó — cùng đích kho
+ * với handle Drizzle định tuyến trước đây. Cột jsonb `payload` khi ghi
+ * đi qua serialize tường minh + `::jsonb` (khuôn pilot: driver `pg`
+ * hiểu mảng cấp cao nhất là mảng PostgreSQL nếu không serialize).
  */
 @Injectable()
 export class EventLogWriter {
   private readonly logger = new Logger(EventLogWriter.name);
 
-  constructor(@InjectDrizzle() private readonly db: Database) {}
+  constructor(private readonly spaceDb: SpaceDatabaseService) {}
 
   async record(row: OutboxRowLike): Promise<void> {
     try {
@@ -94,14 +106,17 @@ export class EventLogWriter {
         outboxId: row.id,
         outboxSeq: row.seq,
       };
-      await this.db.insert(eventLog).values({
-        eventType: row.type,
-        contextId,
-        userId: actorId,
-        tenantId: row.tenantId ?? str(source.tenantId),
-        payload,
-        createdAt: row.occurredAt,
-      });
+      await this.spaceDb.routedKysely
+        .insertInto('event_log')
+        .values({
+          event_type: row.type,
+          context_id: contextId,
+          user_id: actorId,
+          tenant_id: row.tenantId ?? str(source.tenantId),
+          payload: sql<CentreDB['event_log']['payload']>`${JSON.stringify(payload)}::jsonb`,
+          created_at: row.occurredAt,
+        })
+        .execute();
     } catch (err) {
       this.logger.error(`Failed to mirror outbox event ${row.type} (${row.id}) into event_log: ${String(err)}`);
     }
@@ -119,11 +134,13 @@ export class EventLogWriter {
   /** Tra cứu context của khoá học chỉ đọc; context bị thiếu thì cột để null (payload vẫn mang courseId). */
   private async courseContextId(courseId: string): Promise<string | null> {
     if (!uuidIdSchema.safeParse(courseId).success) return null;
-    const rows = await this.db
-      .select({ id: contextTable.id })
-      .from(contextTable)
-      .where(and(eq(contextTable.contextLevel, COURSE_CONTEXT_LEVEL), eq(contextTable.instanceId, courseId)))
-      .limit(1);
-    return rows[0]?.id ?? null;
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('context')
+      .select('id')
+      .where('context_level', '=', COURSE_CONTEXT_LEVEL)
+      .where('instance_id', '=', courseId)
+      .limit(1)
+      .executeTakeFirst();
+    return row?.id ?? null;
   }
 }

@@ -3,7 +3,7 @@ import { Queue } from 'bullmq';
 import { isNotNull, isNull } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { outboxEvents } from '@lms/db';
+import { createCentreKysely, outboxEvents, type CentreDb } from '@lms/db';
 import { redisConnectionFromUrl } from '../../../worker/src/config/env';
 import { tenantAls } from '../../../worker/src/db/tenant-als';
 import { TenantAwarePool } from '../../../worker/src/db/tenant-pool';
@@ -32,12 +32,15 @@ import {
  *
  * Cách dẫn: dựng ĐÚNG ngăn xếp production của worker bằng `new`
  * (không qua Nest, không boot WorkerModule — e2e shard chỉ build
- * `@lms/api`, không có tiến trình worker chạy kèm): tay cầm Drizzle
+ * `@lms/api`, không có tiến trình worker chạy kèm): tay cầm Kysely
  * trên `TenantAwarePool` của worker (gắn GUC theo ALS như module
- * thật), `EventLogWriter` + `TaskLogService` của worker, bảng định
+ * thật — relay, `EventLogWriter` và `TaskLogService` của worker
+ * đều chạy trên handle Kysely định tuyến từ issue #664), bảng định
  * tuyến `OUTBOX_EVENT_QUEUE_ROUTES` và một `Queue` BullMQ thật cho
  * mỗi hàng đợi có mặt trong bảng đó (cùng cấu hình kết nối Redis
- * và cùng chính sách job mặc định như `worker.module.ts`).
+ * và cùng chính sách job mặc định như `worker.module.ts`). Tay cầm
+ * Drizzle trên cùng pool chỉ còn phục vụ việc đọc trạng thái đóng
+ * dấu của chính cầu dẫn (không thuộc đường relay).
  *
  * Vì sao import thẳng code production của worker thay vì dựng một
  * bản phản chiếu riêng cho test: import thẳng thì spec khẳng định
@@ -74,6 +77,7 @@ import {
 let relay: OutboxRelayScheduler | null = null;
 let pool: TenantAwarePool | null = null;
 let sharedDb: NodePgDatabase<typeof relations> | null = null;
+let sharedKysely: CentreDb | null = null;
 let queues: Queue[] = [];
 /**
  * Tập ứng viên dọn: id các dòng outbox của DB test này mà cầu dẫn
@@ -93,9 +97,31 @@ function getSharedDb(): NodePgDatabase<typeof relations> {
   return sharedDb;
 }
 
+/**
+ * Khung định tuyến tối thiểu cho ngăn xếp relay của worker trong
+ * cầu dẫn: `routedKysely` là handle Kysely dựng trên đúng
+ * `TenantAwarePool` dùng chung ở trên (cùng cách dựng handle của
+ * khung production), nên GUC theo ALS áp y hệt đường thật. Cầu dẫn
+ * chỉ dẫn lượt quét kho chung nên sổ đăng ký trả rỗng và đường
+ * theo trung tâm không được trang bị (ném lỗi nếu bị gọi — lượt
+ * theo trung tâm được kiểm chứng ở chính các suite của worker).
+ */
+function getWorkerSpaceDb(): SpaceDatabaseService {
+  getSharedDb();
+  if (!sharedKysely) {
+    sharedKysely = createCentreKysely(pool!);
+  }
+  return {
+    routedKysely: sharedKysely,
+    listRegisteredSpaces: async () => [],
+    withSpaceKysely: async () => {
+      throw new Error('cầu dẫn relay không dẫn lượt quét theo trung tâm');
+    },
+  } as unknown as SpaceDatabaseService;
+}
+
 function getRelay(): OutboxRelayScheduler {
   if (!relay) {
-    const db = getSharedDb();
     const queueNames = allQueueNamesOfRoutes(OUTBOX_EVENT_QUEUE_ROUTES);
     const connection = redisConnectionFromUrl(process.env.REDIS_URL ?? '');
     queues = queueNames.map(
@@ -113,25 +139,24 @@ function getRelay(): OutboxRelayScheduler {
     const queueMap: OutboxEventQueues = new Map(
       queueNames.map((name, index) => [name, queues[index]!] as const),
     );
-    // Từ issue #582 relay còn hai phụ thuộc: dịch vụ định tuyến
+    // Từ issue #582 relay còn hai phụ thuộc: khung định tuyến
     // theo trung tâm (cho lượt quét các kho riêng) và cấu hình
     // (giới hạn đồng thời của lượt quét). Cầu dẫn này chỉ dẫn
     // lượt quét kho chung `publishPending` — lượt quét theo
     // trung tâm được kiểm chứng ở chính các suite của worker —
-    // nên dịch vụ định tuyến ở đây dựng bằng một cấu hình không
-    // có control plane (mọi tra cứu sổ đều rỗng/không cấu hình,
-    // đúng trạng thái của các file e2e dùng cầu dẫn này), và cấu
-    // hình của relay trả mặc định cho mọi khoá.
+    // nên khung định tuyến ở đây là bản tối thiểu trên đúng pool
+    // dùng chung (xem {@link getWorkerSpaceDb}), và cấu hình của
+    // relay trả mặc định cho mọi khoá.
     const unconfigured = {
       get: (_key: string, fallback?: unknown) => fallback,
     } as unknown as ConfigService;
+    const spaceDb = getWorkerSpaceDb();
     relay = new OutboxRelayScheduler(
-      db,
-      new EventLogWriter(db),
-      new TaskLogService(db),
+      new EventLogWriter(spaceDb),
+      new TaskLogService(spaceDb),
       OUTBOX_EVENT_QUEUE_ROUTES,
       queueMap,
-      new SpaceDatabaseService(unconfigured),
+      spaceDb,
       unconfigured,
     );
   }
@@ -286,6 +311,7 @@ export async function closeWorkerRelayDriver(): Promise<void> {
     const closing = pool;
     pool = null;
     sharedDb = null;
+    sharedKysely = null;
     await closing.end();
   }
   if (removalErrors.length > 0) {

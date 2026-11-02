@@ -1,17 +1,11 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import type { Job } from 'bullmq';
-import { eq, sql } from 'drizzle-orm';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type { relations } from '../db/relations';
-
-type Database = NodePgDatabase<typeof relations>;
-import { files } from '@lms/db';
 import { tenantAls } from '../db/tenant-als';
+import { SpaceDatabaseService } from '../db/routing/space-database.service';
 
 export interface FileCleanupJobData { contentHash: string }
 export interface FileCleanupResult { contentHash: string; removed: boolean; refcount: number }
@@ -29,7 +23,7 @@ export interface FileCleanupResult { contentHash: string; removed: boolean; refc
 export class FileCleanupProcessor extends WorkerHost {
   private readonly logger = new Logger(FileCleanupProcessor.name);
   constructor(
-    @InjectDrizzle() private readonly db: Database,
+    private readonly spaceDb: SpaceDatabaseService,
     @Inject(ConfigService) private readonly config: ConfigService,
   ) { super(); }
 
@@ -45,7 +39,11 @@ export class FileCleanupProcessor extends WorkerHost {
 
   private async processInContext(job: Job<FileCleanupJobData>): Promise<FileCleanupResult> {
     const { contentHash } = job.data;
-    const [row] = await this.db.select({ n: sql<number>`count(*)::int` }).from(files).where(eq(files.contentHash, contentHash));
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('files')
+      .select((eb) => eb.fn.countAll<number>().as('n'))
+      .where('content_hash', '=', contentHash)
+      .executeTakeFirst();
     const refcount = row?.n ?? 0;
     if (refcount > 0) {
       this.logger.log(`Hash ${contentHash.slice(0, 8)}… still referenced (${refcount}), keeping physical file`);

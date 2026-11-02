@@ -8,7 +8,7 @@ import { TenantAwarePool } from '../../../src/db/tenant-pool';
 import { relations } from '../../../src/db/relations';
 import { adminDatabaseUrl, ensureOrdinaryRole, ordinaryRoleUrl } from '../../support/ordinary-role';
 import {
-  classes, cohort, cohortMembers, context, course, courseGroups, enrol,
+  classes, cohort, cohortMembers, context, course, courseGroups, createCentreKysely, enrol,
   role, roleAssignments, userEnrolments, users,
 } from '@lms/db';
 
@@ -139,7 +139,12 @@ describe('Worker class enrol reconcile dưới RLS (hồi quy #292)', () => {
     rlsDb = drizzle({ client: rlsPool, relations });
     processor = new ClassEnrolReconcileProcessor(
       rlsDb as never,
-      new TaskLogService(rlsDb as never),
+      // TaskLogService đã chuyển sang handle Kysely định tuyến
+      // (issue #664): cấp một khung định tuyến tối thiểu mà
+      // `routedKysely` trỏ vào đúng pool role thường của ca này,
+      // để đường ghi task_log giữ nguyên hình dạng kết nối
+      // production (role không BYPASSRLS) như trước.
+      new TaskLogService({ routedKysely: createCentreKysely(rlsPool) } as never),
     );
   });
 

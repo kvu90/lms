@@ -324,7 +324,6 @@ describe('Định tuyến job theo trung tâm phía worker (integration)', () =>
     const queue = new CaptureQueue();
     const queues = new Map<string, Queue>([['notification-events', queue as unknown as Queue]]);
     const relay = new OutboxRelayScheduler(
-      spaceDb.routedDatabase,
       { record: async () => undefined } as never,
       { recordRun: async () => undefined } as never,
       OUTBOX_EVENT_QUEUE_ROUTES,
