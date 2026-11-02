@@ -481,7 +481,7 @@ describe('Vật chất hoá cohort dùng chung — đặc tả hoá hành vi ở
     await redis.del(`lms:completion-reaggregation:${databaseName}:seq`);
     const fresh = new CompletionReaggregationOutboxConsumer(
       app.get(ConfigService),
-      app.get(SpaceDatabaseService).routedDatabase,
+      app.get(SpaceDatabaseService),
       app.get(CompletionService),
     );
     try {
