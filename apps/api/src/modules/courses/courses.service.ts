@@ -1,13 +1,9 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { sql, type CentreTx, type ExamVariant } from '@lms/db';
 import {
-  course as courseTable, courseModules as courseModulesTable, courseSectionAnchorOutcomes, courseSectionAnchors,
-  courseSections as courseSectionsTable,
-  courseCompletionCriteria, courseCompletionSettings, courseFormatOptions, gradeItems,
-  examPins,
-} from '../../db/schema';
-import type { DbTx } from '../../db/database';
+  CoursesRepository, type CategoryRow, type CmRow, type CourseFormatOptionRow, type CourseRow, type SectionRow,
+} from '@lms/db/repositories/courses';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
@@ -17,7 +13,6 @@ import { AvailabilityService, type AvailabilityContext } from '../availability/a
 import { CustomFieldsService } from '../custom-fields/custom-fields.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsService } from '../tenants/tenants.service';
-import { CoursesRepository, type CategoryRow, type CmRow, type CourseRow, type SectionRow } from './courses.repository';
 
 export const GROUPMODE_NOGROUPS = 0;
 export const GROUPMODE_SEPARATEGROUPS = 1;
@@ -474,7 +469,7 @@ export class CoursesService {
     }
     if (input.customFields) await this.customFields.validateValuesForInstance(COURSE_COMPONENT, COURSE_AREA, input.customFields);
     const siblings = await this.repo.listCourses(category.id);
-    const created = await this.repo.dbHandle.transaction(async (tx) => {
+    const created = await this.repo.transaction(async (tx) => {
       const row = await this.repo.insertCourse({
         tenantId: category.tenantId,
         category: category.id, fullName: input.fullName, shortName,
@@ -486,7 +481,7 @@ export class CoursesService {
         subjectId: input.subjectId ?? null, grade: input.grade ?? null,
         classId: classRef?.classId ?? null,
       }, tx);
-      await this.outbox.enqueue(tx, { aggregate: 'course', type: 'course_created', payload: { courseId: row.id, categoryId: category.id, actorId }, tenantId: category.tenantId });
+      await this.outbox.enqueueKysely(tx, { aggregate: 'course', type: 'course_created', payload: { courseId: row.id, categoryId: category.id, actorId }, tenantId: category.tenantId });
       return row;
     });
     // Khoá thuộc lớp: context khoá neo dưới context LỚP (thay vì danh mục)
@@ -597,7 +592,7 @@ export class CoursesService {
   /**
    * Tuỳ chọn định dạng của khoá học.
    */
-  async getFormatOptions(courseId: string): Promise<(typeof import('../../db/schema').courseFormatOptions.$inferSelect)[]> {
+  async getFormatOptions(courseId: string): Promise<CourseFormatOptionRow[]> {
     return this.repo.listFormatOptions(courseId);
   }
   /**
@@ -993,7 +988,7 @@ export class CoursesService {
     }
     const count = fresh.length;
     const created: (SectionRow & { frame: SectionFrameView })[] = [];
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       const handle = tx;
       if (input.insertAtSection !== undefined && insertAt <= maxSection) {
         // Hai pass qua vùng đệm +100000 để unique (course, section) không vỡ giữa chừng.
@@ -1092,46 +1087,50 @@ export class CoursesService {
    * `cmId` (gán lại theo module mới ngay sau).
    */
   private async copyCmRow(
-    tx: DbTx, source: CmRow, targetCourseId: string, targetSectionId: string,
+    tx: CentreTx, source: CmRow, targetCourseId: string, targetSectionId: string,
     deltaMs: number, cmMap: Map<string, string>,
   ): Promise<CmRow> {
-    const db = tx;
     let instanceId = source.instanceId;
     if (source.component === QUIZ_COMPONENT_NAME && source.instanceId) {
-      const [pin] = await db.select().from(examPins).where(eq(examPins.id, source.instanceId));
+      // Đường ghi trực tiếp trên bảng `exam_pins` trong transaction
+      // nhân bản — đã chuyển sang Kysely cùng toàn bộ file này
+      // (điểm 5 của phán quyết C-8, cùng cơ chế với
+      // `copyGradeStructure`): bảng đã có trong kiểu sinh của kho
+      // trung tâm; cột `variants` là jsonb mang mảng ở tầng cao
+      // nhất nên ghi qua xâu hoá + `::jsonb` như mọi ghi jsonb.
+      const pin = await tx.selectFrom('exam_pins').selectAll().where('id', '=', source.instanceId).executeTakeFirst();
       if (pin) {
-        const [newPin] = await db.insert(examPins).values({
-          examId: pin.examId, examVersionId: pin.examVersionId, courseId: targetCourseId, cmId: null,
+        const newPin = await tx.insertInto('exam_pins').values({
+          exam_id: pin.exam_id, exam_version_id: pin.exam_version_id, course_id: targetCourseId, cm_id: null,
           name: pin.name, intro: pin.intro,
-          timeOpen: this.shiftDate(pin.timeOpen, deltaMs), timeClose: this.shiftDate(pin.timeClose, deltaMs),
-          timeLimit: pin.timeLimit, attemptsAllowed: pin.attemptsAllowed, gradeMethod: pin.gradeMethod,
-          shuffleAnswers: pin.shuffleAnswers,
-          passwordHash: pin.passwordHash, subnet: pin.subnet,
-          reviewAttempt: pin.reviewAttempt, reviewCorrectness: pin.reviewCorrectness,
-          reviewMarks: pin.reviewMarks, reviewSpecificFeedback: pin.reviewSpecificFeedback,
-          reviewGeneralFeedback: pin.reviewGeneralFeedback, reviewRightAnswer: pin.reviewRightAnswer,
-          reviewOverallFeedback: pin.reviewOverallFeedback,
-          preset: pin.preset, versionMode: pin.versionMode, lateEntryMinutes: pin.lateEntryMinutes, monitorEvents: pin.monitorEvents,
-          variantCount: pin.variantCount, variants: pin.variants,
-          resultsPublishedAt: null, createdBy: pin.createdBy,
-        }).returning();
-        instanceId = newPin!.id;
+          time_open: this.shiftDate(pin.time_open, deltaMs), time_close: this.shiftDate(pin.time_close, deltaMs),
+          time_limit: pin.time_limit, attempts_allowed: pin.attempts_allowed, grade_method: pin.grade_method,
+          shuffle_answers: pin.shuffle_answers,
+          password_hash: pin.password_hash, subnet: pin.subnet,
+          review_attempt: pin.review_attempt, review_correctness: pin.review_correctness,
+          review_marks: pin.review_marks, review_specific_feedback: pin.review_specific_feedback,
+          review_general_feedback: pin.review_general_feedback, review_right_answer: pin.review_right_answer,
+          review_overall_feedback: pin.review_overall_feedback,
+          preset: pin.preset, version_mode: pin.version_mode, late_entry_minutes: pin.late_entry_minutes, monitor_events: pin.monitor_events,
+          variant_count: pin.variant_count, variants: sql<ExamVariant[]>`${JSON.stringify(pin.variants)}::jsonb`,
+          results_published_at: null, created_by: pin.created_by,
+        }).returning('id').executeTakeFirstOrThrow();
+        instanceId = newPin.id;
       }
     }
-    const [created] = await db.insert(courseModulesTable).values({
+    const newCm = await this.repo.insertCm({
       course: targetCourseId, section: targetSectionId, component: source.component, instanceId,
       name: source.name, visible: source.visible, groupMode: source.groupMode,
-      availability: (source.availability ? this.shiftAvailability(source.availability, deltaMs) : null) as never,
+      availability: source.availability ? this.shiftAvailability(source.availability, deltaMs) : null,
       completion: source.completion, completionView: source.completionView,
       completionUseGrade: source.completionUseGrade, completionManual: source.completionManual,
       completionExpected: this.shiftDate(source.completionExpected, deltaMs),
       openAt: this.shiftDate(source.openAt, deltaMs),
       sortOrder: source.sortOrder,
-    }).returning();
-    const newCm = created as CmRow;
+    }, tx);
     cmMap.set(source.id, newCm.id);
     if (source.component === QUIZ_COMPONENT_NAME && instanceId && instanceId !== source.instanceId) {
-      await db.update(examPins).set({ cmId: newCm.id }).where(eq(examPins.id, instanceId));
+      await tx.updateTable('exam_pins').set({ cm_id: newCm.id }).where('id', '=', instanceId).execute();
     }
     // Context module cho cm mới (như createCm) — contexts nằm ngoài tx
     // của courses trong luồng tạo thường; ở đây tạo sau khi tx commit
@@ -1146,28 +1145,26 @@ export class CoursesService {
    * số section chỉ định, trong cùng transaction. Trả section mới.
    */
   private async copySectionRow(
-    tx: DbTx, source: SectionRow, targetCourseId: string, targetNumber: number,
+    tx: CentreTx, source: SectionRow, targetCourseId: string, targetNumber: number,
     deltaMs: number, cmMap: Map<string, string>,
   ): Promise<SectionRow> {
-    const db = tx;
-    const [created] = await db.insert(courseSectionsTable).values({
+    const newSection = await this.repo.insertSection({
       course: targetCourseId, section: targetNumber, name: source.name, summary: source.summary,
       visible: source.visible,
-      availability: (source.availability ? this.shiftAvailability(source.availability, deltaMs) : null) as never,
+      availability: source.availability ? this.shiftAvailability(source.availability, deltaMs) : null,
       openAt: this.shiftDate(source.openAt, deltaMs),
-    }).returning();
-    const newSection = created as SectionRow;
+    }, tx);
     const anchors = await this.repo.listAnchorsForSections([source.id]);
     const anchor = anchors[0];
     if (anchor) {
       const outcomes = await this.repo.listAnchorOutcomes([anchor.id]);
-      const [newAnchor] = await db.insert(courseSectionAnchors).values({
+      const newAnchor = await this.repo.insertSectionAnchor({
         sectionId: newSection.id, nodeId: anchor.nodeId, curriculumId: anchor.curriculumId, nodeTitle: anchor.nodeTitle,
-      }).returning();
+      }, tx);
       if (outcomes.length) {
-        await db.insert(courseSectionAnchorOutcomes).values(outcomes.map((o) => ({
-          anchorId: newAnchor!.id, outcomeId: o.outcomeId, content: o.content, position: o.position,
-        })));
+        await this.repo.insertSectionAnchorOutcomes(outcomes.map((o) => ({
+          anchorId: newAnchor.id, outcomeId: o.outcomeId, content: o.content, position: o.position,
+        })), tx);
       }
     }
     const cms = await this.repo.listCmsInSection(source.id);
@@ -1182,38 +1179,43 @@ export class CoursesService {
    * viên (grade_grades), theo đúng bảng sao chép Re-run của issue #68.
    */
   private async copyGradeStructure(
-    tx: DbTx, sourceCourseId: string, targetCourseId: string, cmMap: Map<string, string>, deltaMs = 0,
+    tx: CentreTx, sourceCourseId: string, targetCourseId: string, cmMap: Map<string, string>, deltaMs = 0,
   ): Promise<void> {
-    const db = tx;
-    const sourceItems = await db.select().from(gradeItems).where(eq(gradeItems.courseId, sourceCourseId));
+    // Điểm 5 của phán quyết C-8: hàm này ghi trực tiếp các bảng
+    // grades/completion TRONG transaction của luồng nhân bản và
+    // được chuyển sang Kysely ngay tại đây (các bảng đã có trong
+    // kiểu sinh của kho trung tâm) thay vì chờ repository của các
+    // nhóm G4/G9 — file này thuộc chính cụm G5 và không chạm file
+    // repository của các nhóm đó.
+    const sourceItems = await tx.selectFrom('grade_items').selectAll().where('course_id', '=', sourceCourseId).execute();
     for (const item of sourceItems) {
-      let itemInstance = item.itemInstance;
-      if (item.itemType === 'mod') {
-        itemInstance = item.itemInstance ? cmMap.get(item.itemInstance) ?? null : null;
+      let itemInstance = item.item_instance;
+      if (item.item_type === 'mod') {
+        itemInstance = item.item_instance ? cmMap.get(item.item_instance) ?? null : null;
         if (!itemInstance) continue; // cm không được chép (không xảy ra ở nhân bản toàn khoá) — bỏ item mồ côi.
       }
-      await db.insert(gradeItems).values({
-        courseId: targetCourseId,
-        itemName: item.itemName, itemType: item.itemType, itemModule: item.itemModule, itemInstance,
-        gradeType: item.gradeType, gradeMax: item.gradeMax, gradeMin: item.gradeMin, gradePass: item.gradePass,
-        idNumber: item.idNumber, multiplicator: item.multiplicator,
-        plusFactor: item.plusFactor, hidden: item.hidden, locked: item.locked, sortOrder: item.sortOrder,
-        postingPolicy: item.postingPolicy,
-      });
+      await tx.insertInto('grade_items').values({
+        course_id: targetCourseId,
+        item_name: item.item_name, item_type: item.item_type, item_module: item.item_module, item_instance: itemInstance,
+        grade_type: item.grade_type, grade_max: item.grade_max, grade_min: item.grade_min, grade_pass: item.grade_pass,
+        id_number: item.id_number, multiplicator: item.multiplicator,
+        plus_factor: item.plus_factor, hidden: item.hidden, locked: item.locked, sort_order: item.sort_order,
+        posting_policy: item.posting_policy,
+      }).execute();
     }
     // Cài đặt tổng hợp hoàn thành khoá + tiêu chí hoàn thành (cấu trúc, không phải tiến độ).
-    const [settings] = await db.select().from(courseCompletionSettings).where(eq(courseCompletionSettings.course, sourceCourseId));
+    const settings = await tx.selectFrom('course_completion_settings').selectAll().where('course', '=', sourceCourseId).executeTakeFirst();
     if (settings) {
-      await db.insert(courseCompletionSettings).values({ course: targetCourseId, method: settings.method }).onConflictDoNothing();
+      await tx.insertInto('course_completion_settings').values({ course: targetCourseId, method: settings.method }).onConflict((oc) => oc.doNothing()).execute();
     }
-    const criteria = await db.select().from(courseCompletionCriteria).where(eq(courseCompletionCriteria.course, sourceCourseId));
+    const criteria = await tx.selectFrom('course_completion_criteria').selectAll().where('course', '=', sourceCourseId).execute();
     for (const c of criteria) {
-      await db.insert(courseCompletionCriteria).values({
-        course: targetCourseId, criteriaType: c.criteriaType,
-        moduleInstance: c.moduleInstance ? cmMap.get(c.moduleInstance) ?? null : null,
-        date: this.shiftDate(c.date, deltaMs), courseInstance: c.courseInstance === sourceCourseId ? targetCourseId : c.courseInstance,
-        enrolPeriodDays: c.enrolPeriodDays, roleId: c.roleId, sortOrder: c.sortOrder,
-      });
+      await tx.insertInto('course_completion_criteria').values({
+        course: targetCourseId, criteria_type: c.criteria_type,
+        module_instance: c.module_instance ? cmMap.get(c.module_instance) ?? null : null,
+        date: this.shiftDate(c.date, deltaMs), course_instance: c.course_instance === sourceCourseId ? targetCourseId : c.course_instance,
+        enrol_period_days: c.enrol_period_days, role_id: c.role_id, sort_order: c.sort_order,
+      }).execute();
     }
   }
 
@@ -1268,7 +1270,7 @@ export class CoursesService {
       throw new BadRequestException({ message: 'Course end date is before its start date', code: 'course.invalid_dates' });
     }
     const siblings = await this.repo.listCourses(targetCategory.id);
-    const created = await this.repo.dbHandle.transaction(async (tx) => {
+    const created = await this.repo.transaction(async (tx) => {
       const row = await this.repo.insertCourse({
         tenantId: targetCategory.tenantId,
         category: targetCategory.id, fullName: input.fullName, shortName,
@@ -1279,8 +1281,8 @@ export class CoursesService {
         subjectId: source.subjectId, grade: source.grade, isTemplate: false,
         classId: classRef?.classId ?? null,
       }, tx);
-      await this.outbox.enqueue(tx, { aggregate: 'course', type: 'course_created', payload: { courseId: row.id, categoryId: targetCategory.id, actorId, duplicatedFrom: sourceCourseId }, tenantId: targetCategory.tenantId });
-      await this.outbox.enqueue(tx, { aggregate: 'course', type: 'course_duplicated', payload: { courseId: row.id, sourceCourseId, actorId }, tenantId: targetCategory.tenantId });
+      await this.outbox.enqueueKysely(tx, { aggregate: 'course', type: 'course_created', payload: { courseId: row.id, categoryId: targetCategory.id, actorId, duplicatedFrom: sourceCourseId }, tenantId: targetCategory.tenantId });
+      await this.outbox.enqueueKysely(tx, { aggregate: 'course', type: 'course_duplicated', payload: { courseId: row.id, sourceCourseId, actorId }, tenantId: targetCategory.tenantId });
       return row;
     });
     // Khoá thuộc lớp: context neo dưới context lớp như đường tạo thường.
@@ -1289,32 +1291,31 @@ export class CoursesService {
     // + backfill roster của lớp đích) — issue #184.
     if (classRef) await this.classHook!.onCourseCreated(created);
     const cmMap = new Map<string, string>();
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       const sourceSections = await this.repo.listSections(sourceCourseId);
       const ordered = [...sourceSections].sort((a, b) => a.section - b.section);
       if (!ordered.some((s) => s.section === 0)) {
         await this.repo.insertSection({ course: created.id, section: 0, name: null, summary: '', visible: true }, tx);
       }
       for (const s of ordered) {
-        await this.copySectionRow(tx as DbTx, s, created.id, s.section, deltaMs, cmMap);
+        await this.copySectionRow(tx, s, created.id, s.section, deltaMs, cmMap);
       }
-      await this.copyGradeStructure(tx as DbTx, sourceCourseId, created.id, cmMap, deltaMs);
+      await this.copyGradeStructure(tx, sourceCourseId, created.id, cmMap, deltaMs);
       // Format options (sectionId map lại theo section mới khi có) —
       // đọc section mới ngay trong transaction để thấy dữ liệu vừa chèn.
-      const db = tx;
       const sectionMap = new Map<string, string>();
-      const newSections = await db.select().from(courseSectionsTable).where(eq(courseSectionsTable.course, created.id));
+      const newSections = await tx.selectFrom('course_sections').selectAll().where('course', '=', created.id).execute();
       for (const s of ordered) {
         const match = newSections.find((n) => n.section === s.section);
         if (match) sectionMap.set(s.id, match.id);
       }
       const options = await this.repo.listFormatOptions(sourceCourseId);
       for (const opt of options) {
-        await db.insert(courseFormatOptions).values({
-          courseId: created.id, format: opt.format,
-          sectionId: opt.sectionId ? sectionMap.get(opt.sectionId) ?? null : null,
+        await tx.insertInto('course_format_options').values({
+          course_id: created.id, format: opt.format,
+          section_id: opt.sectionId ? sectionMap.get(opt.sectionId) ?? null : null,
           name: opt.name, value: opt.value,
-        });
+        }).execute();
       }
     });
     const sourceFields = await this.getCourseCustomFields(sourceCourseId);
@@ -1362,11 +1363,11 @@ export class CoursesService {
     const cmMap = new Map<string, string>();
     const createdSections: SectionRow[] = [];
     const createdCms: CmRow[] = [];
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       const existing = await this.repo.listSections(targetCourseId);
       let nextNumber = existing.length ? Math.max(...existing.map((s) => s.section)) + 1 : 0;
       for (const s of [...selectedSections].sort((a, b) => a.section - b.section)) {
-        const created = await this.copySectionRow(tx as DbTx, s, targetCourseId, nextNumber++, 0, cmMap);
+        const created = await this.copySectionRow(tx, s, targetCourseId, nextNumber++, 0, cmMap);
         createdSections.push(created);
       }
       // Nhóm module lẻ theo section nguồn: mỗi nhóm một section mới.
@@ -1379,15 +1380,13 @@ export class CoursesService {
       for (const [sourceSectionId, cms] of groups) {
         const sourceSection = sourceSections.find((s) => s.id === sourceSectionId);
         if (!sourceSection) continue;
-        const db = tx;
-        const [created] = await db.insert(courseSectionsTable).values({
+        const newSection = await this.repo.insertSection({
           course: targetCourseId, section: nextNumber++, name: sourceSection.name, summary: sourceSection.summary,
-          visible: sourceSection.visible, availability: sourceSection.availability as never, openAt: sourceSection.openAt,
-        }).returning();
-        const newSection = created as SectionRow;
+          visible: sourceSection.visible, availability: sourceSection.availability, openAt: sourceSection.openAt,
+        }, tx);
         createdSections.push(newSection);
         for (const cm of cms) {
-          createdCms.push(await this.copyCmRow(tx as DbTx, cm, targetCourseId, newSection.id, 0, cmMap));
+          createdCms.push(await this.copyCmRow(tx, cm, targetCourseId, newSection.id, 0, cmMap));
         }
       }
     });
@@ -1408,26 +1407,29 @@ export class CoursesService {
     await this.evaluator.requireCapability(actorId, 'course:update', await this.courseContextId(section.course));
     const cmMap = new Map<string, string>();
     let created!: SectionRow;
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       const handle = tx;
       // Hai pass qua vùng đệm +100000 như đường chèn khung (K0a).
       await this.repo.shiftSections(handle, section.course, section.section + 1, 100000);
       await this.repo.shiftSections(handle, section.course, section.section + 1 + 100000, 1 - 100000);
-      created = await this.copySectionRow(tx as DbTx, section, section.course, section.section + 1, 0, cmMap);
-      // Item điểm 'mod' của các cm gốc trỏ sang cm bản sao.
-      const db = tx;
+      created = await this.copySectionRow(tx, section, section.course, section.section + 1, 0, cmMap);
+      // Item điểm 'mod' của các cm gốc trỏ sang cm bản sao (ghi trực
+      // tiếp trên `grade_items` trong cùng transaction — cùng cơ
+      // chế điểm 5 của phán quyết C-8 với `copyGradeStructure`).
       for (const [oldCmId, newCmId] of cmMap) {
-        const items = await db.select().from(gradeItems).where(and(
-          eq(gradeItems.courseId, section.course), eq(gradeItems.itemType, 'mod'), eq(gradeItems.itemInstance, oldCmId),
-        ));
+        const items = await tx.selectFrom('grade_items').selectAll()
+          .where('course_id', '=', section.course)
+          .where('item_type', '=', 'mod')
+          .where('item_instance', '=', oldCmId)
+          .execute();
         for (const item of items) {
-          await db.insert(gradeItems).values({
-            courseId: section.course, itemName: item.itemName,
-            itemType: item.itemType, itemModule: item.itemModule, itemInstance: newCmId,
-            gradeType: item.gradeType, gradeMax: item.gradeMax, gradeMin: item.gradeMin, gradePass: item.gradePass,
-            idNumber: null, multiplicator: item.multiplicator, plusFactor: item.plusFactor, hidden: item.hidden, locked: item.locked,
-            sortOrder: item.sortOrder, postingPolicy: item.postingPolicy,
-          });
+          await tx.insertInto('grade_items').values({
+            course_id: section.course, item_name: item.item_name,
+            item_type: item.item_type, item_module: item.item_module, item_instance: newCmId,
+            grade_type: item.grade_type, grade_max: item.grade_max, grade_min: item.grade_min, grade_pass: item.grade_pass,
+            id_number: null, multiplicator: item.multiplicator, plus_factor: item.plus_factor, hidden: item.hidden, locked: item.locked,
+            sort_order: item.sort_order, posting_policy: item.posting_policy,
+          }).execute();
         }
       }
     });
@@ -1444,27 +1446,30 @@ export class CoursesService {
     await this.evaluator.requireCapability(actorId, 'course:manageactivities', await this.courseContextId(cm.course));
     const cmMap = new Map<string, string>();
     let created!: CmRow;
-    await this.repo.dbHandle.transaction(async (tx) => {
-      const db = tx;
+    await this.repo.transaction(async (tx) => {
       // Đẩy các module sau module gốc xuống một bậc sortOrder.
-      await db.update(courseModulesTable)
-        .set({ sortOrder: sql`${courseModulesTable.sortOrder} + 1` })
-        .where(and(
-          eq(courseModulesTable.section, cm.section),
-          sql`${courseModulesTable.sortOrder} > ${cm.sortOrder}`,
-        ));
-      created = await this.copyCmRow(tx as DbTx, { ...cm, sortOrder: cm.sortOrder + 1 }, cm.course, cm.section, 0, cmMap);
-      const items = await db.select().from(gradeItems).where(and(
-        eq(gradeItems.courseId, cm.course), eq(gradeItems.itemType, 'mod'), eq(gradeItems.itemInstance, cm.id),
-      ));
+      await tx.updateTable('course_modules')
+        .set({ sort_order: sql<number>`sort_order + 1` })
+        .where('section', '=', cm.section)
+        .where('sort_order', '>', cm.sortOrder)
+        .execute();
+      created = await this.copyCmRow(tx, { ...cm, sortOrder: cm.sortOrder + 1 }, cm.course, cm.section, 0, cmMap);
+      // Item điểm 'mod' của cm gốc trỏ sang cm bản sao (ghi trực
+      // tiếp trên `grade_items` trong cùng transaction — cùng cơ
+      // chế điểm 5 của phán quyết C-8 với `copyGradeStructure`).
+      const items = await tx.selectFrom('grade_items').selectAll()
+        .where('course_id', '=', cm.course)
+        .where('item_type', '=', 'mod')
+        .where('item_instance', '=', cm.id)
+        .execute();
       for (const item of items) {
-        await db.insert(gradeItems).values({
-          courseId: cm.course, itemName: item.itemName,
-          itemType: item.itemType, itemModule: item.itemModule, itemInstance: created.id,
-          gradeType: item.gradeType, gradeMax: item.gradeMax, gradeMin: item.gradeMin, gradePass: item.gradePass,
-          idNumber: null, multiplicator: item.multiplicator, plusFactor: item.plusFactor, hidden: item.hidden, locked: item.locked,
-          sortOrder: item.sortOrder, postingPolicy: item.postingPolicy,
-        });
+        await tx.insertInto('grade_items').values({
+          course_id: cm.course, item_name: item.item_name,
+          item_type: item.item_type, item_module: item.item_module, item_instance: created.id,
+          grade_type: item.grade_type, grade_max: item.grade_max, grade_min: item.grade_min, grade_pass: item.grade_pass,
+          id_number: null, multiplicator: item.multiplicator, plus_factor: item.plus_factor, hidden: item.hidden, locked: item.locked,
+          sort_order: item.sort_order, posting_policy: item.posting_policy,
+        }).execute();
       }
     });
     return created;
@@ -1483,13 +1488,12 @@ export class CoursesService {
     if (sectionIds.length !== existing.length || !sectionIds.every((id) => existingIds.has(id))) {
       throw new BadRequestException({ message: 'Reorder list must contain every section of the course exactly once', code: 'course.reorder_sections_mismatch' });
     }
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       const handle = tx;
       // Vùng đệm +100000 tránh vỡ unique (course, section) giữa chừng.
       await this.repo.shiftSections(handle, courseId, 0, 100000);
-      const db = tx;
       for (const [i, id] of sectionIds.entries()) {
-        await db.update(courseSectionsTable).set({ section: i, updatedAt: new Date() }).where(eq(courseSectionsTable.id, id));
+        await tx.updateTable('course_sections').set({ section: i, updated_at: new Date() }).where('id', '=', id).execute();
       }
     });
     return this.repo.listSections(courseId);
@@ -1507,10 +1511,9 @@ export class CoursesService {
     if (moduleIds.length !== existing.length || !moduleIds.every((id) => existingIds.has(id))) {
       throw new BadRequestException({ message: 'Reorder list must contain every module of the section exactly once', code: 'course.reorder_modules_mismatch' });
     }
-    await this.repo.dbHandle.transaction(async (tx) => {
-      const db = tx;
+    await this.repo.transaction(async (tx) => {
       for (const [i, id] of moduleIds.entries()) {
-        await db.update(courseModulesTable).set({ sortOrder: i }).where(eq(courseModulesTable.id, id));
+        await tx.updateTable('course_modules').set({ sort_order: i }).where('id', '=', id).execute();
       }
     });
     return this.repo.listCmsInSection(sectionId);
@@ -1556,7 +1559,7 @@ export class CoursesService {
     }
     const count = selected.length;
     const created: (SectionRow & { bookFrame: SectionBookFrameView })[] = [];
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       const handle = tx;
       if (input.insertAtSection !== undefined && insertAt <= maxSection) {
         // Hai pass qua vùng đệm +100000 để unique (course, section) không vỡ giữa chừng (như khung chương trình).

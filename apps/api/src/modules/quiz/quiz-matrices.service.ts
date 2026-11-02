@@ -10,14 +10,13 @@ import type {
   MatrixCellAvailability,
   MatrixImportCellAvailability,
 } from '@lms/contracts';
-import type { DbTx } from '../../db/database';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
 import { CurriculumService } from '../curriculum/curriculum.service';
 import { QuestionBanksService } from '../questions/question-banks.service';
-import type { QuestionBankRow } from '../questions/question-banks.repository';
+import type { QuestionBankRow } from '@lms/db/repositories/question-banks';
 import type {
   CreateExamMatrixCellDto,
   CreateExamMatrixDto,
@@ -31,7 +30,8 @@ import {
   type ExamMatrixCellRow,
   type ExamMatrixRow,
   type ExamMatrixVersionRow,
-} from './quiz.repository';
+  type QuizTx,
+} from '@lms/db/repositories/quiz';
 import {
   isMatrixContentSignatureConflict,
   matrixContentSignature,
@@ -218,7 +218,7 @@ export class QuizMatricesService {
     // nền của cơ chế version hoá).
     let row: ExamMatrixRow;
     try {
-      row = await this.repo.dbHandle.transaction(async (tx) => {
+      row = await this.repo.transaction(async (tx) => {
         const created = await this.repo.insertMatrix({
           tenantId,
           name: input.name, subjectId: subject.id, curriculumId: curriculum.id,
@@ -293,7 +293,7 @@ export class QuizMatricesService {
    * @param tx - Transaction của thao tác sửa, nếu có; thiếu thì đọc
    *   và ghi trên kết nối thường.
    */
-  private async refreshMatrixContentSignature(matrixId: string, tx?: DbTx): Promise<void> {
+  private async refreshMatrixContentSignature(matrixId: string, tx?: QuizTx): Promise<void> {
     const row = await this.repo.getMatrix(matrixId, tx);
     if (!row) return;
     const cells = await this.repo.listMatrixCells(matrixId, tx);
@@ -406,7 +406,7 @@ export class QuizMatricesService {
     const preset = MATRIX_PRESETS['cv7991_periodic'];
     let row: ExamMatrixRow;
     try {
-      row = await this.repo.dbHandle.transaction(async (tx) => {
+      row = await this.repo.transaction(async (tx) => {
         const matrix = await this.repo.insertMatrix({
           tenantId: bank.tenantId,
           name: input.name, subjectId: subject.id, curriculumId: curriculum.id,
@@ -690,7 +690,7 @@ export class QuizMatricesService {
         totalScore: patch.totalScore !== undefined ? patch.totalScore : row.totalScore,
       };
       try {
-        await this.repo.dbHandle.transaction(async (tx) => {
+        await this.repo.transaction(async (tx) => {
           await this.forkMatrixVersion(row, actorId, config, tx);
           if (Object.keys(patch).length) await this.repo.updateMatrix(row.id, patch, tx);
         });
@@ -800,7 +800,7 @@ export class QuizMatricesService {
    * trạng thái "có ô mà không có version chứa ô".
    */
   private async ensureCurrentMatrixVersionRow(
-    matrix: ExamMatrixRow, actorId: string, tx?: DbTx,
+    matrix: ExamMatrixRow, actorId: string, tx?: QuizTx,
   ): Promise<ExamMatrixVersionRow> {
     const existing = await this.repo.getMatrixVersionRow(matrix.id, matrix.version, tx);
     if (existing) return existing;
@@ -836,7 +836,7 @@ export class QuizMatricesService {
   private async forkMatrixVersion(
     matrix: ExamMatrixRow, actorId: string,
     config: ReturnType<QuizMatricesService['matrixVersionConfigOf']>,
-    tx: DbTx,
+    tx: QuizTx,
   ): Promise<ExamMatrixVersionRow> {
     const current = await this.ensureCurrentMatrixVersionRow(matrix, actorId, tx);
     const currentCells = await this.repo.listMatrixCellsByVersionId(current.id, tx);
@@ -907,7 +907,7 @@ export class QuizMatricesService {
         // toàn bộ ô hiện hành sang version mới rồi mới thêm ô vào
         // bản sao, version cũ không thêm ô nào; chữ ký tính lại từ
         // tập ô của version mới trong cùng transaction.
-        await this.repo.dbHandle.transaction(async (tx) => {
+        await this.repo.transaction(async (tx) => {
           const next = await this.forkMatrixVersion(matrix, actorId, this.matrixVersionConfigOf(matrix), tx);
           await this.repo.insertMatrixCell({ ...cellValues, matrixVersionId: next.id }, tx);
           await this.refreshMatrixContentSignature(matrix.id, tx);
@@ -915,7 +915,7 @@ export class QuizMatricesService {
       } else {
         // Ma trận còn draft: ô ghi thẳng vào version đang mở, chữ
         // ký tính lại trong cùng transaction.
-        await this.repo.dbHandle.transaction(async (tx) => {
+        await this.repo.transaction(async (tx) => {
           const current = await this.ensureCurrentMatrixVersionRow(matrix, actorId, tx);
           await this.repo.insertMatrixCell({ ...cellValues, matrixVersionId: current.id }, tx);
           await this.refreshMatrixContentSignature(matrix.id, tx);
@@ -955,7 +955,7 @@ export class QuizMatricesService {
         // version mới) — ô của version cũ giữ nguyên giá trị; fork
         // đã tăng số version trong cùng transaction.
         try {
-          await this.repo.dbHandle.transaction(async (tx) => {
+          await this.repo.transaction(async (tx) => {
             const next = await this.forkMatrixVersion(matrix, actorId, this.matrixVersionConfigOf(matrix), tx);
             const copies = await this.repo.listMatrixCellsByVersionId(next.id, tx);
             const copy = copies.find((c) => c.curriculumNodeId === cell.curriculumNodeId
@@ -968,7 +968,7 @@ export class QuizMatricesService {
         }
       } else if (touchesSignature) {
         try {
-          await this.repo.dbHandle.transaction(async (tx) => {
+          await this.repo.transaction(async (tx) => {
             await this.repo.updateMatrixCell(cell.id, patch, tx);
             await this.refreshMatrixContentSignature(matrix.id, tx);
           });
@@ -997,7 +997,7 @@ export class QuizMatricesService {
         // rồi xoá BẢN SAO của ô trong version mới — version cũ vẫn
         // còn ô; chữ ký tính lại từ tập ô của version mới trong
         // cùng transaction.
-        await this.repo.dbHandle.transaction(async (tx) => {
+        await this.repo.transaction(async (tx) => {
           const next = await this.forkMatrixVersion(matrix, actorId, this.matrixVersionConfigOf(matrix), tx);
           const copies = await this.repo.listMatrixCellsByVersionId(next.id, tx);
           const copy = copies.find((c) => c.curriculumNodeId === cell.curriculumNodeId
@@ -1006,7 +1006,7 @@ export class QuizMatricesService {
           await this.refreshMatrixContentSignature(matrix.id, tx);
         });
       } else {
-        await this.repo.dbHandle.transaction(async (tx) => {
+        await this.repo.transaction(async (tx) => {
           await this.repo.deleteMatrixCell(cell.id, tx);
           await this.refreshMatrixContentSignature(matrix.id, tx);
         });

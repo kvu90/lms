@@ -1,4 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
+import { QuizRepository } from '@lms/db/repositories/quiz';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
+import { SpaceRoutingModule } from '../../db/routing/space-routing.module';
 import { EventsModule } from '../../infra/events/events.module';
 import { AccessModule } from '../access/access.module';
 import { CoursesModule } from '../courses/courses.module';
@@ -14,7 +17,6 @@ import { UsersModule } from '../users/users.module';
 import { ExamMatricesController, QuizAttemptsController } from './quiz.controller';
 import { MatrixBanksService } from './matrix-banks.service';
 import { MatrixImportService } from './matrix-import.service';
-import { QuizRepository } from './quiz.repository';
 import { QuizService } from './quiz.service';
 
 /**
@@ -41,9 +43,17 @@ import { QuizService } from './quiz.service';
  * wiring của module — xem docblock của facade QuizService.
  */
 @Module({
-  imports: [AccessModule, CoursesModule, forwardRef(() => QuestionsModule), GradesModule, UsersModule, GroupsModule, CurriculumModule, EventsModule, TenantsModule, EnrolModule, FilesModule, forwardRef(() => ExamsModule)],
+  imports: [AccessModule, CoursesModule, forwardRef(() => QuestionsModule), GradesModule, UsersModule, GroupsModule, CurriculumModule, EventsModule, TenantsModule, EnrolModule, FilesModule, forwardRef(() => ExamsModule), SpaceRoutingModule],
   controllers: [QuizAttemptsController, ExamMatricesController],
-  providers: [QuizRepository, QuizService, MatrixBanksService, MatrixImportService],
+  providers: [
+    // Repository nay thuộc package @lms/db (issue #643): dựng trên
+    // handle Kysely định tuyến theo trung tâm — cùng pool
+    // TenantAwarePool với đường Drizzle trước đây nên ngữ cảnh
+    // GUC/RLS giữ nguyên. Token lớp giữ nguyên để các điểm tiêm và
+    // `app.get(QuizRepository)` không đổi.
+    { provide: QuizRepository, useFactory: (spaceDb: SpaceDatabaseService) => new QuizRepository(spaceDb.routedKysely), inject: [SpaceDatabaseService] },
+    QuizService, MatrixBanksService, MatrixImportService,
+  ],
   exports: [QuizService, MatrixBanksService],
 })
 /** Module hoạt động Quiz (đề thi trong khoá học). */

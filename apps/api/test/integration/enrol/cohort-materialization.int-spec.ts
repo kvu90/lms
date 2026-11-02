@@ -9,7 +9,6 @@ import { createTestApp } from '../../support/identity-access-helpers';
 import { CompletionReaggregationOutboxConsumer } from '../../../src/modules/completion/completion-reaggregation-outbox.consumer';
 import { CompletionService } from '../../../src/modules/completion/completion.service';
 import { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
-import { EnrolRepository } from '../../../src/modules/enrol/enrol.repository';
 import { EnrolService } from '../../../src/modules/enrol/enrol.service';
 import { OutboxService } from '../../../src/infra/events/outbox.service';
 import { tenantAls } from '../../../src/modules/tenants/tenant-als';
@@ -520,7 +519,7 @@ describe('Vật chất hoá cohort dùng chung — đặc tả hoá hành vi ở
     // tại hay không. Consumer quét mỗi giây chỉ được phép quan
     // sát sự kiện khi dòng ghi danh đã biến mất, vì tiêu chí
     // 'unenrol' đọc chính dòng đó.
-    const realDb = app.get(EnrolRepository).dbHandle;
+    const realDb = app.get(SpaceDatabaseService).routedDatabase;
     const observed: { current: { eventVisible: boolean; enrolmentPresent: boolean } | null } = { current: null };
     const wrappedDb = new Proxy(realDb, {
       get(target, prop) {
@@ -582,7 +581,7 @@ describe('Vật chất hoá cohort dùng chung — đặc tả hoá hành vi ở
       },
     };
     const surface = new CohortMaterializationSurface({
-      db: app.get(EnrolRepository).dbHandle,
+      db: app.get(SpaceDatabaseService).routedDatabase,
       outbox: failingOutbox,
       runInPlatformScope: (fn) => tenantAls.run({ platform: true }, fn),
     });

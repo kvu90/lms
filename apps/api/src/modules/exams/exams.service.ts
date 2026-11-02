@@ -14,7 +14,7 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { RolesService } from '../access/roles.service';
 import { CAP_ALLOW } from '../access/domain/permission';
 import { QuestionBanksService, QBANK_LEAD_ROLE, QBANK_MEMBER_ROLE } from '../questions/question-banks.service';
-import type { QuestionBankRow } from '../questions/question-banks.repository';
+import type { QuestionBankRow } from '@lms/db/repositories/question-banks';
 import { QuizService, type MatrixSpecification } from '../quiz/quiz.service';
 import { SiteConfigService } from '../site-config/site-config.service';
 import { TenantConfigService } from '../tenants/tenant-config.service';
@@ -22,8 +22,8 @@ import { TenantContextService } from '../tenants/tenant-context.service';
 import {
   ExamsRepository,
   type ExamContributionRow, type ExamRow, type ExamSlotRow, type ExamVersionRow,
-} from './exams.repository';
-import type { ExamMatrixCellRow } from '../quiz/quiz.repository';
+} from '@lms/db/repositories/exams';
+import type { ExamMatrixCellRow } from '@lms/db/repositories/quiz';
 
 /**
  * Bộ capability của lớp ngân hàng đề — mọi cổng đều đánh giá TẠI
@@ -561,7 +561,7 @@ export class ExamsService {
     await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.add, bank.contextId);
     const slots = await this.resolveSlots(input.slots ?? []);
     let paper: ExamRow | undefined;
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       paper = await this.repo.insertPaper({
         tenantId: bank.tenantId, bankId: bank.id, kind: 'snapshot', status: 'draft', createdBy: actorId, latestVersion: 1,
         derivedFromMatrixId: input.matrixId ?? null,
@@ -594,7 +594,7 @@ export class ExamsService {
     const current = await this.currentVersion(paper);
     const currentSlots = await this.repo.listSlots(current.id);
     const next = paper.latestVersion + 1;
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       const version = await this.repo.insertVersion({
         examId: paper.id, version: next,
         name: input.name ?? current.name,
@@ -632,7 +632,7 @@ export class ExamsService {
     const current = await this.currentVersion(paper);
     const slots = await this.resolveSlots(input.slots);
     const next = paper.latestVersion + 1;
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       const version = await this.repo.insertVersion({
         examId: paper.id, version: next, name: current.name,
         subjectId: current.subjectId, grade: current.grade, examKind: current.examKind,
@@ -830,7 +830,7 @@ export class ExamsService {
   async copyPaperVersionIntoBank(actorId: string, source: ExamRow, sourceVersion: ExamVersionRow, target: QuestionBankRow, opts?: { name?: string; status?: string }): Promise<ExamRow> {
     const sourceSlots = await this.repo.listSlots(sourceVersion.id);
     let created: ExamRow | undefined;
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       created = await this.repo.insertPaper({
         tenantId: target.tenantId, bankId: target.id, kind: source.kind, status: opts?.status ?? 'draft',
         derivedFromExamId: source.id,
@@ -1058,7 +1058,7 @@ export class ExamsService {
       const sourceVersion = await this.currentVersion(source);
       const sourceSlots = await this.repo.listSlots(sourceVersion.id);
       const next = targetPaper.latestVersion + 1;
-      await this.repo.dbHandle.transaction(async (tx) => {
+      await this.repo.transaction(async (tx) => {
         const version = await this.repo.insertVersion({
           examId: targetPaper.id, version: next, name: sourceVersion.name,
           subjectId: sourceVersion.subjectId, grade: sourceVersion.grade, examKind: sourceVersion.examKind,
@@ -1370,7 +1370,7 @@ export class ExamsService {
       return { ...d, pinnedVersionId: ready.versionId, pinnedVersionNumber: ready.versionNumber };
     }));
     let paper: ExamRow | undefined;
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       paper = await this.repo.insertPaper({
         tenantId: bankRow.tenantId, bankId: bankRow.id,
         kind: 'snapshot',
@@ -1451,7 +1451,7 @@ export class ExamsService {
       });
     }
     const next = paper.latestVersion + 1;
-    await this.repo.dbHandle.transaction(async (tx) => {
+    await this.repo.transaction(async (tx) => {
       const version = await this.repo.insertVersion({
         examId: paper.id, version: next, name: current.name,
         subjectId: current.subjectId, grade: current.grade, examKind: current.examKind,

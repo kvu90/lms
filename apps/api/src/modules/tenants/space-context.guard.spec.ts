@@ -11,7 +11,7 @@ import type { SpaceDatabaseService } from '../../db/routing/space-database.servi
 import type { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { SkipSpaceContext } from './skip-space-context.decorator';
 import { SpaceContextGuard } from './space-context.guard';
-import type { TenantsRepository } from './tenants.repository';
+import type { TenantsRepository } from '@lms/db/repositories/tenants';
 
 @SkipSpaceContext()
 class SkipSpaceContextHandler {}
@@ -69,6 +69,7 @@ function makeGuard(options?: {
       return options?.target ?? DEDICATED_TARGET;
     }),
     getDatabaseForSpace: vi.fn(async () => ({})),
+    getKyselyForSpace: vi.fn(async () => ({})),
     // Nhánh cookie đọc tenant hiệu lực qua kho riêng (Phần A,
     // issue #587): mock chạy thẳng callback như kho đích thật.
     withSpaceDatabase: vi.fn(async (_slug: string, fn: () => Promise<unknown>) => fn()),

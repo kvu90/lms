@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { adminToken, createTestApp, createUserViaApi, http, uniqueName } from '../../support/identity-access-helpers';
-import { UsersRepository } from '../../../src/modules/users/users.repository';
+import { UsersRepository } from '@lms/db/repositories/users';
 
 /**
  * Issue #560 (đợt 1 backend của đợt danh sách thành viên, cha #559): hợp đồng

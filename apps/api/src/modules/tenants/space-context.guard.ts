@@ -14,7 +14,7 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { SKIP_SPACE_CONTEXT_KEY } from './skip-space-context.decorator';
 import { extractSpaceSlugFromHost } from './space-resolution';
 import { tenantAls } from './tenant-als';
-import { TenantsRepository } from './tenants.repository';
+import { TenantsRepository } from '@lms/db/repositories/tenants';
 
 /**
  * SpaceContextGuard (issue #582): gắn ngữ cảnh trung tâm vào
@@ -73,8 +73,9 @@ import { TenantsRepository } from './tenants.repository';
  *      đã kiểm chứng trong CHÍNH kho riêng: slug của tenant đó
  *      phải đúng slug của địa chỉ.
  * 6. Bước CHUẨN BỊ theo hợp đồng của khung (issue #581): gọi
- *    `getDatabaseForSpace(slug)` để phân giải + mở pool của kho
- *    đích TRƯỚC khi request được xử lý, rồi ghim slug lên
+ *    `getDatabaseForSpace(slug)` và `getKyselyForSpace(slug)` để
+ *    phân giải + mở pool của kho đích cho cả hai facade TRƯỚC khi
+ *    request được xử lý, rồi ghim slug lên
  *    `request.spaceSlug` — `TenantContextInterceptor` đọc lại từ
  *    đây và nạp vào ngữ cảnh ALS quanh handler, để handle định
  *    tuyến ở tầng dữ kiện chọn đúng kho cho mọi truy vấn của
@@ -216,7 +217,14 @@ export class SpaceContextGuard implements CanActivate {
     // Bước chuẩn bị (PREPARE) của khung định tuyến: phân giải đích
     // + mở pool của kho đích phải xong trước khi handler chạy, vì
     // đường đồng bộ của handle định tuyến chỉ tra bảng đã-chuẩn-bị.
+    // Chuẩn bị phải đủ CẢ HAI facade: bảng `dedicatedSlugs` là
+    // dùng chung, nên một module đã chuyển Kysely trong request mà
+    // facade Kysely chưa được chuẩn bị sẽ fail-closed
+    // (`space_routing.prepared_revoked`) dù facade Drizzle đã sẵn
+    // sàng — chuẩn bị Drizzle xong thì chuẩn bị luôn Kysely tại
+    // đây, đúng hợp đồng song song của khung (issue #639).
     await this.spaceDb.getDatabaseForSpace(slug);
+    await this.spaceDb.getKyselyForSpace(slug);
     request.spaceSlug = slug;
     const store = tenantAls.getStore();
     if (store && !store.spaceSlug) {

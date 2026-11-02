@@ -25,7 +25,7 @@ import { FilesService } from '../files/files.service';
 import { GradesService } from '../grades/grades.service';
 import { GroupsService } from '../groups/groups.service';
 import { QuestionBanksService } from '../questions/question-banks.service';
-import type { QuestionBankRow } from '../questions/question-banks.repository';
+import type { QuestionBankRow } from '@lms/db/repositories/question-banks';
 import { QuestionsService } from '../questions/questions.service';
 import { PasswordService } from '../users/password.service';
 import { UsersService } from '../users/users.service';
@@ -47,7 +47,7 @@ import {
   type ExamAttemptRow,
   type ExamPinFeedbackRow,
   type ExamPinRow,
-} from './quiz.repository';
+} from '@lms/db/repositories/quiz';
 import { QuizSharedService } from './quiz-shared.service';
 import { QuizAttemptsService } from './quiz-attempts.service';
 import { QuizPinsService } from './quiz-pins.service';

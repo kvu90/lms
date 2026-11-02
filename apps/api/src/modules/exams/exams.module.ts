@@ -1,4 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
+import { ExamsRepository } from '@lms/db/repositories/exams';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
+import { SpaceRoutingModule } from '../../db/routing/space-routing.module';
 import { EventsModule } from '../../infra/events/events.module';
 import { AccessModule } from '../access/access.module';
 import { QuestionsModule } from '../questions/questions.module';
@@ -9,7 +12,6 @@ import { ExamDossiersService } from './exam-dossiers.service';
 import { ExamsController } from './exams.controller';
 import { ExamPapersAliasController } from './exam-papers-alias.controller';
 import { CourseExamPinsController, ExamPinFeedbacksController, ExamPinOverridesController, ExamPinsController } from './exam-pins.controller';
-import { ExamsRepository } from './exams.repository';
 import { ExamsService } from './exams.service';
 
 /**
@@ -37,9 +39,17 @@ import { ExamsService } from './exams.service';
  * `ExamPapersAliasController`.
  */
 @Module({
-  imports: [AccessModule, EventsModule, forwardRef(() => QuestionsModule), forwardRef(() => QuizModule), SiteConfigModule, TenantsModule],
+  imports: [AccessModule, EventsModule, forwardRef(() => QuestionsModule), forwardRef(() => QuizModule), SiteConfigModule, TenantsModule, SpaceRoutingModule],
   controllers: [ExamsController, ExamPapersAliasController, CourseExamPinsController, ExamPinsController, ExamPinOverridesController, ExamPinFeedbacksController],
-  providers: [ExamsRepository, ExamsService, ExamDossiersService],
+  providers: [
+    // Repository nay thuộc package @lms/db (issue #643): dựng trên
+    // handle Kysely định tuyến theo trung tâm — cùng pool
+    // TenantAwarePool với đường Drizzle trước đây nên ngữ cảnh
+    // GUC/RLS giữ nguyên. Token lớp giữ nguyên để các điểm tiêm và
+    // `app.get(ExamsRepository)` không đổi.
+    { provide: ExamsRepository, useFactory: (spaceDb: SpaceDatabaseService) => new ExamsRepository(spaceDb.routedKysely), inject: [SpaceDatabaseService] },
+    ExamsService, ExamDossiersService,
+  ],
   exports: [ExamsService],
 })
 /** Module ngân hàng đề (đề snapshot/version/slots + triển khai vào quiz + duyệt bộ hồ sơ). */

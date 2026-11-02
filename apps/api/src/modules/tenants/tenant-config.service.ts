@@ -12,7 +12,7 @@ import {
   validateSiteSettingValue,
   type SiteSettingDefinition,
 } from '../site-config/settings-registry';
-import { TenantsRepository } from './tenants.repository';
+import { TenantsRepository } from '@lms/db/repositories/tenants';
 import { TenantContextService } from './tenant-context.service';
 
 /**

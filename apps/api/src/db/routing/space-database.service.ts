@@ -74,6 +74,28 @@ import { SpacePoolManager } from './space-pool-manager';
  * nhưng chia sẻ bảng `dedicatedSlugs` (một slug chỉ có một chế độ
  * kho thật) — pool Kysely đóng thì chỉ thu hồi trạng thái
  * đã-chuẩn-bị phía Kysely, không động tới handle Drizzle.
+ *
+ * Chuẩn bị ĐỐI XỨNG (issue #641): bước chuẩn bị của một phía
+ * (`getDatabaseForSpace` / `getKyselyForSpace`, và hai đường
+ * `withSpace*` đi qua chúng) chuẩn bị LUÔN phía còn lại cho cùng
+ * một slug. Lý do: trong thời gian cùng tồn tại hai ORM, một
+ * phiên làm việc của một trung tâm thường chạm CẢ hai facade —
+ * điểm gắn ngữ cảnh và các điểm gọi hiện hữu chuẩn bị kho bằng
+ * đường Drizzle, trong khi repository đã chuyển đổi (cụm người
+ * dùng/trung tâm của issue #641 là nơi tiêu thụ thật đầu tiên)
+ * đọc/ghi qua facade Kysely ngay trong cùng phiên đó. Nếu chỉ
+ * chuẩn bị phía được gọi trực tiếp, facade còn lại thấy slug đã
+ * ở kho riêng (bảng `dedicatedSlugs` dùng chung) nhưng mục
+ * đã-chuẩn-bị của nó trống và fail-closed oan
+ * (`space_routing.prepared_revoked`) dù bên gọi đã làm đúng
+ * nghĩa vụ chuẩn bị. Chuẩn bị là hành vi của khung ở cấp phiên,
+ * không phải của từng facade, nên hai phía cùng được chuẩn bị
+ * tại mọi điểm chuẩn bị. Phía được chuẩn bị kèm mà handle kho
+ * chung của nó chưa được gắn (chỉ xảy ra ở các harness kiểm thử
+ * cũ chỉ gắn một phía) thì bỏ qua lặng cho phía đó ở chế độ kho
+ * chung — hành vi của phía được gọi trực tiếp không đổi; ở chế
+ * độ kho riêng, phía kèm luôn chuẩn bị được vì pool của kho đích
+ * do chính bước chuẩn bị tạo ra.
  */
 @Injectable()
 export class SpaceDatabaseService implements OnModuleDestroy {
@@ -285,7 +307,10 @@ export class SpaceDatabaseService implements OnModuleDestroy {
    * đồng bộ khi ngữ cảnh mang slug này; chế độ kho của lần chuẩn
    * bị này cũng được ghi vào `dedicatedSlugs` (chỉ khi là kho
    * riêng) để đường đồng bộ phân biệt được ca đã-chuẩn-bị-bị-thu
-   * hồi với ca chưa từng chuẩn bị.
+   * hồi với ca chưa từng chuẩn bị. Từ issue #641 bước chuẩn bị
+   * này chuẩn bị ĐỐI XỨNG cả phía Kysely cho cùng slug (xem mô
+   * tả lớp) — thân hàm chỉ còn là điều phối: phân giải một lần,
+   * chuẩn bị hai phía, ghi chế độ kho một lần.
    *
    * @throws SpaceRoutingError khi slug chưa đăng ký, control plane
    *   chưa cấu hình, hoặc bí mật/role của kho riêng lệch sổ đăng ký.
@@ -337,12 +362,50 @@ export class SpaceDatabaseService implements OnModuleDestroy {
 
   async getDatabaseForSpace(slug: string): Promise<Database> {
     const target = await this.resolver.resolve(slug);
+    const db = this.prepareDatabaseSide(slug, target, true);
+    // Chuẩn bị đối xứng (issue #641): chuẩn bị luôn phía Kysely
+    // cho cùng slug — xem mô tả lớp. Phía kèm không bắt buộc
+    // handle kho chung của nó đã gắn (harness cũ chỉ gắn một
+    // phía) nên truyền `required = false`.
+    this.prepareKyselySide(slug, target, false);
+    this.recordSpaceMode(slug, target);
+    return db!;
+  }
+
+  /**
+   * Chuẩn bị phía Drizzle cho một đích đã phân giải: ghi handle
+   * vào bảng đã-chuẩn-bị phía Drizzle và trả handle đó.
+   * - Đích kho chung: handle là handle kho chung đã gắn. Khi
+   *   handle chưa gắn mà phía này là phía được gọi trực tiếp
+   *   (`required`), ném lỗi chưa-gắn như hợp đồng vốn có; khi
+   *   phía này chỉ là phía chuẩn bị kèm (chuẩn bị đối xứng), bỏ
+   *   qua và trả `undefined` để bước chuẩn bị của phía chính
+   *   không đổi hành vi.
+   * - Đích kho riêng: lấy (hoặc tạo lười) pool của kho đó từ
+   *   trình quản lý pool — pool nối bằng đúng role của kho, trần
+   *   kết nối theo cấu hình `SPACE_DB_POOL_MAX`. Pool được lấy
+   *   THEO DANH TÍNH kết nối vừa phân giải: nếu sổ đã đổi
+   *   role/bí mật kể từ khi pool được tạo, trình quản lý pool
+   *   thay pool cũ bằng pool mới đúng danh tính hiện hành (xem
+   *   `SpacePoolManager.getHandleForIdentity`) — handle trả về
+   *   luôn kết nối bằng danh tính sổ chốt ở lần chuẩn bị này.
+   *
+   * @throws SpaceRoutingError khi đích kho riêng thiếu chuỗi kết
+   *   nối (lỗi nội bộ của khung), hoặc khi phía này là phía chính
+   *   mà handle kho chung chưa được gắn.
+   */
+  private prepareDatabaseSide(
+    slug: string,
+    target: ResolvedSpaceConnection,
+    required: boolean,
+  ): Database | undefined {
     if (target.mode === 'shared') {
-      const db = this.requireSharedDatabase();
-      this.prepared.set(slug, { db, databaseName: target.databaseName });
-      this.dedicatedSlugs.delete(slug);
-      this.dedicatedDatabaseNames.delete(slug);
-      return db;
+      if (!this.sharedDatabase) {
+        if (required) this.requireSharedDatabase();
+        return undefined;
+      }
+      this.prepared.set(slug, { db: this.sharedDatabase, databaseName: target.databaseName });
+      return this.sharedDatabase;
     }
     const connectionString = target.connectionString;
     if (!connectionString) {
@@ -363,9 +426,24 @@ export class SpaceDatabaseService implements OnModuleDestroy {
       return { databaseName, pool, db: drizzle({ client: pool, relations }) };
     });
     this.prepared.set(slug, { db: handle.db, databaseName: target.databaseName });
-    this.dedicatedSlugs.add(slug);
-    this.dedicatedDatabaseNames.set(slug, target.databaseName);
     return handle.db;
+  }
+
+  /**
+   * Ghi chế độ kho của lần chuẩn bị này vào hai bảng dùng chung
+   * (`dedicatedSlugs`, `dedicatedDatabaseNames`) — một slug chỉ
+   * có một chế độ kho thật dù đi bằng facade nào: đích kho riêng
+   * thì ghi, đích kho chung thì xoá mục cũ (lần chuẩn bị sau kết
+   * luận slug đã về kho chung).
+   */
+  private recordSpaceMode(slug: string, target: ResolvedSpaceConnection): void {
+    if (target.mode === 'shared') {
+      this.dedicatedSlugs.delete(slug);
+      this.dedicatedDatabaseNames.delete(slug);
+    } else {
+      this.dedicatedSlugs.add(slug);
+      this.dedicatedDatabaseNames.set(slug, target.databaseName);
+    }
   }
 
   /**
@@ -417,18 +495,49 @@ export class SpaceDatabaseService implements OnModuleDestroy {
    * `routedKysely` tra đồng bộ; chế độ kho ghi chung vào
    * `dedicatedSlugs`/`dedicatedDatabaseNames` với phía Drizzle
    * (một slug chỉ có một chế độ kho thật, dù đi bằng facade nào).
+   * Bước chuẩn bị này cũng chuẩn bị ĐỐI XỨNG cả phía Drizzle cho
+   * cùng slug (issue #641, xem mô tả lớp).
    *
    * @throws SpaceRoutingError khi slug chưa đăng ký, control plane
    *   chưa cấu hình, hoặc bí mật/role của kho riêng lệch sổ đăng ký.
    */
   async getKyselyForSpace(slug: string): Promise<CentreDb> {
     const target = await this.resolver.resolve(slug);
+    const db = this.prepareKyselySide(slug, target, true);
+    // Chuẩn bị đối xứng (issue #641): chuẩn bị luôn phía Drizzle
+    // cho cùng slug — xem mô tả lớp và `getDatabaseForSpace`.
+    this.prepareDatabaseSide(slug, target, false);
+    this.recordSpaceMode(slug, target);
+    return db!;
+  }
+
+  /**
+   * Chuẩn bị phía Kysely cho một đích đã phân giải — bản song
+   * song của `prepareDatabaseSide` trên trình quản lý pool
+   * riêng phía Kysely: đích kho chung dùng handle Kysely kho
+   * chung đã gắn (qua `bindSharedKysely`); đích kho riêng lấy
+   * (hoặc tạo lười) pool Kysely của kho đó THEO DANH TÍNH kết
+   * nối vừa phân giải (sổ đổi role/bí mật thì pool cũ bị thay
+   * bằng pool mới đúng danh tính hiện hành). Tham số `required`
+   * mang cùng ngữ nghĩa như phía Drizzle: phía chính chưa gắn
+   * handle kho chung thì ném lỗi, phía chuẩn bị kèm thì bỏ qua.
+   *
+   * @throws SpaceRoutingError khi đích kho riêng thiếu chuỗi kết
+   *   nối, hoặc khi phía này là phía chính mà handle Kysely kho
+   *   chung chưa được gắn.
+   */
+  private prepareKyselySide(
+    slug: string,
+    target: ResolvedSpaceConnection,
+    required: boolean,
+  ): CentreDb | undefined {
     if (target.mode === 'shared') {
-      const db = this.requireSharedKysely();
-      this.preparedKysely.set(slug, { db, databaseName: target.databaseName });
-      this.dedicatedSlugs.delete(slug);
-      this.dedicatedDatabaseNames.delete(slug);
-      return db;
+      if (!this.sharedKysely) {
+        if (required) this.requireSharedKysely();
+        return undefined;
+      }
+      this.preparedKysely.set(slug, { db: this.sharedKysely, databaseName: target.databaseName });
+      return this.sharedKysely;
     }
     const connectionString = target.connectionString;
     if (!connectionString) {
@@ -447,8 +556,6 @@ export class SpaceDatabaseService implements OnModuleDestroy {
       return { databaseName, pool, db: createCentreKysely(pool) };
     });
     this.preparedKysely.set(slug, { db: handle.db, databaseName: target.databaseName });
-    this.dedicatedSlugs.add(slug);
-    this.dedicatedDatabaseNames.set(slug, target.databaseName);
     return handle.db;
   }
 
