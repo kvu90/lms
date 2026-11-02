@@ -1,16 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { and, eq, sql } from 'drizzle-orm';
 import { Pool } from 'pg';
 import { ClassEnrolReconcileProcessor } from '../../../src/processors/class-enrol-reconcile.processor';
 import { TaskLogService } from '../../../src/task-log.service';
 import { TenantAwarePool } from '../../../src/db/tenant-pool';
-import { relations } from '../../../src/db/relations';
 import { adminDatabaseUrl, ensureOrdinaryRole, ordinaryRoleUrl } from '../../support/ordinary-role';
-import {
-  classes, cohort, cohortMembers, context, course, courseGroups, createCentreKysely, enrol,
-  role, roleAssignments, userEnrolments, users,
-} from '@lms/db';
+import { createCentreKysely, sql, type CentreDb } from '@lms/db';
 
 /**
  * Hồi quy issue #292 — job đối soát ghi danh lớp chạy bằng role DB
@@ -57,9 +51,9 @@ describe('Worker class enrol reconcile dưới RLS (hồi quy #292)', () => {
   // E: KHÔNG còn trong roster, UE ACTIVE → job phải đình chỉ.
   const outsiderE = uid(4);
 
-  let adminDb: ReturnType<typeof drizzle>;
+  let adminDb: CentreDb;
   let adminPool: Pool;
-  let rlsDb: ReturnType<typeof drizzle>;
+  let rlsDb: CentreDb;
   let rlsPool: TenantAwarePool;
   let processor: ClassEnrolReconcileProcessor;
   let classId = '';
@@ -67,9 +61,12 @@ describe('Worker class enrol reconcile dưới RLS (hồi quy #292)', () => {
   let courseCtxId = '';
 
   async function ueOf(userId: string) {
-    const [row] = await adminDb.select().from(userEnrolments)
-      .where(and(eq(userEnrolments.enrolId, instanceId), eq(userEnrolments.userId, userId)));
-    return row;
+    return adminDb
+      .selectFrom('user_enrolments')
+      .selectAll()
+      .where('enrol_id', '=', instanceId)
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
   }
 
   beforeAll(async () => {
@@ -81,62 +78,62 @@ describe('Worker class enrol reconcile dưới RLS (hồi quy #292)', () => {
     await ensureOrdinaryRole(adminUrl);
 
     adminPool = new Pool({ connectionString: adminUrl });
-    adminDb = drizzle({ client: adminPool, relations });
+    adminDb = createCentreKysely(adminPool);
 
     // Fixture (nạp bằng quản trị, như đường seed production).
-    await adminDb.execute(sql`insert into tenants (slug, name, kind, status) values (${`recon-rls-${suffix}`}, 'Reconcile RLS fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
-    const tenantRows = await adminDb.execute(sql`select id from tenants where slug = ${`recon-rls-${suffix}`}`);
-    const tenantId = ((tenantRows as unknown as { rows: { id: string }[] }).rows[0]).id;
+    await sql`insert into tenants (slug, name, kind, status) values (${`recon-rls-${suffix}`}, 'Reconcile RLS fixture tenant', 'school', 'active') on conflict (slug) do nothing`.execute(adminDb);
+    const tenantRows = await sql<{ id: string }>`select id from tenants where slug = ${`recon-rls-${suffix}`}`.execute(adminDb);
+    const tenantId = tenantRows.rows[0]!.id;
 
-    await adminDb.insert(users).values({ id: teacherId, username: `recon-rls-teacher-${suffix}`, email: `recon-rls-teacher-${suffix}@example.com` });
+    await adminDb.insertInto('users').values({ id: teacherId, username: `recon-rls-teacher-${suffix}`, email: `recon-rls-teacher-${suffix}@example.com` }).execute();
 
-    const catRows = await adminDb.execute(sql`insert into course_categories (name, path, tenant_id) values (${`recon-rls-cat-${suffix}`}, '', ${tenantId}) returning id`);
-    const catId = ((catRows as unknown as { rows: { id: string }[] }).rows[0]).id;
+    const catRows = await sql<{ id: string }>`insert into course_categories (name, path, tenant_id) values (${`recon-rls-cat-${suffix}`}, '', ${tenantId}) returning id`.execute(adminDb);
+    const catId = catRows.rows[0]!.id;
 
-    const [cohortRow] = await adminDb.insert(cohort).values({
-      tenantId, name: `recon-rls-cohort-${suffix}`, contextId: teacherId, component: 'class', visible: false,
-    }).returning();
+    const cohortRow = await adminDb.insertInto('cohort').values({
+      tenant_id: tenantId, name: `recon-rls-cohort-${suffix}`, context_id: teacherId, component: 'class', visible: false,
+    }).returningAll().executeTakeFirstOrThrow();
 
-    const [classRow] = await adminDb.insert(classes).values({
-      tenantId, name: `Lớp reconcile RLS ${suffix}`, ownerId: teacherId, cohortId: cohortRow.id, status: 'active',
-    }).returning();
+    const classRow = await adminDb.insertInto('classes').values({
+      tenant_id: tenantId, name: `Lớp reconcile RLS ${suffix}`, owner_id: teacherId, cohort_id: cohortRow.id, status: 'active',
+    }).returningAll().executeTakeFirstOrThrow();
     classId = classRow.id;
 
-    const [courseRow] = await adminDb.insert(course).values({
-      tenantId, category: catId, fullName: 'Reconcile RLS course', shortName: `reconrls${suffix}`, classId,
-    }).returning();
+    const courseRow = await adminDb.insertInto('course').values({
+      tenant_id: tenantId, category: catId, full_name: 'Reconcile RLS course', short_name: `reconrls${suffix}`, class_id: classId,
+    }).returningAll().executeTakeFirstOrThrow();
 
-    const [ctxRow] = await adminDb.insert(context).values({
-      contextLevel: 50, instanceId: courseRow.id, path: '/recon-rls', depth: 3,
-    }).returning();
+    const ctxRow = await adminDb.insertInto('context').values({
+      context_level: 50, instance_id: courseRow.id, path: '/recon-rls', depth: 3,
+    }).returningAll().executeTakeFirstOrThrow();
     courseCtxId = ctxRow.id;
 
-    const [groupRow] = await adminDb.insert(courseGroups).values({ courseId: courseRow.id, name: 'Cả lớp' }).returning();
-    const [roleRow] = await adminDb.insert(role).values({
-      name: 'Student (reconcile RLS fixture)', shortName: `recon-rls-student-${suffix}`, archetype: 'student',
-    }).returning();
+    const groupRow = await adminDb.insertInto('course_groups').values({ course_id: courseRow.id, name: 'Cả lớp' }).returningAll().executeTakeFirstOrThrow();
+    const roleRow = await adminDb.insertInto('role').values({
+      name: 'Student (reconcile RLS fixture)', short_name: `recon-rls-student-${suffix}`, archetype: 'student',
+    }).returningAll().executeTakeFirstOrThrow();
 
-    const [instance] = await adminDb.insert(enrol).values({
-      courseId: courseRow.id, enrol: 'cohort', status: 0, roleId: roleRow.id,
-      customInt1: cohortRow.id, customInt2: groupRow.id, customText1: 'suspend',
-    }).returning();
+    const instance = await adminDb.insertInto('enrol').values({
+      course_id: courseRow.id, enrol: 'cohort', status: 0, role_id: roleRow.id,
+      custom_int1: cohortRow.id, custom_int2: groupRow.id, custom_text1: 'suspend',
+    }).returningAll().executeTakeFirstOrThrow();
     instanceId = instance.id;
 
     // Roster: A (thiếu UE) + Ok (đã khớp). E đã rời roster.
     for (const userId of [memberA, memberOk]) {
-      await adminDb.insert(cohortMembers).values({ cohortId: cohortRow.id, userId });
+      await adminDb.insertInto('cohort_members').values({ cohort_id: cohortRow.id, user_id: userId }).execute();
     }
-    await adminDb.insert(userEnrolments).values([
-      { enrolId: instanceId, userId: memberOk, status: 0, modifierId: null },
-      { enrolId: instanceId, userId: outsiderE, status: 0, modifierId: null },
-    ]);
-    await adminDb.insert(roleAssignments).values({
-      roleId: roleRow.id, userId: memberOk, contextId: courseCtxId, component: 'enrol', itemId: instanceId,
-    });
+    await adminDb.insertInto('user_enrolments').values([
+      { enrol_id: instanceId, user_id: memberOk, status: 0, modifier_id: null },
+      { enrol_id: instanceId, user_id: outsiderE, status: 0, modifier_id: null },
+    ]).execute();
+    await adminDb.insertInto('role_assignments').values({
+      role_id: roleRow.id, user_id: memberOk, context_id: courseCtxId, component: 'enrol', item_id: instanceId,
+    }).execute();
 
     // Processor chạy bằng role thường qua đúng TenantAwarePool của worker.
     rlsPool = new TenantAwarePool({ connectionString: ordinaryRoleUrl(adminUrl) });
-    rlsDb = drizzle({ client: rlsPool, relations });
+    rlsDb = createCentreKysely(rlsPool);
     processor = new ClassEnrolReconcileProcessor(
       // Processor chạy trên handle Kysely định tuyến
       // (`SpaceDatabaseService.routedKysely`): cấp một khung định
@@ -145,11 +142,11 @@ describe('Worker class enrol reconcile dưới RLS (hồi quy #292)', () => {
       // giữ nguyên hình dạng kết nối production (role không
       // BYPASSRLS) như trước.
       { routedKysely: createCentreKysely(rlsPool) } as never,
-      // TaskLogService đã chuyển sang handle Kysely định tuyến
-      // (issue #664): cấp một khung định tuyến tối thiểu mà
-      // `routedKysely` trỏ vào đúng pool role thường của ca này,
-      // để đường ghi task_log giữ nguyên hình dạng kết nối
-      // production (role không BYPASSRLS) như trước.
+      // TaskLogService chạy trên handle Kysely định tuyến: cấp một
+      // khung định tuyến tối thiểu mà `routedKysely` trỏ vào đúng
+      // pool role thường của ca này, để đường ghi task_log giữ
+      // nguyên hình dạng kết nối production (role không BYPASSRLS)
+      // như trước.
       new TaskLogService({ routedKysely: createCentreKysely(rlsPool) } as never),
     );
   });
@@ -160,7 +157,7 @@ describe('Worker class enrol reconcile dưới RLS (hồi quy #292)', () => {
   });
 
   it('chiều âm: ngoài ngữ cảnh tenant, role thường không thấy lớp nào (RLS fail-closed)', async () => {
-    const rows = await rlsDb.select().from(classes).where(eq(classes.id, classId));
+    const rows = await rlsDb.selectFrom('classes').selectAll().where('id', '=', classId).execute();
     expect(rows).toHaveLength(0);
   });
 
@@ -174,12 +171,12 @@ describe('Worker class enrol reconcile dưới RLS (hồi quy #292)', () => {
 
     // A: đã ghi danh ACTIVE + có gán vai của instance.
     expect((await ueOf(memberA))?.status).toBe(0);
-    const [assignmentA] = await adminDb.select().from(roleAssignments).where(and(
-      eq(roleAssignments.userId, memberA),
-      eq(roleAssignments.contextId, courseCtxId),
-      eq(roleAssignments.component, 'enrol'),
-      eq(roleAssignments.itemId, instanceId),
-    ));
+    const assignmentA = await adminDb.selectFrom('role_assignments').selectAll()
+      .where('user_id', '=', memberA)
+      .where('context_id', '=', courseCtxId)
+      .where('component', '=', 'enrol')
+      .where('item_id', '=', instanceId)
+      .executeTakeFirst();
     expect(assignmentA).toBeTruthy();
     // E: bị đình chỉ vì không còn trong roster.
     expect((await ueOf(outsiderE))?.status).toBe(1);
@@ -192,7 +189,7 @@ describe('Worker class enrol reconcile dưới RLS (hồi quy #292)', () => {
     await processor.process({ data: {} } as never);
     const ueE = await ueOf(outsiderE);
     expect(ueE?.status).toBe(1);
-    expect(ueE?.updatedAt.getTime()).toBe(before?.updatedAt.getTime());
+    expect((ueE?.updated_at as Date).getTime()).toBe((before?.updated_at as Date).getTime());
     const ueA = await ueOf(memberA);
     expect(ueA?.status).toBe(0);
   });

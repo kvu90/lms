@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { getDrizzleToken } from '@nestjs/drizzle';
-import { eq, sql } from 'drizzle-orm';
-import { classes, cohort, users } from '@lms/db';
+import { sql } from '@lms/db';
+import { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
 import { ORDINARY_ROLE } from '../../support/ordinary-role';
 import {
   bootWorkerModuleAsOrdinaryRole,
@@ -12,13 +11,13 @@ import {
  * Kiểm chứng harness boot module bằng role thường (lát 2 của issue
  * #294, `test/ordinary-worker-module.ts`).
  *
- * Harness chỉ có giá trị nếu kết nối mà `WorkerModule` nhận qua
- * token Drizzle thật sự là phiên đăng nhập của role thường
+ * Harness chỉ có giá trị nếu handle kho chung mà `WorkerModule`
+ * dùng qua `SpaceDatabaseService` thật sự là phiên đăng nhập của role thường
  * NOSUPERUSER/NOBYPASSRLS và thật sự chịu RLS như production. Ba ca
  * ở đây khoá đúng ba tính chất đó:
  *
- *   - module nhận đúng kết nối role thường qua ghi đè provider
- *     (không phải kết nối superuser do `DrizzleModule` tự dựng);
+ *   - module nhận đúng kết nối role thường qua handle kho chung
+ *     mà harness gắn lại (không phải kết nối superuser do module tự dựng);
  *   - phiên làm việc của kết nối đó đăng nhập bằng role thường và
  *     role không có SUPERUSER/BYPASSRLS — nếu ai cấp thêm hai thuộc
  *     tính này cho role, ca này đỏ;
@@ -43,48 +42,49 @@ describe('Harness của worker: WorkerModule chạy với vai trò DB thường 
     harness = await bootWorkerModuleAsOrdinaryRole();
     const db = harness.adminDb;
 
-    await db.execute(sql`insert into tenants (slug, name, kind, status) values (${`harness-294-${suffix}`}, 'Ordinary harness fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
-    const tenantRows = (await db.execute(sql`select id from tenants where slug = ${`harness-294-${suffix}`} `)) as unknown as { rows: { id: string }[] };
-    const tenantId = tenantRows.rows[0].id;
+    await sql`insert into tenants (slug, name, kind, status) values (${`harness-294-${suffix}`}, 'Ordinary harness fixture tenant', 'school', 'active') on conflict (slug) do nothing`.execute(db);
+    const tenantRows = await sql<{ id: string }>`select id from tenants where slug = ${`harness-294-${suffix}`} `.execute(db);
+    const tenantId = tenantRows.rows[0]!.id;
 
     const ownerId = '01900000-0000-7000-8000-000000029401';
-    await db.insert(users).values({
+    await db.insertInto('users').values({
       id: ownerId, username: `harness-294-owner-${suffix}`, email: `harness-294-owner-${suffix}@example.com`,
-    }).onConflictDoNothing();
+    }).onConflict((oc) => oc.doNothing()).execute();
 
-    const [cohortRow] = await db.insert(cohort).values({
-      tenantId, name: `harness-294-cohort-${suffix}`, contextId: ownerId, component: 'class', visible: false,
-    }).returning();
+    const cohortRow = await db.insertInto('cohort').values({
+      tenant_id: tenantId, name: `harness-294-cohort-${suffix}`, context_id: ownerId, component: 'class', visible: false,
+    }).returningAll().executeTakeFirstOrThrow();
 
-    const [classRow] = await db.insert(classes).values({
-      tenantId, name: `Lớp harness 294 ${suffix}`, ownerId, cohortId: cohortRow.id, status: 'active',
-    }).returning();
+    const classRow = await db.insertInto('classes').values({
+      tenant_id: tenantId, name: `Lớp harness 294 ${suffix}`, owner_id: ownerId, cohort_id: cohortRow.id, status: 'active',
+    }).returningAll().executeTakeFirstOrThrow();
     classId = classRow.id;
   });
 
   afterAll(async () => { await harness.close(); });
 
-  it('module nhận kết nối vai trò thường qua drizzle token', () => {
-    expect(harness.context.get(getDrizzleToken())).toBe(harness.ordinaryDb);
+  it('module nhận kết nối vai trò thường qua handle kho chung của khung định tuyến', async () => {
+    const spaceDb = harness.context.get(SpaceDatabaseService);
+    expect(spaceDb).toBe(harness.spaceDb);
+    const sessionRows = await sql<{ current_role: string }>`select current_user as current_role`.execute(spaceDb.routedKysely);
+    expect(sessionRows.rows[0]!.current_role).toBe(ORDINARY_ROLE);
   });
 
   it('phiên module đăng nhập với vai trò thường, không có SUPERUSER hay BYPASSRLS', async () => {
-    const sessionRows = (await harness.ordinaryDb.execute(sql`select current_user as current_role`)) as unknown as { rows: { current_role: string }[] };
-    expect(sessionRows.rows[0].current_role).toBe(ORDINARY_ROLE);
+    const sessionRows = await sql<{ current_role: string }>`select current_user as current_role`.execute(harness.ordinaryDb);
+    expect(sessionRows.rows[0]!.current_role).toBe(ORDINARY_ROLE);
 
-    const roleRows = (await harness.adminDb.execute(
-      sql`select rolsuper, rolbypassrls from pg_roles where rolname = ${ORDINARY_ROLE}`,
-    )) as unknown as { rows: { rolsuper: boolean; rolbypassrls: boolean }[] };
-    const role = roleRows.rows[0];
+    const roleRows = await sql<{ rolsuper: boolean; rolbypassrls: boolean }>`select rolsuper, rolbypassrls from pg_roles where rolname = ${ORDINARY_ROLE}`.execute(harness.adminDb);
+    const role = roleRows.rows[0]!;
     expect(role.rolsuper).toBe(false);
     expect(role.rolbypassrls).toBe(false);
   });
 
   it('ngoài ngữ cảnh tenant, kết nối module không thấy lớp tenant nào (RLS fail-closed)', async () => {
-    const hidden = await harness.ordinaryDb.select().from(classes).where(eq(classes.id, classId));
+    const hidden = await harness.ordinaryDb.selectFrom('classes').selectAll().where('id', '=', classId).execute();
     expect(hidden).toHaveLength(0);
 
-    const visible = await harness.adminDb.select().from(classes).where(eq(classes.id, classId));
+    const visible = await harness.adminDb.selectFrom('classes').selectAll().where('id', '=', classId).execute();
     expect(visible).toHaveLength(1);
   });
 });

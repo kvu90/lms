@@ -265,7 +265,7 @@ export class NotificationEventsCatchupService implements OnModuleInit, OnModuleD
     // Neo khi DB đã dựng lại: watermark vượt quá seq lớn nhất
     // hiện có thì không dòng nào của đời DB này nằm trên
     // watermark — tồn đọng rỗng theo định nghĩa.
-    // `seq` là int8: Kysely trả chuỗi, Drizzle cũ trả số (bigint
+    // `seq` là int8: Kysely trả chuỗi, bộ máy cũ trả số (bigint
     // mode number) — `Number()` giữ đúng giá trị số như trước.
     const maxRow = await this.spaceDb.routedKysely
       .selectFrom('outbox_events')

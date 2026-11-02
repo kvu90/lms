@@ -43,7 +43,7 @@ export class FileCleanupProcessor extends WorkerHost {
     // Đếm giữ đúng khuôn cũ `count(*)::int`: `count(*)` trần của
     // PostgreSQL là int8 và Kysely đọc int8 thành chuỗi, trong khi
     // hợp đồng kết quả của processor là số — ép `::int` ngay trong
-    // SQL như đường Drizzle trước đây để giá trị về thẳng là số.
+    // SQL như đường cũ trước đây để giá trị về thẳng là số.
     const row = await this.spaceDb.routedKysely
       .selectFrom('files')
       .select(sql<number>`count(*)::int`.as('n'))

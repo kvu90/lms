@@ -2,12 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
-import { and, eq, sql, type SQL } from 'drizzle-orm';
-import {
-  assignments, assignSubmissions, enrol, message, messageConversationMembers, messageConversations,
-  messageUsersBlocked, notifications, notificationDispatchLog, outboxEvents, userEnrolments,
-  userPreferences,
-} from '@lms/db';
+import { sql, type JsonValue, type RawBuilder } from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
@@ -78,24 +73,24 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
     'message_new',
   ];
 
-  async function execRows<T>(query: SQL): Promise<T[]> {
-    const result = (await db.execute(query)) as unknown as { rows: T[] };
+  async function execRows<T>(query: RawBuilder<T>): Promise<T[]> {
+    const result = await query.execute(db);
     return result.rows;
   }
 
   async function makeUser(id: string, firstName = 'An', lastName = 'Nguyễn Văn') {
-    await db.execute(sql`insert into users (id, username, email, first_name, last_name, suspended, deleted) values (${id}, ${`ne520-${id.slice(-6)}-${suffix}`}, ${`ne520-${id.slice(-6)}-${suffix}@x.io`}, ${firstName}, ${lastName}, false, false) on conflict (id) do nothing`);
+    await sql`insert into users (id, username, email, first_name, last_name, suspended, deleted) values (${id}, ${`ne520-${id.slice(-6)}-${suffix}`}, ${`ne520-${id.slice(-6)}-${suffix}@x.io`}, ${firstName}, ${lastName}, false, false) on conflict (id) do nothing`.execute(db);
     for (const provider of EMAIL_PROVIDERS) {
-      await db.insert(userPreferences).values({
-        userId: id, name: `message_provider_${provider}_email_v2`, value: 'immediate',
-      }).onConflictDoNothing();
+      await db.insertInto('user_preferences').values({
+        user_id: id, name: `message_provider_${provider}_email_v2`, value: 'immediate',
+      }).onConflict((oc) => oc.doNothing()).execute();
     }
   }
 
   /** Lớp fixture cho tenant worker-fixture (khoá dạy thật phải có class_id — cùng khuôn các spec worker khác). */
   async function fixtureClassId(): Promise<string> {
     const ownerId = '01980000-0000-7000-8000-00000000c1a5';
-    await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${ownerId}, 'wk-class-owner', 'wk-class-owner@x.io', false, false) on conflict (id) do nothing`);
+    await sql`insert into users (id, username, email, suspended, deleted) values (${ownerId}, 'wk-class-owner', 'wk-class-owner@x.io', false, false) on conflict (id) do nothing`.execute(db);
     const coh = await execRows<{ id: string }>(sql`insert into cohort (tenant_id, name, context_id, component, visible) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture cohort', '01990000-0000-7000-8000-0000000000a1', 'class', false) returning id`);
     const cls = await execRows<{ id: string }>(sql`insert into classes (tenant_id, name, owner_id, cohort_id) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture class', ${ownerId}, ${coh[0]!.id}) returning id`);
     return cls[0]!.id;
@@ -109,30 +104,30 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
   }
 
   async function enrolStudent(courseId: string, userId: string): Promise<void> {
-    const [inst] = await db.insert(enrol).values({ courseId, enrol: 'manual', status: 0 }).returning();
-    await db.insert(userEnrolments).values({
-      enrolId: inst!.id as string, userId, status: 0, timeStart: new Date(Date.now() - DAY),
-    });
+    const inst = await db.insertInto('enrol').values({ course_id: courseId, enrol: 'manual', status: 0 }).returningAll().executeTakeFirstOrThrow();
+    await db.insertInto('user_enrolments').values({
+      enrol_id: inst.id, user_id: userId, status: 0, time_start: new Date(Date.now() - DAY),
+    }).execute();
   }
 
   /** Gán vai editingteacher cho giáo viên tại context của khoá (path context hợp lệ như production). */
   async function makeTeacher(courseId: string, teacherId: string): Promise<void> {
-    await db.execute(sql`insert into context (id, context_level, instance_id, path, depth)
+    await sql`insert into context (id, context_level, instance_id, path, depth)
       select '01990000-0000-7000-8000-0000000000a1', 10, null, '/01990000-0000-7000-8000-0000000000a1', 1
-      where not exists (select 1 from context where context_level = 10 and instance_id is null)`);
+      where not exists (select 1 from context where context_level = 10 and instance_id is null)`.execute(db);
     const sys = await execRows<{ id: string }>(sql`select id from context where context_level = 10 and instance_id is null limit 1`);
     const ctx = await execRows<{ id: string }>(sql`insert into context (context_level, instance_id, path, depth) values (50, ${courseId}, '', 2) returning id`);
     const courseCtxId = ctx[0]!.id;
-    await db.execute(sql`update context set path = ${`/${sys[0]!.id}/${courseCtxId}`} where id = ${courseCtxId}`);
+    await sql`update context set path = ${`/${sys[0]!.id}/${courseCtxId}`} where id = ${courseCtxId}`.execute(db);
     const shortName = `ne520teach${suffix}`;
-    await db.execute(sql`insert into role (name, short_name, archetype, sort_order) values ('Teacher', ${shortName}, 'editingteacher', 3) on conflict (short_name) do nothing`);
+    await sql`insert into role (name, short_name, archetype, sort_order) values ('Teacher', ${shortName}, 'editingteacher', 3) on conflict (short_name) do nothing`.execute(db);
     const role = await execRows<{ id: string }>(sql`select id from role where short_name = ${shortName}`);
-    await db.execute(sql`insert into role_assignments (role_id, user_id, context_id) values (${role[0]!.id}, ${teacherId}, ${courseCtxId})`);
+    await sql`insert into role_assignments (role_id, user_id, context_id) values (${role[0]!.id}, ${teacherId}, ${courseCtxId})`.execute(db);
   }
 
   /** Section + course module hiển thị cho một khoá; trả cmId. Section 0 của khoá là duy nhất nên lượt dựng module thứ hai cho cùng khoá dùng lại section đã có. */
   async function makeModule(courseId: string, component: string): Promise<string> {
-    await db.execute(sql`insert into course_sections (course, section) values (${courseId}, 0) on conflict (course, section) do nothing`);
+    await sql`insert into course_sections (course, section) values (${courseId}, 0) on conflict (course, section) do nothing`.execute(db);
     const sec = await execRows<{ id: string }>(sql`select id from course_sections where course = ${courseId} and section = 0`);
     const cm = await execRows<{ id: string }>(sql`insert into course_modules (course, section, component, visible) values (${courseId}, ${sec[0]!.id}, ${component}, true) returning id`);
     return cm[0]!.id;
@@ -140,8 +135,8 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
 
   async function makeAssignment(courseId: string, name: string): Promise<string> {
     const cmId = await makeModule(courseId, 'mod_assign');
-    const [row] = await db.insert(assignments).values({ course: courseId, cmId, name, dueDate: null }).returning();
-    return row!.id as string;
+    const row = await db.insertInto('assignments').values({ course: courseId, cm_id: cmId, name, due_date: null }).returningAll().executeTakeFirstOrThrow();
+    return row.id;
   }
 
   /** Bank → đề → version → lần ghim tối thiểu bằng SQL như các fixture worker khác; time_close để trống để lượt quét hạn không chen vào. */
@@ -156,10 +151,11 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
 
   /** Chèn một dòng sự kiện outbox đúng hình dạng phía phát; trả outboxId để chờ job. */
   async function emit(aggregate: string, type: string, payload: Record<string, unknown>): Promise<string> {
-    const [row] = await db.insert(outboxEvents).values({
-      aggregate, type, tenantId: fixtureTenantId, payload,
-    }).returning({ id: outboxEvents.id });
-    return row!.id as string;
+    const row = await db.insertInto('outbox_events').values({
+      aggregate, type, tenant_id: fixtureTenantId,
+      payload: sql<JsonValue>`${JSON.stringify(payload)}::jsonb`,
+    }).returning('id').executeTakeFirstOrThrow();
+    return row.id;
   }
 
   /** Chờ job của một dòng outbox trên hàng đợi notification-events đạt trạng thái completed. */
@@ -174,14 +170,14 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
   }
 
   interface NotifRow {
-    id: string; subject: string; fullMessage: string; contextUrl: string | null;
-    tenantId: string | null; timeRead: Date | null;
+    id: string; subject: string; full_message: string; context_url: string | null;
+    tenant_id: string | null; time_read: Date | null;
   }
 
   async function notificationsOf(userId: string, eventType: string): Promise<NotifRow[]> {
-    const rows = await db.select().from(notifications).where(and(
-      eq(notifications.userIdTo, userId), eq(notifications.eventType, eventType),
-    ));
+    const rows = await db.selectFrom('notifications').selectAll()
+      .where('user_id_to', '=', userId).where('event_type', '=', eventType)
+      .execute();
     return rows as NotifRow[];
   }
 
@@ -202,11 +198,11 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
   async function waitDispatchLog(userId: string, provider: string, status: string, timeoutMs = 90000): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
-      const rows = await db.select().from(notificationDispatchLog).where(and(
-        eq(notificationDispatchLog.userId, userId),
-        eq(notificationDispatchLog.provider, provider),
-        eq(notificationDispatchLog.status, status),
-      ));
+      const rows = await db.selectFrom('notification_dispatch_log').selectAll()
+        .where('user_id', '=', userId)
+        .where('provider', '=', provider)
+        .where('status', '=', status)
+        .execute();
       if (rows.length > 0) return;
       if (Date.now() > deadline) throw new Error(`dispatch log ${provider}/${status} cho ${userId} không xuất hiện sau ${timeoutMs}ms`);
       await new Promise((r) => setTimeout(r, 400));
@@ -217,7 +213,7 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
     harness = await bootWorkerModuleAsOrdinaryRole();
     context = harness.context;
     db = harness.adminDb;
-    await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
+    await sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`.execute(db);
     const tenantRows = await execRows<{ id: string }>(sql`select id from tenants where slug = 'worker-fixture'`);
     fixtureTenantId = tenantRows[0]!.id;
     eventsQueue = context.get<Queue>(getQueueToken('notification-events'));
@@ -231,7 +227,7 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
     await enrolStudent(courseId, student);
     const item = await execRows<{ id: string }>(sql`insert into grade_items (course_id, item_name, item_type, grade_max, posting_policy) values (${courseId}, 'Bài kiểm tra 15 phút', 'manual', 100, 'auto') returning id`);
     const itemId = item[0]!.id;
-    await db.execute(sql`insert into grade_grades (item_id, user_id, final_grade, updated_at) values (${itemId}, ${student}, 73.5, now())`);
+    await sql`insert into grade_grades (item_id, user_id, final_grade, updated_at) values (${itemId}, ${student}, 73.5, now())`.execute(db);
 
     const eventId = await emit('grades', 'grade_updated', {
       courseId, itemId, userId: student, rawGrade: 73.5, finalGrade: 73.5, actorId: teacher,
@@ -242,11 +238,11 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
     expect(notifs).toHaveLength(1);
     const notif = notifs[0]!;
     expect(notif.subject).toContain('NE520 Khoá điểm');
-    expect(notif.fullMessage).toContain('Bài kiểm tra 15 phút');
+    expect(notif.full_message).toContain('Bài kiểm tra 15 phút');
     expect(notif.subject).not.toContain('73.5');
-    expect(notif.fullMessage).not.toContain('73.5');
-    expect(notif.contextUrl).toBe(`/courses/${courseId}/grades`);
-    expect(notif.tenantId).toBe(fixtureTenantId);
+    expect(notif.full_message).not.toContain('73.5');
+    expect(notif.context_url).toBe(`/courses/${courseId}/grades`);
+    expect(notif.tenant_id).toBe(fixtureTenantId);
 
     // Sự kiện tính lại tổng (item tổng của khoá) bị cổng loại item
     // chặn: job hoàn thành mà không sinh thông báo thứ hai.
@@ -269,7 +265,7 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
 
     const notifs = await notificationsOf(student, 'course_completed');
     expect(notifs).toHaveLength(1);
-    expect(notifs[0]!.contextUrl).toBe(`/courses/${courseId}`);
+    expect(notifs[0]!.context_url).toBe(`/courses/${courseId}`);
     expect(notifs[0]!.subject).toContain('NE520 Khoá hoàn thành');
   }, 180000);
 
@@ -287,7 +283,7 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
 
     const notifs = await notificationsOf(student, 'enrol_expiry_warning');
     expect(notifs).toHaveLength(1);
-    expect(notifs[0]!.contextUrl).toBe(`/courses/${courseId}`);
+    expect(notifs[0]!.context_url).toBe(`/courses/${courseId}`);
     expect(notifs[0]!.subject.length).toBeGreaterThan(0);
   }, 180000);
 
@@ -307,28 +303,28 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
 
     const notifs = await notificationsOf(student, 'activity_due_soon');
     expect(notifs).toHaveLength(1);
-    expect(notifs[0]!.contextUrl).toBe(`/courses/${courseId}/exams/${pinId}`);
+    expect(notifs[0]!.context_url).toBe(`/courses/${courseId}/exams/${pinId}`);
     expect(notifs[0]!.subject).toContain('Bài kiểm tra chương 1');
-    expect(notifs[0]!.fullMessage).toContain('Bài kiểm tra chương 1');
-    expect(notifs[0]!.fullMessage).toContain('NE520 Khoá nhắc hạn');
+    expect(notifs[0]!.full_message).toContain('Bài kiểm tra chương 1');
+    expect(notifs[0]!.full_message).toContain('NE520 Khoá nhắc hạn');
   }, 180000);
 
   it('message_new: tin nhắn báo người nhận đúng một bản khi còn chưa đọc và không chứa nội dung tin; đọc rồi thì tin mới sinh bản mới', async () => {
     const sender = uid(6); const recipient = uid(7);
     await makeUser(sender, 'Bình', 'Trần'); await makeUser(recipient);
-    const [conv] = await db.insert(messageConversations).values({ type: 1, tenantId: fixtureTenantId }).returning();
-    const conversationId = conv!.id as string;
-    await db.insert(messageConversationMembers).values([
-      { conversationId, userId: sender },
-      { conversationId, userId: recipient },
-    ]);
+    const conv = await db.insertInto('message_conversations').values({ type: 1, tenant_id: fixtureTenantId }).returningAll().executeTakeFirstOrThrow();
+    const conversationId = conv.id;
+    await db.insertInto('message_conversation_members').values([
+      { conversation_id: conversationId, user_id: sender },
+      { conversation_id: conversationId, user_id: recipient },
+    ]).execute();
     const secret = 'NOI-DUNG-BI-MAT-4927';
 
     async function sendMessage(seq: number, text: string): Promise<string> {
-      const [row] = await db.insert(message).values({
-        conversationId, userIdFrom: sender, seq, fullMessage: text,
-      }).returning();
-      const messageId = row!.id as string;
+      const row = await db.insertInto('message').values({
+        conversation_id: conversationId, user_id_from: sender, seq, full_message: text,
+      }).returningAll().executeTakeFirstOrThrow();
+      const messageId = row.id;
       const eventId = await emit('messaging', 'message_sent', {
         conversationId, messageId, seq, fromUserId: sender,
         memberIds: [sender, recipient], clientMessageId: `ne520-${suffix}-${seq}`, replyToMessageId: null,
@@ -342,9 +338,9 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
     expect(notifs).toHaveLength(1);
     expect(notifs[0]!.subject).toContain('Bình Trần');
     expect(notifs[0]!.subject).not.toContain(secret);
-    expect(notifs[0]!.fullMessage).not.toContain(secret);
-    expect(notifs[0]!.contextUrl).toBe(`/messages?conversation=${conversationId}`);
-    expect(notifs[0]!.tenantId).toBe(fixtureTenantId);
+    expect(notifs[0]!.full_message).not.toContain(secret);
+    expect(notifs[0]!.context_url).toBe(`/messages?conversation=${conversationId}`);
+    expect(notifs[0]!.tenant_id).toBe(fixtureTenantId);
     // Người gửi không nhận thông báo cho tin của chính mình.
     expect(await notificationsOf(sender, 'message_new')).toHaveLength(0);
 
@@ -353,11 +349,11 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
     expect(await notificationsOf(recipient, 'message_new')).toHaveLength(1);
 
     // Đọc hết rồi có tin mới thì lại có thông báo mới chưa đọc.
-    await db.execute(sql`update notifications set time_read = now() where user_id_to = ${recipient} and event_type = 'message_new'`);
+    await sql`update notifications set time_read = now() where user_id_to = ${recipient} and event_type = 'message_new'`.execute(db);
     await sendMessage(3, 'tin thứ ba');
     const after = await notificationsOf(recipient, 'message_new');
     expect(after).toHaveLength(2);
-    expect(after.filter((n) => n.timeRead === null)).toHaveLength(1);
+    expect(after.filter((n) => n.time_read === null)).toHaveLength(1);
   }, 180000);
 
   it('assignment_created: học sinh ghi danh nhận thông báo bài tập mới; học sinh đã tắt tuỳ chọn provider thì không nhận bài sau', async () => {
@@ -374,19 +370,16 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
     await waitJobCompleted(eventId);
     const first = await notificationsOf(student, 'assignment_assigned');
     expect(first).toHaveLength(1);
-    expect(first[0]!.contextUrl).toBe(`/courses/${courseId}/assignments/${assignmentId}`);
+    expect(first[0]!.context_url).toBe(`/courses/${courseId}/assignments/${assignmentId}`);
     expect(first[0]!.subject).toContain('Bài tập NB-1 số 1');
     expect(await notificationsOf(student2, 'assignment_assigned')).toHaveLength(1);
 
     // HS2 tắt tuỳ chọn popup của assignment_assigned (mô hình v2):
     // bài tập sau không báo nữa — kết quả chốt là dispatch log
     // 'skipped-preference' của chính HS2 trên sự kiện bài số 2.
-    await db.insert(userPreferences).values({
-      userId: student2, name: 'message_provider_assignment_assigned_popup_v2', value: '0',
-    }).onConflictDoUpdate({
-      target: [userPreferences.userId, userPreferences.name],
-      set: { value: '0' },
-    });
+    await db.insertInto('user_preferences').values({
+      user_id: student2, name: 'message_provider_assignment_assigned_popup_v2', value: '0',
+    }).onConflict((oc) => oc.columns(['user_id', 'name']).doUpdateSet({ value: '0' })).execute();
     const assignment2Id = await makeAssignment(courseId, 'Bài tập NB-1 số 2');
     const event2Id = await emit('assignments', 'assignment_created', {
       assignmentId: assignment2Id, courseId, actorId: teacher,
@@ -395,7 +388,7 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
     await waitDispatchLog(student2, 'assignment_assigned', 'skipped-preference');
     const student2Notifs = await notificationsOf(student2, 'assignment_assigned');
     expect(student2Notifs).toHaveLength(1);
-    expect(student2Notifs[0]!.contextUrl).toBe(`/courses/${courseId}/assignments/${assignmentId}`);
+    expect(student2Notifs[0]!.context_url).toBe(`/courses/${courseId}/assignments/${assignmentId}`);
     expect((await notificationsOf(student, 'assignment_assigned')).length).toBe(2);
   }, 180000);
 
@@ -408,29 +401,29 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
     await makeTeacher(courseId, teacher);
     const assignmentId = await makeAssignment(courseId, 'Bài tập nộp NB-1');
 
-    await db.insert(assignSubmissions).values({
-      assignmentId, userId: student, status: 'submitted', attemptNumber: 1,
-    });
+    await db.insertInto('assign_submissions').values({
+      assignment_id: assignmentId, user_id: student, status: 'submitted', attempt_number: 1,
+    }).execute();
     const event1Id = await emit('assignments', 'assignment_submitted', {
       assignmentId, courseId, userId: student, attemptNumber: 1, late: false,
     });
     await waitJobCompleted(event1Id);
     const receipt = await waitNotification(student, 'assignment_submitted',
       (n) => n.subject.includes('Đã nộp bài'));
-    expect(receipt.contextUrl).toBe(`/courses/${courseId}/assignments/${assignmentId}`);
+    expect(receipt.context_url).toBe(`/courses/${courseId}/assignments/${assignmentId}`);
     const teacherFirst = await waitNotification(teacher, 'assignment_submitted',
-      (n) => n.fullMessage.includes('Có 1 bài nộp'));
-    expect(teacherFirst.contextUrl).toBe(`/courses/${courseId}/assignments/${assignmentId}`);
+      (n) => n.full_message.includes('Có 1 bài nộp'));
+    expect(teacherFirst.context_url).toBe(`/courses/${courseId}/assignments/${assignmentId}`);
 
-    await db.insert(assignSubmissions).values({
-      assignmentId, userId: student2, status: 'submitted', attemptNumber: 1,
-    });
+    await db.insertInto('assign_submissions').values({
+      assignment_id: assignmentId, user_id: student2, status: 'submitted', attempt_number: 1,
+    }).execute();
     const event2Id = await emit('assignments', 'assignment_submitted', {
       assignmentId, courseId, userId: student2, attemptNumber: 1, late: false,
     });
     await waitJobCompleted(event2Id);
     await waitNotification(teacher, 'assignment_submitted',
-      (n) => n.fullMessage.includes('Có 2 bài nộp'));
+      (n) => n.full_message.includes('Có 2 bài nộp'));
     // Bản gộp của giáo viên vẫn đúng một bản — chỉ nội dung được cập nhật.
     expect(await notificationsOf(teacher, 'assignment_submitted')).toHaveLength(1);
     const receipt2 = await notificationsOf(student2, 'assignment_submitted');
@@ -444,9 +437,9 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
     const courseId = await makeCourse('NE520 Khoá trả bài');
     await enrolStudent(courseId, student);
     const assignmentId = await makeAssignment(courseId, 'Bài tập trả NB-1');
-    await db.insert(assignSubmissions).values({
-      assignmentId, userId: student, status: 'submitted', attemptNumber: 1,
-    });
+    await db.insertInto('assign_submissions').values({
+      assignment_id: assignmentId, user_id: student, status: 'submitted', attempt_number: 1,
+    }).execute();
 
     const eventId = await emit('assignments', 'assignment_returned', {
       assignmentId, courseId, userId: student, graderId: teacher,
@@ -456,11 +449,11 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
 
     const notifs = await notificationsOf(student, 'assignment_returned');
     expect(notifs).toHaveLength(1);
-    expect(notifs[0]!.contextUrl).toBe(`/courses/${courseId}/assignments/${assignmentId}`);
+    expect(notifs[0]!.context_url).toBe(`/courses/${courseId}/assignments/${assignmentId}`);
     expect(notifs[0]!.subject).not.toContain('8.5');
-    expect(notifs[0]!.fullMessage).not.toContain('8.5');
+    expect(notifs[0]!.full_message).not.toContain('8.5');
     expect(notifs[0]!.subject).not.toContain('Giỏi');
-    expect(notifs[0]!.fullMessage).not.toContain('Giỏi');
+    expect(notifs[0]!.full_message).not.toContain('Giỏi');
   }, 180000);
 
   it('exam_pinned: học sinh ghi danh nhận thông báo đề mới ghim vào khoá', async () => {
@@ -477,7 +470,7 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
 
     const notifs = await notificationsOf(student, 'quiz_available');
     expect(notifs).toHaveLength(1);
-    expect(notifs[0]!.contextUrl).toBe(`/courses/${courseId}/exams/${pinId}`);
+    expect(notifs[0]!.context_url).toBe(`/courses/${courseId}/exams/${pinId}`);
     expect(notifs[0]!.subject).toContain('Kiểm tra NB-1');
   }, 180000);
 
@@ -499,13 +492,13 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
     expect(await notificationsOf(student, 'quiz_available')).toHaveLength(1);
 
     // Đọc xong bản gộp, lần ghim tiếp theo sinh bản mới chưa đọc.
-    await db.execute(sql`update notifications set time_read = now() where user_id_to = ${student} and event_type = 'quiz_available'`);
+    await sql`update notifications set time_read = now() where user_id_to = ${student} and event_type = 'quiz_available'`.execute(db);
     const thirdId = await emit('exam_pin', 'exam_pinned', payload);
     await waitJobCompleted(thirdId);
     const all = await notificationsOf(student, 'quiz_available');
     expect(all).toHaveLength(2);
-    expect(all.filter((n) => n.timeRead === null)).toHaveLength(1);
-    expect(all[0]!.contextUrl).toBe(`/courses/${courseId}/exams/${pinId}`);
+    expect(all.filter((n) => n.time_read === null)).toHaveLength(1);
+    expect(all[0]!.context_url).toBe(`/courses/${courseId}/exams/${pinId}`);
   }, 180000);
 
   it('quiz_attempt_finished: giáo viên nhận đúng một bản gộp chỉ khi lượt làm cần chấm tay và không phải preview', async () => {
@@ -531,8 +524,8 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
 
     await emitFinished({});
     const notif = await waitNotification(teacher, 'quiz_attempt_finished',
-      (n) => n.fullMessage.includes('1 lượt làm bài'));
-    expect(notif.contextUrl).toBe(`/courses/${courseId}/exams/${pinId}/results`);
+      (n) => n.full_message.includes('1 lượt làm bài'));
+    expect(notif.context_url).toBe(`/courses/${courseId}/exams/${pinId}/results`);
 
     // Sự kiện trùng trạng thái: bản gộp cập nhật tại chỗ, không thêm bản.
     await emitFinished({});
@@ -558,7 +551,7 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
 
     const notifs = await notificationsOf(student, 'activity_due_soon');
     expect(notifs).toHaveLength(1);
-    expect(notifs[0]!.contextUrl).toBe(`/courses/${courseId}/assignments/${assignmentId}`);
+    expect(notifs[0]!.context_url).toBe(`/courses/${courseId}/assignments/${assignmentId}`);
     expect(notifs[0]!.subject).toContain('Bài tập sắp hạn NB-1');
   }, 180000);
 
@@ -569,9 +562,9 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
     const courseB = await makeCourse('NE520 Khoá B bình thường');
     await enrolStudent(courseA, student);
     await enrolStudent(courseB, student);
-    await db.insert(userPreferences).values({
-      userId: student, name: `notif.course.${courseA}`, value: 'mute',
-    }).onConflictDoNothing();
+    await db.insertInto('user_preferences').values({
+      user_id: student, name: `notif.course.${courseA}`, value: 'mute',
+    }).onConflict((oc) => oc.doNothing()).execute();
 
     const quizA = uid(908); const quizB = uid(909);
     const timeClose = new Date(Date.now() + 12 * HOUR).toISOString();
@@ -587,20 +580,20 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
     await waitJobCompleted(eventB);
 
     const dueSoons = await notificationsOf(student, 'activity_due_soon');
-    expect(dueSoons.map((n) => n.contextUrl)).toContain(`/courses/${courseB}/exams/${quizB}`);
-    expect(dueSoons.map((n) => n.contextUrl)).not.toContain(`/courses/${courseA}/exams/${quizA}`);
+    expect(dueSoons.map((n) => n.context_url)).toContain(`/courses/${courseB}/exams/${quizB}`);
+    expect(dueSoons.map((n) => n.context_url)).not.toContain(`/courses/${courseA}/exams/${quizA}`);
     await waitDispatchLog(student, 'activity_due_soon', 'skipped-course-mute');
 
     // P3: điểm mới của chính khoá bị mute vẫn tới.
     const item = await execRows<{ id: string }>(sql`insert into grade_items (course_id, item_name, item_type, grade_max, posting_policy) values (${courseA}, 'Bài kiểm tra 15 phút', 'manual', 100, 'auto') returning id`);
-    await db.execute(sql`insert into grade_grades (item_id, user_id, final_grade, updated_at) values (${item[0]!.id}, ${student}, 61, now())`);
+    await sql`insert into grade_grades (item_id, user_id, final_grade, updated_at) values (${item[0]!.id}, ${student}, 61, now())`.execute(db);
     const gradeEvent = await emit('grades', 'grade_updated', {
       courseId: courseA, itemId: item[0]!.id, userId: student, rawGrade: 61, finalGrade: 61, actorId: uid(910),
     });
     await waitJobCompleted(gradeEvent);
     const gradeNotifs = await notificationsOf(student, 'grade_updated');
     expect(gradeNotifs).toHaveLength(1);
-    expect(gradeNotifs[0]!.contextUrl).toBe(`/courses/${courseA}/grades`);
+    expect(gradeNotifs[0]!.context_url).toBe(`/courses/${courseA}/grades`);
 
     // P3: sắp hết hạn ghi danh của chính khoá bị mute vẫn tới.
     const expiryEvent = await emit('enrol', 'enrol_expiry_warning', {
@@ -611,7 +604,7 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
     expect(await notificationsOf(student, 'enrol_expiry_warning')).toHaveLength(1);
 
     // Gỡ mute: lần phát kế tiếp của khoá A tới bình thường.
-    await db.execute(sql`update user_preferences set value = 'all' where user_id = ${student} and name = ${`notif.course.${courseA}`}`);
+    await sql`update user_preferences set value = 'all' where user_id = ${student} and name = ${`notif.course.${courseA}`}`.execute(db);
     const quizA2 = uid(913);
     const restoredEvent = await emit('activity', 'activity_due_reminder', {
       userId: student, courseId: courseA, pinId: quizA2, activityType: 'quiz',
@@ -619,28 +612,28 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
     });
     await waitJobCompleted(restoredEvent);
     const restored = await notificationsOf(student, 'activity_due_soon');
-    expect(restored.map((n) => n.contextUrl)).toContain(`/courses/${courseA}/exams/${quizA2}`);
+    expect(restored.map((n) => n.context_url)).toContain(`/courses/${courseA}/exams/${quizA2}`);
   }, 180000);
 
   it('tắt tiếng conversation: thành viên đã tắt tiếng và thành viên đã chặn người gửi không nhận message_new; bỏ tắt tiếng thì thông báo trở lại', async () => {
     const sender = uid(24); const mutedMember = uid(25); const normalMember = uid(26); const blockingMember = uid(27);
     await makeUser(sender); await makeUser(mutedMember); await makeUser(normalMember); await makeUser(blockingMember);
-    const [conv] = await db.insert(messageConversations).values({ type: 2, tenantId: fixtureTenantId }).returning();
-    const conversationId = conv!.id as string;
-    await db.insert(messageConversationMembers).values([
-      { conversationId, userId: sender },
-      { conversationId, userId: mutedMember, muted: true },
-      { conversationId, userId: normalMember },
-      { conversationId, userId: blockingMember },
-    ]);
-    await db.insert(messageUsersBlocked).values({ userId: blockingMember, blockedUserId: sender });
+    const conv = await db.insertInto('message_conversations').values({ type: 2, tenant_id: fixtureTenantId }).returningAll().executeTakeFirstOrThrow();
+    const conversationId = conv.id;
+    await db.insertInto('message_conversation_members').values([
+      { conversation_id: conversationId, user_id: sender },
+      { conversation_id: conversationId, user_id: mutedMember, muted: true },
+      { conversation_id: conversationId, user_id: normalMember },
+      { conversation_id: conversationId, user_id: blockingMember },
+    ]).execute();
+    await db.insertInto('message_users_blocked').values({ user_id: blockingMember, blocked_user_id: sender }).execute();
 
     async function sendMessage(seq: number): Promise<void> {
-      const [row] = await db.insert(message).values({
-        conversationId, userIdFrom: sender, seq, fullMessage: `tin ${seq}`,
-      }).returning();
+      const row = await db.insertInto('message').values({
+        conversation_id: conversationId, user_id_from: sender, seq, full_message: `tin ${seq}`,
+      }).returningAll().executeTakeFirstOrThrow();
       const eventId = await emit('messaging', 'message_sent', {
-        conversationId, messageId: row!.id as string, seq, fromUserId: sender,
+        conversationId, messageId: row.id, seq, fromUserId: sender,
         memberIds: [sender, mutedMember, normalMember, blockingMember],
         clientMessageId: `ne520-mute-${suffix}-${seq}`, replyToMessageId: null,
       });
@@ -653,7 +646,7 @@ describe('Worker notification events delivery (chuyển consumer ở #520)', () 
     expect(await notificationsOf(normalMember, 'message_new')).toHaveLength(1);
 
     // Bỏ tắt tiếng: tin kế tiếp sinh thông báo cho thành viên đó.
-    await db.execute(sql`update message_conversation_members set muted = false where conversation_id = ${conversationId} and user_id = ${mutedMember}`);
+    await sql`update message_conversation_members set muted = false where conversation_id = ${conversationId} and user_id = ${mutedMember}`.execute(db);
     await sendMessage(2);
     expect(await notificationsOf(mutedMember, 'message_new')).toHaveLength(1);
   }, 180000);

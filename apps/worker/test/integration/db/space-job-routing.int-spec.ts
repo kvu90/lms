@@ -3,15 +3,12 @@ import { randomUUID } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Job, Queue } from 'bullmq';
-import { eq } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Client } from 'pg';
+import { Client, Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { course, courseCategories, createCentreKysely, gradeItems, notifications, outboxEvents, tenants, users } from '@lms/db';
-import { spaceRegistry } from '@lms/db/control-plane';
-import { relations } from '../../../src/db/relations';
+import { createCentreKysely, sql } from '@lms/db';
+import { createControlPlaneKysely } from '@lms/db/control-plane';
 import { tenantAls } from '../../../src/db/tenant-als';
-import { SpaceDatabaseService, type SpaceDatabase } from '../../../src/db/routing/space-database.service';
+import { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
 import { SpaceJobRunner } from '../../../src/db/routing/space-job-runner';
 import { TenantAwarePool } from '../../../src/db/tenant-pool';
 import { NotificationDeliveryService } from '../../../src/notification-delivery.service';
@@ -91,7 +88,7 @@ async function withClient<T>(connectionString: string, fn: (client: Client) => P
   }
 }
 
-/** Áp một file migration SQL (tách theo dấu phân đoạn của Drizzle) lên một database qua kết nối cho trước. */
+/** Áp một file migration SQL (tách theo dấu phân đoạn của file) lên một database qua kết nối cho trước. */
 async function applySqlFile(connectionString: string, filePath: string, withUuidShim: boolean): Promise<void> {
   await withClient(connectionString, async (client) => {
     if (withUuidShim) {
@@ -168,7 +165,6 @@ async function readNotificationIdsDirectly(
 describe('Định tuyến job theo trung tâm phía worker (integration)', () => {
   let spaceDb: SpaceDatabaseService;
   let sharedPool: TenantAwarePool;
-  let sharedDb: SpaceDatabase;
   let marker: NotificationEventsMarker;
 
   beforeAll(async () => {
@@ -207,91 +203,96 @@ describe('Định tuyến job theo trung tâm phía worker (integration)', () =>
     });
     spaceDb = new SpaceDatabaseService(config);
     sharedPool = new TenantAwarePool({ connectionString: process.env.DATABASE_URL! });
-    sharedDb = drizzle({ client: sharedPool, relations });
-    spaceDb.bindSharedDatabase(sharedDb);
-    // Relay outbox đã chuyển sang handle Kysely (issue #664) nên
-    // ca này phải gắn cả handle Kysely kho chung trên cùng pool —
-    // đúng nhịp gắn hai handle của `worker.module.ts` lúc khởi
-    // động; thiếu là facade Kysely fail-closed `shared_not_bound`.
+    // Handle Kysely kho chung trên pool dùng chung — đúng nhịp gắn
+    // của `worker.module.ts` lúc khởi động; thiếu là facade Kysely
+    // fail-closed `shared_not_bound`.
     spaceDb.bindSharedKysely(createCentreKysely(sharedPool));
 
     // Dòng đăng ký của trung tâm kiểm chứng trong sổ.
-    await withClient(clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD), async (client) => {
-      const cpDb = drizzle({ client });
-      await cpDb.insert(spaceRegistry).values({
+    const cpSeedPool = new Pool({ connectionString: clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD) });
+    try {
+      const cpDb = createControlPlaneKysely(cpSeedPool);
+      await cpDb.insertInto('space_registry').values({
         slug: CENTRE_SLUG,
         name: 'Trung tâm A 582w',
         kind: 'center',
         status: 'active',
-        databaseName: CENTRE_DATABASE,
-        storageMode: 'dedicated',
-        connectionRoleRef: CENTRE_ROLE,
-        secretRef: 'env:SPACE_TEST_A_582W_URL',
-        schemaVersion: 'v1',
-      });
-    });
+        database_name: CENTRE_DATABASE,
+        storage_mode: 'dedicated',
+        connection_role_ref: CENTRE_ROLE,
+        secret_ref: 'env:SPACE_TEST_A_582W_URL',
+        schema_version: 'v1',
+      }).execute();
+    } finally {
+      await cpSeedPool.end();
+    }
 
     // Dữ kiện nền ở kho chung: một tenant ở kho chung và một dòng
-    // outbox của nó đang chờ phát.
-    await withClient(process.env.DATABASE_URL!, async (client) => {
-      await client.query("SELECT set_config('app.platform', 'on', false)");
+    // outbox của nó đang chờ phát. Ghi qua một pool tối đa 1 kết
+    // nối với cờ platform đặt trên chính kết nối đó.
+    const seedPool = new Pool({ connectionString: process.env.DATABASE_URL!, max: 1 });
+    try {
+      const seedDb = createCentreKysely(seedPool);
+      await sql`SELECT set_config('app.platform', 'on', false)`.execute(seedDb);
       // Xoá dữ kiện của một lượt chạy lỗi trước còn sót (nếu có)
       // để ca tự chạy lại được trên cùng database test.
-      await client.query('DELETE FROM outbox_events WHERE id = $1', [SHARED_OUTBOX_ID]);
-      await client.query('DELETE FROM tenants WHERE id = $1', [SHARED_TENANT_ID]);
-      const businessDb = drizzle({ client, relations });
-      await businessDb.insert(tenants).values({
+      await seedDb.deleteFrom('outbox_events').where('id', '=', SHARED_OUTBOX_ID).execute();
+      await seedDb.deleteFrom('tenants').where('id', '=', SHARED_TENANT_ID).execute();
+      await seedDb.insertInto('tenants').values({
         id: SHARED_TENANT_ID,
         slug: SHARED_TENANT_SLUG,
         name: 'Tenant kho chung 582w',
         kind: 'center',
-      });
-      await businessDb.insert(outboxEvents).values({
+      }).execute();
+      await seedDb.insertInto('outbox_events').values({
         id: SHARED_OUTBOX_ID,
         aggregate: 'grades',
         type: 'grade_updated',
-        tenantId: SHARED_TENANT_ID,
+        tenant_id: SHARED_TENANT_ID,
         payload: { userId: STUDENT_ID, itemId: GRADE_ITEM_ID, finalGrade: 9 },
-      });
-    });
+      }).execute();
+    } finally {
+      await seedPool.end();
+    }
 
     // Dữ kiện nền ở kho riêng — ghi qua phiên theo trung tâm của
     // khung (đúng đường consumer sẽ chạy): tenant của trung tâm,
     // học viên, khoá, hạng mục điểm, và một dòng outbox chờ phát
     // trỏ vào các dữ kiện đó.
-    await spaceDb.withSpaceDatabase(
+    await spaceDb.withSpaceKysely(
       CENTRE_SLUG,
-      async (db) => {
-        await db.insert(tenants).values({
+      async () => {
+        const db = spaceDb.routedKysely;
+        await db.insertInto('tenants').values({
           id: CENTRE_TENANT_ID,
           slug: CENTRE_SLUG,
           name: 'Trung tâm A 582w',
           kind: 'center',
-        });
-        await db.insert(users).values({
+        }).execute();
+        await db.insertInto('users').values({
           id: STUDENT_ID,
           username: 'hoc-vien-582w',
           email: 'hoc-vien-582w@example.com',
-          firstName: 'Học viên',
-          lastName: '582w',
-        });
-        await db.insert(courseCategories).values({ id: CATEGORY_ID, name: 'Danh mục 582w', tenantId: CENTRE_TENANT_ID });
-        await db.insert(course).values({
+          first_name: 'Học viên',
+          last_name: '582w',
+        }).execute();
+        await db.insertInto('course_categories').values({ id: CATEGORY_ID, name: 'Danh mục 582w', tenant_id: CENTRE_TENANT_ID }).execute();
+        await db.insertInto('course').values({
           id: COURSE_ID,
-          tenantId: CENTRE_TENANT_ID,
+          tenant_id: CENTRE_TENANT_ID,
           category: CATEGORY_ID,
-          fullName: 'Khoá học 582w',
-          shortName: 'KH582W',
-          isTemplate: true,
-        });
-        await db.insert(gradeItems).values({ id: GRADE_ITEM_ID, courseId: COURSE_ID, itemName: 'Bài kiểm tra 582w' });
-        await db.insert(outboxEvents).values({
+          full_name: 'Khoá học 582w',
+          short_name: 'KH582W',
+          is_template: true,
+        }).execute();
+        await db.insertInto('grade_items').values({ id: GRADE_ITEM_ID, course_id: COURSE_ID, item_name: 'Bài kiểm tra 582w' }).execute();
+        await db.insertInto('outbox_events').values({
           id: CENTRE_OUTBOX_ID,
           aggregate: 'grades',
           type: 'grade_updated',
-          tenantId: CENTRE_TENANT_ID,
+          tenant_id: CENTRE_TENANT_ID,
           payload: { userId: STUDENT_ID, itemId: GRADE_ITEM_ID, finalGrade: 9 },
-        });
+        }).execute();
       },
       { tenantId: CENTRE_TENANT_ID },
     );
@@ -409,16 +410,16 @@ describe('Định tuyến job theo trung tâm phía worker (integration)', () =>
     // (không bị xoá cùng database khi dọn), nên id cố định sẽ bị
     // coi là "đã xử lý" ở mọi lượt chạy sau lượt đầu tiên.
     const freshOutboxId = randomUUID();
-    await spaceDb.withSpaceDatabase(
+    await spaceDb.withSpaceKysely(
       CENTRE_SLUG,
-      async (db) => {
-        await db.insert(outboxEvents).values({
+      async () => {
+        await spaceDb.routedKysely.insertInto('outbox_events').values({
           id: freshOutboxId,
           aggregate: 'grades',
           type: 'grade_updated',
-          tenantId: CENTRE_TENANT_ID,
+          tenant_id: CENTRE_TENANT_ID,
           payload: { userId: STUDENT_ID, itemId: GRADE_ITEM_ID, finalGrade: 10 },
-        });
+        }).execute();
       },
       { tenantId: CENTRE_TENANT_ID },
     );
@@ -451,9 +452,9 @@ describe('Định tuyến job theo trung tâm phía worker (integration)', () =>
       await readNotificationIdsDirectly(clusterUrl(CENTRE_DATABASE, CENTRE_ROLE, CENTRE_PASSWORD), STUDENT_ID),
     ).toHaveLength(1);
     expect(await readNotificationIdsDirectly(process.env.DATABASE_URL!, STUDENT_ID)).toHaveLength(0);
-    const centreNotifications = await spaceDb.withSpaceDatabase(
+    const centreNotifications = await spaceDb.withSpaceKysely(
       CENTRE_SLUG,
-      async (db) => db.select().from(notifications).where(eq(notifications.userIdTo, STUDENT_ID)),
+      async () => spaceDb.routedKysely.selectFrom('notifications').selectAll().where('user_id_to', '=', STUDENT_ID).execute(),
       { tenantId: CENTRE_TENANT_ID },
     );
     expect(centreNotifications).toHaveLength(1);

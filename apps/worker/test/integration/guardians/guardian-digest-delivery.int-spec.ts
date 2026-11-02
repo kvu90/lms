@@ -2,12 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
-import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { GuardianDigestEventsProcessor } from '../../../src/processors/guardian-digest-events.processor';
 import type { OutboxEventJobData } from '../../../src/outbox-event-routes';
-import {
-  guardianDigests, notifications, notificationDispatchLog, outboxEvents, userPreferences,
-} from '@lms/db';
+import { sql, type RawBuilder } from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
@@ -68,17 +65,15 @@ describe('Worker guardian digest delivery (PH-2, issue #159; chuyển worker ở
   const uid = (n: number) => `01900000-0000-7000-8000-${String(730000 + n * 37 + (suffix % 991)).padStart(12, '0')}`;
 
   /**
-   * Chạy SQL thô qua kết nối quản trị và trả về các dòng — cùng khuôn
-   * ép kiểu của các spec tích hợp khác trong suite: kiểu kết quả thô
-   * của drizzle không khai báo `.rows` dù runtime luôn trả về.
+   * Chạy SQL thô qua kết nối quản trị và trả về các dòng.
    */
-  async function execRows<T>(query: SQL): Promise<T[]> {
-    const result = (await db.execute(query)) as unknown as { rows: T[] };
-    return result.rows;
+  async function execRows<T>(query: RawBuilder<unknown>): Promise<T[]> {
+    const result = await query.execute(db);
+    return result.rows as T[];
   }
 
   async function makeUser(id: string) {
-    await db.execute(sql`insert into users (id, username, email, first_name, last_name, suspended, deleted) values (${id}, ${`ph2d-${id.slice(-6)}-${suffix}`}, ${`ph2d-${id.slice(-6)}-${suffix}@x.io`}, 'An', 'Nguyễn Văn', false, false) on conflict (id) do nothing`);
+    await sql`insert into users (id, username, email, first_name, last_name, suspended, deleted) values (${id}, ${`ph2d-${id.slice(-6)}-${suffix}`}, ${`ph2d-${id.slice(-6)}-${suffix}@x.io`}, 'An', 'Nguyễn Văn', false, false) on conflict (id) do nothing`.execute(db);
   }
 
   /**
@@ -99,9 +94,9 @@ describe('Worker guardian digest delivery (PH-2, issue #159; chuyển worker ở
    */
   async function setEmailImmediate(guardianId: string) {
     for (const provider of ['guardian_digest', 'guardian_overdue_alert']) {
-      await db.insert(userPreferences).values({
-        userId: guardianId, name: `message_provider_${provider}_email_v2`, value: 'immediate',
-      }).onConflictDoNothing();
+      await db.insertInto('user_preferences').values({
+        user_id: guardianId, name: `message_provider_${provider}_email_v2`, value: 'immediate',
+      }).onConflict((oc) => oc.doNothing()).execute();
     }
   }
 
@@ -116,7 +111,7 @@ describe('Worker guardian digest delivery (PH-2, issue #159; chuyển worker ở
   /** Lớp fixture cho tenant worker-fixture (khoá dạy thật phải có class_id — cùng khuôn spec quét). */
   async function fixtureClassId(): Promise<string> {
     const ownerId = '01980000-0000-7000-8000-00000000c1a5';
-    await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${ownerId}, 'wk-class-owner', 'wk-class-owner@x.io', false, false) on conflict (id) do nothing`);
+    await sql`insert into users (id, username, email, suspended, deleted) values (${ownerId}, 'wk-class-owner', 'wk-class-owner@x.io', false, false) on conflict (id) do nothing`.execute(db);
     const coh = await execRows<{ id: string }>(sql`insert into cohort (tenant_id, name, context_id, component, visible) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture cohort', '01990000-0000-7000-8000-0000000000a1', 'class', false) returning id`);
     const cohId = coh[0]!.id;
     const cls = await execRows<{ id: string }>(sql`insert into classes (tenant_id, name, owner_id, cohort_id) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture class', ${ownerId}, ${cohId}) returning id`);
@@ -132,7 +127,7 @@ describe('Worker guardian digest delivery (PH-2, issue #159; chuyển worker ở
     const courseId = courseRows[0]!.id;
     const instRows = await execRows<{ id: string }>(sql`insert into enrol (course_id, enrol, status) values (${courseId}, 'manual', 0) returning id`);
     const instId = instRows[0]!.id;
-    await db.execute(sql`insert into user_enrolments (enrol_id, user_id, status, time_start) values (${instId}, ${studentId}, 0, ${new Date(Date.now() - 30 * DAY)})`);
+    await sql`insert into user_enrolments (enrol_id, user_id, status, time_start) values (${instId}, ${studentId}, 0, ${new Date(Date.now() - 30 * DAY)})`.execute(db);
     return courseId;
   }
 
@@ -140,7 +135,7 @@ describe('Worker guardian digest delivery (PH-2, issue #159; chuyển worker ở
   async function makeGrade(courseId: string, studentId: string, input: { itemName: string; postingPolicy: 'auto' | 'manual'; finalGrade: number }) {
     const itemRows = await execRows<{ id: string }>(sql`insert into grade_items (course_id, item_name, item_type, grade_max, posting_policy) values (${courseId}, ${input.itemName}, 'manual', 10, ${input.postingPolicy}) returning id`);
     const itemId = itemRows[0]!.id;
-    await db.execute(sql`insert into grade_grades (item_id, user_id, final_grade, updated_at) values (${itemId}, ${studentId}, ${input.finalGrade}, now())`);
+    await sql`insert into grade_grades (item_id, user_id, final_grade, updated_at) values (${itemId}, ${studentId}, ${input.finalGrade}, now())`.execute(db);
     return itemId;
   }
 
@@ -150,20 +145,20 @@ describe('Worker guardian digest delivery (PH-2, issue #159; chuyển worker ở
     windowStart: Date; windowEnd: Date;
   }): Promise<{ digestId: string; outboxId: string }> {
     const dedupeKey = `digest:${fixtureTenantId}:${input.guardianId}:${input.studentId}:${input.kind}:${input.windowStart.toISOString()}:int-${suffix}-${Math.random()}`;
-    const [row] = await db.insert(guardianDigests).values({
-      guardianUserId: input.guardianId, studentUserId: input.studentId, kind: input.kind,
-      windowStart: input.windowStart, windowEnd: input.windowEnd, activityCmId: null,
-      dedupeKey, status: 'queued', tenantId: fixtureTenantId,
-    }).returning({ id: guardianDigests.id });
-    const digestId = row!.id as string;
-    const [event] = await db.insert(outboxEvents).values({
-      aggregate: 'guardian', type: 'guardian_digest_due', tenantId: fixtureTenantId,
+    const row = await db.insertInto('guardian_digests').values({
+      guardian_user_id: input.guardianId, student_user_id: input.studentId, kind: input.kind,
+      window_start: input.windowStart, window_end: input.windowEnd, activity_cm_id: null,
+      dedupe_key: dedupeKey, status: 'queued', tenant_id: fixtureTenantId,
+    }).returning('id').executeTakeFirstOrThrow();
+    const digestId = row.id;
+    const event = await db.insertInto('outbox_events').values({
+      aggregate: 'guardian', type: 'guardian_digest_due', tenant_id: fixtureTenantId,
       payload: {
         guardianUserId: input.guardianId, studentUserId: input.studentId, digestId, tenantId: fixtureTenantId,
         kind: input.kind, windowStart: input.windowStart.toISOString(), windowEnd: input.windowEnd.toISOString(),
       },
-    }).returning({ id: outboxEvents.id });
-    return { digestId, outboxId: event!.id as string };
+    }).returning('id').executeTakeFirstOrThrow();
+    return { digestId, outboxId: event.id };
   }
 
   /** Chốt một vết lượt đẩy quá hạn như lượt quét làm + phát sự kiện outbox tương ứng. */
@@ -171,26 +166,26 @@ describe('Worker guardian digest delivery (PH-2, issue #159; chuyển worker ở
     guardianId: string; studentId: string; cmId: string; courseId: string; activityName: string; dueAt: Date;
   }): Promise<{ digestId: string; outboxId: string }> {
     const dedupeKey = `overdue:${fixtureTenantId}:${input.guardianId}:${input.studentId}:${input.cmId}:int-${suffix}-${Math.random()}`;
-    const [row] = await db.insert(guardianDigests).values({
-      guardianUserId: input.guardianId, studentUserId: input.studentId, kind: 'overdue_alert',
-      windowStart: null, windowEnd: null, activityCmId: input.cmId,
-      dedupeKey, status: 'queued', tenantId: fixtureTenantId,
-    }).returning({ id: guardianDigests.id });
-    const digestId = row!.id as string;
+    const row = await db.insertInto('guardian_digests').values({
+      guardian_user_id: input.guardianId, student_user_id: input.studentId, kind: 'overdue_alert',
+      window_start: null, window_end: null, activity_cm_id: input.cmId,
+      dedupe_key: dedupeKey, status: 'queued', tenant_id: fixtureTenantId,
+    }).returning('id').executeTakeFirstOrThrow();
+    const digestId = row.id;
     const payload = {
       guardianUserId: input.guardianId, studentUserId: input.studentId, digestId, tenantId: fixtureTenantId,
       cmId: input.cmId, activityKind: 'quiz' as const, courseId: input.courseId,
       activityName: input.activityName, dueAt: input.dueAt.toISOString(),
     };
-    const [event] = await db.insert(outboxEvents).values({
-      aggregate: 'guardian', type: 'guardian_overdue_alert', tenantId: fixtureTenantId, payload,
-    }).returning({ id: outboxEvents.id });
-    return { digestId, outboxId: event!.id as string };
+    const event = await db.insertInto('outbox_events').values({
+      aggregate: 'guardian', type: 'guardian_overdue_alert', tenant_id: fixtureTenantId, payload,
+    }).returning('id').executeTakeFirstOrThrow();
+    return { digestId, outboxId: event.id };
   }
 
   async function digestRow(id: string) {
-    const [row] = await db.select().from(guardianDigests).where(eq(guardianDigests.id, id));
-    return row as { status: string; newResultsCount: number; notificationId: string | null };
+    const row = await db.selectFrom('guardian_digests').selectAll().where('id', '=', id).executeTakeFirstOrThrow();
+    return { status: row.status, newResultsCount: row.new_results_count, notificationId: row.notification_id };
   }
 
   /** Chờ vết lượt rời trạng thái queued (relay + processor đã xử lý xong sự kiện). */
@@ -205,10 +200,11 @@ describe('Worker guardian digest delivery (PH-2, issue #159; chuyển worker ở
   }
 
   async function notificationsOf(guardianId: string, eventType: string) {
-    const rows = await db.select().from(notifications).where(and(
-      eq(notifications.userIdTo, guardianId), eq(notifications.eventType, eventType),
-    ));
-    return rows as { id: string; subject: string; fullMessage: string; contextUrl: string | null; tenantId: string | null }[];
+    const rows = await db.selectFrom('notifications').selectAll()
+      .where('user_id_to', '=', guardianId)
+      .where('event_type', '=', eventType)
+      .execute();
+    return rows.map((r) => ({ id: r.id, subject: r.subject, fullMessage: r.full_message, contextUrl: r.context_url, tenantId: r.tenant_id }));
   }
 
   /** Chờ job của một dòng outbox trên hàng đợi sự kiện digest đạt trạng thái completed. */
@@ -236,9 +232,9 @@ describe('Worker guardian digest delivery (PH-2, issue #159; chuyển worker ở
         const data = job.data as { subject: string };
         return { subject: data.subject, raw: JSON.stringify(job.data) };
       }
-      const [log] = await db.select().from(notificationDispatchLog)
-        .where(eq(notificationDispatchLog.dedupeKey, jobId));
-      if (log) return { subject: (log as { subject: string }).subject, raw: JSON.stringify(log) };
+      const log = await db.selectFrom('notification_dispatch_log').selectAll()
+        .where('dedupe_key', '=', jobId).executeTakeFirst();
+      if (log) return { subject: log.subject, raw: JSON.stringify(log) };
       if (Date.now() > deadline) throw new Error(`không thấy job/log email ${jobId} sau ${timeoutMs}ms`);
       await new Promise((r) => setTimeout(r, 400));
     }
@@ -248,7 +244,7 @@ describe('Worker guardian digest delivery (PH-2, issue #159; chuyển worker ở
     harness = await bootWorkerModuleAsOrdinaryRole();
     context = harness.context;
     db = harness.adminDb;
-    await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
+    await sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`.execute(db);
     const tenantRows = await execRows<{ id: string }>(sql`select id from tenants where slug = 'worker-fixture'`);
     fixtureTenantId = tenantRows[0]!.id;
     eventsQueue = context.get<Queue>(getQueueToken('guardian-digest-events'));
@@ -286,8 +282,8 @@ describe('Worker guardian digest delivery (PH-2, issue #159; chuyển worker ở
     expect(row.notificationId).toBe(notif.id);
 
     // Audit: sự kiện guardian_digest_sent mang số đếm, không điểm số.
-    const auditRows = await db.select().from(outboxEvents).where(eq(outboxEvents.type, 'guardian_digest_sent'));
-    const audit = (auditRows as { payload: { digestId?: string } }[])
+    const auditRows = await db.selectFrom('outbox_events').selectAll().where('type', '=', 'guardian_digest_sent').execute();
+    const audit = (auditRows as unknown as { payload: { digestId?: string } }[])
       .find((e) => e.payload.digestId === digestId);
     expect(audit).toBeTruthy();
     expect(JSON.stringify(audit!.payload)).not.toContain('7.25');
@@ -302,14 +298,14 @@ describe('Worker guardian digest delivery (PH-2, issue #159; chuyển worker ở
 
     // Phát lại cùng sự kiện (đường phát ít-nhất-một-lần): chờ job của
     // dòng phát lại hoàn thành rồi mới đếm — vẫn đúng 1 thông báo.
-    const [replay] = await db.insert(outboxEvents).values({
-      aggregate: 'guardian', type: 'guardian_digest_due', tenantId: fixtureTenantId,
+    const replay = await db.insertInto('outbox_events').values({
+      aggregate: 'guardian', type: 'guardian_digest_due', tenant_id: fixtureTenantId,
       payload: {
         guardianUserId: guardian, studentUserId: student, digestId, tenantId: fixtureTenantId,
         kind: 'weekly', windowStart: windowStart.toISOString(), windowEnd: windowEnd.toISOString(),
       },
-    }).returning({ id: outboxEvents.id });
-    await waitEventJobCompleted(replay!.id as string);
+    }).returning('id').executeTakeFirstOrThrow();
+    await waitEventJobCompleted(replay.id);
     expect(await notificationsOf(guardian, 'guardian_digest')).toHaveLength(1);
 
     // Phụ huynh khác không nhận digest của con người khác.
@@ -404,15 +400,15 @@ describe('Worker guardian digest delivery (PH-2, issue #159; chuyển worker ở
 
     // Phát lại cùng sự kiện quá hạn: chờ job phát lại hoàn thành rồi
     // đếm — vẫn đúng 1 thông báo.
-    const [replay] = await db.insert(outboxEvents).values({
-      aggregate: 'guardian', type: 'guardian_overdue_alert', tenantId: fixtureTenantId,
+    const replay = await db.insertInto('outbox_events').values({
+      aggregate: 'guardian', type: 'guardian_overdue_alert', tenant_id: fixtureTenantId,
       payload: {
         guardianUserId: guardian, studentUserId: student, digestId, tenantId: fixtureTenantId,
         cmId, activityKind: 'quiz', courseId,
         activityName: 'Kiểm tra chương 1', dueAt: new Date(Date.now() - 8 * DAY).toISOString(),
       },
-    }).returning({ id: outboxEvents.id });
-    await waitEventJobCompleted(replay!.id as string);
+    }).returning('id').executeTakeFirstOrThrow();
+    await waitEventJobCompleted(replay.id);
     expect(await notificationsOf(guardian, 'guardian_overdue_alert')).toHaveLength(1);
   }, 180000);
 
@@ -430,12 +426,12 @@ describe('Worker guardian digest delivery (PH-2, issue #159; chuyển worker ở
     const windowStart = new Date(now - 7 * DAY);
     const windowEnd = new Date(now + DAY);
     const dedupeKey = `digest:${fixtureTenantId}:${guardian}:${student}:weekly:${windowStart.toISOString()}:int-direct-${suffix}-${Math.random()}`;
-    const [row] = await db.insert(guardianDigests).values({
-      guardianUserId: guardian, studentUserId: student, kind: 'weekly',
-      windowStart, windowEnd, activityCmId: null,
-      dedupeKey, status: 'queued', tenantId: fixtureTenantId,
-    }).returning({ id: guardianDigests.id });
-    const digestId = row!.id as string;
+    const row = await db.insertInto('guardian_digests').values({
+      guardian_user_id: guardian, student_user_id: student, kind: 'weekly',
+      window_start: windowStart, window_end: windowEnd, activity_cm_id: null,
+      dedupe_key: dedupeKey, status: 'queued', tenant_id: fixtureTenantId,
+    }).returning('id').executeTakeFirstOrThrow();
+    const digestId = row.id;
     const jobData: OutboxEventJobData = {
       outboxId: '01900000-0000-7000-8000-0000000000d1', seq: 0, aggregate: 'guardian',
       type: 'guardian_digest_due', tenantId: fixtureTenantId, spaceSlug: null, occurredAt: new Date().toISOString(),

@@ -1,11 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
-import { and, eq, sql } from 'drizzle-orm';
+import { sql } from '@lms/db';
 import { ClassEnrolReconcileProcessor } from '../../../src/processors/class-enrol-reconcile.processor';
-import {
-  classes, cohort, cohortMembers, context, course, courseGroups, enrol,
-  role, roleAssignments, userEnrolments, users,
-} from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
@@ -62,18 +58,20 @@ describe('Đối chiếu ghi danh lớp của worker (CLASS-0, #184)', () => {
   let roleId = '';
 
   async function ueOf(userId: string) {
-    const [row] = await db.select().from(userEnrolments)
-      .where(and(eq(userEnrolments.enrolId, instanceId), eq(userEnrolments.userId, userId)));
-    return row;
+    const rows = await db.selectFrom('user_enrolments').selectAll()
+      .where('enrol_id', '=', instanceId)
+      .where('user_id', '=', userId)
+      .execute();
+    return rows[0];
   }
 
   async function assignmentOf(userId: string) {
-    const rows = await db.select().from(roleAssignments).where(and(
-      eq(roleAssignments.userId, userId),
-      eq(roleAssignments.contextId, courseCtxId),
-      eq(roleAssignments.component, 'enrol'),
-      eq(roleAssignments.itemId, instanceId),
-    ));
+    const rows = await db.selectFrom('role_assignments').selectAll()
+      .where('user_id', '=', userId)
+      .where('context_id', '=', courseCtxId)
+      .where('component', '=', 'enrol')
+      .where('item_id', '=', instanceId)
+      .execute();
     return rows[0];
   }
 
@@ -82,57 +80,57 @@ describe('Đối chiếu ghi danh lớp của worker (CLASS-0, #184)', () => {
     context_ = harness.context;
     db = harness.adminDb;
 
-    await db.execute(sql`insert into tenants (slug, name, kind, status) values (${`recon-fixture-${suffix}`}, 'Reconcile fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
-    const tenantRows = await db.execute(sql`select id from tenants where slug = ${`recon-fixture-${suffix}`}`);
+    await sql`insert into tenants (slug, name, kind, status) values (${`recon-fixture-${suffix}`}, 'Reconcile fixture tenant', 'school', 'active') on conflict (slug) do nothing`.execute(db);
+    const tenantRows = await sql`select id from tenants where slug = ${`recon-fixture-${suffix}`}`.execute(db);
     const tenantId = (tenantRows.rows[0] as { id: string }).id;
 
-    await db.insert(users).values({ id: teacherId, username: `recon-teacher-${suffix}`, email: `recon-teacher-${suffix}@example.com` });
+    await db.insertInto('users').values({ id: teacherId, username: `recon-teacher-${suffix}`, email: `recon-teacher-${suffix}@example.com` }).execute();
 
-    const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`recon-cat-${suffix}`}, '', ${tenantId}) returning id`);
+    const catRows = await sql`insert into course_categories (name, path, tenant_id) values (${`recon-cat-${suffix}`}, '', ${tenantId}) returning id`.execute(db);
     const catId = (catRows.rows[0] as { id: string }).id;
 
-    const [cohortRow] = await db.insert(cohort).values({
-      tenantId, name: `recon-cohort-${suffix}`, contextId: teacherId, component: 'class', visible: false,
-    }).returning();
+    const cohortRow = await db.insertInto('cohort').values({
+      tenant_id: tenantId, name: `recon-cohort-${suffix}`, context_id: teacherId, component: 'class', visible: false,
+    }).returningAll().executeTakeFirstOrThrow();
 
-    const [classRow] = await db.insert(classes).values({
-      tenantId, name: `Lớp reconcile ${suffix}`, ownerId: teacherId, cohortId: cohortRow.id, status: 'active',
-    }).returning();
+    const classRow = await db.insertInto('classes').values({
+      tenant_id: tenantId, name: `Lớp reconcile ${suffix}`, owner_id: teacherId, cohort_id: cohortRow.id, status: 'active',
+    }).returningAll().executeTakeFirstOrThrow();
     classId = classRow.id;
 
-    const [courseRow] = await db.insert(course).values({
-      tenantId, category: catId, fullName: 'Reconcile course', shortName: `recon${suffix}`, classId,
-    }).returning();
+    const courseRow = await db.insertInto('course').values({
+      tenant_id: tenantId, category: catId, full_name: 'Reconcile course', short_name: `recon${suffix}`, class_id: classId,
+    }).returningAll().executeTakeFirstOrThrow();
 
-    const [ctxRow] = await db.insert(context).values({
-      contextLevel: 50, instanceId: courseRow.id, path: '/recon', depth: 3,
-    }).returning();
+    const ctxRow = await db.insertInto('context').values({
+      context_level: 50, instance_id: courseRow.id, path: '/recon', depth: 3,
+    }).returningAll().executeTakeFirstOrThrow();
     courseCtxId = ctxRow.id;
 
-    const [groupRow] = await db.insert(courseGroups).values({ courseId: courseRow.id, name: 'Cả lớp' }).returning();
-    const [roleRow] = await db.insert(role).values({
-      name: 'Student (reconcile fixture)', shortName: `recon-student-${suffix}`, archetype: 'student',
-    }).returning();
+    const groupRow = await db.insertInto('course_groups').values({ course_id: courseRow.id, name: 'Cả lớp' }).returningAll().executeTakeFirstOrThrow();
+    const roleRow = await db.insertInto('role').values({
+      name: 'Student (reconcile fixture)', short_name: `recon-student-${suffix}`, archetype: 'student',
+    }).returningAll().executeTakeFirstOrThrow();
     roleId = roleRow.id;
 
-    const [instance] = await db.insert(enrol).values({
-      courseId: courseRow.id, enrol: 'cohort', status: 0, roleId,
-      customInt1: cohortRow.id, customInt2: groupRow.id, customText1: 'suspend',
-    }).returning();
+    const instance = await db.insertInto('enrol').values({
+      course_id: courseRow.id, enrol: 'cohort', status: 0, role_id: roleId,
+      custom_int1: cohortRow.id, custom_int2: groupRow.id, custom_text1: 'suspend',
+    }).returningAll().executeTakeFirstOrThrow();
     instanceId = instance.id;
 
     // Roster: A, B, C, D, F (E đã rời lớp).
     for (const userId of [memberA, memberB, memberC, memberD, memberF]) {
-      await db.insert(cohortMembers).values({ cohortId: cohortRow.id, userId });
+      await db.insertInto('cohort_members').values({ cohort_id: cohortRow.id, user_id: userId }).execute();
     }
     // Trạng thái vật chất hoá ban đầu (lệch có chủ đích):
-    await db.insert(userEnrolments).values([
-      { enrolId: instanceId, userId: memberB, status: 1, modifierId: null },
-      { enrolId: instanceId, userId: memberC, status: 1, modifierId: teacherId },
-      { enrolId: instanceId, userId: memberD, status: 0, modifierId: null },
-      { enrolId: instanceId, userId: outsiderE, status: 0, modifierId: null },
-      { enrolId: instanceId, userId: memberF, status: 2, modifierId: null },
-    ]);
+    await db.insertInto('user_enrolments').values([
+      { enrol_id: instanceId, user_id: memberB, status: 1, modifier_id: null },
+      { enrol_id: instanceId, user_id: memberC, status: 1, modifier_id: teacherId },
+      { enrol_id: instanceId, user_id: memberD, status: 0, modifier_id: null },
+      { enrol_id: instanceId, user_id: outsiderE, status: 0, modifier_id: null },
+      { enrol_id: instanceId, user_id: memberF, status: 2, modifier_id: null },
+    ]).execute();
     // D có ghi danh nhưng dòng gán vai của instance đã mất (lỗ hổng cần lấp).
   });
 
@@ -154,11 +152,11 @@ describe('Đối chiếu ghi danh lớp của worker (CLASS-0, #184)', () => {
     // B: kích hoạt lại, vết đồng bộ giữ null.
     const ueB = await ueOf(memberB);
     expect(ueB?.status).toBe(0);
-    expect(ueB?.modifierId).toBeNull();
+    expect(ueB?.modifier_id).toBeNull();
     // C — CA MIỄN MÔN: vẫn SUSPENDED, vết giáo viên nguyên vẹn.
     const ueC = await ueOf(memberC);
     expect(ueC?.status).toBe(1);
-    expect(ueC?.modifierId).toBe(teacherId);
+    expect(ueC?.modifier_id).toBe(teacherId);
     // D: vai đã được cấp bổ sung.
     expect(await assignmentOf(memberD)).toBeTruthy();
     // E: bị đình chỉ vì không còn trong roster.
@@ -174,7 +172,7 @@ describe('Đối chiếu ghi danh lớp của worker (CLASS-0, #184)', () => {
     expect(result.skippedClassIds).not.toContain(classId);
     const ueC = await ueOf(memberC);
     expect(ueC?.status).toBe(1);
-    expect(ueC?.modifierId).toBe(teacherId);
-    expect(ueC?.updatedAt.getTime()).toBe(before?.updatedAt.getTime());
+    expect(ueC?.modifier_id).toBe(teacherId);
+    expect(ueC?.updated_at.getTime()).toBe(before?.updated_at.getTime());
   });
 });

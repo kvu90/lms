@@ -1,8 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { sql } from '@lms/db';
 import { CalendarReminderProcessor } from '../../../src/processors/calendar-reminder.processor';
-import { calendarEvents, notificationDispatchLog, notifications, pluginConfig } from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
@@ -32,28 +31,28 @@ describe('Worker NB-7: chính sách site của admin làm cổng gửi nền', (
   const freeUser = uid(2);
 
   async function mkUser(id: string, username: string) {
-    await db.execute(sql`insert into users (id, username, email, first_name, last_name, suspended, deleted)
+    await sql`insert into users (id, username, email, first_name, last_name, suspended, deleted)
       values (${id}, ${username}, ${`${username}@x.io`}, 'Nb7', 'User', false, false)
-      on conflict (id) do nothing`);
+      on conflict (id) do nothing`.execute(db);
   }
 
   async function mkEvent(userId: string, name: string) {
-    const [event] = await db.insert(calendarEvents).values({
-      name, eventType: 'user', userId, timeStart: new Date(Date.now() + 3600_000),
-    }).returning();
+    const event = await db.insertInto('calendar_events').values({
+      name, event_type: 'user', user_id: userId, time_start: new Date(Date.now() + 3600_000),
+    }).returningAll().executeTakeFirstOrThrow();
     return event.id as string;
   }
 
   async function setPolicy(value: string | null) {
-    await db.delete(pluginConfig).where(and(
-      eq(pluginConfig.plugin, 'notifications'),
-      eq(pluginConfig.name, 'provider_calendar_reminder_enabled'),
-      isNull(pluginConfig.tenantId),
-    ));
+    await db.deleteFrom('plugin_config')
+      .where('plugin', '=', 'notifications')
+      .where('name', '=', 'provider_calendar_reminder_enabled')
+      .where('tenant_id', 'is', null)
+      .execute();
     if (value !== null) {
-      await db.insert(pluginConfig).values({
-        plugin: 'notifications', name: 'provider_calendar_reminder_enabled', value, tenantId: null,
-      });
+      await db.insertInto('plugin_config').values({
+        plugin: 'notifications', name: 'provider_calendar_reminder_enabled', value, tenant_id: null,
+      }).execute();
     }
   }
 
@@ -78,14 +77,15 @@ describe('Worker NB-7: chính sách site của admin làm cổng gửi nền', (
     const eventId = await mkEvent(policyUser, `NB7 blocked exam ${suffix}`);
     const blocked = await processor.process({ data: { eventId, userId: policyUser, minutesBefore: 30 } } as never);
     expect(blocked.status).toBe('skipped-admin-disabled');
-    const notes = await db.select().from(notifications)
-      .where(and(eq(notifications.userIdTo, policyUser), eq(notifications.eventType, 'calendar_reminder')));
+    const notes = await db.selectFrom('notifications').selectAll()
+      .where('user_id_to', '=', policyUser).where('event_type', '=', 'calendar_reminder')
+      .execute();
     expect(notes).toHaveLength(0);
-    const logs = await db.select().from(notificationDispatchLog).where(and(
-      eq(notificationDispatchLog.userId, policyUser),
-      eq(notificationDispatchLog.provider, 'calendar_reminder'),
-      eq(notificationDispatchLog.status, 'skipped-admin-disabled'),
-    ));
+    const logs = await db.selectFrom('notification_dispatch_log').selectAll()
+      .where('user_id', '=', policyUser)
+      .where('provider', '=', 'calendar_reminder')
+      .where('status', '=', 'skipped-admin-disabled')
+      .execute();
     expect(logs.length).toBeGreaterThan(0);
 
     // Bật lại → cùng đường nền phát bình thường.
@@ -93,8 +93,9 @@ describe('Worker NB-7: chính sách site của admin làm cổng gửi nền', (
     const event2 = await mkEvent(policyUser, `NB7 allowed exam ${suffix}`);
     const allowed = await processor.process({ data: { eventId: event2, userId: policyUser, minutesBefore: 30 } } as never);
     expect(allowed.status).toBe('notified');
-    const notes2 = await db.select().from(notifications)
-      .where(and(eq(notifications.userIdTo, policyUser), eq(notifications.eventType, 'calendar_reminder')));
+    const notes2 = await db.selectFrom('notifications').selectAll()
+      .where('user_id_to', '=', policyUser).where('event_type', '=', 'calendar_reminder')
+      .execute();
     expect(notes2).toHaveLength(1);
 
     // Người dùng khác khi không còn ghi đè (xoá dòng) cũng phát bình thường.

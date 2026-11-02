@@ -39,7 +39,7 @@ export interface GuardianOverdueAlertPayload {
  * `GuardianDigestEventsProcessor` gọi thẳng hai hàm xử lý ở đây. Mọi
  * luật nghiệp vụ giữ nguyên văn như bản phía API; các truy vấn vốn đi
  * qua service/repository phía API (dashboard/grades/guardians/users)
- * được viết lại bằng Drizzle trực tiếp trên cùng các bảng — khuôn
+ * được viết lại bằng bộ máy cũ trực tiếp trên cùng các bảng — khuôn
  * mẫu đã có của phía worker (processor quét digest đọc thẳng DB).
  *
  * Nguyên tắc cứng của research phụ huynh áp ở mọi đường:
@@ -283,7 +283,7 @@ export class GuardianDigestHandlerService {
 
     type GradeCandidate = { gradeId: string; courseId: string; itemId: string; itemType: string; updatedAt: Date };
     // Mảnh điều kiện "có điểm hoặc phản hồi" giữ nguyên văn như bản
-    // Drizzle cũ, chỉ đổi cách tham chiếu cột sang `sql.ref`.
+    // bộ máy cũ, chỉ đổi cách tham chiếu cột sang `sql.ref`.
     const nonEmptyGrade = sql<boolean>`(${sql.ref('grade_grades.final_grade')} is not null or (${sql.ref('grade_grades.feedback')} is not null and ${sql.ref('grade_grades.feedback')} <> ''))`;
     const candidateByGradeId = new Map<string, GradeCandidate>();
     const rowsSince = await this.spaceDb.routedKysely
@@ -462,7 +462,7 @@ export class GuardianDigestHandlerService {
     sentAt?: Date | null;
   }): Promise<void> {
     // Kysely loại cột mang `undefined` khỏi câu lệnh biên dịch như
-    // Drizzle (khuôn T-4 của pilot): chỉ các trường patch có mặt
+    // bộ máy cũ (khuôn T-4 của pilot): chỉ các trường patch có mặt
     // mới vào mệnh đề SET, `updated_at` luôn được chốt.
     await this.spaceDb.routedKysely
       .updateTable('guardian_digests')

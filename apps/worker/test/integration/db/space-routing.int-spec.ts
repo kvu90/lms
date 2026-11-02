@@ -1,15 +1,12 @@
 import type { ConfigService } from '@nestjs/config';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { eq, sql } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Client } from 'pg';
+import { Client, Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { tenants } from '@lms/db';
-import { spaceRegistry } from '@lms/db/control-plane';
-import { relations } from '../../../src/db/relations';
+import { createCentreKysely, sql, type CentreDb } from '@lms/db';
+import { createControlPlaneKysely } from '@lms/db/control-plane';
 import { SpaceRoutingError } from '../../../src/db/routing/space-connection-resolver';
-import { SpaceDatabaseService, type SpaceDatabase } from '../../../src/db/routing/space-database.service';
+import { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
 import { emitSpaceRegistryChanged } from '../../../src/db/routing/space-routing-events';
 import { tenantAls } from '../../../src/db/tenant-als';
 import { TenantAwarePool } from '../../../src/db/tenant-pool';
@@ -88,7 +85,7 @@ async function withClient<T>(connectionString: string, fn: (client: Client) => P
   }
 }
 
-/** Áp một file migration SQL (tách theo dấu phân đoạn của Drizzle) lên một database qua kết nối cho trước. */
+/** Áp một file migration SQL (tách theo dấu phân đoạn statement-breakpoint) lên một database qua kết nối cho trước. */
 async function applySqlFile(connectionString: string, filePath: string): Promise<void> {
   await withClient(connectionString, async (client) => {
     const version = await client.query<{ server_version_num: string }>('SHOW server_version_num');
@@ -107,7 +104,7 @@ async function applySqlFile(connectionString: string, filePath: string): Promise
 describe('Khung định tuyến theo trung tâm phía worker (integration)', () => {
   let service: SpaceDatabaseService;
   let sharedPool: TenantAwarePool;
-  let sharedDb: SpaceDatabase;
+  let sharedKysely: CentreDb;
 
   beforeAll(async () => {
     const businessUrl = new URL(process.env.DATABASE_URL!);
@@ -159,33 +156,36 @@ describe('Khung định tuyến theo trung tâm phía worker (integration)', () 
     // database test của worker.
     process.env.SPACE_TEST_W_581_URL = clusterUrl('postgres', CENTRE_ROLE, CENTRE_PASSWORD);
     process.env.SPACE_TEST_W2_581_URL = clusterUrl('postgres', CENTRE2_ROLE, CENTRE2_PASSWORD);
-    await withClient(clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD), async (client) => {
-      const drizzleDb = drizzle({ client });
-      await drizzleDb.insert(spaceRegistry).values([
+    const cpSeedPool = new Pool({ connectionString: clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD) });
+    try {
+      const cpDb = createControlPlaneKysely(cpSeedPool);
+      await cpDb.insertInto('space_registry').values([
         {
           slug: CENTRE_SLUG,
           name: 'Trung tâm W 581',
           kind: 'center',
           status: 'active',
-          databaseName: CENTRE_DATABASE,
-          storageMode: 'dedicated',
-          connectionRoleRef: CENTRE_ROLE,
-          secretRef: 'env:SPACE_TEST_W_581_URL',
-          schemaVersion: 'v1',
+          database_name: CENTRE_DATABASE,
+          storage_mode: 'dedicated',
+          connection_role_ref: CENTRE_ROLE,
+          secret_ref: 'env:SPACE_TEST_W_581_URL',
+          schema_version: 'v1',
         },
         {
           slug: SHARED_SLUG,
           name: 'Trang chính',
           kind: 'platform',
           status: 'active',
-          databaseName: businessDatabase,
-          storageMode: 'shared',
-          connectionRoleRef: businessRole,
-          secretRef: 'env:DATABASE_URL',
-          schemaVersion: 'v1',
+          database_name: businessDatabase,
+          storage_mode: 'shared',
+          connection_role_ref: businessRole,
+          secret_ref: 'env:DATABASE_URL',
+          schema_version: 'v1',
         },
-      ]);
-    });
+      ]).execute();
+    } finally {
+      await cpSeedPool.end();
+    }
 
     service = new SpaceDatabaseService({
       get: (key: string) =>
@@ -198,8 +198,8 @@ describe('Khung định tuyến theo trung tâm phía worker (integration)', () 
         })[key],
     } as unknown as ConfigService);
     sharedPool = new TenantAwarePool({ connectionString: process.env.DATABASE_URL! });
-    sharedDb = drizzle({ client: sharedPool, relations });
-    service.bindSharedDatabase(sharedDb);
+    sharedKysely = createCentreKysely(sharedPool);
+    service.bindSharedKysely(sharedKysely);
   }, 180_000);
 
   afterAll(async () => {
@@ -218,13 +218,14 @@ describe('Khung định tuyến theo trung tâm phía worker (integration)', () 
   });
 
   it('phiên theo trung tâm của một tác vụ nền ghi và đọc trong đúng kho riêng của trung tâm', async () => {
-    await service.withSpaceDatabase(
+    await service.withSpaceKysely(
       CENTRE_SLUG,
-      async (db) => {
-        await db
-          .insert(tenants)
-          .values({ id: CENTRE_TENANT_ID, slug: CENTRE_SLUG, name: 'Trung tâm W 581', kind: 'center' });
-        const rows = await db.select().from(tenants).where(eq(tenants.id, CENTRE_TENANT_ID));
+      async () => {
+        await service.routedKysely
+          .insertInto('tenants')
+          .values({ id: CENTRE_TENANT_ID, slug: CENTRE_SLUG, name: 'Trung tâm W 581', kind: 'center' })
+          .execute();
+        const rows = await service.routedKysely.selectFrom('tenants').selectAll().where('id', '=', CENTRE_TENANT_ID).execute();
         expect(rows).toHaveLength(1);
       },
       { tenantId: CENTRE_TENANT_ID },
@@ -241,17 +242,17 @@ describe('Khung định tuyến theo trung tâm phía worker (integration)', () 
   });
 
   it('phiên theo trung tâm ở chế độ kho chung dùng đúng handle kho chung của worker', async () => {
-    const db = await service.getDatabaseForSpace(SHARED_SLUG);
-    expect(db).toBe(sharedDb);
-    const viaSession = await service.withSpaceDatabase(SHARED_SLUG, (sessionDb) => Promise.resolve(sessionDb));
-    expect(viaSession).toBe(sharedDb);
+    const db = await service.getKyselyForSpace(SHARED_SLUG);
+    expect(db).toBe(sharedKysely);
+    const viaSession = await service.withSpaceKysely(SHARED_SLUG, async () => service.getKyselyForSpace(SHARED_SLUG));
+    expect(viaSession).toBe(sharedKysely);
   });
 
   it('sổ đổi role và bí mật của kho sau khi pool đã tạo: lần lấy handle kế tiếp của worker kết nối bằng role mới của sổ, pool cũ bị thay', async () => {
     // Đối chứng: handle hiện tại của trung tâm kết nối bằng role
     // gốc của kho.
-    const dbBefore = await service.getDatabaseForSpace(CENTRE_SLUG);
-    const userBefore = (await dbBefore.execute(sql`SELECT current_user AS u`)) as unknown as { rows: { u: string }[] };
+    const dbBefore = await service.getKyselyForSpace(CENTRE_SLUG);
+    const userBefore = await sql<{ u: string }>`SELECT current_user AS u`.execute(dbBefore);
     expect(userBefore.rows[0]!.u).toBe(CENTRE_ROLE);
 
     // Đổi danh tính kết nối trong sổ (role + bí mật sang role thứ
@@ -270,9 +271,9 @@ describe('Khung định tuyến theo trung tâm phía worker (integration)', () 
 
     // Lần lấy handle kế tiếp: handle mới, kết nối thật bằng role
     // mới — không dùng lại pool cũ theo khoá tên database.
-    const dbAfter = await service.getDatabaseForSpace(CENTRE_SLUG);
+    const dbAfter = await service.getKyselyForSpace(CENTRE_SLUG);
     expect(dbAfter).not.toBe(dbBefore);
-    const userAfter = (await dbAfter.execute(sql`SELECT current_user AS u`)) as unknown as { rows: { u: string }[] };
+    const userAfter = await sql<{ u: string }>`SELECT current_user AS u`.execute(dbAfter);
     expect(userAfter.rows[0]!.u).toBe(CENTRE2_ROLE);
 
     // Trả sổ về role/bí mật gốc để trạng thái cuối độc lập với
@@ -301,23 +302,22 @@ describe('Khung định tuyến theo trung tâm phía worker (integration)', () 
           DATABASE_SSL: false,
         })[key],
     } as unknown as ConfigService);
-    shortIdleService.bindSharedDatabase(sharedDb);
+    shortIdleService.bindSharedKysely(sharedKysely);
     try {
       // Chuẩn bị bằng một phiên ghi hợp lệ vào kho riêng, rồi đối
       // chứng handle định tuyến phục vụ từ đúng kho riêng.
-      await shortIdleService.withSpaceDatabase(
+      await shortIdleService.withSpaceKysely(
         CENTRE_SLUG,
-        async (db) => {
-          await db
-            .insert(tenants)
-            .values({ id: SESSION_ROW_ID, slug: 'trung-tam-w-thu-hoi-581', name: 'Trung tâm W ca thu hồi 581', kind: 'center' });
+        async () => {
+          await shortIdleService.routedKysely
+            .insertInto('tenants')
+            .values({ id: SESSION_ROW_ID, slug: 'trung-tam-w-thu-hoi-581', name: 'Trung tâm W ca thu hồi 581', kind: 'center' })
+            .execute();
         },
         { tenantId: SESSION_ROW_ID },
       );
       const probeBefore = await tenantAls.run({ spaceSlug: CENTRE_SLUG, tenantId: SESSION_ROW_ID }, async () => {
-        const result = (await shortIdleService.routedDatabase.execute(sql`SELECT current_database() AS db`)) as unknown as {
-          rows: { db: string }[];
-        };
+        const result = await sql<{ db: string }>`SELECT current_database() AS db`.execute(shortIdleService.routedKysely);
         return result.rows[0]!.db;
       });
       expect(probeBefore).toBe(CENTRE_DATABASE);
@@ -333,7 +333,7 @@ describe('Khung định tuyến theo trung tâm phía worker (integration)', () 
       let readError: unknown;
       await tenantAls.run({ spaceSlug: CENTRE_SLUG, tenantId: SESSION_ROW_ID }, async () => {
         try {
-          await shortIdleService.routedDatabase.execute(sql`SELECT 1`);
+          await sql`SELECT 1`.execute(shortIdleService.routedKysely);
         } catch (err) {
           readError = err;
         }
@@ -346,9 +346,10 @@ describe('Khung định tuyến theo trung tâm phía worker (integration)', () 
       let writeError: unknown;
       await tenantAls.run({ spaceSlug: CENTRE_SLUG, tenantId: REVOKED_MARKER_ID }, async () => {
         try {
-          await shortIdleService.routedDatabase
-            .insert(tenants)
-            .values({ id: REVOKED_MARKER_ID, slug: 'dau-ghi-w-thu-hoi-581', name: 'Dòng ghi ca thu hồi W 581', kind: 'center' });
+          await shortIdleService.routedKysely
+            .insertInto('tenants')
+            .values({ id: REVOKED_MARKER_ID, slug: 'dau-ghi-w-thu-hoi-581', name: 'Dòng ghi ca thu hồi W 581', kind: 'center' })
+            .execute();
         } catch (err) {
           writeError = err;
         }
@@ -363,11 +364,9 @@ describe('Khung định tuyến theo trung tâm phía worker (integration)', () 
 
       // Chuẩn bị lại thì đường định tuyến phục vụ đúng kho riêng
       // như trước.
-      await shortIdleService.getDatabaseForSpace(CENTRE_SLUG);
+      await shortIdleService.getKyselyForSpace(CENTRE_SLUG);
       const probeAfter = await tenantAls.run({ spaceSlug: CENTRE_SLUG, tenantId: SESSION_ROW_ID }, async () => {
-        const result = (await shortIdleService.routedDatabase.execute(sql`SELECT current_database() AS db`)) as unknown as {
-          rows: { db: string }[];
-        };
+        const result = await sql<{ db: string }>`SELECT current_database() AS db`.execute(shortIdleService.routedKysely);
         return result.rows[0]!.db;
       });
       expect(probeAfter).toBe(CENTRE_DATABASE);

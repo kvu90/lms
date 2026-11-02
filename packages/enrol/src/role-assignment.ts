@@ -281,7 +281,7 @@ export class RoleAssignmentCore {
         if (filter.contextId !== undefined) conds.push(eb('role_assignments.context_id', '=', filter.contextId));
         // Điều kiện động (thử nghiệm T-13): `eb.and` với danh sách
         // rỗng biên dịch thành `where 1 = 1` — đúng ngữ nghĩa "không
-        // lọc" của đường Drizzle cũ; cấm port nguyên văn
+        // lọc" của đường cũ trước chuyển đổi; cấm port nguyên văn
         // `where(undefined)` vì Kysely gắn NULL và lặng lẽ trả 0 dòng.
         return eb.and(conds);
       })

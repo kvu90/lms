@@ -4,7 +4,7 @@ import { getQueueToken } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import Redis from 'ioredis';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { outboxEvents } from '@lms/db';
+import { sql, type JsonValue } from '@lms/db';
 import { CohortSyncCatchupService } from '../../../src/cohort-sync-catchup.service';
 import { redisConnectionFromUrl } from '../../../src/config/env';
 import {
@@ -58,9 +58,7 @@ describe('Worker cohort sync catchup (phát bù tồn đọng khi chuyển đổ
   async function insertUser(): Promise<string> {
     const id = randomUUID();
     const tag = id.replaceAll('-', '').slice(0, 12);
-    await db.execute(
-      `INSERT INTO users (id, username, email) VALUES ('${id}', 'w550_${tag}', 'w550_${tag}@example.test')`,
-    );
+    await sql`INSERT INTO users (id, username, email) VALUES (${id}, ${`w550_${tag}`}, ${`w550_${tag}@example.test`})`.execute(db);
     return id;
   }
 
@@ -69,32 +67,20 @@ describe('Worker cohort sync catchup (phát bù tồn đọng khi chuyển đổ
     const cohortId = randomUUID();
     const instanceId = randomUUID();
     const courseCtxId = randomUUID();
-    await db.execute(
-      `INSERT INTO course (id, tenant_id, category, full_name, short_name, is_template) VALUES ('${courseId}', '${tenantId}', '${categoryId}', 'Khoá catchup worker 550', 'W550-${courseId.slice(0, 8)}', true)`,
-    );
-    await db.execute(
-      `INSERT INTO context (id, context_level, instance_id, path, depth) VALUES ('${courseCtxId}', 50, '${courseId}', '/${systemCtxId}/${tenantCtxId}/${courseCtxId}', 3)`,
-    );
-    await db.execute(
-      `INSERT INTO cohort (id, tenant_id, name, context_id) VALUES ('${cohortId}', '${tenantId}', 'Cohort worker 550', '${tenantCtxId}')`,
-    );
-    await db.execute(
-      `INSERT INTO enrol (id, course_id, enrol, status, role_id, custom_int1, custom_int2, custom_text1) VALUES ('${instanceId}', '${courseId}', 'cohort', 0, '${studentRoleId}', '${cohortId}', NULL, '${onLeave}')`,
-    );
+    await sql`INSERT INTO course (id, tenant_id, category, full_name, short_name, is_template) VALUES (${courseId}, ${tenantId}, ${categoryId}, 'Khoá catchup worker 550', ${`W550-${courseId.slice(0, 8)}`}, true)`.execute(db);
+    await sql`INSERT INTO context (id, context_level, instance_id, path, depth) VALUES (${courseCtxId}, 50, ${courseId}, ${`/${systemCtxId}/${tenantCtxId}/${courseCtxId}`}, 3)`.execute(db);
+    await sql`INSERT INTO cohort (id, tenant_id, name, context_id) VALUES (${cohortId}, ${tenantId}, 'Cohort worker 550', ${tenantCtxId})`.execute(db);
+    await sql`INSERT INTO enrol (id, course_id, enrol, status, role_id, custom_int1, custom_int2, custom_text1) VALUES (${instanceId}, ${courseId}, 'cohort', 0, ${studentRoleId}, ${cohortId}, NULL, ${onLeave})`.execute(db);
     return { courseId, cohortId, instanceId, courseCtxId };
   }
 
   async function ueRow(instanceId: string, userId: string): Promise<Record<string, unknown> | undefined> {
-    const rows = await db.execute(
-      `SELECT * FROM user_enrolments WHERE enrol_id = '${instanceId}' AND user_id = '${userId}'`,
-    ) as unknown as { rows: Array<Record<string, unknown>> };
+    const rows = await sql`SELECT * FROM user_enrolments WHERE enrol_id = ${instanceId} AND user_id = ${userId}`.execute(db) as unknown as { rows: Array<Record<string, unknown>> };
     return rows.rows[0];
   }
 
   async function outboxOf(type: string, userId: string): Promise<Array<{ payload: Record<string, unknown> }>> {
-    const rows = await db.execute(
-      `SELECT payload FROM outbox_events WHERE type = '${type}' AND payload ->> 'userId' = '${userId}' ORDER BY seq`,
-    ) as unknown as { rows: Array<{ payload: Record<string, unknown> }> };
+    const rows = await sql`SELECT payload FROM outbox_events WHERE type = ${type} AND payload ->> 'userId' = ${userId} ORDER BY seq`.execute(db) as unknown as { rows: Array<{ payload: Record<string, unknown> }> };
     return rows.rows;
   }
 
@@ -108,10 +94,10 @@ describe('Worker cohort sync catchup (phát bù tồn đọng khi chuyển đổ
     type: 'cohort_member_added' | 'cohort_member_removed',
     payload: Record<string, unknown>,
   ): Promise<{ id: string; seq: number }> {
-    const [row] = await db.insert(outboxEvents).values({
-      aggregate: 'cohort', type, tenantId, payload, publishedAt: new Date(),
-    }).returning({ id: outboxEvents.id, seq: outboxEvents.seq });
-    return { id: row!.id as string, seq: Number(row!.seq) };
+    const row = await db.insertInto('outbox_events').values({
+      aggregate: 'cohort', type, tenant_id: tenantId, payload: sql<JsonValue>`${JSON.stringify(payload)}::jsonb`, published_at: new Date(),
+    }).returning(['id', 'seq']).executeTakeFirstOrThrow();
+    return { id: row.id, seq: Number(row.seq) };
   }
 
   /** Chờ job của một dòng outbox trên hàng đợi cohort-sync-events đạt trạng thái completed. */
@@ -163,13 +149,11 @@ describe('Worker cohort sync catchup (phát bù tồn đọng khi chuyển đổ
     systemCtxId = randomUUID();
     categoryId = randomUUID();
     studentRoleId = randomUUID();
-    await db.execute(
-      `INSERT INTO tenants (id, slug, name, kind) VALUES ('${tenantId}', 'trung-tam-w550-${tenantId.slice(0, 8)}', 'Trung tâm catchup worker 550', 'school')`,
-    );
-    await db.execute(`INSERT INTO course_categories (id, tenant_id, name) VALUES ('${categoryId}', '${tenantId}', 'Danh mục worker 550')`);
-    await db.execute(`INSERT INTO context (id, context_level, instance_id, path, depth) VALUES ('${systemCtxId}', 10, NULL, '/${systemCtxId}', 1)`);
-    await db.execute(`INSERT INTO context (id, context_level, instance_id, path, depth) VALUES ('${tenantCtxId}', 20, '${tenantId}', '/${systemCtxId}/${tenantCtxId}', 2)`);
-    await db.execute(`INSERT INTO role (id, name, short_name, archetype) VALUES ('${studentRoleId}', 'Student', 'student550', 'student')`);
+    await sql`INSERT INTO tenants (id, slug, name, kind) VALUES (${tenantId}, ${`trung-tam-w550-${tenantId.slice(0, 8)}`}, 'Trung tâm catchup worker 550', 'school')`.execute(db);
+    await sql`INSERT INTO course_categories (id, tenant_id, name) VALUES (${categoryId}, ${tenantId}, 'Danh mục worker 550')`.execute(db);
+    await sql`INSERT INTO context (id, context_level, instance_id, path, depth) VALUES (${systemCtxId}, 10, NULL, ${`/${systemCtxId}`}, 1)`.execute(db);
+    await sql`INSERT INTO context (id, context_level, instance_id, path, depth) VALUES (${tenantCtxId}, 20, ${tenantId}, ${`/${systemCtxId}/${tenantCtxId}`}, 2)`.execute(db);
+    await sql`INSERT INTO role (id, name, short_name, archetype) VALUES (${studentRoleId}, 'Student', 'student550', 'student')`.execute(db);
   });
 
   afterAll(async () => {
@@ -181,7 +165,7 @@ describe('Worker cohort sync catchup (phát bù tồn đọng khi chuyển đổ
   it('dòng đã đóng dấu nhưng trên watermark cũ được phát bù đúng một lần: dòng trên thành ghi danh ACTIVE + user_enrolled, dòng dưới không có job, khoá bị xoá và phát bù lại là no-op', async () => {
     const graph = await makeCourseGraph('unenrol');
     const userId = await insertUser();
-    await db.execute(`INSERT INTO cohort_members (cohort_id, user_id) VALUES ('${graph.cohortId}', '${userId}')`);
+    await sql`INSERT INTO cohort_members (cohort_id, user_id) VALUES (${graph.cohortId}, ${userId})`.execute(db);
     const payload = { cohortId: graph.cohortId, userId };
 
     const below = await emitMarkedRow('cohort_member_added', payload);
@@ -207,13 +191,13 @@ describe('Worker cohort sync catchup (phát bù tồn đọng khi chuyển đổ
   it('dòng rút thành viên đã đóng dấu trên watermark cũ được phát bù: ghi danh biến mất và user_unenrolled được phát', async () => {
     const graph = await makeCourseGraph('unenrol');
     const userId = await insertUser();
-    await db.execute(`INSERT INTO cohort_members (cohort_id, user_id) VALUES ('${graph.cohortId}', '${userId}')`);
+    await sql`INSERT INTO cohort_members (cohort_id, user_id) VALUES (${graph.cohortId}, ${userId})`.execute(db);
     const payload = { cohortId: graph.cohortId, userId };
 
     await enrolDirectly('cohort_member_added', randomUUID(), payload);
     expect(await ueRow(graph.instanceId, userId)).toBeDefined();
 
-    await db.execute(`DELETE FROM cohort_members WHERE cohort_id = '${graph.cohortId}' AND user_id = '${userId}'`);
+    await sql`DELETE FROM cohort_members WHERE cohort_id = ${graph.cohortId} AND user_id = ${userId}`.execute(db);
     const removed = await emitMarkedRow('cohort_member_removed', payload);
     await redis.set(legacyWatermarkKey, String(removed.seq - 1));
 
@@ -229,7 +213,7 @@ describe('Worker cohort sync catchup (phát bù tồn đọng khi chuyển đổ
   it('hệ mới tinh không có khoá watermark cũ: phát bù là no-op, dòng đã đóng dấu không sinh job', async () => {
     const graph = await makeCourseGraph('unenrol');
     const userId = await insertUser();
-    await db.execute(`INSERT INTO cohort_members (cohort_id, user_id) VALUES ('${graph.cohortId}', '${userId}')`);
+    await sql`INSERT INTO cohort_members (cohort_id, user_id) VALUES (${graph.cohortId}, ${userId})`.execute(db);
     const marked = await emitMarkedRow('cohort_member_added', { cohortId: graph.cohortId, userId });
 
     await redis.del(legacyWatermarkKey);
@@ -241,7 +225,7 @@ describe('Worker cohort sync catchup (phát bù tồn đọng khi chuyển đổ
   it('khoá watermark có sẵn trước khi worker khởi động thì OnModuleInit tự phát bù không cần gọi tay', async () => {
     const graph = await makeCourseGraph('unenrol');
     const userId = await insertUser();
-    await db.execute(`INSERT INTO cohort_members (cohort_id, user_id) VALUES ('${graph.cohortId}', '${userId}')`);
+    await sql`INSERT INTO cohort_members (cohort_id, user_id) VALUES (${graph.cohortId}, ${userId})`.execute(db);
     const marked = await emitMarkedRow('cohort_member_added', { cohortId: graph.cohortId, userId });
     await redis.set(legacyWatermarkKey, String(marked.seq - 1));
 
@@ -262,7 +246,7 @@ describe('Worker cohort sync catchup (phát bù tồn đọng khi chuyển đổ
   it('lỗi thoáng qua ở lần đẩy job đầu tiên thì lượt phát bù tự thử lại tới khi rút cạn trọn vẹn: phát đúng một lần, khoá chỉ bị xoá sau khi thành công và lần thử thất bại có log error kèm số lần thử', async () => {
     const graph = await makeCourseGraph('unenrol');
     const userId = await insertUser();
-    await db.execute(`INSERT INTO cohort_members (cohort_id, user_id) VALUES ('${graph.cohortId}', '${userId}')`);
+    await sql`INSERT INTO cohort_members (cohort_id, user_id) VALUES (${graph.cohortId}, ${userId})`.execute(db);
     const payload = { cohortId: graph.cohortId, userId };
     const marked = await emitMarkedRow('cohort_member_added', payload);
     await redis.set(legacyWatermarkKey, String(marked.seq - 1));
@@ -335,10 +319,10 @@ describe('Worker cohort sync catchup (phát bù tồn đọng khi chuyển đổ
   it('phát bù bị ngắt giữa lô rồi chạy lại: dòng đã đẩy không sinh tác dụng phụ lần hai, dòng chưa đẩy vẫn được xử lý, khoá chỉ bị xoá sau khi rút cạn', async () => {
     const graphA = await makeCourseGraph('unenrol');
     const userA = await insertUser();
-    await db.execute(`INSERT INTO cohort_members (cohort_id, user_id) VALUES ('${graphA.cohortId}', '${userA}')`);
+    await sql`INSERT INTO cohort_members (cohort_id, user_id) VALUES (${graphA.cohortId}, ${userA})`.execute(db);
     const graphB = await makeCourseGraph('unenrol');
     const userB = await insertUser();
-    await db.execute(`INSERT INTO cohort_members (cohort_id, user_id) VALUES ('${graphB.cohortId}', '${userB}')`);
+    await sql`INSERT INTO cohort_members (cohort_id, user_id) VALUES (${graphB.cohortId}, ${userB})`.execute(db);
 
     const rowA = await emitMarkedRow('cohort_member_added', { cohortId: graphA.cohortId, userId: userA });
     const rowB = await emitMarkedRow('cohort_member_added', { cohortId: graphB.cohortId, userId: userB });

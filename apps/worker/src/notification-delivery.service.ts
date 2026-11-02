@@ -355,7 +355,7 @@ export class NotificationDeliveryService implements OnModuleDestroy {
     // Chính sách admin cấp site (NB-7) chạy TRƯỚC tuỳ chọn người dùng,
     // như notify() phía API.
     if (!(await this.isProviderEnabledBySitePolicy(provider))) {
-      // Bản Drizzle cũ bỏ hẳn cột tenant_id ở dòng này (giá trị lưu
+      // Bản bộ máy cũ bỏ hẳn cột tenant_id ở dòng này (giá trị lưu
       // là NULL vì cột không có default); Kysely bắt ghi tường minh
       // cột nullable không default nên ghi `null` giữ đúng giá trị.
       await this.spaceDb.routedKysely.insertInto('notification_dispatch_log').values({

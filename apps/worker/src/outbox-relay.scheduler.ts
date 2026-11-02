@@ -292,7 +292,7 @@ export class OutboxRelayScheduler {
       .execute();
     // Cột `seq` là int8: Kysely đọc thành chuỗi nên chuyển về số tại
     // biên đọc này để job và payload phản chiếu giữ đúng hợp đồng số
-    // như đường Drizzle trước đây.
+    // như đường cũ trước đây.
     const pending: OutboxRow[] = pendingRaw.map((row) => ({
       id: row.id,
       seq: Number(row.seq),

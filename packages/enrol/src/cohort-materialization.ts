@@ -48,7 +48,7 @@ function isInstanceAssignment(a: RoleAssignmentRow, instance: EnrolInstanceRow):
 /**
  * Lỗi có phải unique violation của PostgreSQL (mã 23505) hay không.
  * Qua Kysely, lỗi pg ném THÔ — `code`/`constraint` nằm trực tiếp
- * trên error, không có lớp bọc `cause` như qua Drizzle (thử nghiệm
+ * trên error, không có lớp bọc `cause` như qua bộ máy cũ (thử nghiệm
  * T-10) — nên kiểm error trước, rồi mới đi tiếp xuống chuỗi `cause`
  * tối đa 6 tầng cho các lớp bọc ngoài của host (nếu có).
  */

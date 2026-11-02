@@ -54,7 +54,7 @@ export interface ManagedPool {
   on?(event: 'acquire', listener: () => void): unknown;
 }
 
-/** Handle của một kho: pool kết nối + handle Drizzle dựng trên pool đó. */
+/** Handle của một kho: pool kết nối + handle bộ máy cũ dựng trên pool đó. */
 export interface SpacePoolHandle<TDatabase> {
   databaseName: string;
   pool: ManagedPool;
@@ -99,7 +99,7 @@ export class SpacePoolManager<TDatabase> {
    * sống bất kể danh tính pool đó được tạo bằng.
    *
    * @param databaseName - Tên database làm khoá pool.
-   * @param create - Hàm dựng handle (pool + Drizzle) cho kho, chạy
+   * @param create - Hàm dựng handle (pool + bộ máy cũ) cho kho, chạy
    *   tối đa một lần cho mỗi vòng đời pool.
    */
   getHandle(databaseName: string, create: (databaseName: string) => SpacePoolHandle<TDatabase>): SpacePoolHandle<TDatabase> {
@@ -164,7 +164,7 @@ export class SpacePoolManager<TDatabase> {
     const entry: PoolEntry<TDatabase> = { handle, lastUsedAt: this.now(), identity };
     this.entries.set(databaseName, entry);
     // Mốc traffic tính cả hoạt động mượn kết nối trực tiếp từ pool
-    // (mọi truy vấn qua handle Drizzle đều mượn kết nối ở đây), để
+    // (mọi truy vấn qua handle bộ máy cũ đều mượn kết nối ở đây), để
     // một kho đang được dùng liên tục không bị vòng quét coi là
     // nhàn rỗi chỉ vì không có lần lấy handle mới.
     handle.pool.on?.('acquire', () => {

@@ -17,7 +17,7 @@ import { SpaceDatabaseService } from '../db/routing/space-database.service';
  * Mọi truy vấn của các processor trong file này đi qua handle Kysely
  * định tuyến (`SpaceDatabaseService.routedKysely`): các processor chạy
  * trong ngữ cảnh platform tường minh (xem TENANT-1 ở từng `process`)
- * nên handle vào kho chung — cùng đích kho với handle Drizzle định
+ * nên handle vào kho chung — cùng đích kho với handle bộ máy cũ định
  * tuyến trước đây. Các cột jsonb khi ghi (`archive`, `detail`,
  * `indicators`, `data`, `last_result`, `manifest`, `result`,
  * payload outbox) đi qua serialize tường minh + `::jsonb` theo khuôn

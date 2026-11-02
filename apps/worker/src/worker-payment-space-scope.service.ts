@@ -32,13 +32,10 @@ import { SpaceDatabaseService } from './db/routing/space-database.service';
  *    - Trung tâm ở kho chung → chạy thân xử lý trong ngữ cảnh
  *      platform như hành vi hiện tại, không đổi điểm nào.
  *    - Trung tâm ở kho riêng → chạy thân xử lý trong phiên theo
- *      trung tâm (`withSpaceDatabase`): khung chuẩn bị handle của
+ *      trung tâm (`withSpaceKysely`): khung chuẩn bị handle của
  *      kho đích và mở ngữ cảnh ALS mang slug, nên mọi truy vấn
  *      qua handle định tuyến của worker trong thân xử lý vào đúng
- *      kho của trung tâm. Điểm phân giải này chuẩn bị CẢ HAI
- *      facade của kho đích (Drizzle qua `withSpaceDatabase`,
- *      Kysely qua `getKyselyForSpace`) vì các hiệu ứng theo
- *      payment dùng cả hai handle định tuyến trong cùng phiên.
+ *      kho của trung tâm.
  *    - Worker chưa cấu hình control plane
  *      (`space_routing.not_configured`) → chạy platform như trước
  *      đợt định tuyến, cùng ngoại lệ đã chốt của `SpaceJobRunner`:
@@ -55,13 +52,12 @@ import { SpaceDatabaseService } from './db/routing/space-database.service';
  * tính idempotent của từng hiệu ứng không đổi.
  *
  * Điều kiện chạy: `SpaceDatabaseService` phải đã được gắn handle
- * kho chung THÔ bởi module sở hữu tiến trình (factory của
- * `DrizzleModule` trong `worker.module.ts` gắn handle Drizzle và
- * handle Kysely trên cùng pool kho chung — KHÔNG phải handle định
- * tuyến, vì gắn handle định tuyến làm đích uỷ thác sẽ tự uỷ thác
- * vào chính nó). Lượt đọc thư mục slug ở bước 1 đi qua handle
- * Kysely định tuyến ở phạm vi platform nên uỷ thác về đúng handle
- * Kysely kho chung đã gắn đó.
+ * kho chung THÔ bởi module sở hữu tiến trình (provider gắn handle
+ * trong `worker.module.ts` gắn handle Kysely trên pool kho chung
+ * — KHÔNG phải handle định tuyến, vì gắn handle định tuyến làm
+ * đích uỷ thác sẽ tự uỷ thác vào chính nó). Lượt đọc thư mục slug
+ * ở bước 1 đi qua handle Kysely định tuyến ở phạm vi platform nên
+ * uỷ thác về đúng handle Kysely kho chung đã gắn đó.
  */
 @Injectable()
 export class WorkerPaymentSpaceScope {
@@ -108,18 +104,11 @@ export class WorkerPaymentSpaceScope {
       throw err;
     }
     if (target.mode === 'dedicated') {
-      // Chuẩn bị CẢ facade Kysely của kho đích trước khi mở phiên:
-      // `withSpaceDatabase` chỉ chuẩn bị facade Drizzle, trong khi
-      // các hiệu ứng theo payment còn chạy bề mặt enrol trên
-      // `routedKysely` (bề mặt dùng chung của `@lms/enrol` từ D5) —
-      // thiếu bước này, `dedicatedSlugs` đã ghi nhận trung tâm là
-      // kho riêng mà bảng chuẩn bị Kysely trống, nên lượt truy vấn
-      // Kysely đầu tiên trong phiên ném
-      // `space_routing.prepared_revoked` (fail-closed) và kích hoạt
-      // không bao giờ chạy. Cùng luật chuẩn bị cả hai facade tại
-      // điểm mở phiên như đường HTTP phía API.
-      await this.spaceDatabase.getKyselyForSpace(slug);
-      return this.spaceDatabase.withSpaceDatabase(slug, async () => fn());
+      // Mở phiên theo trung tâm: bước chuẩn bị handle của kho đích
+      // chạy bên trong `withSpaceKysely` — các hiệu ứng theo
+      // payment chạy trên `routedKysely` nên phiên này là đủ để
+      // mọi lượt truy vấn của chúng vào đúng kho của trung tâm.
+      return this.spaceDatabase.withSpaceKysely(slug, async () => fn());
     }
     return tenantAls.run({ platform: true }, async () => fn());
   }
@@ -130,7 +119,7 @@ export class WorkerPaymentSpaceScope {
    * Lượt đọc chạy trong phạm vi platform tường minh và điểm
    * `await` nằm trong `tenantAls.run` (bọc hàm async) để GUC
    * platform được gắn đúng khi kết nối checkout — cùng lý do với
-   * bọc async trong `SpaceDatabaseService.withSpaceDatabase`:
+   * bọc async trong `SpaceDatabaseService.withSpaceKysely`:
    * điểm thực thi truy vấn phải nằm trong `run`, trả promise ra
    * ngoài `run` mới thực thi thì ngữ cảnh bị mất trước khi truy
    * vấn thật sự chạy.

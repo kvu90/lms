@@ -15,7 +15,7 @@ import type { CentreDb } from '@lms/db';
  *
  * Handle là handle Kysely của kho trung tâm do phía gọi truyền vào
  * (issue #659): các processor truyền `routedKysely` của khung định
- * tuyến phía worker — cùng đích kho với handle Drizzle định tuyến
+ * tuyến phía worker — cùng đích kho với handle bộ máy cũ định tuyến
  * trước đây (ngữ cảnh platform thì về kho chung; phiên theo trung
  * tâm đã chuẩn bị phía Kysely thì vào kho của trung tâm đó; xem
  * `db/routing/space-database.service.ts`). Kiểu handle lấy từ

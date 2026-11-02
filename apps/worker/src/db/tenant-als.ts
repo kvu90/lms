@@ -24,7 +24,7 @@ export interface TenantAlsStore {
    * Slug của không gian (trung tâm) trong sổ đăng ký control plane
    * mà ngữ cảnh này thuộc về — khoá định tuyến của khung kết nối
    * theo trung tâm (issue #581), cùng hợp đồng với trường cùng tên
-   * phía API: `SpaceDatabaseService.withSpaceDatabase` nạp trường
+   * phía API: `SpaceDatabaseService.withSpaceKysely` nạp trường
    * này khi mở phiên theo trung tâm cho một tác vụ. Trường này
    * KHÔNG thay `tenantId`: GUC RLS vẫn theo `tenantId`.
    */

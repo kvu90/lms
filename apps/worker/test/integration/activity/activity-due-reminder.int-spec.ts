@@ -2,9 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
-import { eq, sql } from 'drizzle-orm';
+import { sql } from '@lms/db';
 import { ActivityDueReminderProcessor } from '../../../src/processors/activity-due-reminder.processor';
-import { assignments, assignSubmissions, enrol, examPins, outboxEvents, userEnrolments } from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
@@ -46,74 +45,74 @@ describe('Nhắc sắp đến hạn hoạt động của worker (N5, issue #50)'
   const HOUR = 3600_000;
 
   async function makeQuiz(opts: { closeInHours: number | null; courseVisible?: boolean; cmVisible?: boolean; name?: string }) {
-    const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`n5-cat-${suffix}-${Math.random()}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
+    const catRows = await sql`insert into course_categories (name, path, tenant_id) values (${`n5-cat-${suffix}-${Math.random()}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`.execute(db);
     const catId = (catRows.rows[0] as { id: string }).id;
     const short = `n5${suffix}${Math.floor(Math.random() * 1e9)}`;
-    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, visible, class_id) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'N5 course', ${short}, ${opts.courseVisible ?? true}, ${await fixtureClassId()}) returning id`);
+    const courseRows = await sql`insert into course (category, tenant_id, full_name, short_name, visible, class_id) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'N5 course', ${short}, ${opts.courseVisible ?? true}, ${await fixtureClassId()}) returning id`.execute(db);
     const cid = (courseRows.rows[0] as { id: string }).id;
-    const secRows = await db.execute(sql`insert into course_sections (course, section) values (${cid}, 0) returning id`);
+    const secRows = await sql`insert into course_sections (course, section) values (${cid}, 0) returning id`.execute(db);
     const secId = (secRows.rows[0] as { id: string }).id;
-    const cmRows = await db.execute(sql`insert into course_modules (course, section, component, visible) values (${cid}, ${secId}, 'mod_quiz', ${opts.cmVisible ?? true}) returning id`);
+    const cmRows = await sql`insert into course_modules (course, section, component, visible) values (${cid}, ${secId}, 'mod_quiz', ${opts.cmVisible ?? true}) returning id`.execute(db);
     const cmId = (cmRows.rows[0] as { id: string }).id;
     const timeClose = opts.closeInHours === null ? null : new Date(Date.now() + opts.closeInHours * HOUR);
     // Sau gộp Đề (#226): hoạt động được nhắc là LẦN GHIM (exam_pins)
     // — dựng tối thiểu bank → đề → version → pin bằng SQL như các
     // fixture khác của suite worker.
-    const tenantRows = await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do update set slug = excluded.slug returning id`);
+    const tenantRows = await sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do update set slug = excluded.slug returning id`.execute(db);
     const tenantId = (tenantRows.rows[0] as { id: string }).id;
-    const bankRows = await db.execute(sql`insert into question_banks (name, bank_kind, scope, context_id, created_by, tenant_id) values ('N5 bank', 'exam', 'personal', ${uid(900)}, ${uid(900)}, ${tenantId}) returning id`);
+    const bankRows = await sql`insert into question_banks (name, bank_kind, scope, context_id, created_by, tenant_id) values ('N5 bank', 'exam', 'personal', ${uid(900)}, ${uid(900)}, ${tenantId}) returning id`.execute(db);
     const bankId = (bankRows.rows[0] as { id: string }).id;
-    const examRows = await db.execute(sql`insert into exams (bank_id, created_by, status) values (${bankId}, ${uid(900)}, 'ready') returning id`);
+    const examRows = await sql`insert into exams (bank_id, created_by, status) values (${bankId}, ${uid(900)}, 'ready') returning id`.execute(db);
     const examId = (examRows.rows[0] as { id: string }).id;
-    const verRows = await db.execute(sql`insert into exam_versions (exam_id, version, name, created_by) values (${examId}, 1, ${opts.name ?? 'Quiz N5'}, ${uid(900)}) returning id`);
+    const verRows = await sql`insert into exam_versions (exam_id, version, name, created_by) values (${examId}, 1, ${opts.name ?? 'Quiz N5'}, ${uid(900)}) returning id`.execute(db);
     const versionId = (verRows.rows[0] as { id: string }).id;
-    const pinRows = await db.execute(sql`insert into exam_pins (exam_id, exam_version_id, course_id, cm_id, time_close, variants, created_by) values (${examId}, ${versionId}, ${cid}, ${cmId}, ${timeClose}, '[]'::jsonb, ${uid(900)}) returning id`);
+    const pinRows = await sql`insert into exam_pins (exam_id, exam_version_id, course_id, cm_id, time_close, variants, created_by) values (${examId}, ${versionId}, ${cid}, ${cmId}, ${timeClose}, '[]'::jsonb, ${uid(900)}) returning id`.execute(db);
     const pinId = (pinRows.rows[0] as { id: string }).id;
-    const [inst] = await db.insert(enrol).values({ courseId: cid, enrol: 'manual', status: 0 }).returning();
+    const inst = await db.insertInto('enrol').values({ course_id: cid, enrol: 'manual', status: 0 }).returningAll().executeTakeFirstOrThrow();
     return { courseId: cid, quizId: pinId, instanceId: inst.id as string, timeClose };
   }
 
   async function enrolStudent(instance: string, userId: string, overrides: Record<string, unknown> = {}) {
-    const [row] = await db.insert(userEnrolments).values({
-      enrolId: instance, userId, status: 0, timeStart: new Date(Date.now() - 24 * HOUR), ...overrides,
-    }).returning();
+    const row = await db.insertInto('user_enrolments').values({
+      enrol_id: instance, user_id: userId, status: 0, time_start: new Date(Date.now() - 24 * HOUR), ...overrides,
+    }).returningAll().executeTakeFirstOrThrow();
     return row.id as string;
   }
 
   async function addAttempt(quizId: string, userId: string, state: string) {
-    const usageRows = await db.execute(sql`insert into question_usages (component, user_id) values ('mod_quiz', ${userId}) returning id`);
+    const usageRows = await sql`insert into question_usages (component, user_id) values ('mod_quiz', ${userId}) returning id`.execute(db);
     const usageId = (usageRows.rows[0] as { id: string }).id;
-    await db.execute(sql`insert into exam_attempts (pin_id, user_id, attempt_number, usage_id, state, preview) values (${quizId}, ${userId}, 1, ${usageId}, ${state}, false)`);
+    await sql`insert into exam_attempts (pin_id, user_id, attempt_number, usage_id, state, preview) values (${quizId}, ${userId}, 1, ${usageId}, ${state}, false)`.execute(db);
   }
 
   async function eventsFor(quizId: string, userId?: string) {
-    const rows = await db.select().from(outboxEvents).where(eq(outboxEvents.type, 'activity_due_reminder'));
+    const rows = await db.selectFrom('outbox_events').selectAll().where('type', '=', 'activity_due_reminder').execute();
     return (rows as { payload: { pinId?: string; userId?: string; timeClose?: string } }[])
       .filter((e) => e.payload.pinId === quizId && (userId === undefined || e.payload.userId === userId));
   }
 
   async function makeAssignment(opts: { dueInHours: number | null; courseVisible?: boolean; cmVisible?: boolean; name?: string }) {
-    const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`nb1-cat-${suffix}-${Math.random()}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
+    const catRows = await sql`insert into course_categories (name, path, tenant_id) values (${`nb1-cat-${suffix}-${Math.random()}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`.execute(db);
     const catId = (catRows.rows[0] as { id: string }).id;
     const short = `nb1${suffix}${Math.floor(Math.random() * 1e9)}`;
-    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, visible, class_id) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'NB1 course', ${short}, ${opts.courseVisible ?? true}, ${await fixtureClassId()}) returning id`);
+    const courseRows = await sql`insert into course (category, tenant_id, full_name, short_name, visible, class_id) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'NB1 course', ${short}, ${opts.courseVisible ?? true}, ${await fixtureClassId()}) returning id`.execute(db);
     const cid = (courseRows.rows[0] as { id: string }).id;
-    const secRows = await db.execute(sql`insert into course_sections (course, section) values (${cid}, 0) returning id`);
+    const secRows = await sql`insert into course_sections (course, section) values (${cid}, 0) returning id`.execute(db);
     const secId = (secRows.rows[0] as { id: string }).id;
-    const cmRows = await db.execute(sql`insert into course_modules (course, section, component, visible) values (${cid}, ${secId}, 'mod_assign', ${opts.cmVisible ?? true}) returning id`);
+    const cmRows = await sql`insert into course_modules (course, section, component, visible) values (${cid}, ${secId}, 'mod_assign', ${opts.cmVisible ?? true}) returning id`.execute(db);
     const cmId = (cmRows.rows[0] as { id: string }).id;
     const dueDate = opts.dueInHours === null ? null : new Date(Date.now() + opts.dueInHours * HOUR);
-    const [assignment] = await db.insert(assignments).values({ course: cid, cmId, name: opts.name ?? 'Bài tập NB1', dueDate }).returning();
-    const [inst] = await db.insert(enrol).values({ courseId: cid, enrol: 'manual', status: 0 }).returning();
+    const assignment = await db.insertInto('assignments').values({ course: cid, cm_id: cmId, name: opts.name ?? 'Bài tập NB1', due_date: dueDate }).returningAll().executeTakeFirstOrThrow();
+    const inst = await db.insertInto('enrol').values({ course_id: cid, enrol: 'manual', status: 0 }).returningAll().executeTakeFirstOrThrow();
     return { courseId: cid, assignmentId: assignment.id as string, instanceId: inst.id as string, dueDate };
   }
 
   async function addSubmission(assignmentId: string, userId: string, status: string) {
-    await db.insert(assignSubmissions).values({ assignmentId, userId, status, attemptNumber: 1 });
+    await db.insertInto('assign_submissions').values({ assignment_id: assignmentId, user_id: userId, status, attempt_number: 1 }).execute();
   }
 
   async function eventsForAssignment(assignmentId: string, userId?: string) {
-    const rows = await db.select().from(outboxEvents).where(eq(outboxEvents.type, 'activity_due_reminder'));
+    const rows = await db.selectFrom('outbox_events').selectAll().where('type', '=', 'activity_due_reminder').execute();
     return (rows as { payload: { assignmentId?: string; userId?: string; activityType?: string; timeClose?: string } }[])
       .filter((e) => e.payload.assignmentId === assignmentId && (userId === undefined || e.payload.userId === userId));
   }
@@ -124,10 +123,10 @@ describe('Nhắc sắp đến hạn hoạt động của worker (N5, issue #50)'
   // chủ lớp là user fixture riêng; mỗi lần gọi dựng một lớp mới.
   async function fixtureClassId(): Promise<string> {
     const ownerId = '01980000-0000-7000-8000-00000000c1a5';
-    await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${ownerId}, 'wk-class-owner', 'wk-class-owner@x.io', false, false) on conflict (id) do nothing`);
-    const coh = await db.execute(sql`insert into cohort (tenant_id, name, context_id, component, visible) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture cohort', '01990000-0000-7000-8000-0000000000a1', 'class', false) returning id`);
+    await sql`insert into users (id, username, email, suspended, deleted) values (${ownerId}, 'wk-class-owner', 'wk-class-owner@x.io', false, false) on conflict (id) do nothing`.execute(db);
+    const coh = await sql`insert into cohort (tenant_id, name, context_id, component, visible) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture cohort', '01990000-0000-7000-8000-0000000000a1', 'class', false) returning id`.execute(db);
     const cohId = (coh.rows[0] as { id: string }).id;
-    const cls = await db.execute(sql`insert into classes (tenant_id, name, owner_id, cohort_id) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture class', ${ownerId}, ${cohId}) returning id`);
+    const cls = await sql`insert into classes (tenant_id, name, owner_id, cohort_id) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture class', ${ownerId}, ${cohId}) returning id`.execute(db);
     return (cls.rows[0] as { id: string }).id;
   }
   let queue: Queue;
@@ -162,7 +161,7 @@ describe('Nhắc sắp đến hạn hoạt động của worker (N5, issue #50)'
       }
       await new Promise((r) => setTimeout(r, 100));
     }
-    await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
+    await sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`.execute(db);
   });
   afterAll(async () => {
     if (queue) await queue.resume().catch(() => undefined);
@@ -187,7 +186,7 @@ describe('Nhắc sắp đến hạn hoạt động của worker (N5, issue #50)'
     await enrolStudent(inst, finished);
     await enrolStudent(inst, inProgress);
     await enrolStudent(inst, suspendedEnrol, { status: 1 });
-    await enrolStudent(inst, expiredEnrol, { timeEnd: new Date(Date.now() - HOUR) });
+    await enrolStudent(inst, expiredEnrol, { time_end: new Date(Date.now() - HOUR) });
 
     const processor = context.get(ActivityDueReminderProcessor);
     await processor.process({ data: {} } as never);
@@ -233,7 +232,7 @@ describe('Nhắc sắp đến hạn hoạt động của worker (N5, issue #50)'
     expect(await eventsFor(quizId, student)).toHaveLength(1);
 
     const newClose = new Date(Date.now() + 20 * HOUR);
-    await db.update(examPins).set({ timeClose: newClose }).where(eq(examPins.id, quizId));
+    await db.updateTable('exam_pins').set({ time_close: newClose }).where('id', '=', quizId).execute();
     await processor.process({ data: {} } as never);
     const events = await eventsFor(quizId, student);
     expect(events).toHaveLength(2);
@@ -297,7 +296,7 @@ describe('Nhắc sắp đến hạn hoạt động của worker (N5, issue #50)'
     expect(await eventsForAssignment(assignmentId, student)).toHaveLength(1);
 
     const newDue = new Date(Date.now() + 20 * HOUR);
-    await db.update(assignments).set({ dueDate: newDue }).where(eq(assignments.id, assignmentId));
+    await db.updateTable('assignments').set({ due_date: newDue }).where('id', '=', assignmentId).execute();
     await processor.process({ data: {} } as never);
     const events = await eventsForAssignment(assignmentId, student);
     expect(events).toHaveLength(2);

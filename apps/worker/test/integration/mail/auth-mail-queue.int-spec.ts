@@ -2,9 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import { DelayedError, Queue } from 'bullmq';
-import { eq } from 'drizzle-orm';
 import Redis from 'ioredis';
-import { eventLog, outboxEvents } from '@lms/db';
 import { redisConnectionFromUrl } from '../../../src/config/env';
 import { OutboxRelayScheduler } from '../../../src/outbox-relay.scheduler';
 import { SpaceJobRunner } from '../../../src/db/routing/space-job-runner';
@@ -226,11 +224,11 @@ describe('Worker: mail auth qua hàng đợi (issue #517)', () => {
   }
 
   it('relay phát dòng auth_mail_requested thành job trên hàng đợi auth-mail, đóng dấu và phản chiếu event_log', async () => {
-    const [row] = await db.insert(outboxEvents).values({
+    const row = await db.insertInto('outbox_events').values({
       aggregate: 'auth',
       type: 'auth_mail_requested',
       payload: { kind: 'password_reset', to: recipient, url: resetUrl },
-    }).returning();
+    }).returningAll().executeTakeFirstOrThrow();
     expect(row?.id).toBeTruthy();
 
     // Chủ động xả một lượt relay thay vì chờ nhịp nền 5 giây; nhịp
@@ -240,8 +238,8 @@ describe('Worker: mail auth qua hàng đợi (issue #517)', () => {
     await relay.publishPending().catch(() => undefined);
 
     await waitFor('dòng outbox được đóng dấu publishedAt', async () => {
-      const [current] = await db.select().from(outboxEvents).where(eq(outboxEvents.id, row.id));
-      return current?.publishedAt != null;
+      const current = await db.selectFrom('outbox_events').selectAll().where('id', '=', row.id).executeTakeFirst();
+      return current?.published_at != null;
     });
 
     await waitFor('job của dòng xuất hiện trên hàng đợi auth-mail', async () => {
@@ -256,7 +254,7 @@ describe('Worker: mail auth qua hàng đợi (issue #517)', () => {
     expect(job?.data?.payload?.url).toBe(resetUrl);
 
     await waitFor('dòng được phản chiếu vào event_log', async () => {
-      const logs = await db.select().from(eventLog).where(eq(eventLog.eventType, 'auth_mail_requested'));
+      const logs = await db.selectFrom('event_log').selectAll().where('event_type', '=', 'auth_mail_requested').execute();
       return logs.some(
         (entry) => (entry.payload as { outboxId?: string } | null)?.outboxId === row.id,
       );
