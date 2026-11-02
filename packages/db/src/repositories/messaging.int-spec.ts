@@ -415,11 +415,31 @@ describe('cụm notification và tham số tenant tường minh', () => {
 
 describe('trang roster bằng SQL thô', () => {
   it('roster khoá: gán vai staff tại context khoá cho cờ staff, ghi danh hiệu lực cho cờ enrolled, trang con trỏ không trùng', async () => {
-    const courseId = randomUUID();
     const teacher = randomUUID();
     const student = randomUUID();
     await seedUser(teacher, 'g658-teacher', 'Giao', 'Vien');
     await seedUser(student, 'g658-student', 'Hoc', 'Sinh');
+    // Khoá thật làm đích FK cho `enrol`/`context` (khoá mẫu để qua
+    // check khoá-thuộc-lớp; spec chỉ cần khoá làm đích FK).
+    const rosterTenant = await db
+      .insertInto('tenants')
+      .values({ slug: 'g658-roster', name: 'Tenant roster G11', kind: 'center', status: 'active' })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    const rosterCategory = await db
+      .insertInto('course_categories')
+      .values({ tenant_id: rosterTenant.id, name: 'Danh mục roster G11' })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    const courseRow = await db
+      .insertInto('course')
+      .values({
+        tenant_id: rosterTenant.id, category: rosterCategory.id,
+        full_name: 'Khoá roster G11', short_name: 'G11-ROSTER', is_template: true,
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    const courseId = courseRow.id;
     const courseCtx = await db
       .insertInto('context')
       .values({ context_level: 50, instance_id: courseId, path: '', depth: 2 })
