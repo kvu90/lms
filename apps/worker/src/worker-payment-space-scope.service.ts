@@ -41,7 +41,10 @@ type Database = NodePgDatabase<typeof relations>;
  *      trung tâm (`withSpaceDatabase`): khung chuẩn bị handle của
  *      kho đích và mở ngữ cảnh ALS mang slug, nên mọi truy vấn
  *      qua handle định tuyến của worker trong thân xử lý vào đúng
- *      kho của trung tâm.
+ *      kho của trung tâm. Điểm phân giải này chuẩn bị CẢ HAI
+ *      facade của kho đích (Drizzle qua `withSpaceDatabase`,
+ *      Kysely qua `getKyselyForSpace`) vì các hiệu ứng theo
+ *      payment dùng cả hai handle định tuyến trong cùng phiên.
  *    - Worker chưa cấu hình control plane
  *      (`space_routing.not_configured`) → chạy platform như trước
  *      đợt định tuyến, cùng ngoại lệ đã chốt của `SpaceJobRunner`:
@@ -114,6 +117,17 @@ export class WorkerPaymentSpaceScope {
       throw err;
     }
     if (target.mode === 'dedicated') {
+      // Chuẩn bị CẢ facade Kysely của kho đích trước khi mở phiên:
+      // `withSpaceDatabase` chỉ chuẩn bị facade Drizzle, trong khi
+      // các hiệu ứng theo payment còn chạy bề mặt enrol trên
+      // `routedKysely` (bề mặt dùng chung của `@lms/enrol` từ D5) —
+      // thiếu bước này, `dedicatedSlugs` đã ghi nhận trung tâm là
+      // kho riêng mà bảng chuẩn bị Kysely trống, nên lượt truy vấn
+      // Kysely đầu tiên trong phiên ném
+      // `space_routing.prepared_revoked` (fail-closed) và kích hoạt
+      // không bao giờ chạy. Cùng luật chuẩn bị cả hai facade tại
+      // điểm mở phiên như đường HTTP phía API.
+      await this.spaceDatabase.getKyselyForSpace(slug);
       return this.spaceDatabase.withSpaceDatabase(slug, async () => fn());
     }
     return tenantAls.run({ platform: true }, async () => fn());
