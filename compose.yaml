@@ -432,14 +432,23 @@ services:
     ports:
       # Cổng host dành riêng cho Keycloak, bind vào loopback
       # (127.0.0.1) thay vì mọi giao diện của host: Cloudflare
-      # Tunnel chạy ngay trên host và ingress của nó trỏ
-      # localhost:8085, nên bind loopback là đủ cho đường công
+      # Tunnel chạy ngay trên host và ingress của nó trỏ vào
+      # cổng này trên localhost, nên bind loopback là đủ cho đường công
       # khai qua auth.fuckr.net, đồng thời không ai ngoài chính
       # host vào thẳng được cổng này để vượt qua tunnel hay giả
       # mạo các header X-Forwarded-* mà Keycloak tin
       # (KC_PROXY_HEADERS ở trên). Web vẫn là cửa vào của ứng
       # dụng như trước.
-      - "127.0.0.1:8085:8080"
+      # Số cổng phía host lấy từ biến KEYCLOAK_HOST_PORT của môi
+      # trường triển khai, mặc định 8085 — cùng khuôn với
+      # WEB_PORT của service web ở trên: một cổng host chỉ một
+      # stack giữ được, nên các stack nhân bản từ compose này
+      # (chẳng hạn preview theo nhánh) phải đặt cổng riêng qua
+      # biến này trong môi trường của service trên Dokploy;
+      # production không đặt biến nên vẫn dùng 8085 như trước,
+      # và ingress của tunnel phải trỏ đúng cổng mà stack của
+      # nó dùng.
+      - "127.0.0.1:${KEYCLOAK_HOST_PORT:-8085}:8080"
     depends_on:
       kc-db:
         condition: service_healthy
