@@ -86,7 +86,8 @@ jobs:
         run: docker compose -f compose.yaml -f compose.ci.yaml up -d --build
 
       # Chờ tối đa khoảng 5 phút cho API khỏe qua cửa web (cổng 8080
-      # là cổng duy nhất stack publish ra host). Quá hạn thì in trạng
+      # là cổng của ứng dụng mà stack publish ra host; cổng 8085 của
+      # Keycloak chỉ bind loopback cho tunnel). Quá hạn thì in trạng
       # thái stack và log của api + migrate để chẩn đoán rồi fail.
       - name: Wait for API health
         run: |

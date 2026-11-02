@@ -3,10 +3,13 @@
 # này, Cloudflare Tunnel công bố service web ra ngoài).
 #
 # Topology GIỮ NGUYÊN một-origin như đường chạy production hiện hành:
-# trình duyệt chỉ nói chuyện với service web (cổng duy nhất được publish
-# ra host); web proxy /api/*, /socket.io/*, /mcp và /.well-known/* về
-# service api qua mạng nội bộ của compose (LMS_API_INTERNAL_URL), nên
-# cookie đăng nhập và realtime hoạt động đúng như trước.
+# trình duyệt chỉ nói chuyện với service web (cổng web là cổng duy nhất
+# của ứng dụng được publish ra host); web proxy /api/*, /socket.io/*,
+# /mcp và /.well-known/* về service api qua mạng nội bộ của compose
+# (LMS_API_INTERNAL_URL), nên cookie đăng nhập và realtime hoạt động
+# đúng như trước. Ngoài cổng web, stack chỉ còn publish cổng 8085 của
+# Keycloak — và cổng đó bị bind vào loopback của host, chỉ Cloudflare
+# Tunnel chạy ngay trên host mới tới được (xem khối Keycloak ở dưới).
 #
 # Cách dùng:
 #   cp .env.example .env   # rồi điền các giá trị bí mật thật
@@ -198,8 +201,9 @@ services:
       PORT: 8080
       LMS_API_INTERNAL_URL: http://api:3100
     ports:
-      # Cổng duy nhất của stack được publish ra host. Khi gắn Cloudflare
-      # Tunnel, tunnel trỏ vào đúng cổng này của máy host.
+      # Cổng của ứng dụng được publish ra host. Khi gắn Cloudflare
+      # Tunnel, tunnel trỏ vào đúng cổng này của máy host. (Keycloak
+      # có cổng riêng 8085 nhưng chỉ bind loopback — xem khối đó.)
       - "${WEB_PORT:-8080}:8080"
     depends_on:
       api:
@@ -385,13 +389,28 @@ services:
       KC_HOSTNAME: https://auth.fuckr.net
       # TLS kết thúc ở Cloudflare Tunnel phía trước; container
       # chỉ nhận HTTP nội bộ và tin các header X-Forwarded-*.
+      # Việc tin các header này chỉ an toàn vì cổng 8085 ở dưới
+      # bị bind vào loopback của host: chỉ cloudflared chạy ngay
+      # trên host mới tới được cổng, và cloudflared tự ghi lại
+      # các header X-Forwarded-* theo kết nối thật — không còn
+      # đường nào khác vào cổng này để giả mạo header. Vì vậy
+      # không đặt KC_PROXY_TRUSTED_ADDRESSES: địa chỉ peer mà
+      # container thấy là docker proxy/bridge trên subnet động
+      # do Docker cấp, ghim CIDR tại đây sẽ là đoán.
       KC_HTTP_ENABLED: "true"
       KC_PROXY_HEADERS: xforwarded
       KC_HEALTH_ENABLED: "true"
     ports:
-      # Cổng host dành riêng cho Keycloak; web vẫn là cửa vào
-      # của ứng dụng như trước.
-      - "8085:8080"
+      # Cổng host dành riêng cho Keycloak, bind vào loopback
+      # (127.0.0.1) thay vì mọi giao diện của host: Cloudflare
+      # Tunnel chạy ngay trên host và ingress của nó trỏ
+      # localhost:8085, nên bind loopback là đủ cho đường công
+      # khai qua auth.fuckr.net, đồng thời không ai ngoài chính
+      # host vào thẳng được cổng này để vượt qua tunnel hay giả
+      # mạo các header X-Forwarded-* mà Keycloak tin
+      # (KC_PROXY_HEADERS ở trên). Web vẫn là cửa vào của ứng
+      # dụng như trước.
+      - "127.0.0.1:8085:8080"
     volumes:
       # File realm của repo (xem ghi chú ở đầu khối Keycloak
       # này). Compose chạy với toàn bộ checkout của repo làm
