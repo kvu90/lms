@@ -11,6 +11,7 @@ import {
   PlanEntitlementsService,
   SepayMatchingService,
 } from '@lms/payments';
+import { createCentreKysely } from '@lms/db';
 import { spaceRegistry } from '@lms/db/control-plane';
 import { relations } from '../../../src/db/relations';
 import { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
@@ -390,12 +391,13 @@ describe('Kích hoạt ghi danh trả phí theo không gian của payment (integ
     sharedPool = new TenantAwarePool({ connectionString: process.env.DATABASE_URL! });
     const rawShared = drizzle({ client: sharedPool, relations });
     spaceDb.bindSharedDatabase(rawShared);
+    spaceDb.bindSharedKysely(createCentreKysely(sharedPool));
     const routed = spaceDb.routedDatabase;
 
     const repo = new PaymentsRepository(routed as never);
     const writer = new OutboxWriterService(routed as never);
     const plans = new PlanEntitlementsService(repo);
-    const enrolOutbox = new WorkerEnrolOutboxService(writer);
+    const enrolOutbox = new WorkerEnrolOutboxService(writer, spaceDb);
     const scope = new WorkerPaymentSpaceScope(routed, spaceDb);
     matching = new SepayMatchingService(
       repo,

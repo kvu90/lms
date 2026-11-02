@@ -1,7 +1,5 @@
-import { and, eq } from 'drizzle-orm';
-import { tenantMemberships } from '@lms/db';
 import { ensureTenantContext, markContextDirty } from './contexts';
-import type { EnrolDatabase, TenantMembershipRow } from './types';
+import { TENANT_MEMBERSHIP_COLUMNS, type EnrolDatabase, type TenantMembershipRow } from './types';
 
 /**
  * Đảm bảo membership `active` của một người dùng trong một tenant ở
@@ -22,7 +20,7 @@ import type { EnrolDatabase, TenantMembershipRow } from './types';
  * gọi nó (funnel ghi danh, tạo tenant/user, bootstrap seed) tự bọc
  * ngữ cảnh phù hợp ở tầng của chúng, như hành vi hiện hành.
  *
- * @param db - tay cầm Drizzle của host.
+ * @param db - tay cầm Kysely của host.
  * @param tenantId - tenant đích.
  * @param userId - người dùng cần thuộc tenant.
  * @returns dòng membership ở trạng thái `active`.
@@ -32,18 +30,29 @@ export async function ensureActiveTenantMembership(
   tenantId: string,
   userId: string,
 ): Promise<TenantMembershipRow> {
-  const [existing] = await db
-    .select()
-    .from(tenantMemberships)
-    .where(and(eq(tenantMemberships.tenantId, tenantId), eq(tenantMemberships.userId, userId)));
+  const existing = await db
+    .selectFrom('tenant_memberships')
+    .select(TENANT_MEMBERSHIP_COLUMNS)
+    .where((eb) => eb.and([
+      eb('tenant_memberships.tenant_id', '=', tenantId),
+      eb('tenant_memberships.user_id', '=', userId),
+    ]))
+    .executeTakeFirst();
   if (existing?.status === 'active') return existing;
   let row: TenantMembershipRow;
   if (existing) {
-    await db.update(tenantMemberships).set({ status: 'active', endedAt: null }).where(eq(tenantMemberships.id, existing.id));
+    await db
+      .updateTable('tenant_memberships')
+      .set({ status: 'active', ended_at: null })
+      .where('id', '=', existing.id)
+      .execute();
     row = { ...existing, status: 'active', endedAt: null };
   } else {
-    const [inserted] = await db.insert(tenantMemberships).values({ tenantId, userId, status: 'active' }).returning();
-    row = inserted!;
+    row = await db
+      .insertInto('tenant_memberships')
+      .values({ tenant_id: tenantId, user_id: userId, status: 'active' })
+      .returning(TENANT_MEMBERSHIP_COLUMNS)
+      .executeTakeFirstOrThrow();
   }
   const tenantCtx = await ensureTenantContext(db, tenantId);
   await markContextDirty(db, tenantCtx.id);

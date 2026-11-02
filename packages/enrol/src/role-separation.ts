@@ -1,5 +1,3 @@
-import { and, eq, inArray, isNull, ne, notInArray, or } from 'drizzle-orm';
-import { classes, context, course, enrol, role, roleAssignments, userEnrolments, users } from '@lms/db';
 import { CONTEXT_LEVELS } from './contexts';
 import { RoleContextConflictError } from './errors';
 import { TEACHING_ROLE_ARCHETYPES } from './plan-limits';
@@ -95,7 +93,7 @@ export interface RoleConflictAuditReport {
  */
 export class RoleSeparationCore {
   /**
-   * @param db - tay cầm Drizzle của host.
+   * @param db - tay cầm Kysely của host.
    * @param runInPlatformScope - cổng chạy trong ngữ cảnh platform của host.
    */
   constructor(
@@ -130,29 +128,35 @@ export class RoleSeparationCore {
    */
   async hasTeachingCoverageForCourse(userId: string, courseId: string): Promise<boolean> {
     return this.withPlatformRead(async () => {
-      const [courseCtx] = await this.db
-        .select({ path: context.path })
-        .from(context)
-        .where(and(eq(context.contextLevel, CONTEXT_LEVELS.COURSE), eq(context.instanceId, courseId)));
+      const courseCtx = await this.db
+        .selectFrom('context')
+        .select('context.path')
+        .where((eb) => eb.and([
+          eb('context.context_level', '=', CONTEXT_LEVELS.COURSE),
+          eb('context.instance_id', '=', courseId),
+        ]))
+        .executeTakeFirst();
       if (!courseCtx) return false;
       const ancestorIds = courseCtx.path.split('/').filter(Boolean);
       if (!ancestorIds.length) return false;
       const ancestorRows = await this.db
-        .select({ id: context.id, contextLevel: context.contextLevel })
-        .from(context)
-        .where(inArray(context.id, ancestorIds));
+        .selectFrom('context')
+        .select(['context.id as id', 'context.context_level as contextLevel'])
+        .where('context.id', 'in', ancestorIds)
+        .execute();
       const coveringIds = ancestorRows.filter((r) => r.contextLevel !== CONTEXT_LEVELS.SYSTEM).map((r) => r.id);
       if (!coveringIds.length) return false;
       const rows = await this.db
-        .select({ id: roleAssignments.id })
-        .from(roleAssignments)
-        .innerJoin(role, eq(role.id, roleAssignments.roleId))
-        .where(and(
-          eq(roleAssignments.userId, userId),
-          inArray(roleAssignments.contextId, coveringIds),
-          inArray(role.archetype, [...TEACHING_ROLE_ARCHETYPES]),
-          ne(roleAssignments.component, ENROL_ASSIGNMENT_COMPONENT_VALUE),
-        ));
+        .selectFrom('role_assignments')
+        .select('role_assignments.id')
+        .innerJoin('role', 'role.id', 'role_assignments.role_id')
+        .where((eb) => eb.and([
+          eb('role_assignments.user_id', '=', userId),
+          eb('role_assignments.context_id', 'in', coveringIds),
+          eb('role.archetype', 'in', [...TEACHING_ROLE_ARCHETYPES]),
+          eb('role_assignments.component', '<>', ENROL_ASSIGNMENT_COMPONENT_VALUE),
+        ]))
+        .execute();
       return rows.length > 0;
     });
   }
@@ -169,16 +173,20 @@ export class RoleSeparationCore {
   async hasActiveLearnerEnrolment(userId: string, courseId: string): Promise<boolean> {
     return this.withPlatformRead(async () => {
       const rows = await this.db
-        .select({ id: userEnrolments.id })
-        .from(userEnrolments)
-        .innerJoin(enrol, eq(enrol.id, userEnrolments.enrolId))
-        .leftJoin(role, eq(role.id, enrol.roleId))
-        .where(and(
-          eq(userEnrolments.userId, userId),
-          eq(enrol.courseId, courseId),
-          eq(userEnrolments.status, ENROL_ACTIVE_STATUS),
-          or(isNull(role.archetype), notInArray(role.archetype, [...TEACHING_ROLE_ARCHETYPES])),
-        ));
+        .selectFrom('user_enrolments')
+        .select('user_enrolments.id')
+        .innerJoin('enrol', 'enrol.id', 'user_enrolments.enrol_id')
+        .leftJoin('role', 'role.id', 'enrol.role_id')
+        .where((eb) => eb.and([
+          eb('user_enrolments.user_id', '=', userId),
+          eb('enrol.course_id', '=', courseId),
+          eb('user_enrolments.status', '=', ENROL_ACTIVE_STATUS),
+          eb.or([
+            eb('role.archetype', 'is', null),
+            eb('role.archetype', 'not in', [...TEACHING_ROLE_ARCHETYPES]),
+          ]),
+        ]))
+        .execute();
       return rows.length > 0;
     });
   }
@@ -195,7 +203,11 @@ export class RoleSeparationCore {
   async isLearnerGrantRole(roleId: string | null): Promise<boolean> {
     if (!roleId) return true;
     return this.withPlatformRead(async () => {
-      const [row] = await this.db.select({ archetype: role.archetype }).from(role).where(eq(role.id, roleId));
+      const row = await this.db
+        .selectFrom('role')
+        .select('role.archetype')
+        .where('role.id', '=', roleId)
+        .executeTakeFirst();
       return !(TEACHING_ROLE_ARCHETYPES as readonly string[]).includes(row?.archetype ?? '');
     });
   }
@@ -232,14 +244,19 @@ export class RoleSeparationCore {
   async coursesFedByCohort(cohortId: string): Promise<string[]> {
     return this.withPlatformRead(async () => {
       const viaInstances = await this.db
-        .select({ courseId: enrol.courseId })
-        .from(enrol)
-        .where(and(eq(enrol.enrol, 'cohort'), eq(enrol.customInt1, cohortId)));
+        .selectFrom('enrol')
+        .select('enrol.course_id as courseId')
+        .where((eb) => eb.and([
+          eb('enrol.enrol', '=', 'cohort'),
+          eb('enrol.custom_int1', '=', cohortId),
+        ]))
+        .execute();
       const viaClasses = await this.db
-        .select({ id: course.id })
-        .from(course)
-        .innerJoin(classes, eq(classes.id, course.classId))
-        .where(eq(classes.cohortId, cohortId));
+        .selectFrom('course')
+        .select('course.id')
+        .innerJoin('classes', 'classes.id', 'course.class_id')
+        .where('classes.cohort_id', '=', cohortId)
+        .execute();
       return [...new Set([...viaInstances.map((r) => r.courseId), ...viaClasses.map((r) => r.id)])];
     });
   }
@@ -275,14 +292,19 @@ export class RoleSeparationCore {
    */
   async coveredCoursesForContext(contextId: string): Promise<string[]> {
     return this.withPlatformRead(async () => {
-      const [ctx] = await this.db
-        .select({ contextLevel: context.contextLevel, instanceId: context.instanceId })
-        .from(context)
-        .where(eq(context.id, contextId));
+      const ctx = await this.db
+        .selectFrom('context')
+        .select(['context.context_level as contextLevel', 'context.instance_id as instanceId'])
+        .where('context.id', '=', contextId)
+        .executeTakeFirst();
       if (!ctx || !ctx.instanceId) return [];
       if (ctx.contextLevel === CONTEXT_LEVELS.COURSE) return [ctx.instanceId];
       if (ctx.contextLevel === CONTEXT_LEVELS.CLASS) {
-        const rows = await this.db.select({ id: course.id }).from(course).where(eq(course.classId, ctx.instanceId));
+        const rows = await this.db
+          .selectFrom('course')
+          .select('course.id')
+          .where('course.class_id', '=', ctx.instanceId)
+          .execute();
         return rows.map((r) => r.id);
       }
       return [];
@@ -339,8 +361,14 @@ export class RoleSeparationCore {
   async auditRoleConflicts(): Promise<RoleConflictAuditReport> {
     return this.withPlatformRead(async () => {
       const contextRows = await this.db
-        .select({ id: context.id, contextLevel: context.contextLevel, instanceId: context.instanceId, path: context.path })
-        .from(context);
+        .selectFrom('context')
+        .select([
+          'context.id as id',
+          'context.context_level as contextLevel',
+          'context.instance_id as instanceId',
+          'context.path as path',
+        ])
+        .execute();
       const systemContextId = contextRows.find((r) => r.contextLevel === CONTEXT_LEVELS.SYSTEM)?.id;
       const coveringContextsByCourse = new Map<string, Set<string>>();
       for (const row of contextRows) {
@@ -352,13 +380,17 @@ export class RoleSeparationCore {
         }
       }
       const teachingAssignments = await this.db
-        .select({ userId: roleAssignments.userId, contextId: roleAssignments.contextId })
-        .from(roleAssignments)
-        .innerJoin(role, eq(role.id, roleAssignments.roleId))
-        .where(and(
-          inArray(role.archetype, [...TEACHING_ROLE_ARCHETYPES]),
-          ne(roleAssignments.component, ENROL_ASSIGNMENT_COMPONENT_VALUE),
-        ));
+        .selectFrom('role_assignments')
+        .select([
+          'role_assignments.user_id as userId',
+          'role_assignments.context_id as contextId',
+        ])
+        .innerJoin('role', 'role.id', 'role_assignments.role_id')
+        .where((eb) => eb.and([
+          eb('role.archetype', 'in', [...TEACHING_ROLE_ARCHETYPES]),
+          eb('role_assignments.component', '<>', ENROL_ASSIGNMENT_COMPONENT_VALUE),
+        ]))
+        .execute();
       const teachingContextsByUser = new Map<string, Set<string>>();
       for (const row of teachingAssignments) {
         const set = teachingContextsByUser.get(row.userId) ?? new Set<string>();
@@ -376,14 +408,21 @@ export class RoleSeparationCore {
         if (covered.size) coveredCoursesByUser.set(userId, covered);
       }
       const learnerRows = await this.db
-        .select({ userId: userEnrolments.userId, courseId: enrol.courseId })
-        .from(userEnrolments)
-        .innerJoin(enrol, eq(enrol.id, userEnrolments.enrolId))
-        .leftJoin(role, eq(role.id, enrol.roleId))
-        .where(and(
-          eq(userEnrolments.status, ENROL_ACTIVE_STATUS),
-          or(isNull(role.archetype), notInArray(role.archetype, [...TEACHING_ROLE_ARCHETYPES])),
-        ));
+        .selectFrom('user_enrolments')
+        .innerJoin('enrol', 'enrol.id', 'user_enrolments.enrol_id')
+        .leftJoin('role', 'role.id', 'enrol.role_id')
+        .select([
+          'user_enrolments.user_id as userId',
+          'enrol.course_id as courseId',
+        ])
+        .where((eb) => eb.and([
+          eb('user_enrolments.status', '=', ENROL_ACTIVE_STATUS),
+          eb.or([
+            eb('role.archetype', 'is', null),
+            eb('role.archetype', 'not in', [...TEACHING_ROLE_ARCHETYPES]),
+          ]),
+        ]))
+        .execute();
       const learnerCoursesByUser = new Map<string, Set<string>>();
       for (const row of learnerRows) {
         const set = learnerCoursesByUser.get(row.userId) ?? new Set<string>();
@@ -393,9 +432,10 @@ export class RoleSeparationCore {
       const candidateIds = [...coveredCoursesByUser.keys()].filter((userId) => learnerCoursesByUser.has(userId));
       if (!candidateIds.length) return { sameCourse: [], crossCourse: [] };
       const userRows = await this.db
-        .select({ id: users.id, username: users.username, email: users.email })
-        .from(users)
-        .where(inArray(users.id, candidateIds));
+        .selectFrom('users')
+        .select(['users.id as id', 'users.username as username', 'users.email as email'])
+        .where('users.id', 'in', candidateIds)
+        .execute();
       const displayById = new Map(userRows.map((u) => [u.id, u]));
       const sameCourse: RoleConflictAuditEntry[] = [];
       const crossCourse: RoleConflictAuditEntry[] = [];

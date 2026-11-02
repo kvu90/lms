@@ -105,9 +105,10 @@ import { RolesService } from '../access/roles.service';
 import { PlanLimitsService } from '../access/plan-limits.service';
 import { RoleSeparationService } from '../access/role-separation.service';
 import { OutboxService } from '../../infra/events/outbox.service';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import type { Database } from '../../db/database';
 import { CONTEXT_LEVELS, DEFAULT_ROLES } from '../access/domain/capabilities';
-import { createCentreKysely, sql as kyselySql } from '@lms/db';
+import { createCentreKysely, sql as kyselySql, type CentreDb } from '@lms/db';
 import { isDedicatedDatabaseNameConflict } from '@lms/db/repositories/control-plane';
 import {
   loadProgramDumpSql,
@@ -288,19 +289,23 @@ const ROLE_BASELINE_MARKER_VERSION = 1;
  *
  * @param db - Handle Drizzle của kho đích (kết nối đã mang ngữ
  *   cảnh platform để qua RLS như mọi ghi seed của pipeline).
+ * @param kyselyDb - Handle Kysely của cùng kho đích (cùng ngữ cảnh
+ *   platform ở mức phiên) cho hai service access mà `RolesService`
+ *   yêu cầu ở constructor (D5 #657); đường gieo mặc định không
+ *   truy vấn qua hai lõi này, handle chỉ cần tồn tại đúng kho.
  * @returns `created` khi lượt này đã chạy đường gieo và ghi dấu
  *   mốc hoàn tất, `reused` khi kho đã cài trọn bộ vai nên không
  *   đổi gì.
  */
-async function installCentreRoleBaseline(db: Database): Promise<'created' | 'reused'> {
+async function installCentreRoleBaseline(db: Database, kyselyDb: CentreDb): Promise<'created' | 'reused'> {
   const accessRepository = new AccessRepository(db);
   const contextsService = new ContextsService(accessRepository);
   const rolesService = new RolesService(
     accessRepository,
     contextsService,
     new OutboxService(db),
-    new PlanLimitsService(db),
-    new RoleSeparationService(db),
+    new PlanLimitsService({ routedKysely: kyselyDb } as unknown as SpaceDatabaseService),
+    new RoleSeparationService({ routedKysely: kyselyDb } as unknown as SpaceDatabaseService),
   );
   const existingRoles = await rolesService.listRoles();
   const presentShortNames = new Set(existingRoles.map((row) => row.shortName));
@@ -636,8 +641,17 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
       // Bộ vai mặc định của kho trung tâm (cơ chế chuyển tiếp —
       // xem `installCentreRoleBaseline`): cài sau khi context hệ
       // thống và dòng tenant đã có, vì ma trận mặc định neo vào
-      // context hệ thống của chính kho này.
-      step('role-baseline', await installCentreRoleBaseline(db));
+      // context hệ thống của chính kho này. Handle Kysely cho hai
+      // service access dựng trên pool riêng trần 1 kết nối (cùng
+      // khuôn restorePool ở trên) với GUC platform ở mức phiên.
+      const baselinePool = new Pool({ connectionString: centreUrl, max: 1 });
+      const baselineKysely = createCentreKysely(baselinePool);
+      try {
+        await kyselySql`SELECT set_config('app.platform', 'on', false)`.execute(baselineKysely);
+        step('role-baseline', await installCentreRoleBaseline(db, baselineKysely));
+      } finally {
+        await baselineKysely.destroy().catch(() => undefined);
+      }
       // Nhận diện của trung tâm (một dòng cho mỗi tenant).
       const [existingIdentity] = await db.select().from(centreIdentity).where(eq(centreIdentity.tenantId, tenantId)).limit(1);
       if (!existingIdentity) {
@@ -876,7 +890,18 @@ export async function installSpaceRoleBaseline(options: SpaceRoleBaselineOptions
       const db = drizzle({ client, relations });
       const [tenant] = await db.select().from(tenants).where(eq(tenants.slug, slug)).limit(1);
       if (!tenant) throw new Error(`Tenant ${slug} does not exist in the centre database yet`);
-      const outcome = await installCentreRoleBaseline(db);
+      // Handle Kysely cho hai service access (D5 #657): pool riêng
+      // trần 1 kết nối với GUC platform ở mức phiên, cùng khuôn
+      // điểm gọi cấp phát ở trên.
+      const baselinePool = new Pool({ connectionString: centreUrl, max: 1 });
+      const baselineKysely = createCentreKysely(baselinePool);
+      let outcome: 'created' | 'reused';
+      try {
+        await kyselySql`SELECT set_config('app.platform', 'on', false)`.execute(baselineKysely);
+        outcome = await installCentreRoleBaseline(db, baselineKysely);
+      } finally {
+        await baselineKysely.destroy().catch(() => undefined);
+      }
       log(`[install-roles:${slug}] role-baseline: ${outcome}`);
       return { slug, outcome };
     } finally {

@@ -4,6 +4,7 @@ import { Client, Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createCentreKysely, sql as kyselySql } from '@lms/db';
 import {
   installSpaceRoleBaseline,
   runSpaceProvision,
@@ -16,6 +17,7 @@ import { RolesService } from '../../../src/modules/access/roles.service';
 import { PlanLimitsService } from '../../../src/modules/access/plan-limits.service';
 import { RoleSeparationService } from '../../../src/modules/access/role-separation.service';
 import { OutboxService } from '../../../src/infra/events/outbox.service';
+import { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
 import { relations } from '../../../src/db/relations';
 import { DEFAULT_ROLES } from '../../../src/modules/access/domain/capabilities';
 
@@ -173,15 +175,25 @@ async function seedSharedStoreDefaults(connectionString: string): Promise<void> 
   await withClient(connectionString, async (client) => {
     await client.query(`SELECT set_config('app.platform', 'on', false)`);
     const db = drizzle({ client, relations });
+    // Handle Kysely cho hai service access (D5 #657): pool riêng
+    // trần 1 kết nối với GUC platform ở mức phiên, cùng khuôn điểm
+    // gọi cấp phát trong `space-provision-runner.ts`.
+    const baselinePool = new Pool({ connectionString, max: 1 });
+    const baselineKysely = createCentreKysely(baselinePool);
     const accessRepository = new AccessRepository(db);
     const rolesService = new RolesService(
       accessRepository,
       new ContextsService(accessRepository),
       new OutboxService(db),
-      new PlanLimitsService(db),
-      new RoleSeparationService(db),
+      new PlanLimitsService({ routedKysely: baselineKysely } as unknown as SpaceDatabaseService),
+      new RoleSeparationService({ routedKysely: baselineKysely } as unknown as SpaceDatabaseService),
     );
-    await rolesService.seedDefaults();
+    try {
+      await kyselySql`SELECT set_config('app.platform', 'on', false)`.execute(baselineKysely);
+      await rolesService.seedDefaults();
+    } finally {
+      await baselineKysely.destroy().catch(() => undefined);
+    }
   });
 }
 

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { tenants } from '@lms/db';
+import { tenants, type CentreDb } from '@lms/db';
 import { SharedDomainError } from '@lms/enrol';
 import { tenantAls } from './db/tenant-als';
 import type { relations } from './db/relations';
@@ -72,6 +72,18 @@ export class WorkerPaymentSpaceScope {
     @InjectDrizzle() private readonly db: Database,
     private readonly spaceDatabase: SpaceDatabaseService,
   ) {}
+
+  /**
+   * Handle Kysely đã định tuyến của khung (cùng instance
+   * `SpaceDatabaseService` mà scope này giữ): các service kích hoạt
+   * ghi danh trả phí dùng nó làm tay cầm cho bề mặt vật chất hoá
+   * cohort dùng chung (D5 #657) mà không cần thêm tham số
+   * constructor — scope đã là điểm duy nhất nắm khung định tuyến
+   * của các service đó.
+   */
+  get routedKysely(): CentreDb {
+    return this.spaceDatabase.routedKysely;
+  }
 
   /**
    * Chạy `fn` trong phạm vi kho của trung tâm sở hữu một payment.

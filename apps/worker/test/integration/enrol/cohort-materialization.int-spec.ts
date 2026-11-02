@@ -1,10 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { Client, Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { CohortMaterializationSurface, type SharedOutboxPort } from '@lms/enrol';
-import { outboxEvents } from '@lms/db';
-import { relations } from '../../../src/db/relations';
+import { CohortMaterializationSurface, type EnrolInstanceRow, type SharedOutboxPort } from '@lms/enrol';
+import { createCentreKysely, sql, type CentreDB, type CentreDb } from '@lms/db';
 import { tenantAls } from '../../../src/db/tenant-als';
 
 /**
@@ -18,7 +16,7 @@ import { tenantAls } from '../../../src/db/tenant-als';
  * dữ liệu liên quan, hook tái tổng hợp). Spec này chứng minh bề mặt
  * đã trích xuất dựng và chạy trọn vẹn trong NGỮ CẢNH CỦA WORKER:
  * chính tiến trình test của worker import package, dựng bề mặt
- * bằng tay cầm Drizzle trên cơ sở dữ liệu test của worker
+ * bằng tay cầm Kysely trên cơ sở dữ liệu test của worker
  * (`lms_test_worker`), cổng outbox do phía gọi tự cấp (chèn thẳng
  * vào `outbox_events` trên schema dùng chung, gương `tenantId` vào
  * payload như dịch vụ outbox của API vẫn làm) và cổng ngữ cảnh
@@ -53,6 +51,7 @@ interface CourseGraph {
 describe('Vật chất hoá cohort dùng chung — gọi được và đúng hành vi từ phía worker', () => {
   let pg: Client;
   let pool: Pool;
+  let db: CentreDb;
   let surface: CohortMaterializationSurface;
   let tenantId: string;
   let tenantCtxId: string;
@@ -108,30 +107,68 @@ describe('Vật chất hoá cohort dùng chung — gọi được và đúng hà
     return res.rows as Array<{ payload: Record<string, unknown> }>;
   }
 
+  /** Dòng enrol instance dùng cho các ca gọi trực tiếp `enrolUserInternal`. */
+  function instanceRow(graph: CourseGraph, onLeave: 'suspend' | 'unenrol'): EnrolInstanceRow {
+    return {
+      id: graph.instanceId,
+      courseId: graph.courseId,
+      enrol: 'cohort',
+      name: null,
+      roleId: studentRoleId,
+      status: 0,
+      enrolPeriod: 0,
+      timeStart: null,
+      timeEnd: null,
+      enrolmentKey: null,
+      customInt1: graph.cohortId,
+      customInt2: null,
+      customText1: onLeave,
+      cost: 0,
+      currency: 'VND',
+      paymentAccountId: null,
+      sendWelcomeMessage: false,
+      welcomeMessage: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
   beforeAll(async () => {
     const connectionString = process.env.DATABASE_URL;
     pg = new Client({ connectionString });
     await pg.connect();
     pool = new Pool({ connectionString });
-    const db = drizzle({ client: pool, relations });
+    db = createCentreKysely(pool);
     // Cổng outbox phía worker tự cấp cho bề mặt: chèn thẳng vào
     // outbox_events trên schema dùng chung; enqueue ghi trong
     // transaction được truyền vào, enqueueStandalone ghi độc lập —
-    // đúng hợp đồng cổng mà package khai báo.
+    // đúng hợp đồng cổng mà package khai báo. Cột `payload` jsonb
+    // đi qua serialize tường minh kèm `::jsonb` theo khuôn ghi
+    // jsonb của `@lms/db`.
     const outbox: SharedOutboxPort = {
       async enqueue(tx, input) {
         const tenantIdValue = input.tenantId ?? null;
         const payload = tenantIdValue && input.payload['tenantId'] === undefined
           ? { ...input.payload, tenantId: tenantIdValue }
           : input.payload;
-        await tx.insert(outboxEvents).values({ aggregate: input.aggregate, type: input.type, payload, tenantId: tenantIdValue });
+        await tx.insertInto('outbox_events').values({
+          aggregate: input.aggregate,
+          type: input.type,
+          payload: sql<CentreDB['outbox_events']['payload']>`${JSON.stringify(payload)}::jsonb`,
+          tenant_id: tenantIdValue,
+        }).execute();
       },
       async enqueueStandalone(input) {
         const tenantIdValue = input.tenantId ?? null;
         const payload = tenantIdValue && input.payload['tenantId'] === undefined
           ? { ...input.payload, tenantId: tenantIdValue }
           : input.payload;
-        await db.insert(outboxEvents).values({ aggregate: input.aggregate, type: input.type, payload, tenantId: tenantIdValue });
+        await db.insertInto('outbox_events').values({
+          aggregate: input.aggregate,
+          type: input.type,
+          payload: sql<CentreDB['outbox_events']['payload']>`${JSON.stringify(payload)}::jsonb`,
+          tenant_id: tenantIdValue,
+        }).execute();
       },
     };
     surface = new CohortMaterializationSurface({
@@ -250,5 +287,60 @@ describe('Vật chất hoá cohort dùng chung — gọi được và đúng hà
     const suspendedEvents = await outboxOf('user_enrolment_suspended', userId);
     expect(suspendedEvents).toHaveLength(1);
     expect(suspendedEvents[0]?.payload.reason).toBe('cohort_removed');
+  });
+
+  it('lỗi outbox không phải unique violation trong transaction ghi danh thì phải nổi lên và không để lại dòng ghi danh nào (ca phủ định T-10)', async () => {
+    const graph = await makeCourseGraph('unenrol');
+    const userId = await insertUser();
+    // Cổng outbox lỗi đúng tại sự kiện `user_enrolled` — lỗi này
+    // không mang mã 23505 nên bề mặt KHÔNG được nuốt thành
+    // idempotent: transaction phải rollback và lỗi phải nổi lên.
+    const failingOutbox: SharedOutboxPort = {
+      async enqueue(tx, input) {
+        if (input.type === 'user_enrolled') throw new Error('outbox boom');
+        const tenantIdValue = input.tenantId ?? null;
+        await tx.insertInto('outbox_events').values({
+          aggregate: input.aggregate,
+          type: input.type,
+          payload: sql<CentreDB['outbox_events']['payload']>`${JSON.stringify(input.payload)}::jsonb`,
+          tenant_id: tenantIdValue,
+        }).execute();
+      },
+      async enqueueStandalone(input) {
+        const tenantIdValue = input.tenantId ?? null;
+        await db.insertInto('outbox_events').values({
+          aggregate: input.aggregate,
+          type: input.type,
+          payload: sql<CentreDB['outbox_events']['payload']>`${JSON.stringify(input.payload)}::jsonb`,
+          tenant_id: tenantIdValue,
+        }).execute();
+      },
+    };
+    const failingSurface = new CohortMaterializationSurface({
+      db,
+      outbox: failingOutbox,
+      runInPlatformScope: (fn) => tenantAls.run({ platform: true }, fn),
+    });
+
+    await expect(failingSurface.enrolUserInternal(instanceRow(graph, 'unenrol'), userId)).rejects.toThrow('outbox boom');
+    expect(await ueRow(graph.instanceId, userId)).toBeUndefined();
+    expect(await outboxOf('user_enrolled', userId)).toHaveLength(0);
+  });
+
+  it('hai lần ghi danh đồng thời cho cùng một cặp instance-người dùng thì cả hai đều thành công, đúng một dòng ghi danh và đúng một sự kiện user_enrolled', async () => {
+    const graph = await makeCourseGraph('unenrol');
+    const userId = await insertUser();
+    const instance = instanceRow(graph, 'unenrol');
+
+    const [first, second] = await Promise.all([
+      surface.enrolUserInternal(instance, userId),
+      surface.enrolUserInternal(instance, userId),
+    ]);
+
+    expect(first.userEnrolment.id).toBe(second.userEnrolment.id);
+    expect([first.isNewEnrolment, second.isNewEnrolment].filter(Boolean)).toHaveLength(1);
+    const rows = await pg.query('SELECT id FROM user_enrolments WHERE enrol_id = $1 AND user_id = $2', [graph.instanceId, userId]);
+    expect(rows.rows).toHaveLength(1);
+    expect(await outboxOf('user_enrolled', userId)).toHaveLength(1);
   });
 });

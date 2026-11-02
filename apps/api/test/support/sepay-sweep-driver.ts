@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { and, asc, gt, inArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { outboxEvents } from '@lms/db';
+import { outboxEvents, createCentreKysely } from '@lms/db';
 import {
   OutboxWriterService,
   PaymentsRepository,
@@ -72,6 +72,7 @@ import { WorkerPaymentSpaceScope } from '../../../worker/src/worker-payment-spac
 let scheduler: SepayMatchingScheduler | null = null;
 let pool: TenantAwarePool | null = null;
 let sharedDb: NodePgDatabase<typeof relations> | null = null;
+let spaceDatabase: SpaceDatabaseService | null = null;
 let cohortSync: CohortSyncService | null = null;
 let cohortWatermark = 0;
 
@@ -83,23 +84,34 @@ function getSharedDb(): NodePgDatabase<typeof relations> {
   return sharedDb;
 }
 
+/**
+ * Khung định tuyến của worker cho cầu dẫn (dùng chung cho cả nhịp
+ * quét matching và nhịp đồng bộ cohort): không cấu hình control
+ * plane (`ConfigService` rỗng, không gọi `onModuleInit`) nên mọi
+ * phân giải cho `not_configured` và kích hoạt chạy platform ở kho
+ * chung — đúng hành vi của cầu dẫn trước hạng mục này. Handle kho
+ * chung THÔ được gắn vào khung định tuyến đúng như factory của
+ * module worker làm lúc khởi động, kèm handle Kysely trên CÙNG pool
+ * (D5 #657: cổng outbox Kysely của bề mặt enrol cần `routedKysely`).
+ */
+function getSpaceDatabase(): SpaceDatabaseService {
+  if (!spaceDatabase) {
+    const db = getSharedDb();
+    spaceDatabase = new SpaceDatabaseService({ get: () => undefined } as unknown as ConfigService);
+    spaceDatabase.bindSharedDatabase(db);
+    spaceDatabase.bindSharedKysely(createCentreKysely(pool!));
+  }
+  return spaceDatabase;
+}
+
 function getScheduler(): SepayMatchingScheduler {
   if (!scheduler) {
     const db = getSharedDb();
     const repo = new PaymentsRepository(db);
     const writer = new OutboxWriterService(db);
     const plans = new PlanEntitlementsService(repo);
-    const enrolOutbox = new WorkerEnrolOutboxService(writer);
-    // Điểm phân giải không gian theo payment của worker (tiền điều
-    // kiện Phần B của issue #587 — hạng mục 2): cầu dẫn không cấu
-    // hình control plane (`ConfigService` rỗng, không gọi
-    // `onModuleInit`) nên mọi phân giải cho `not_configured` và
-    // kích hoạt chạy platform ở kho chung — đúng hành vi của cầu
-    // dẫn trước hạng mục này. Handle kho chung THÔ được gắn vào
-    // khung định tuyến đúng như factory của module worker làm lúc
-    // khởi động.
-    const spaceDatabase = new SpaceDatabaseService({ get: () => undefined } as unknown as ConfigService);
-    spaceDatabase.bindSharedDatabase(db);
+    const spaceDatabase = getSpaceDatabase();
+    const enrolOutbox = new WorkerEnrolOutboxService(writer, spaceDatabase);
     const spaceScope = new WorkerPaymentSpaceScope(db, spaceDatabase);
     const matching = new SepayMatchingService(
       repo,
@@ -131,7 +143,7 @@ const COHORT_SYNC_TYPES = ['cohort_member_added', 'cohort_member_removed'] as co
  * cohort mới sau watermark rồi vật chất hoá qua bề mặt dùng chung.
  */
 export async function driveCohortSync(): Promise<void> {
-  if (!cohortSync) cohortSync = new CohortSyncService(getSharedDb());
+  if (!cohortSync) cohortSync = new CohortSyncService(getSpaceDatabase());
   const rows = await getSharedDb()
     .select({ seq: outboxEvents.seq, type: outboxEvents.type, payload: outboxEvents.payload })
     .from(outboxEvents)
@@ -161,6 +173,7 @@ export async function closeSepaySweepDriver(): Promise<void> {
   cohortSync = null;
   cohortWatermark = 0;
   sharedDb = null;
+  spaceDatabase = null;
   if (pool) {
     const closing = pool;
     pool = null;
