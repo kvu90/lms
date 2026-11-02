@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { TenantsRepository, type TenantRow } from './tenants.repository';
+import { TenantsRepository, type TenantRow } from './tenants';
 
 /**
  * Tenant-zero trong TenantGuard: danh tính của tenant nền tảng cố
@@ -11,16 +11,23 @@ import { TenantsRepository, type TenantRow } from './tenants.repository';
  * che mất.
  *
  * Cache cả kết quả "chưa thấy" thì ca thứ hai phải đỏ.
+ *
+ * Bản Kysely của spec này (chuyển từ spec Drizzle cạnh module
+ * tenants ở issue #641): handle giả mô phỏng đúng chuỗi builder
+ * mà repository dùng — `selectFrom → select → where →
+ * executeTakeFirst` — và đếm số lần repository mở truy vấn chọn.
  */
 describe('TenantsRepository.getPlatformTenant — cache singleton chỉ khi đã tra thấy', () => {
-  function buildDb(rows: TenantRow[]) {
+  function buildDb(row: TenantRow | undefined) {
     const state = { selectCalls: 0 };
     const db = {
-      select: vi.fn(() => {
+      selectFrom: vi.fn(() => {
         state.selectCalls += 1;
         return {
-          from: () => ({
-            where: () => Promise.resolve(rows),
+          select: () => ({
+            where: () => ({
+              executeTakeFirst: () => Promise.resolve(row),
+            }),
           }),
         };
       }),
@@ -30,7 +37,7 @@ describe('TenantsRepository.getPlatformTenant — cache singleton chỉ khi đã
 
   it('đã tra thấy: các lần gọi sau dùng bản cache, cơ sở dữ liệu chỉ bị tra đúng một lần', async () => {
     const zero = { id: 'tenant-zero-id', slug: 'trang-chinh' } as TenantRow;
-    const { db, state } = buildDb([zero]);
+    const { db, state } = buildDb(zero);
     const repo = new TenantsRepository(db as never);
 
     await expect(repo.getPlatformTenant()).resolves.toBe(zero);
@@ -41,7 +48,7 @@ describe('TenantsRepository.getPlatformTenant — cache singleton chỉ khi đã
   });
 
   it('chưa tra thấy (trước bootstrap seed): không cache — mỗi lần gọi vẫn tra cơ sở dữ liệu', async () => {
-    const { db, state } = buildDb([]);
+    const { db, state } = buildDb(undefined);
     const repo = new TenantsRepository(db as never);
 
     await expect(repo.getPlatformTenant()).resolves.toBeUndefined();

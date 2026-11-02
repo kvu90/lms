@@ -5,8 +5,8 @@ import { randomUUID } from 'node:crypto';
 import type { OAuthIssuer } from '@lms/contracts';
 import { SessionCacheService } from '../../infra/cache/session-cache.service';
 import { UsersService } from '../users/users.service';
-import type { UserRow } from '../users/users.repository';
-import { AuthRepository, type UserOauthLinkRow } from './auth.repository';
+import type { UserRow } from '@lms/db/repositories/users';
+import { AuthRepository, type UserOauthLinkRow } from '@lms/db/repositories/auth';
 import { AuthService, type SessionClientInfo } from './auth.service';
 import { SessionService } from './session.service';
 

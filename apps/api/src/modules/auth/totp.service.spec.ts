@@ -1,7 +1,7 @@
 import type { ConfigService } from '@nestjs/config';
 import { generate } from 'otplib';
 import { describe, expect, it } from 'vitest';
-import type { AuthRepository, UserTotpRow } from './auth.repository';
+import type { AuthRepository, UserTotpRow } from '@lms/db/repositories/auth';
 import { TotpService } from './totp.service';
 
 /**

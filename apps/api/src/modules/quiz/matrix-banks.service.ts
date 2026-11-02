@@ -4,7 +4,7 @@ import type { ExamMatrixContributionView, ExamMatrixView } from '@lms/contracts'
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { QuestionBanksService } from '../questions/question-banks.service';
-import type { QuestionBankRow } from '../questions/question-banks.repository';
+import type { QuestionBankRow } from '@lms/db/repositories/question-banks';
 import type { CopyExamMatrixDto, CreateMatrixContributionDto, RejectMatrixContributionDto } from './dto/quiz.dto';
 import { QuizRepository, type ExamMatrixCellRow, type ExamMatrixContributionRow, type ExamMatrixRow } from '@lms/db/repositories/quiz';
 import { QuizService } from './quiz.service';

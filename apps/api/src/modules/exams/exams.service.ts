@@ -14,7 +14,7 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { RolesService } from '../access/roles.service';
 import { CAP_ALLOW } from '../access/domain/permission';
 import { QuestionBanksService, QBANK_LEAD_ROLE, QBANK_MEMBER_ROLE } from '../questions/question-banks.service';
-import type { QuestionBankRow } from '../questions/question-banks.repository';
+import type { QuestionBankRow } from '@lms/db/repositories/question-banks';
 import { QuizService, type MatrixSpecification } from '../quiz/quiz.service';
 import { SiteConfigService } from '../site-config/site-config.service';
 import { TenantConfigService } from '../tenants/tenant-config.service';

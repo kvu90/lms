@@ -1,7 +1,7 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
-import { AuthRepository } from './auth.repository';
+import { AuthRepository } from '@lms/db/repositories/auth';
 
 /** Mã lỗi khoá tạm thời — một giá trị duy nhất cho cả đáp ứng legacy (Nest) lẫn Better Auth (điểm 2.4, issue #7). */
 export const AUTH_LOCKED_OUT_CODE = 'auth.locked_out';

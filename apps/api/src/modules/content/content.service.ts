@@ -4,7 +4,7 @@ import { ContentRepository, type PageRow, type ResourceRow } from '@lms/db/repos
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CompletionService } from '../completion/completion.service';
 import { CoursesService } from '../courses/courses.service';
-import type { CmRow } from '../courses/courses.repository';
+import type { CmRow } from '@lms/db/repositories/courses';
 import { FilesService } from '../files/files.service';
 import { isSafeExternalResourceUrl, sanitizePageContent } from './page-content-sanitizer';
 

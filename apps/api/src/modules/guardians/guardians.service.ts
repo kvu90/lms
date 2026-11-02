@@ -3,7 +3,7 @@ import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { GradesService } from '../grades/grades.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
-import { TenantsRepository } from '../tenants/tenants.repository';
+import { TenantsRepository } from '@lms/db/repositories/tenants';
 import { TenantsService } from '../tenants/tenants.service';
 import { UsersService } from '../users/users.service';
 import { GuardiansRepository, type GuardianLinkRow } from '@lms/db/repositories/guardians';

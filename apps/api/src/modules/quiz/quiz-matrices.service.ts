@@ -16,7 +16,7 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
 import { CurriculumService } from '../curriculum/curriculum.service';
 import { QuestionBanksService } from '../questions/question-banks.service';
-import type { QuestionBankRow } from '../questions/question-banks.repository';
+import type { QuestionBankRow } from '@lms/db/repositories/question-banks';
 import type {
   CreateExamMatrixCellDto,
   CreateExamMatrixDto,

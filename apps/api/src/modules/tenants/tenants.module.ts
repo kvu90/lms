@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
+import { CentreIdentityRepository } from '@lms/db/repositories/centre-identity';
+import { TenantsRepository } from '@lms/db/repositories/tenants';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { SpaceRoutingModule } from '../../db/routing/space-routing.module';
 import { EventsModule } from '../../infra/events/events.module';
 import { AccessModule } from '../access/access.module';
 import { ControlPlaneModule } from '../control-plane/control-plane.module';
 import { UsersModule } from '../users/users.module';
 import { CentreIdentityController } from './centre-identity.controller';
-import { CentreIdentityRepository } from './centre-identity.repository';
 import { CentreIdentityService } from './centre-identity.service';
 import { SpaceContextGuard } from './space-context.guard';
 import { SpaceProgramPackageService } from './space-program-package.service';
@@ -14,7 +16,6 @@ import { TenantContextService } from './tenant-context.service';
 import { TenantDbService } from './tenant-db.service';
 import { TenantGuard } from './tenant.guard';
 import { TenantsController } from './tenants.controller';
-import { TenantsRepository } from './tenants.repository';
 import { TenantsService } from './tenants.service';
 
 /**
@@ -29,8 +30,20 @@ import { TenantsService } from './tenants.service';
   imports: [AccessModule, UsersModule, EventsModule, SpaceRoutingModule, ControlPlaneModule],
   controllers: [TenantsController, CentreIdentityController],
   providers: [
-    TenantsRepository,
-    CentreIdentityRepository,
+    // Hai repository của module đã chuyển sang `@lms/db` trên
+    // Kysely (issue #641) nên được lắp bằng factory provider trên
+    // facade định tuyến `routedKysely` — cùng khuôn lắp ráp với
+    // ControlPlaneRepository ở ControlPlaneModule.
+    {
+      provide: TenantsRepository,
+      useFactory: (spaceDb: SpaceDatabaseService) => new TenantsRepository(spaceDb.routedKysely),
+      inject: [SpaceDatabaseService],
+    },
+    {
+      provide: CentreIdentityRepository,
+      useFactory: (spaceDb: SpaceDatabaseService) => new CentreIdentityRepository(spaceDb.routedKysely),
+      inject: [SpaceDatabaseService],
+    },
     CentreIdentityService,
     TenantsService,
     TenantConfigService,

@@ -61,9 +61,10 @@ export class OutboxService {
    * Đường ghi outbox qua handle Kysely: dòng sự kiện được ghi
    * trong CÙNG transaction Kysely với thay đổi nghiệp vụ của nơi
    * gọi — cùng bất biến giao dịch với {@link enqueue}, cho các
-   * module đã chuyển sang Kysely (hiện là calendar và badges,
-   * issue #647). Cột `payload` jsonb đi qua serialize tường minh
-   * kèm `::jsonb` theo khuôn ghi jsonb của `@lms/db`: driver `pg`
+   * module đã chuyển sang Kysely (hiện là calendar, badges —
+   * issue #647 — và cụm người dùng — issue #641). Cột `payload`
+   * jsonb đi qua serialize tường minh kèm `::jsonb` theo khuôn
+   * ghi jsonb của `@lms/db`: driver `pg`
    * tự stringify object thường nhưng hiểu MẢNG cấp cao nhất là
    * mảng PostgreSQL. Khi hạng mục chuyển đổi của chính outbox
    * (D1) về đích, hai đường ghi hợp nhất về đường Kysely này.
