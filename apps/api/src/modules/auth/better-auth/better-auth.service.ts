@@ -1,9 +1,6 @@
 import { forwardRef, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, eq } from 'drizzle-orm';
-import type { Database } from '../../../db/database';
-import { authAccount, users } from '../../../db/schema';
+import { SpaceDatabaseService } from '../../../db/routing/space-database.service';
 import { PasswordService } from '../../users/password.service';
 import { AuthMailService } from '../../mail/auth-mail.service';
 import { LoginLockoutService } from '../login-lockout.service';
@@ -72,7 +69,12 @@ export class BetterAuthService {
 
   constructor(
     config: ConfigService,
-    @InjectDrizzle() db: Database,
+    // Handle Kysely định tuyến theo trung tâm (issue #654, D2): instance
+    // Better Auth và closure đồng bộ ngược đều chạy trên facade
+    // `routedKysely` — facade tự phân giải kho đích theo ngữ cảnh ALS
+    // của request (kho chung mặc định, kho riêng khi Host đã chuẩn bị),
+    // giữ đúng ngữ nghĩa của handle Drizzle định tuyến trước đây.
+    spaceDb: SpaceDatabaseService,
     passwordService: PasswordService,
     // Cổng mail auth (chặng 2.5): Nest chích từ MailModule. Phải là
     // @Optional tường minh và KHÔNG khai union `| null` ở chữ ký —
@@ -161,11 +163,9 @@ export class BetterAuthService {
       : null;
 
     this.auth = createBetterAuth({
-      // Adapter của Better Auth chỉ dùng core query builder trên instance
-      // Drizzle (đã kiểm chứng ở Giai đoạn 0) — ép kiểu ở biên DI này là
-      // an toàn: instance thật là của app với relations đầy đủ, adapter
-      // không chạm tới phần relations.
-      db: db as unknown as Parameters<typeof createBetterAuth>[0]['db'],
+      // Facade `routedKysely` đã mang đúng kiểu `CentreDb` của factory —
+      // không còn ép kiểu ở biên DI như thời handle Drizzle.
+      db: spaceDb.routedKysely,
       secret,
       baseURL,
       trustedOrigins: [...new Set([baseURL, ...extraOrigins])],
@@ -199,13 +199,19 @@ export class BetterAuthService {
                 // — nhưng phải kêu to trong log thay vì âm thầm để
                 // hai hệ lệch mật khẩu trong cửa sổ bake.
                 try {
-                  const [row] = await db
-                    .select({ password: authAccount.password })
-                    .from(authAccount)
-                    .where(and(eq(authAccount.userId, userId), eq(authAccount.providerId, 'credential')))
-                    .limit(1);
+                  const row = await spaceDb.routedKysely
+                    .selectFrom('account')
+                    .select('password')
+                    .where('user_id', '=', userId)
+                    .where('provider_id', '=', 'credential')
+                    .limit(1)
+                    .executeTakeFirst();
                   if (!row?.password) return;
-                  await db.update(users).set({ passwordHash: row.password }).where(eq(users.id, userId));
+                  await spaceDb.routedKysely
+                    .updateTable('users')
+                    .set({ password_hash: row.password })
+                    .where('id', '=', userId)
+                    .execute();
                 } catch (err) {
                   this.logger.warn(`legacy password sync failed for user ${userId}: ${String(err)}`);
                 }

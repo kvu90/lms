@@ -48,14 +48,11 @@
  *   phát dấu mà người dùng không hề chọn sẽ là nới lỏng âm thầm.
  */
 import { forwardRef, Inject, Injectable, Optional } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import { constantTimeEqual, makeSignature } from 'better-auth/crypto';
-import { and, eq } from 'drizzle-orm';
 import type { Request } from 'express';
-import type { Database } from '../../../db/database';
-import { users } from '../../../db/schema';
+import type { CentreDb } from '@lms/db';
+import { SpaceDatabaseService } from '../../../db/routing/space-database.service';
 import { TotpService } from '../totp.service';
-import { betterAuthVerification } from './better-auth.schema';
 import { BetterAuthService } from './better-auth.service';
 import { CredentialBridgeService } from './credential-bridge.service';
 
@@ -99,8 +96,18 @@ interface ResolvedChallenge {
 
 @Injectable()
 export class TwoFactorCompletionService {
+  /**
+   * Facade Kysely định tuyến theo trung tâm (issue #654, D2): giữ tham
+   * chiếu tới facade là an toàn — facade tự phân giải kho đích theo
+   * ngữ cảnh ALS tại mỗi lần gọi, không phải ảnh chụp kho tại thời
+   * điểm dựng service. Bảng `verification` của codegen CentreDB thay
+   * cho bảng bóng Drizzle đã xoá (cùng cột: identifier, value,
+   * expires_at; id do DB sinh — các lần chèn ở đây không khai id).
+   */
+  private readonly db: CentreDb;
+
   constructor(
-    @InjectDrizzle() private readonly db: Database,
+    spaceDb: SpaceDatabaseService,
     private readonly betterAuth: BetterAuthService,
     private readonly bridge: CredentialBridgeService,
     // Cùng khuôn phụ thuộc với BetterAuthService: AuthModule xuất
@@ -110,7 +117,9 @@ export class TwoFactorCompletionService {
     @Optional()
     @Inject(forwardRef(() => TotpService))
     private readonly totp?: TotpService,
-  ) {}
+  ) {
+    this.db = spaceDb.routedKysely;
+  }
 
   /**
    * Kiểm mã TOTP của bước hai và cấp phiên khi mã đúng.
@@ -199,22 +208,24 @@ export class TwoFactorCompletionService {
     const expected = await makeSignature(identifier, ctx.secret);
     if (!constantTimeEqual(Buffer.from(signature), Buffer.from(expected))) throw invalid();
     if (!identifier.startsWith('2fa-')) throw invalid();
-    const [pending] = await this.db
-      .select()
-      .from(betterAuthVerification)
-      .where(eq(betterAuthVerification.identifier, identifier))
-      .limit(1);
-    if (!pending || pending.expiresAt <= new Date()) throw invalid();
-    const [attemptsRow] = await this.db
-      .select()
-      .from(betterAuthVerification)
-      .where(eq(betterAuthVerification.identifier, `2fa-attempts-${identifier}`))
-      .limit(1);
+    const pending = await this.db
+      .selectFrom('verification')
+      .selectAll()
+      .where('identifier', '=', identifier)
+      .limit(1)
+      .executeTakeFirst();
+    if (!pending || pending.expires_at <= new Date()) throw invalid();
+    const attemptsRow = await this.db
+      .selectFrom('verification')
+      .selectAll()
+      .where('identifier', '=', `2fa-attempts-${identifier}`)
+      .limit(1)
+      .executeTakeFirst();
     const parsed = attemptsRow ? Number(attemptsRow.value) : Number.NaN;
     return {
       identifier,
       userId: pending.value,
-      expiresAt: pending.expiresAt,
+      expiresAt: pending.expires_at,
       attempts: Number.isInteger(parsed) && parsed >= 0 ? parsed : MAX_CHALLENGE_ATTEMPTS,
       twoFactorCookieName: cookieAttrs.name,
       twoFactorCookieAttributes: cookieAttrs.attributes as Record<string, unknown>,
@@ -229,11 +240,13 @@ export class TwoFactorCompletionService {
    */
   private async beginAttempt(challenge: ResolvedChallenge): Promise<void> {
     await this.db
-      .delete(betterAuthVerification)
-      .where(eq(betterAuthVerification.identifier, challenge.identifier));
+      .deleteFrom('verification')
+      .where('identifier', '=', challenge.identifier)
+      .execute();
     await this.db
-      .delete(betterAuthVerification)
-      .where(eq(betterAuthVerification.identifier, `2fa-attempts-${challenge.identifier}`));
+      .deleteFrom('verification')
+      .where('identifier', '=', `2fa-attempts-${challenge.identifier}`)
+      .execute();
     if (challenge.attempts >= MAX_CHALLENGE_ATTEMPTS) {
       throw new TwoFactorCompletionError(
         400,
@@ -245,18 +258,24 @@ export class TwoFactorCompletionService {
 
   /** Dựng lại dòng đếm lần thử sau một lần verify không thành công (cùng hạn với challenge). */
   private async rearmAttempts(challenge: ResolvedChallenge, count: number): Promise<void> {
-    await this.db.insert(betterAuthVerification).values({
-      identifier: `2fa-attempts-${challenge.identifier}`,
-      value: String(count),
-      expiresAt: challenge.expiresAt,
-    });
+    await this.db
+      .insertInto('verification')
+      .values({
+        identifier: `2fa-attempts-${challenge.identifier}`,
+        value: String(count),
+        expires_at: challenge.expiresAt,
+      })
+      .execute();
     // Dòng challenge phải sống lại cùng dòng đếm: beginAttempt đã
     // tiêu thụ cả hai, lần verify kế tiếp cần tìm thấy challenge.
-    await this.db.insert(betterAuthVerification).values({
-      identifier: challenge.identifier,
-      value: challenge.userId,
-      expiresAt: challenge.expiresAt,
-    });
+    await this.db
+      .insertInto('verification')
+      .values({
+        identifier: challenge.identifier,
+        value: challenge.userId,
+        expires_at: challenge.expiresAt,
+      })
+      .execute();
   }
 
   /**
@@ -266,20 +285,12 @@ export class TwoFactorCompletionService {
    */
   private async issueSession(challenge: ResolvedChallenge): Promise<TwoFactorCompletionResult> {
     const ctx = await this.betterAuth.requireAuth().$context;
-    const [user] = await this.db
-      .select({
-        id: users.id,
-        email: users.email,
-        username: users.username,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        emailVerified: users.emailVerified,
-        createdAt: users.createdAt,
-        updatedAt: users.updatedAt,
-      })
-      .from(users)
-      .where(and(eq(users.id, challenge.userId)))
-      .limit(1);
+    const user = await this.db
+      .selectFrom('users')
+      .select(['id', 'email', 'username', 'first_name', 'last_name', 'email_verified', 'created_at', 'updated_at'])
+      .where('id', '=', challenge.userId)
+      .limit(1)
+      .executeTakeFirst();
     if (!user) {
       throw new TwoFactorCompletionError(401, 'INVALID_TWO_FACTOR_COOKIE', 'Invalid two factor cookie');
     }
@@ -297,10 +308,10 @@ export class TwoFactorCompletionService {
           id: user.id,
           email: user.email,
           username: user.username,
-          name: `${user.firstName} ${user.lastName}`.trim(),
-          emailVerified: user.emailVerified,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
+          name: `${user.first_name} ${user.last_name}`.trim(),
+          emailVerified: user.email_verified,
+          createdAt: user.created_at,
+          updatedAt: user.updated_at,
         },
       },
     };

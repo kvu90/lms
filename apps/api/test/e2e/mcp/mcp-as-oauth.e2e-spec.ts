@@ -283,7 +283,7 @@ async function createAsApp(cimdFetch?: (input: unknown, init?: unknown) => Promi
   const { createBetterAuth } = await import('../../../src/modules/auth/better-auth/better-auth.instance');
   const { mountMcp } = await import('../../../src/modules/mcp/mcp.mount');
   const { McpDepsService } = await import('../../../src/modules/mcp/mcp-deps.service');
-  const { getDrizzleToken } = await import('@nestjs/drizzle');
+  const { SpaceDatabaseService } = await import('../../../src/db/routing/space-database.service');
   const { PasswordService } = await import('../../../src/modules/users/password.service');
 
   let moduleBuilder = Test.createTestingModule({ imports: [AppModule] });
@@ -291,8 +291,11 @@ async function createAsApp(cimdFetch?: (input: unknown, init?: unknown) => Promi
     // App CIMD: thay instance BA bằng bản có transport CIMD tiêm riêng
     // (transport Node chính chủ chặn loopback theo chính sách SSRF —
     // spec chạy metadata server trên 127.0.0.1 nên phải tiêm fetch).
+    // Issue #654 (D2): factory nhận handle Kysely định tuyến
+    // (`routedKysely`), không còn handle Drizzle — override này phải
+    // chích SpaceDatabaseService như BetterAuthService thật làm.
     moduleBuilder = moduleBuilder.overrideProvider(BetterAuthService).useFactory({
-      factory: (db: unknown, passwordService: InstanceType<typeof PasswordService>) => {
+      factory: (spaceDb: InstanceType<typeof SpaceDatabaseService>, passwordService: InstanceType<typeof PasswordService>) => {
         const mcpAs = {
           resource: RESOURCE,
           loginPage: '/mcp-login',
@@ -300,7 +303,7 @@ async function createAsApp(cimdFetch?: (input: unknown, init?: unknown) => Promi
           cimdFetch: cimdFetch as never,
         };
         const auth = createBetterAuth({
-          db: db as never,
+          db: spaceDb.routedKysely,
           secret: process.env.BETTER_AUTH_SECRET!,
           baseURL: ORIGIN,
           trustedOrigins: [ORIGIN],
@@ -315,7 +318,7 @@ async function createAsApp(cimdFetch?: (input: unknown, init?: unknown) => Promi
           requireAuth: () => auth,
         };
       },
-      inject: [getDrizzleToken(), PasswordService],
+      inject: [SpaceDatabaseService, PasswordService],
     });
   }
   const moduleRef = await moduleBuilder.compile();

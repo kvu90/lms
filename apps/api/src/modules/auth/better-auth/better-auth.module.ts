@@ -1,4 +1,5 @@
 import { forwardRef, Module } from '@nestjs/common';
+import { SpaceRoutingModule } from '../../../db/routing/space-routing.module';
 import { MailModule } from '../../mail/mail.module';
 import { UsersModule } from '../../users/users.module';
 import { AuthModule } from '../auth.module';
@@ -29,7 +30,12 @@ import { TwoFactorCompletionService } from './two-factor-completion.service';
   //   (điểm 2.4: hooks của instance dùng chung chính sách khoá với hệ
   //   legacy), AuthModule cần BetterAuthService + CredentialBridgeService
   //   của module này cho login-as ở chặng bake (chặng 2.6).
-  imports: [forwardRef(() => UsersModule), MailModule, forwardRef(() => AuthModule)],
+  // - SpaceRoutingModule (issue #654, D2): ba service của module này
+  //   inject SpaceDatabaseService và chạy trên facade `routedKysely`.
+  //   Không tạo chu trình mới: chuỗi SpaceRouting → ControlPlane →
+  //   Access không có đường về BetterAuthModule, nên import trực tiếp
+  //   (không forwardRef) như AuthModule đã làm.
+  imports: [forwardRef(() => UsersModule), MailModule, forwardRef(() => AuthModule), SpaceRoutingModule],
   controllers: [TwoFactorCompletionController],
   providers: [BetterAuthService, CredentialBridgeService, TwoFactorCompletionService],
   exports: [BetterAuthService, CredentialBridgeService],

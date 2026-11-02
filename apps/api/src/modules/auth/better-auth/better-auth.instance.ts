@@ -4,9 +4,9 @@
  * lẫn script/test kiểm chứng dùng chung một định nghĩa duy nhất.
  *
  * Các điểm đã chốt trong issue và kiểm chứng ở Giai đoạn 0 (4/4 cổng đạt):
- * - ghim exact `better-auth@1.7.12` + `@better-auth/drizzle-adapter@1.7.12`
+ * - ghim exact `better-auth@1.7.12` + `@better-auth/kysely-adapter@1.7.12`
  *   (khai trong package.json, không dùng dải ^);
- * - adapter Drizzle `transaction: true`, ánh xạ lên bảng `users` hiện hữu
+ * - adapter Kysely `transaction: true`, ánh xạ lên bảng `users` hiện hữu
  *   với `generateId: "uuid"` — xem ghi chú tại `advanced.database`
  *   bên dưới (BA-1): id thường vẫn do PostgreSQL tự sinh UUIDv7, chỉ
  *   các id tất định (verification lock) mới đổi sang dạng UUID;
@@ -22,21 +22,85 @@
  */
 import { cimd } from '@better-auth/cimd';
 import { fetchClientMetadataResource as defaultCimdFetch } from '@better-auth/cimd/node';
-import { drizzleAdapter } from '@better-auth/drizzle-adapter';
+import { kyselyAdapter } from '@better-auth/kysely-adapter';
 import { mcp } from '@better-auth/mcp';
 import { APIError, betterAuth } from 'better-auth';
 import { createAuthMiddleware, type AuthMiddleware } from 'better-auth/api';
 import { jwt, username } from 'better-auth/plugins';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import type { CentreDb } from '@lms/db';
 import { PasswordService } from '../../users/password.service';
 import { createEmailOtpPlugin, type AuthMailPort } from '../../mail/email-otp.plugin';
-import { betterAuthSchema } from './better-auth.schema';
 import { createMfaGateHook, type MfaGateDeps } from './mfa-gate';
 import type { LockoutGuardPort } from '../login-lockout.service';
 import { lockoutHooks } from './lockout.hooks';
 
 /** Đường dẫn gốc mà handler của Better Auth được mount tại (xem better-auth.mount.ts). */
 export const BETTER_AUTH_BASE_PATH = '/api/v1/auth';
+
+/**
+ * Khai báo `supportsArrays` thật cho Postgres (issue #654, D2).
+ *
+ * Vấn đề: adapter Kysely chính thức ghim `supportsArrays: false`
+ * (không có tuỳ chọn đổi — vì adapter đa dialect nên chọn cách lưu
+ * mảng an toàn chung là chuỗi JSON). Lõi Better Auth vì vậy JSON-hoá
+ * mọi giá trị `string[]` khi ghi (core `db/adapter/factory.mjs`:
+ * `supportsArrays === false` → `JSON.stringify`); cột vật lý của hệ
+ * là `text[]` nên chuỗi JSON `["a","b"]` bị Postgres từ chối bằng
+ * `malformed array literal` (đã bắt tại e2e mcp-as-oauth: DCR +
+ * authorize 500). Adapter Drizzle cũ không lộ vấn đề này vì nó khai
+ * `supportsArrays: true` cho pg.
+ *
+ * Cách sửa (giữ nguyên schema vật lý, không migration): factory
+ * `database` lật cờ `supportsArrays` thành `true` trên chính đối
+ * tượng cấu hình mà adapter của lõi đang dùng
+ * (`adapter.options.adapterConfig` — cùng tham chiếu mà
+ * `transformInput`/`transformOutput` của lõi đọc, kiểm chứng tại
+ * `factory.mjs`). Khai báo này là ĐÚNG với DB thật: Postgres `text[]`
+ * hỗ trợ mảng nguyên sinh, đúng như adapter Drizzle đã khai cho pg;
+ * chiều đọc cũng đối xứng (pg trả `text[]` thành mảng JS, lõi không
+ * còn phân tích JSON). Phải lật cả hai đường: adapter ngoài (ghi
+ * thường) và adapter giao dịch (luồng OAuth chạy ghi client trong
+ * `runWithTransaction`, vd `persistOAuthClientRegistration`) — adapter
+ * giao dịch được dựng từ một bản sao cấu hình riêng nên lật ngoài
+ * không lan vào trong; bọc `transaction` để lật cờ trên adapter giao
+ * dịch ngay trước khi callback chạy.
+ *
+ * Đường bọc phương thức `create`/`update`/`updateMany` đã thử trước
+ * đó KHÔNG sửa được: JSON-hoá xảy ra BÊN TRONG `create` của lõi
+ * (sau `transformInput`, trước khi gọi adapter thô) nên mọi điểm chặn
+ * ở tầng adapter của lõi đều ở sai phía của điểm JSON-hoá — chỉ lật
+ * cờ mới tới được đúng điểm. Ghi chú này giữ lại để lần sau không
+ * quay lại đường bọc.
+ */
+function withPostgresArrays<T extends {
+  options?: { adapterConfig: { supportsArrays?: boolean | undefined } };
+  transaction?: unknown;
+}>(adapter: T): T {
+  if (adapter.options) adapter.options.adapterConfig.supportsArrays = true;
+  if (typeof adapter.transaction === 'function') {
+    const baseTransaction = adapter.transaction as <R>(
+      callback: (tx: {
+        options: { adapterConfig: { supportsArrays?: boolean | undefined } };
+      }) => Promise<R>,
+    ) => Promise<R>;
+    (adapter as {
+      transaction: <R>(
+        callback: (tx: {
+          options: { adapterConfig: { supportsArrays?: boolean | undefined } };
+        }) => Promise<R>,
+      ) => Promise<R>;
+    }).transaction = <R>(
+      callback: (tx: {
+        options: { adapterConfig: { supportsArrays?: boolean | undefined } };
+      }) => Promise<R>,
+    ) =>
+      baseTransaction((tx) => {
+        tx.options.adapterConfig.supportsArrays = true;
+        return callback(tx);
+      });
+  }
+  return adapter;
+}
 
 /**
  * Bộ scope OAuth mà AS phát cho resource `/mcp` (issue #163): trần
@@ -83,8 +147,8 @@ export interface BetterAuthSocialConfig {
 }
 
 export interface BetterAuthFactoryDeps {
-  /** Instance Drizzle của app (dùng chung pool kết nối, không mở pool riêng). */
-  db: NodePgDatabase<Record<string, never>>;
+  /** Handle Kysely định tuyến theo trung tâm (facade `routedKysely` của khung; dùng chung pool kết nối, không mở pool riêng). */
+  db: CentreDb;
   secret: string;
   baseURL: string;
   trustedOrigins: string[];
@@ -120,11 +184,11 @@ export interface BetterAuthFactoryDeps {
    * reset bằng email OTP (plugin email-otp cũng gọi callback này).
    * KHÔNG dùng `databaseHooks.account.update.after` cho đường cập
    * nhật: `internalAdapter.updatePassword` của 1.7.12 đi qua
-   * `updateManyWithHooks`, mà adapter Drizzle trả về SỐ DÒNG bị ảnh
+   * `updateManyWithHooks`, mà adapter Kysely trả về SỐ DÒNG bị ảnh
    * hưởng cho updateMany — hook `update.after` nhận một con số chứ
    * không phải bản ghi account, không cách nào biết user/hash nào
-   * vừa đổi (đã kiểm chứng trong dist của @better-auth/drizzle-adapter
-   * 1.7.12: updateMany → getAffectedRowCount).
+   * vừa đổi (đã kiểm chứng trong dist của @better-auth/kysely-adapter
+   * 1.7.12: updateMany → numUpdatedRows).
    */
   legacyPasswordSync?: {
     syncFromCredentialAccount: (userId: string) => Promise<void>;
@@ -263,7 +327,37 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
     basePath: BETTER_AUTH_BASE_PATH,
     trustedOrigins: deps.trustedOrigins,
     socialProviders: buildSocialProviders(deps.socialProviders),
+    // ── Ánh xạ model → bảng/cột (issue #654, D2) ─────────────────────
+    // Schema bóng Drizzle đã xoá: ánh xạ sống ở chính options này theo
+    // cơ chế chính thức của Better Auth (core `db/get-tables`: đọc
+    // `options.<model>.modelName` + `options.<model>.fields.<field>`).
+    // Chỉ override các cột camelCase → snake_case; cột một từ và bảng
+    // đã khớp tên mặc định (`session`, `account`, `verification`)
+    // không cần khai. Bảng vật lý + default cột sống ở migration/DDL
+    // thật; kiểm chứng lúc chạy do adapter bật validateSchema mặc
+    // định (sai ánh xạ ném SchemaMismatchError ngay lần dùng đầu).
+    user: {
+      modelName: 'users',
+      fields: {
+        name: 'first_name',
+        emailVerified: 'email_verified',
+        createdAt: 'created_at',
+        updatedAt: 'updated_at',
+      },
+    },
     account: {
+      fields: {
+        accountId: 'account_id',
+        providerId: 'provider_id',
+        userId: 'user_id',
+        accessToken: 'access_token',
+        refreshToken: 'refresh_token',
+        idToken: 'id_token',
+        accessTokenExpiresAt: 'access_token_expires_at',
+        refreshTokenExpiresAt: 'refresh_token_expires_at',
+        createdAt: 'created_at',
+        updatedAt: 'updated_at',
+      },
       accountLinking: {
         enabled: true,
         // ĐÃ CHỐT trong kế hoạch GĐ2: Facebook KHÔNG vào
@@ -278,6 +372,13 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
         // kết theo email chết lặng lẽ. Cổng gác đúng theo kế hoạch
         // là xác thực email PHÍA PROVIDER, nên tắt điều kiện local.
         requireLocalEmailVerified: false,
+      },
+    },
+    verification: {
+      fields: {
+        expiresAt: 'expires_at',
+        createdAt: 'created_at',
+        updatedAt: 'updated_at',
       },
     },
     hooks: {
@@ -319,11 +420,13 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
     // Khi compose AS: tắt endpoint `/token` của plugin jwt() theo tài
     // liệu OAuth Provider (token chỉ phát qua `/oauth2/token`).
     ...(mcpAs ? { disabledPaths: ['/token'] } : {}),
-    database: drizzleAdapter(deps.db, {
-      provider: 'pg',
-      schema: betterAuthSchema,
-      transaction: true,
-    }),
+    database: ((options) => {
+      const baseAdapter = kyselyAdapter(deps.db, {
+        type: 'postgres',
+        transaction: true,
+      });
+      return withPostgresArrays(baseAdapter(options));
+    }) as ReturnType<typeof kyselyAdapter>,
     emailAndPassword: {
       enabled: true,
       disableSignUp: true,
@@ -403,7 +506,27 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
       // legacy nên bật tường minh cả ba tuỳ chọn theo addendum §2.
       ...(mcpAs
         ? [
-            jwt({ disableSettingJwtHeader: true }),
+            jwt({
+              disableSettingJwtHeader: true,
+              // Ánh xạ jwks → cột snake_case (issue #654, D2): schema
+              // gốc của plugin jwt không khai fieldName nên adapter
+              // hỏi đúng tên field; bảng vật lý dùng snake_case nên
+              // override tại đây qua `mergeSchema` (cùng cơ chế như
+              // schema của plugin oauth-provider). Không override thì
+              // lần dùng đầu tiên của JWKS ném lỗi cột không tồn tại
+              // (adapter bật validateSchema mặc định nên lỗi lộ ngay,
+              // không truy vấn sai lặng lẽ).
+              schema: {
+                jwks: {
+                  fields: {
+                    publicKey: 'public_key',
+                    privateKey: 'private_key',
+                    createdAt: 'created_at',
+                    expiresAt: 'expires_at',
+                  },
+                },
+              },
+            }),
             mcp({
               loginPage: mcpAs.loginPage,
               consentPage: mcpAs.consentPage,
@@ -448,6 +571,120 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
               // dist + e2e mcp-as-oauth; thiếu khai này thì DCR của
               // client xin phiên dài chết invalid_scope ngay).
               clientRegistrationAllowedScopes: ['offline_access'],
+              // ── Ánh xạ bảng OAuth → bảng vật lý (issue #654, D2) ──
+              // Cơ chế chính thức: plugin oauth-provider đọc
+              // `opts.schema?.<model>.modelName/fields` qua `mergeSchema`
+              // (chỉ override field đã có trong schema gốc). Bảng vật lý
+              // có tiền tố `oauth_` + tên cột snake_case; `usePlural`
+              // không dùng được vì nó số nhiều hoá cả `session` →
+              // `sessions`. Bảng `jwks` của plugin jwt được override
+              // riêng tại khối `jwt()` bên dưới (không thuộc schema
+              // của plugin oauth-provider).
+              schema: {
+                oauthClient: {
+                  modelName: 'oauth_client',
+                  fields: {
+                    clientId: 'client_id',
+                    clientSecret: 'client_secret',
+                    clientDiscoveryId: 'client_discovery_id',
+                    skipConsent: 'skip_consent',
+                    enableEndSession: 'enable_end_session',
+                    subjectType: 'subject_type',
+                    clientCredentialsScopes: 'client_credentials_scopes',
+                    userId: 'user_id',
+                    createdAt: 'created_at',
+                    updatedAt: 'updated_at',
+                    softwareId: 'software_id',
+                    softwareVersion: 'software_version',
+                    softwareStatement: 'software_statement',
+                    redirectUris: 'redirect_uris',
+                    postLogoutRedirectUris: 'post_logout_redirect_uris',
+                    backchannelLogoutUri: 'backchannel_logout_uri',
+                    backchannelLogoutSessionRequired:
+                      'backchannel_logout_session_required',
+                    tokenEndpointAuthMethod: 'token_endpoint_auth_method',
+                    applicationType: 'application_type',
+                    jwksUri: 'jwks_uri',
+                    grantTypes: 'grant_types',
+                    responseTypes: 'response_types',
+                    requirePKCE: 'require_pkce',
+                    dpopBoundAccessTokens: 'dpop_bound_access_tokens',
+                    referenceId: 'reference_id',
+                  },
+                },
+                oauthResource: {
+                  modelName: 'oauth_resource',
+                  fields: {
+                    accessTokenTtl: 'access_token_ttl',
+                    refreshTokenTtl: 'refresh_token_ttl',
+                    signingAlgorithm: 'signing_algorithm',
+                    signingKeyId: 'signing_key_id',
+                    allowedScopes: 'allowed_scopes',
+                    customClaims: 'custom_claims',
+                    dpopBoundAccessTokensRequired:
+                      'dpop_bound_access_tokens_required',
+                    createdAt: 'created_at',
+                    updatedAt: 'updated_at',
+                    policyVersion: 'policy_version',
+                  },
+                },
+                oauthClientResource: {
+                  modelName: 'oauth_client_resource',
+                  fields: {
+                    clientId: 'client_id',
+                    resourceId: 'resource_id',
+                    createdAt: 'created_at',
+                  },
+                },
+                oauthAccessToken: {
+                  modelName: 'oauth_access_token',
+                  fields: {
+                    clientId: 'client_id',
+                    sessionId: 'session_id',
+                    userId: 'user_id',
+                    referenceId: 'reference_id',
+                    authorizationCodeId: 'authorization_code_id',
+                    requestedUserInfoClaims: 'requested_user_info_claims',
+                    refreshId: 'refresh_id',
+                    expiresAt: 'expires_at',
+                    createdAt: 'created_at',
+                  },
+                },
+                oauthRefreshToken: {
+                  modelName: 'oauth_refresh_token',
+                  fields: {
+                    clientId: 'client_id',
+                    sessionId: 'session_id',
+                    userId: 'user_id',
+                    referenceId: 'reference_id',
+                    authorizationCodeId: 'authorization_code_id',
+                    requestedUserInfoClaims: 'requested_user_info_claims',
+                    expiresAt: 'expires_at',
+                    createdAt: 'created_at',
+                    rotatedAt: 'rotated_at',
+                    rotationReplayResponse: 'rotation_replay_response',
+                    rotationReplayExpiresAt: 'rotation_replay_expires_at',
+                    authTime: 'auth_time',
+                  },
+                },
+                oauthConsent: {
+                  modelName: 'oauth_consent',
+                  fields: {
+                    clientId: 'client_id',
+                    userId: 'user_id',
+                    referenceId: 'reference_id',
+                    requestedUserInfoClaims: 'requested_user_info_claims',
+                    createdAt: 'created_at',
+                    updatedAt: 'updated_at',
+                  },
+                },
+                oauthClientAssertion: {
+                  modelName: 'oauth_client_assertion',
+                  fields: {
+                    expiresAt: 'expires_at',
+                  },
+                },
+              },
             }),
             cimd({
               fetchClientMetadataResource: mcpAs.cimdFetch ?? defaultCimdFetch,
@@ -481,22 +718,39 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
         }
       : {}),
     session: {
+      // Ánh xạ session → cột snake_case (issue #654, D2): cùng khối
+      // với cookieCache — KHÔNG tách thành khối `session` riêng vì
+      // khóa trùng trong object literal sẽ bị khối sau ghi đè (khuyết
+      // tật đã bắt tại e2e: adapter báo thiếu cột session.expiresAt…).
+      fields: {
+        expiresAt: 'expires_at',
+        createdAt: 'created_at',
+        updatedAt: 'updated_at',
+        ipAddress: 'ip_address',
+        userAgent: 'user_agent',
+        userId: 'user_id',
+      },
       cookieCache: { enabled: false },
     },
     advanced: {
       disableOriginCheck: false,
       // BA-1 (chốt blocker của BA-2, comment 6405565755 trên #7):
       // `generateId: "uuid"` thay cho `false` trước đây. Đã đối chiếu
-      // mã nguồn 1.7.12 (`@better-auth/core` get-id-field):
+      // mã nguồn 1.7.12 (`@better-auth/core` get-id-field + adapter
+      // Kysely `dist/index.mjs`):
       // - id tất định (SHA-256 của identifier) chỉ định dạng thành
       //   UUID khi generateId là "uuid" — với `false` nó thành chuỗi
       //   base64url và Postgres ném 22P02 khi chèn vào cột
       //   `verification.id` kiểu uuid (đường revokeUnprovenAccountAccess
       //   khi user chưa xác minh đăng nhập OTP → HTTP 500);
       // - id thường vẫn do PostgreSQL tự sinh UUIDv7 như trước: với
-      //   "uuid" và adapter drizzle khai `supportsUUIDs: true` cho pg,
-      //   `shouldGenerateId` = false nên field id không có defaultValue
-      //   phía ứng dụng, default uuidv7() của cột vẫn thắng.
+      //   "uuid" và adapter Kysely khai `supportsUUIDs: true` khi
+      //   `type: 'postgres'`, `shouldGenerateId` = false nên field id
+      //   không có defaultValue phía ứng dụng, default uuidv7() của
+      //   cột vẫn thắng. Cơ chế này thay thế cơ chế phía Drizzle cũ
+      //   (đã kiểm chứng lại bằng ca DB thật ở issue #654: bản ghi
+      //   user/session/account/verification đều mang id UUIDv7 do DB
+      //   sinh, id tất định dạng UUID không ném 22P02).
       // Thay đổi bề mặt hẹp nhưng đã kiểm chứng lại toàn bề mặt auth
       // (xem spec better-auth-mail-flow + better-auth-flow).
       database: { generateId: 'uuid' },
