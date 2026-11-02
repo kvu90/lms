@@ -174,7 +174,7 @@ describe('cầu nối migration Kysely cho ba kho', () => {
 
   it('cấy nhật ký từ nhật ký Drizzle mô phỏng rồi migrateToLatest là no-op, không tạo bảng carrier', async () => {
     const carrierNames = listCarrierNames(packageMigrationsDir('control-plane'));
-    expect(carrierNames).toHaveLength(2);
+    expect(carrierNames).toHaveLength(3);
     await mockDrizzleJournal(adoptUrl, carrierNames);
     const pool = new Pool({ connectionString: adoptUrl });
     const db = new Kysely({ dialect: new PostgresDialect({ pool }) });
