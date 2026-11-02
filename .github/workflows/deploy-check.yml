@@ -3,8 +3,10 @@
 # Mục đích: ruleset của nhánh main cần một status check chạy trên head
 # của PR trước khi merge để bảo đảm head đó thật sự dựng được stack
 # production tự host (compose.yaml ở gốc repo). Workflow này dựng
-# toàn bộ stack từ chính head của PR trong runner CI, chờ API khỏe và
-# kiểm tra trang gốc, rồi dọn sạch. Nó KHÔNG deploy lên máy tự host
+# toàn bộ stack từ chính head của PR trong runner CI, chờ API khỏe,
+# kiểm tra trang gốc, rồi chờ Keycloak sẵn sàng và kiểm chứng realm
+# `lms` của nó (issuer trong tài liệu discovery + Organizations qua
+# Admin API), rồi dọn sạch. Nó KHÔNG deploy lên máy tự host
 # thật — đường deploy production vẫn là Dokploy kéo từ main.
 #
 # Chuỗi status context của job dưới đây là "deploy-check / verify-stack"
@@ -48,10 +50,15 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      # Sinh file .env cho môi trường CI từ file mẫu: sáu bí mật bắt
-      # buộc (khai ${...:?} trong compose.yaml) được sinh ngẫu
-      # nhiên ngay trong job và không rời khỏi runner; các biến còn
-      # lại giữ nguyên mặc định của file mẫu, trong đó BETTER_AUTH_URL
+      # Sinh file .env cho môi trường CI từ file mẫu: tám bí mật
+      # được sinh ngẫu nhiên ngay trong job và không rời khỏi
+      # runner — bảy bí mật bắt buộc (khai ${...:?} trong
+      # compose.yaml) cộng mật khẩu tài khoản quản trị bootstrap
+      # của Keycloak (compose nội suy biến này theo dạng có mặc
+      # định rỗng, nhưng bootstrap cần giá trị thật ở lần khởi
+      # động đầu tiên và bước kiểm chứng realm ở dưới cần chính
+      # mật khẩu này để đăng nhập Admin API); các biến còn lại
+      # giữ nguyên mặc định của file mẫu, trong đó BETTER_AUTH_URL
       # và CORS_ORIGINS là http://localhost:8080 cho môi trường CI. Các
       # biến tuỳ chọn (MFA, Resend) giữ ở dạng comment trong file mẫu
       # nên vắng mặt hẳn — đúng trạng thái ứng dụng hỗ trợ.
@@ -64,12 +71,16 @@ jobs:
           sed -i "s|^MIGRATOR_POSTGRES_PASSWORD=.*|MIGRATOR_POSTGRES_PASSWORD=$(openssl rand -hex 32)|" .env
           sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -hex 32)|" .env
           sed -i "s|^BETTER_AUTH_SECRET=.*|BETTER_AUTH_SECRET=$(openssl rand -hex 32)|" .env
+          sed -i "s|^KEYCLOAK_DB_PASSWORD=.*|KEYCLOAK_DB_PASSWORD=$(openssl rand -hex 32)|" .env
+          sed -i "s|^KEYCLOAK_ADMIN_PASSWORD=.*|KEYCLOAK_ADMIN_PASSWORD=$(openssl rand -hex 32)|" .env
           grep -q '^POSTGRES_PASSWORD=.\+' .env
           grep -q '^CONTROL_PLANE_POSTGRES_PASSWORD=.\+' .env
           grep -q '^RUNTIME_POSTGRES_PASSWORD=.\+' .env
           grep -q '^MIGRATOR_POSTGRES_PASSWORD=.\+' .env
           grep -q '^JWT_SECRET=.\+' .env
           grep -q '^BETTER_AUTH_SECRET=.\+' .env
+          grep -q '^KEYCLOAK_DB_PASSWORD=.\+' .env
+          grep -q '^KEYCLOAK_ADMIN_PASSWORD=.\+' .env
 
       - name: Validate compose configuration
         run: docker compose -f compose.yaml -f compose.ci.yaml config > /dev/null
@@ -82,7 +93,8 @@ jobs:
         run: docker compose -f compose.yaml -f compose.ci.yaml up -d --build
 
       # Chờ tối đa khoảng 5 phút cho API khỏe qua cửa web (cổng 8080
-      # là cổng duy nhất stack publish ra host). Quá hạn thì in trạng
+      # là cổng của ứng dụng mà stack publish ra host; cổng 8085 của
+      # Keycloak chỉ bind loopback cho tunnel). Quá hạn thì in trạng
       # thái stack và log của api + migrate để chẩn đoán rồi fail.
       - name: Wait for API health
         run: |
@@ -100,6 +112,56 @@ jobs:
 
       - name: Check root page responds
         run: curl -sf http://localhost:8080/ -o /dev/null
+
+      # Chờ Keycloak sẵn sàng rồi kiểm chứng realm `lms` sống
+      # thật, theo ba khẳng định — khẳng định nào trượt cũng làm
+      # job fail ngay tại bước này:
+      # (1) healthcheck của chính service keycloak báo healthy:
+      # healthcheck thăm /health/ready trên cổng quản trị 9000
+      # bên trong container (cổng 9000 không publish ra host nên
+      # runner không thăm trực tiếp được; trạng thái health đọc
+      # qua docker inspect của container service).
+      # (2) Tài liệu discovery của realm qua cổng loopback 8085
+      # khẳng định issuer đúng tên miền công khai: KC_HOSTNAME
+      # ghim issuer theo https://auth.fuckr.net nên discovery
+      # trả issuer này dù request đi qua địa chỉ loopback của
+      # runner.
+      # (3) Lấy token quản trị từ realm master bằng chính mật
+      # khẩu bootstrap job đã sinh trong file .env, gọi Admin
+      # API đọc realm `lms` và khẳng định organizationsEnabled
+      # bằng true — chứng minh realm đã được nạp từ file trong
+      # image và Organizations đã bật.
+      - name: Verify Keycloak readiness and realm
+        run: |
+          for attempt in $(seq 1 60); do
+            container_id=$(docker compose -f compose.yaml -f compose.ci.yaml ps -q keycloak)
+            health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$container_id" 2>/dev/null || true)
+            if [ "$health" = "healthy" ]; then
+              echo "Keycloak healthy after ${attempt} attempt(s)."
+              break
+            fi
+            if [ "$attempt" = "60" ]; then
+              echo "Keycloak did not become healthy in time (last health status: ${health:-unknown})."
+              docker compose -f compose.yaml -f compose.ci.yaml ps
+              docker compose -f compose.yaml -f compose.ci.yaml logs keycloak kc-db
+              exit 1
+            fi
+            sleep 5
+          done
+          issuer=$(curl -sf http://127.0.0.1:8085/realms/lms/.well-known/openid-configuration | jq -er '.issuer')
+          echo "Realm lms discovery issuer: ${issuer}"
+          if [ "$issuer" != "https://auth.fuckr.net/realms/lms" ]; then
+            echo "Unexpected issuer for realm lms."
+            exit 1
+          fi
+          admin_password=$(grep '^KEYCLOAK_ADMIN_PASSWORD=' .env | cut -d= -f2-)
+          token=$(curl -sf -X POST http://127.0.0.1:8085/realms/master/protocol/openid-connect/token -H 'Content-Type: application/x-www-form-urlencoded' -d 'grant_type=password' -d 'client_id=admin-cli' -d 'username=admin' --data-urlencode "password=${admin_password}" | jq -er '.access_token')
+          organizations=$(curl -sf http://127.0.0.1:8085/admin/realms/lms -H "Authorization: Bearer ${token}" | jq -er '.organizationsEnabled')
+          echo "Realm lms organizationsEnabled: ${organizations}"
+          if [ "$organizations" != "true" ]; then
+            echo "Realm lms does not have Organizations enabled."
+            exit 1
+          fi
 
       - name: Tear down the stack
         if: always()

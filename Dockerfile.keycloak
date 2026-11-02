@@ -1,0 +1,21 @@
+# Dockerfile của service Keycloak trong compose.yaml ở gốc repo: image
+# phái sinh tối thiểu từ image Keycloak chính thức, chỉ đóng gói thêm
+# file realm `lms` của repo vào thư mục nạp realm lúc khởi động của
+# Keycloak.
+#
+# Vì sao đóng gói file realm vào image thay vì gắn file từ cây
+# checkout lúc chạy: nền tảng triển khai (Dokploy) quản lý checkout
+# của repo theo vòng đời riêng của nó và clone lại checkout ở mỗi
+# lần deploy, nên file gắn trực tiếp từ cây checkout không bảo đảm
+# còn có mặt ở lần deploy sau; file đã đóng trong image thì đi theo
+# đúng commit đã build image, và môi trường mới dựng từ image đó
+# luôn có đúng file realm của commit. Keycloak chỉ nạp realm từ thư
+# mục này khi realm chưa tồn tại trong cơ sở dữ liệu của nó — các
+# lần khởi động sau bỏ qua file — nên đây thuần là cơ chế nạp lần
+# đầu cho môi trường mới, không phải cơ chế đồng bộ cấu hình realm
+# qua mỗi deploy.
+
+# syntax=docker/dockerfile:1
+
+FROM quay.io/keycloak/keycloak:26.7.5
+COPY deploy/keycloak/lms-realm.json /opt/keycloak/data/import/lms-realm.json
