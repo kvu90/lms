@@ -22,10 +22,15 @@ import { SpaceDatabaseService } from './space-database.service';
  *    dữ kiện của trung tâm như trước đợt này.
  * 3. Slug phân giải ra trung tâm ở KHO RIÊNG → mở phiên theo
  *    trung tâm qua `SpaceDatabaseService.withSpaceDatabase`
- *    (bước chuẩn bị của khung chạy trong đó): mọi truy vấn qua
- *    handle định tuyến trong phiên đều vào kho của trung tâm, và
- *    ngữ cảnh mang cả `tenantId` của job để GUC RLS của kho đích
- *    theo đúng tenant của sự kiện.
+ *    (bước chuẩn bị của khung chạy trong đó), sau khi đã chuẩn
+ *    bị thêm handle Kysely của kho đó qua
+ *    `getKyselyForSpace` — hai bảng chuẩn bị tách riêng: chỉ
+ *    chuẩn bị Drizzle thì consumer đã chuyển sang Kysely sẽ bị
+ *    `currentKysely` ném `prepared_revoked` fail-closed (slug đã
+ *    ghi vào `dedicatedSlugs` mà chưa có mục Kysely). Mọi truy
+ *    vấn qua handle định tuyến trong phiên đều vào kho của trung
+ *    tâm, và ngữ cảnh mang cả `tenantId` của job để GUC RLS của
+ *    kho đích theo đúng tenant của sự kiện.
  * 4. Phân giải lỗi (trung tâm bị gỡ khỏi sổ giữa lúc phát và lúc
  *    xử lý, bí mật/role lệch sổ, hoặc không đọc được control
  *    plane) → NÉM lỗi ra để BullMQ thử lại job, tuyệt đối không
@@ -92,6 +97,15 @@ export class SpaceJobRunner {
         throw err;
       }
       if (target?.mode === 'dedicated') {
+        // Chuẩn bị cả handle Kysely của kho riêng trước khi mở
+        // phiên: các consumer đã chuyển sang Kysely (cụm thông
+        // báo) truy vấn qua `routedKysely`, mà bảng chuẩn bị phía
+        // Kysely tách riêng với phía Drizzle — thiếu bước này thì
+        // `currentKysely` ném `prepared_revoked` fail-closed vì
+        // slug đã ghi vào `dedicatedSlugs` mà chưa có mục Kysely.
+        // Lỗi chuẩn bị (bí mật thiếu/sai, sổ lệch) ném ra như
+        // đường Drizzle để BullMQ thử lại, không rơi về platform.
+        await this.spaceDb.getKyselyForSpace(slug);
         return this.spaceDb.withSpaceDatabase(slug, async () => fn(), {
           tenantId: data.tenantId ?? undefined,
         });

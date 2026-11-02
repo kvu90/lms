@@ -1,37 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import { I18nService } from '@nestjs/i18n';
-import { and, desc, eq, gte, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import {
-  assignGrades,
-  assignSubmissions,
-  assignments,
-  context,
-  course,
-  courseModules,
-  enrol,
-  examAttempts,
-  examPins,
-  examVersions,
-  gradeGrades,
-  gradeItems,
-  message,
-  messageConversationMembers,
-  messageConversations,
-  messageUsersBlocked,
-  notifications,
-  role,
-  roleAssignments,
-  tenantMemberships,
-  tenants,
-  userEnrolments,
-  users,
-} from '@lms/db';
-import type { relations } from './db/relations';
+import { sql } from '@lms/db';
 import { NotificationDeliveryService } from './notification-delivery.service';
-
-type Database = NodePgDatabase<typeof relations>;
+import { SpaceDatabaseService } from './db/routing/space-database.service';
 
 /**
  * Mười loại sự kiện outbox mà consumer thông báo sự kiện xử lý.
@@ -122,7 +93,7 @@ function displayNameOf(user: { firstName: string; lastName: string; username: st
 @Injectable()
 export class NotificationEventsHandlerService {
   constructor(
-    @InjectDrizzle() private readonly db: Database,
+    private readonly spaceDb: SpaceDatabaseService,
     private readonly delivery: NotificationDeliveryService,
     private readonly i18n: I18nService,
   ) {}
@@ -533,12 +504,11 @@ export class NotificationEventsHandlerService {
     hidden: boolean;
     courseId: string;
   } | undefined> {
-    const [row] = await this.db.select({
-      itemType: gradeItems.itemType,
-      itemName: gradeItems.itemName,
-      hidden: gradeItems.hidden,
-      courseId: gradeItems.courseId,
-    }).from(gradeItems).where(eq(gradeItems.id, itemId));
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('grade_items')
+      .select(['item_type as itemType', 'item_name as itemName', 'hidden', 'course_id as courseId'])
+      .where('id', '=', itemId)
+      .executeTakeFirst();
     return row;
   }
 
@@ -551,8 +521,12 @@ export class NotificationEventsHandlerService {
    * @returns true khi dòng điểm tồn tại và đang ẩn.
    */
   private async isGradeHiddenForUser(itemId: string, userId: string): Promise<boolean> {
-    const [row] = await this.db.select({ hidden: gradeGrades.hidden }).from(gradeGrades)
-      .where(and(eq(gradeGrades.itemId, itemId), eq(gradeGrades.userId, userId)));
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('grade_grades')
+      .select('hidden')
+      .where('item_id', '=', itemId)
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
     return row?.hidden ?? false;
   }
 
@@ -563,7 +537,11 @@ export class NotificationEventsHandlerService {
    * @returns Tên đầy đủ hoặc undefined khi khoá không tồn tại.
    */
   private async getCourseFullName(courseId: string): Promise<string | undefined> {
-    const [row] = await this.db.select({ fullName: course.fullName }).from(course).where(eq(course.id, courseId));
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('course')
+      .select('full_name as fullName')
+      .where('id', '=', courseId)
+      .executeTakeFirst();
     return row?.fullName;
   }
 
@@ -581,16 +559,17 @@ export class NotificationEventsHandlerService {
     cmVisible: boolean | null;
     cmDeletionInProgress: boolean | null;
   } | undefined> {
-    const [row] = await this.db.select({
-      name: assignments.name,
-      courseId: assignments.course,
-      courseVisible: course.visible,
-      cmVisible: courseModules.visible,
-      cmDeletionInProgress: courseModules.deletionInProgress,
-    }).from(assignments)
-      .innerJoin(course, eq(course.id, assignments.course))
-      .leftJoin(courseModules, eq(courseModules.id, assignments.cmId))
-      .where(eq(assignments.id, assignmentId));
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('assignments')
+      .innerJoin('course', 'course.id', 'assignments.course')
+      .leftJoin('course_modules', 'course_modules.id', 'assignments.cm_id')
+      .select([
+        'assignments.name', 'assignments.course as courseId', 'course.visible as courseVisible',
+        'course_modules.visible as cmVisible',
+        'course_modules.deletion_in_progress as cmDeletionInProgress',
+      ])
+      .where('assignments.id', '=', assignmentId)
+      .executeTakeFirst();
     return row;
   }
 
@@ -609,17 +588,19 @@ export class NotificationEventsHandlerService {
     cmVisible: boolean | null;
     cmDeletionInProgress: boolean | null;
   } | undefined> {
-    const [row] = await this.db.select({
-      name: sql<string>`coalesce(${examPins.name}, ${examVersions.name})`,
-      courseId: examPins.courseId,
-      courseVisible: course.visible,
-      cmVisible: courseModules.visible,
-      cmDeletionInProgress: courseModules.deletionInProgress,
-    }).from(examPins)
-      .innerJoin(examVersions, eq(examVersions.id, examPins.examVersionId))
-      .innerJoin(course, eq(course.id, examPins.courseId))
-      .leftJoin(courseModules, eq(courseModules.id, examPins.cmId))
-      .where(eq(examPins.id, pinId));
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('exam_pins')
+      .innerJoin('exam_versions', 'exam_versions.id', 'exam_pins.exam_version_id')
+      .innerJoin('course', 'course.id', 'exam_pins.course_id')
+      .leftJoin('course_modules', 'course_modules.id', 'exam_pins.cm_id')
+      .select([
+        sql<string>`coalesce(${sql.ref('exam_pins.name')}, ${sql.ref('exam_versions.name')})`.as('name'),
+        'exam_pins.course_id as courseId', 'course.visible as courseVisible',
+        'course_modules.visible as cmVisible',
+        'course_modules.deletion_in_progress as cmDeletionInProgress',
+      ])
+      .where('exam_pins.id', '=', pinId)
+      .executeTakeFirst();
     return row;
   }
 
@@ -631,17 +612,20 @@ export class NotificationEventsHandlerService {
    * @returns Số bài nộp đang chờ chấm tại thời điểm đọc.
    */
   private async countAssignmentSubmissionsAwaitingGrading(assignmentId: string): Promise<number> {
-    const rows = await this.db.select({ id: assignSubmissions.id }).from(assignSubmissions)
-      .leftJoin(assignGrades, and(
-        eq(assignGrades.assignmentId, assignSubmissions.assignmentId),
-        eq(assignGrades.userId, assignSubmissions.userId),
-        eq(assignGrades.attemptNumber, assignSubmissions.attemptNumber),
-      ))
-      .where(and(
-        eq(assignSubmissions.assignmentId, assignmentId),
-        eq(assignSubmissions.status, 'submitted'),
-        or(isNull(assignGrades.id), ne(assignGrades.status, 'released')),
-      ));
+    const rows = await this.spaceDb.routedKysely
+      .selectFrom('assign_submissions')
+      .leftJoin('assign_grades', (join) => join
+        .onRef('assign_grades.assignment_id', '=', 'assign_submissions.assignment_id')
+        .onRef('assign_grades.user_id', '=', 'assign_submissions.user_id')
+        .onRef('assign_grades.attempt_number', '=', 'assign_submissions.attempt_number'))
+      .select('assign_submissions.id')
+      .where('assign_submissions.assignment_id', '=', assignmentId)
+      .where('assign_submissions.status', '=', 'submitted')
+      .where((eb) => eb.or([
+        eb('assign_grades.id', 'is', null),
+        eb('assign_grades.status', '!=', 'released'),
+      ]))
+      .execute();
     return rows.length;
   }
 
@@ -653,12 +637,13 @@ export class NotificationEventsHandlerService {
    * @returns Số lượt ở trạng thái `needsgrading` và preview=false.
    */
   private async countPinAttemptsNeedingGrading(pinId: string): Promise<number> {
-    const rows = await this.db.select({ id: examAttempts.id }).from(examAttempts)
-      .where(and(
-        eq(examAttempts.pinId, pinId),
-        eq(examAttempts.state, 'needsgrading'),
-        eq(examAttempts.preview, false),
-      ));
+    const rows = await this.spaceDb.routedKysely
+      .selectFrom('exam_attempts')
+      .select('id')
+      .where('pin_id', '=', pinId)
+      .where('state', '=', 'needsgrading')
+      .where('preview', '=', false)
+      .execute();
     return rows.length;
   }
 
@@ -672,15 +657,16 @@ export class NotificationEventsHandlerService {
    * @returns Dòng thông báo chưa đọc mới nhất hoặc undefined.
    */
   private async getUnreadNotification(userIdTo: string, eventType: string, contextUrl: string) {
-    const [row] = await this.db.select().from(notifications)
-      .where(and(
-        eq(notifications.userIdTo, userIdTo),
-        eq(notifications.eventType, eventType),
-        eq(notifications.contextUrl, contextUrl),
-        isNull(notifications.timeRead),
-      ))
-      .orderBy(desc(notifications.createdAt))
-      .limit(1);
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('notifications')
+      .select(['id', 'subject', 'full_message as fullMessage'])
+      .where('user_id_to', '=', userIdTo)
+      .where('event_type', '=', eventType)
+      .where('context_url', '=', contextUrl)
+      .where('time_read', 'is', null)
+      .orderBy('created_at', 'desc')
+      .limit(1)
+      .executeTakeFirst();
     return row;
   }
 
@@ -693,9 +679,11 @@ export class NotificationEventsHandlerService {
    * @param fullMessage Nội dung đầy đủ mới.
    */
   private async updateNotificationContent(id: string, subject: string, fullMessage: string): Promise<void> {
-    await this.db.update(notifications)
-      .set({ subject, fullMessage, smallMessage: fullMessage.slice(0, 200) })
-      .where(eq(notifications.id, id));
+    await this.spaceDb.routedKysely
+      .updateTable('notifications')
+      .set({ subject, full_message: fullMessage, small_message: fullMessage.slice(0, 200) })
+      .where('id', '=', id)
+      .execute();
   }
 
   /**
@@ -708,14 +696,15 @@ export class NotificationEventsHandlerService {
    * @returns true khi đã có ít nhất một bản chưa đọc.
    */
   private async hasUnreadNotification(userIdTo: string, eventType: string, contextUrl: string): Promise<boolean> {
-    const [row] = await this.db.select({ id: notifications.id }).from(notifications)
-      .where(and(
-        eq(notifications.userIdTo, userIdTo),
-        eq(notifications.eventType, eventType),
-        eq(notifications.contextUrl, contextUrl),
-        isNull(notifications.timeRead),
-      ))
-      .limit(1);
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('notifications')
+      .select('id')
+      .where('user_id_to', '=', userIdTo)
+      .where('event_type', '=', eventType)
+      .where('context_url', '=', contextUrl)
+      .where('time_read', 'is', null)
+      .limit(1)
+      .executeTakeFirst();
     return row !== undefined;
   }
 
@@ -727,7 +716,11 @@ export class NotificationEventsHandlerService {
    * @returns Dòng tin nhắn hoặc undefined.
    */
   private async getMessage(id: string) {
-    const [row] = await this.db.select().from(message).where(eq(message.id, id));
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('message')
+      .select(['deleted_at as deletedAt', 'user_id_from as userIdFrom', 'conversation_id as conversationId'])
+      .where('id', '=', id)
+      .executeTakeFirst();
     return row;
   }
 
@@ -739,11 +732,11 @@ export class NotificationEventsHandlerService {
    * @returns Tên hiển thị hoặc chuỗi rỗng.
    */
   private async getUserDisplayName(userId: string): Promise<string> {
-    const [row] = await this.db.select({
-      firstName: users.firstName,
-      lastName: users.lastName,
-      username: users.username,
-    }).from(users).where(eq(users.id, userId));
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('users')
+      .select(['first_name as firstName', 'last_name as lastName', 'username'])
+      .where('id', '=', userId)
+      .executeTakeFirst();
     return row ? displayNameOf(row) : '';
   }
 
@@ -754,9 +747,11 @@ export class NotificationEventsHandlerService {
    * @returns Danh sách user id thành viên.
    */
   private async listMembers(conversationId: string): Promise<string[]> {
-    const rows = await this.db.select({ userId: messageConversationMembers.userId })
-      .from(messageConversationMembers)
-      .where(eq(messageConversationMembers.conversationId, conversationId));
+    const rows = await this.spaceDb.routedKysely
+      .selectFrom('message_conversation_members')
+      .select('user_id as userId')
+      .where('conversation_id', '=', conversationId)
+      .execute();
     return rows.map((row) => row.userId);
   }
 
@@ -767,12 +762,12 @@ export class NotificationEventsHandlerService {
    * @returns Danh sách user id có cờ muted=true.
    */
   private async listMutedMemberIds(conversationId: string): Promise<string[]> {
-    const rows = await this.db.select({ userId: messageConversationMembers.userId })
-      .from(messageConversationMembers)
-      .where(and(
-        eq(messageConversationMembers.conversationId, conversationId),
-        eq(messageConversationMembers.muted, true),
-      ));
+    const rows = await this.spaceDb.routedKysely
+      .selectFrom('message_conversation_members')
+      .select('user_id as userId')
+      .where('conversation_id', '=', conversationId)
+      .where('muted', '=', true)
+      .execute();
     return rows.map((row) => row.userId);
   }
 
@@ -784,9 +779,12 @@ export class NotificationEventsHandlerService {
    * @returns true khi quan hệ chặn tồn tại đúng chiều.
    */
   private async isBlocked(userId: string, blockedUserId: string): Promise<boolean> {
-    const rows = await this.db.select({ userId: messageUsersBlocked.userId })
-      .from(messageUsersBlocked)
-      .where(and(eq(messageUsersBlocked.userId, userId), eq(messageUsersBlocked.blockedUserId, blockedUserId)));
+    const rows = await this.spaceDb.routedKysely
+      .selectFrom('message_users_blocked')
+      .select('user_id as userId')
+      .where('user_id', '=', userId)
+      .where('blocked_user_id', '=', blockedUserId)
+      .execute();
     return rows.length > 0;
   }
 
@@ -797,7 +795,11 @@ export class NotificationEventsHandlerService {
    * @returns Tenant của khoá hoặc null.
    */
   private async getCourseTenantId(courseId: string): Promise<string | null> {
-    const [row] = await this.db.select({ tenantId: course.tenantId }).from(course).where(eq(course.id, courseId));
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('course')
+      .select('tenant_id as tenantId')
+      .where('id', '=', courseId)
+      .executeTakeFirst();
     return row?.tenantId ?? null;
   }
 
@@ -808,9 +810,11 @@ export class NotificationEventsHandlerService {
    * @returns Tenant của conversation hoặc null.
    */
   private async getConversationTenantId(conversationId: string): Promise<string | null> {
-    const [row] = await this.db.select({ tenantId: messageConversations.tenantId })
-      .from(messageConversations)
-      .where(eq(messageConversations.id, conversationId));
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('message_conversations')
+      .select('tenant_id as tenantId')
+      .where('id', '=', conversationId)
+      .executeTakeFirst();
     return row?.tenantId ?? null;
   }
 
@@ -824,21 +828,25 @@ export class NotificationEventsHandlerService {
    * @returns Tenant mặc định hoặc null khi không có tenant platform.
    */
   private async getUserDefaultTenantId(userId: string): Promise<string | null> {
-    const rows = await this.db.select({ tenantId: tenantMemberships.tenantId, kind: tenants.kind })
-      .from(tenantMemberships)
-      .innerJoin(tenants, eq(tenants.id, tenantMemberships.tenantId))
-      .where(and(
-        eq(tenantMemberships.userId, userId),
-        eq(tenantMemberships.status, 'active'),
-        eq(tenants.status, 'active'),
-      ));
+    const rows = await this.spaceDb.routedKysely
+      .selectFrom('tenant_memberships')
+      .innerJoin('tenants', 'tenants.id', 'tenant_memberships.tenant_id')
+      .select(['tenant_memberships.tenant_id as tenantId', 'tenants.kind'])
+      .where('tenant_memberships.user_id', '=', userId)
+      .where('tenant_memberships.status', '=', 'active')
+      .where('tenants.status', '=', 'active')
+      .execute();
     const distinct = [...new Map(rows.map((row) => [row.tenantId, row])).values()];
     if (distinct.length === 1) return distinct[0]!.tenantId;
     if (distinct.length > 1) {
       const nonPlatform = distinct.find((row) => row.kind !== 'platform');
       if (nonPlatform) return nonPlatform.tenantId;
     }
-    const [platform] = await this.db.select({ id: tenants.id }).from(tenants).where(eq(tenants.kind, 'platform'));
+    const platform = await this.spaceDb.routedKysely
+      .selectFrom('tenants')
+      .select('id')
+      .where('kind', '=', 'platform')
+      .executeTakeFirst();
     return platform?.id ?? null;
   }
 
@@ -852,15 +860,21 @@ export class NotificationEventsHandlerService {
    */
   private async listActiveEnrolledUserIds(courseId: string): Promise<string[]> {
     const now = new Date();
-    const rows = await this.db.select({ userId: userEnrolments.userId }).from(userEnrolments)
-      .innerJoin(enrol, eq(userEnrolments.enrolId, enrol.id))
-      .where(and(
-        eq(enrol.courseId, courseId),
-        eq(userEnrolments.status, 0),
-        eq(enrol.status, 0),
-        lte(userEnrolments.timeStart, now),
-        or(isNull(userEnrolments.timeEnd), gte(userEnrolments.timeEnd, now)),
-      ));
+    const rows = await this.spaceDb.routedKysely
+      .selectFrom('user_enrolments')
+      .innerJoin('enrol', 'enrol.id', 'user_enrolments.enrol_id')
+      .select('user_enrolments.user_id as userId')
+      .where('enrol.course_id', '=', courseId)
+      .where('user_enrolments.status', '=', 0)
+      .where('enrol.status', '=', 0)
+      .where('user_enrolments.time_start', '<=', now)
+      .where((eb) => eb.or([
+        eb('user_enrolments.time_end', 'is', null),
+        // Ghi chú: bản cũ dùng `>=` (gte) ở đây, khác `>` của
+        // processor nhắc hạn — giữ nguyên `>=` đúng luật cũ.
+        eb('user_enrolments.time_end', '>=', now),
+      ]))
+      .execute();
     return [...new Set(rows.map((row) => row.userId))];
   }
 
@@ -872,18 +886,23 @@ export class NotificationEventsHandlerService {
    * @returns Danh sách user id phân biệt mang archetype staff.
    */
   private async listCourseStaffUserIds(courseId: string): Promise<string[]> {
-    const [courseContext] = await this.db.select().from(context)
-      .where(and(eq(context.contextLevel, 50), eq(context.instanceId, courseId)));
+    const courseContext = await this.spaceDb.routedKysely
+      .selectFrom('context')
+      .select('path')
+      .where('context_level', '=', 50)
+      .where('instance_id', '=', courseId)
+      .executeTakeFirst();
     if (!courseContext) return [];
     const pathIds = courseContext.path.split('/').filter((part) => part.length > 0);
     if (!pathIds.length) return [];
-    const rows = await this.db.selectDistinct({ userId: roleAssignments.userId })
-      .from(roleAssignments)
-      .innerJoin(role, eq(role.id, roleAssignments.roleId))
-      .where(and(
-        inArray(role.archetype, [...STAFF_ARCHETYPES]),
-        inArray(roleAssignments.contextId, pathIds),
-      ));
+    const rows = await this.spaceDb.routedKysely
+      .selectFrom('role_assignments')
+      .innerJoin('role', 'role.id', 'role_assignments.role_id')
+      .select('role_assignments.user_id as userId')
+      .distinct()
+      .where('role.archetype', 'in', [...STAFF_ARCHETYPES])
+      .where('role_assignments.context_id', 'in', pathIds)
+      .execute();
     return rows.map((row) => row.userId);
   }
 

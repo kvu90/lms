@@ -1,14 +1,8 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import type { Job } from 'bullmq';
-import { and, isNotNull, isNull, lt } from 'drizzle-orm';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type { relations } from '../db/relations';
-import { notificationDispatchLog, notifications } from '@lms/db';
 import { TaskLogService } from '../task-log.service';
 import { tenantAls } from '../db/tenant-als';
-
-type Database = NodePgDatabase<typeof relations>;
+import { SpaceDatabaseService } from '../db/routing/space-database.service';
 
 /**
  * Hạn giữ dữ liệu thông báo (mô hình đích D.6 của hồ sơ chuẩn thông báo,
@@ -41,7 +35,7 @@ const DAY_MS = 24 * 3600_000;
  * Xử lý job retention: quét và xoá thông báo/nhật ký phân phối đã quá hạn giữ.
  */
 export class NotificationRetentionProcessor extends WorkerHost {
-  constructor(@InjectDrizzle() private readonly db: Database, private readonly taskLog: TaskLogService) { super(); }
+  constructor(private readonly spaceDb: SpaceDatabaseService, private readonly taskLog: TaskLogService) { super(); }
 
   /**
    * Xử lý một lượt quét định kỳ; kết quả được ghi vào task_log.
@@ -69,15 +63,23 @@ export class NotificationRetentionProcessor extends WorkerHost {
     const unreadCutoff = new Date(now.getTime() - NOTIFICATION_UNREAD_RETENTION_DAYS * DAY_MS);
     const dispatchCutoff = new Date(now.getTime() - DISPATCH_LOG_RETENTION_DAYS * DAY_MS);
 
-    const readDeleted = (await this.db.delete(notifications).where(and(
-      isNotNull(notifications.timeRead), lt(notifications.timeRead, readCutoff),
-    )).returning({ id: notifications.id })).length;
-    const unreadDeleted = (await this.db.delete(notifications).where(and(
-      isNull(notifications.timeRead), lt(notifications.createdAt, unreadCutoff),
-    )).returning({ id: notifications.id })).length;
-    const dispatchLogDeleted = (await this.db.delete(notificationDispatchLog).where(
-      lt(notificationDispatchLog.createdAt, dispatchCutoff),
-    ).returning({ id: notificationDispatchLog.id })).length;
+    const readDeleted = (await this.spaceDb.routedKysely
+      .deleteFrom('notifications')
+      .where('time_read', 'is not', null)
+      .where('time_read', '<', readCutoff)
+      .returning('id')
+      .execute()).length;
+    const unreadDeleted = (await this.spaceDb.routedKysely
+      .deleteFrom('notifications')
+      .where('time_read', 'is', null)
+      .where('created_at', '<', unreadCutoff)
+      .returning('id')
+      .execute()).length;
+    const dispatchLogDeleted = (await this.spaceDb.routedKysely
+      .deleteFrom('notification_dispatch_log')
+      .where('created_at', '<', dispatchCutoff)
+      .returning('id')
+      .execute()).length;
 
     return { readDeleted, unreadDeleted, dispatchLogDeleted };
   }

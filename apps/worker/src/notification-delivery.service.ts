@@ -1,18 +1,13 @@
 import { Inject, Injectable, Logger, OnModuleDestroy, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import { InjectQueue } from '@nestjs/bullmq';
 import { I18nService } from '@nestjs/i18n';
-import { and, eq, isNull } from 'drizzle-orm';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Queue } from 'bullmq';
 import Redis from 'ioredis';
 import { randomUUID } from 'node:crypto';
-import type { relations } from './db/relations';
 import { redisConnectionFromUrl } from './config/env';
-import { notificationDispatchLog, notifications, outboxEvents, pluginConfig, userPreferences, users } from '@lms/db';
-
-type Database = NodePgDatabase<typeof relations>;
+import { sql, type CentreDB } from '@lms/db';
+import { SpaceDatabaseService } from './db/routing/space-database.service';
 
 /**
  * Kênh Redis pub/sub mang tín hiệu "số thông báo chưa đọc của một user
@@ -215,7 +210,7 @@ export class NotificationDeliveryService implements OnModuleDestroy {
   private publisher: Redis | null = null;
 
   constructor(
-    @InjectDrizzle() private readonly db: Database,
+    private readonly spaceDb: SpaceDatabaseService,
     @Inject(ConfigService) private readonly config: ConfigService,
     // Hai phụ thuộc dưới đây chỉ phục vụ notify() (xếp job kênh email +
     // nội dung generic của luật C-5). Đánh dấu tuỳ chọn để các spec
@@ -270,12 +265,13 @@ export class NotificationDeliveryService implements OnModuleDestroy {
    */
   private async isProviderEnabledBySitePolicy(provider: WorkerProviderLaw): Promise<boolean> {
     if (provider.mandatoryInApp) return true;
-    const [row] = await this.db.select({ value: pluginConfig.value }).from(pluginConfig)
-      .where(and(
-        eq(pluginConfig.plugin, 'notifications'),
-        eq(pluginConfig.name, `provider_${provider.name}_enabled`),
-        isNull(pluginConfig.tenantId),
-      ));
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('plugin_config')
+      .select('value')
+      .where('plugin', '=', 'notifications')
+      .where('name', '=', `provider_${provider.name}_enabled`)
+      .where('tenant_id', 'is', null)
+      .executeTakeFirst();
     if (!row || row.value === null) return true;
     try {
       return JSON.parse(row.value) !== false;
@@ -286,8 +282,12 @@ export class NotificationDeliveryService implements OnModuleDestroy {
 
   /** Đọc một khoá tuỳ chọn của user; không có dòng → undefined. */
   private async getPreference(userId: string, name: string): Promise<string | undefined> {
-    const [row] = await this.db.select({ value: userPreferences.value }).from(userPreferences)
-      .where(and(eq(userPreferences.userId, userId), eq(userPreferences.name, name)));
+    const row = await this.spaceDb.routedKysely
+      .selectFrom('user_preferences')
+      .select('value')
+      .where('user_id', '=', userId)
+      .where('name', '=', name)
+      .executeTakeFirst();
     return row?.value ?? undefined;
   }
 
@@ -336,26 +336,33 @@ export class NotificationDeliveryService implements OnModuleDestroy {
     const provider = WORKER_PROVIDERS[providerName];
     if (!provider) return { status: 'unknown-provider' };
 
-    const [user] = await this.db.select({ id: users.id, suspended: users.suspended, deleted: users.deleted })
-      .from(users).where(eq(users.id, userId));
+    const user = await this.spaceDb.routedKysely
+      .selectFrom('users')
+      .select(['id', 'suspended', 'deleted'])
+      .where('id', '=', userId)
+      .executeTakeFirst();
     if (!user || user.suspended || user.deleted) {
       // Người bị đình chỉ/xoá không nhận gì (như notify phía API): không
       // lưu thông báo, chỉ ghi vết dispatch log để truy được.
-      await this.db.insert(notificationDispatchLog).values({
-        userId, provider: providerName, channel: 'popup', status: 'skipped-suspended',
-        subject: input.subject, dedupeKey: `skipped-suspended-${providerName}-${userId}-${randomUUID()}`,
-        tenantId: input.tenantId ?? null,
-      }).onConflictDoNothing();
+      await this.spaceDb.routedKysely.insertInto('notification_dispatch_log').values({
+        user_id: userId, provider: providerName, channel: 'popup', status: 'skipped-suspended',
+        subject: input.subject, dedupe_key: `skipped-suspended-${providerName}-${userId}-${randomUUID()}`,
+        tenant_id: input.tenantId ?? null,
+      }).onConflict((oc) => oc.doNothing()).execute();
       return { status: 'skipped-suspended' };
     }
 
     // Chính sách admin cấp site (NB-7) chạy TRƯỚC tuỳ chọn người dùng,
     // như notify() phía API.
     if (!(await this.isProviderEnabledBySitePolicy(provider))) {
-      await this.db.insert(notificationDispatchLog).values({
-        userId, provider: providerName, channel: 'popup', status: 'skipped-admin-disabled',
-        subject: input.subject, dedupeKey: `admin-disabled-${providerName}-${userId}-${randomUUID()}`,
-      }).onConflictDoNothing();
+      // Bản Drizzle cũ bỏ hẳn cột tenant_id ở dòng này (giá trị lưu
+      // là NULL vì cột không có default); Kysely bắt ghi tường minh
+      // cột nullable không default nên ghi `null` giữ đúng giá trị.
+      await this.spaceDb.routedKysely.insertInto('notification_dispatch_log').values({
+        user_id: userId, provider: providerName, channel: 'popup', status: 'skipped-admin-disabled',
+        subject: input.subject, dedupe_key: `admin-disabled-${providerName}-${userId}-${randomUUID()}`,
+        tenant_id: null,
+      }).onConflict((oc) => oc.doNothing()).execute();
       return { status: 'skipped-admin-disabled' };
     }
 
@@ -368,36 +375,36 @@ export class NotificationDeliveryService implements OnModuleDestroy {
     // API: `notif.course.<courseId>` mang 'all' | 'mute'.
     if (input.courseId && !isExemptFromCourseMute(provider)
       && (await this.getPreference(userId, `notif.course.${input.courseId}`)) === 'mute') {
-      await this.db.insert(notificationDispatchLog).values({
-        userId, provider: providerName, channel: 'popup', status: 'skipped-course-mute',
-        subject: input.subject, dedupeKey: `course-mute-${providerName}-${userId}-${randomUUID()}`,
-        tenantId: input.tenantId ?? null,
-      }).onConflictDoNothing();
+      await this.spaceDb.routedKysely.insertInto('notification_dispatch_log').values({
+        user_id: userId, provider: providerName, channel: 'popup', status: 'skipped-course-mute',
+        subject: input.subject, dedupe_key: `course-mute-${providerName}-${userId}-${randomUUID()}`,
+        tenant_id: input.tenantId ?? null,
+      }).onConflict((oc) => oc.doNothing()).execute();
       return { status: 'skipped-course-mute' };
     }
 
     if (!(await this.resolvePopupEnabled(userId, provider))) {
-      await this.db.insert(notificationDispatchLog).values({
-        userId, provider: providerName, channel: 'popup', status: 'skipped-preference',
-        subject: input.subject, dedupeKey: `popup-off-${providerName}-${userId}-${randomUUID()}`,
-        tenantId: input.tenantId ?? null,
-      }).onConflictDoNothing();
+      await this.spaceDb.routedKysely.insertInto('notification_dispatch_log').values({
+        user_id: userId, provider: providerName, channel: 'popup', status: 'skipped-preference',
+        subject: input.subject, dedupe_key: `popup-off-${providerName}-${userId}-${randomUUID()}`,
+        tenant_id: input.tenantId ?? null,
+      }).onConflict((oc) => oc.doNothing()).execute();
       return { status: 'skipped-preference' };
     }
 
-    const [notification] = await this.db.insert(notifications).values({
-      userIdFrom: input.fromUserId ?? null, userIdTo: userId,
-      subject: input.subject, fullMessage: input.body, smallMessage: input.smallMessage,
-      component: provider.component, eventType: providerName,
-      contextUrl: input.contextUrl ?? null,
-      tenantId: input.tenantId ?? null,
-    }).returning();
-    await this.db.insert(notificationDispatchLog).values({
-      notificationId: notification!.id, userId, provider: providerName,
+    const notification = await this.spaceDb.routedKysely.insertInto('notifications').values({
+      user_id_from: input.fromUserId ?? null, user_id_to: userId,
+      subject: input.subject, full_message: input.body, small_message: input.smallMessage,
+      component: provider.component, event_type: providerName,
+      context_url: input.contextUrl ?? null,
+      tenant_id: input.tenantId ?? null,
+    }).returning('id').executeTakeFirst();
+    await this.spaceDb.routedKysely.insertInto('notification_dispatch_log').values({
+      notification_id: notification!.id, user_id: userId, provider: providerName,
       channel: 'popup', status: 'delivered', subject: input.subject,
-      dedupeKey: `popup-${notification!.id}`,
-      tenantId: input.tenantId ?? null,
-    }).onConflictDoNothing();
+      dedupe_key: `popup-${notification!.id}`,
+      tenant_id: input.tenantId ?? null,
+    }).onConflict((oc) => oc.doNothing()).execute();
     // Số chưa đọc vừa tăng: báo cho các stream SSE đang mở của người
     // nhận (qua Redis pub/sub) để huy hiệu cập nhật ngay, không polling.
     await this.signalUnreadCountChanged(userId);
@@ -542,11 +549,11 @@ export class NotificationDeliveryService implements OnModuleDestroy {
       }
       const frequency = await this.resolveEmailFrequency(userId, providerName, emailLaw.defaultEmailFrequency);
       if (frequency === 'off') {
-        await this.db.insert(notificationDispatchLog).values({
-          userId, provider: providerName, channel: 'email', status: 'skipped-preference', subject: input.subject,
-          dedupeKey: `${tenantKey}-email-off-${providerName}-${userId}-${randomUUID()}`,
-          tenantId,
-        }).onConflictDoNothing();
+        await this.spaceDb.routedKysely.insertInto('notification_dispatch_log').values({
+          user_id: userId, provider: providerName, channel: 'email', status: 'skipped-preference', subject: input.subject,
+          dedupe_key: `${tenantKey}-email-off-${providerName}-${userId}-${randomUUID()}`,
+          tenant_id: tenantId,
+        }).onConflict((oc) => oc.doNothing()).execute();
         channels['email'] = 'skipped-preference';
       } else {
         const external = this.resolveExternalContent(providerName, emailLaw, input);
@@ -560,10 +567,14 @@ export class NotificationDeliveryService implements OnModuleDestroy {
       }
     }
 
-    await this.db.insert(outboxEvents).values({
-      aggregate: 'messaging', type: 'notification_created', tenantId,
-      payload: { userId, provider: providerName, notificationId, ...(tenantId ? { tenantId } : {}) },
-    });
+    await this.spaceDb.routedKysely.insertInto('outbox_events').values({
+      aggregate: 'messaging', type: 'notification_created', tenant_id: tenantId,
+      // jsonb: serialize tường minh kèm `::jsonb` theo khuôn ghi
+      // jsonb của `@lms/db` (driver `pg` hiểu mảng cấp cao nhất là
+      // mảng PostgreSQL nên không gắn object thô); khoá payload giữ
+      // nguyên camelCase như sự kiện cũ vì consumer đọc đúng khoá đó.
+      payload: sql<CentreDB['outbox_events']['payload']>`${JSON.stringify({ userId, provider: providerName, notificationId, ...(tenantId ? { tenantId } : {}) })}::jsonb`,
+    }).execute();
     return { notificationId, channels };
   }
 }
