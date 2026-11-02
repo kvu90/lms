@@ -72,6 +72,7 @@ import { WorkerPaidClassEnrolActivationService } from './worker-paid-class-enrol
 import { WorkerPaidEnrolActivationService } from './worker-paid-enrol-activation.service';
 import { WorkerPaymentSettlementService } from './worker-payment-settlement.service';
 import { WorkerPaymentSpaceScope } from './worker-payment-space-scope.service';
+import { WorkerPaymentsTransitionalRepository } from './worker-payments-transitional.repository';
 import {
   AnalyticsRunProcessor, BackupProcessor, PaymentReconciliationProcessor, PrivacyProcessor,
   ReportScheduleProcessor, RestoreProcessor, SearchReindexProcessor,
@@ -258,7 +259,7 @@ const outboxRouteQueueNames: string[] = allQueueNamesOfRoutes(OUTBOX_EVENT_QUEUE
       inject: [SpaceDatabaseService],
     },
     PlanEntitlementsService, SepayMatchingService,
-    WorkerEnrolOutboxService, WorkerPaymentSpaceScope, WorkerPaidEnrolActivationService, WorkerPaidClassEnrolActivationService, WorkerPaymentSettlementService,
+    WorkerEnrolOutboxService, WorkerPaymentSpaceScope, WorkerPaidEnrolActivationService, WorkerPaidClassEnrolActivationService, WorkerPaymentSettlementService, WorkerPaymentsTransitionalRepository,
     { provide: PAID_ENROL_ACTIVATION_PORT, useExisting: WorkerPaidEnrolActivationService },
     { provide: PAID_CLASS_ENROL_ACTIVATION_PORT, useExisting: WorkerPaidClassEnrolActivationService },
     { provide: PAYMENT_SETTLEMENT_PORT, useExisting: WorkerPaymentSettlementService },
