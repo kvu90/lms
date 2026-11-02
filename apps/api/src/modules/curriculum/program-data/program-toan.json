@@ -10892,7 +10892,7 @@
    "stream": "Hình học và Đo lường",
    "section": "Một số yếu tố thống kê",
    "topic": "Một số yếu tố xác suất",
-   "content": "– Sử dụng được phần mềm để vẽ biểu đồ. – Sử dụng được phần mềm để xác định được tần số. – Sử dụng được phần mềm mô tả thí nghiệm ngẫu nhiên.",
+   "content": "Thực hành trong phòng máy tính với phần mềm toán học (nếu nhà trường có điều kiện thực hiện)",
    "kind": "content",
    "outcomes": [
     {
@@ -10944,6 +10944,7 @@
     "file": "ct-toan-official.pdf",
     "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
     "pdf_pages": [
+     69,
      70
     ]
    }
@@ -12706,7 +12707,7 @@
    "stream": "Hình học và Đo lường",
    "section": "Một số yếu tố thống kê",
    "topic": "Một số yếu tố xác suất",
-   "content": "– Sử dụng được phần mềm mô tả thí nghiệm ngẫu nhiên.",
+   "content": "Thực hành trong phòng máy tính với phần mềm toán học (nếu nhà trường có điều kiện thực hiện)",
    "kind": "content",
    "outcomes": [
     {
@@ -12744,6 +12745,7 @@
     "file": "ct-toan-official.pdf",
     "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
     "pdf_pages": [
+     77,
      78
     ]
    }
@@ -19610,7 +19612,7 @@
    "stream": "Thống kê và Xác suất",
    "section": "Xác suất",
    "topic": "Các quy tắc tính xác suất",
-   "content": "– Sử dụng phần mềm để hỗ trợ việc học các kiến thức thống kê và xác suất. – Thực hành sử dụng phần mềm để tính phân bố nhị thức, tính toán thống kê.",
+   "content": "Thực hành trong phòng máy tính với phần mềm toán học (nếu nhà trường có điều kiện thực hiện)",
    "kind": "content",
    "outcomes": [
     {
