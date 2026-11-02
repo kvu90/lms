@@ -2483,6 +2483,11 @@ export const enResources = {
     curriculumChangeMoved: 'moved',
     curriculumChangeRevived: 'revived',
     curriculumContentColumn: 'Content',
+    curriculumStrandTopicColumn: 'Strand / topic',
+    curriculumSubjectPickerLabel: 'Subject',
+    curriculumGradePickerLabel: 'Grade',
+    curriculumSearchPlaceholder: 'Search in Content / Learning outcomes…',
+    curriculumTableEmpty: 'No content in this programme yet.',
     curriculumSubjectsTitle: 'Subjects',
     curriculumCreateSubject: 'Create subject',
     curriculumNoSubjects:

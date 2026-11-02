@@ -1,17 +1,22 @@
-import { useRef, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@lms/ui/components/button';
+import { Label } from '@lms/ui/components/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
 import { ErrorAlert } from '#components/error-alert';
 import { PageHeader, PageShell } from '#components/page-shell';
 import { ApiError } from '#lib/api';
+import { useAccessContexts } from '#lib/access';
 import { queryClient } from '#lib/query-client';
 import {
   curriculumTreeScopedQueryOptions,
-  useCurriculumTreeScoped, useDeleteCurriculumNode, useDeleteCurriculumOutcome,
+  useCurriculumCurriculaScoped, useCurriculumSubjectsScoped, useCurriculumTreeScoped,
+  useDeleteCurriculumNode, useDeleteCurriculumOutcome,
   type CurriculumTree, type CurriculumTreeNode,
 } from '#lib/curriculum';
-import { flattenProgramRows, ProgramGroupTable, type ProgramRow } from './program-group-table';
+import { flattenProgramRows, type ProgramRow } from './program-group-table';
+import { buildProgramOutcomeRows, ProgramDataTable } from './program-data-table';
 import { errorText } from '../utils/shared';
 
 /**
@@ -21,6 +26,10 @@ import { errorText } from '../utils/shared';
  * hoá giữ đúng nhịp đọc đó: 10 dòng/trang, mạch bị cắt qua trang thì
  * lặp lại tiêu đề kèm dấu (tiếp). Phân trang chạy hoàn toàn phía
  * client — cây đã tải một lần, chuyển trang không gọi lại server.
+ *
+ * Hằng này hiện chỉ còn trang xem của giáo viên dùng (trang cây quản
+ * trị đã chuyển sang phân trang của Data Table dùng chung); giữ
+ * nguyên giá trị để nhịp đọc của bề mặt giáo viên không đổi.
  */
 export const PROGRAM_PAGE_SIZE = 10;
 
@@ -51,21 +60,6 @@ export function buildProgramGroups(tree: CurriculumTree): ProgramGroup[] {
   return groups;
 }
 
-/** Danh sách số trang hiển thị ở nút phân trang: gọn khi nhiều trang (1 … quanh trang hiện tại … cuối). */
-function pageNumberItems(total: number, current: number): (number | 'gap')[] {
-  if (total <= 12) return Array.from({ length: total }, (_, i) => i + 1);
-  const wanted = new Set([1, 2, total - 1, total, current - 1, current, current + 1]);
-  const nums = [...wanted].filter((n) => n >= 1 && n <= total).sort((a, b) => a - b);
-  const out: (number | 'gap')[] = [];
-  let prev = 0;
-  for (const n of nums) {
-    if (prev > 0 && n - prev > 1) out.push('gap');
-    out.push(n);
-    prev = n;
-  }
-  return out;
-}
-
 /**
  * Nạp trước cây cho route cây chương trình (cùng khoá với truy vấn
  * của trang) — lỗi nạp bỏ qua, trang tự hiện trạng thái như thường.
@@ -79,12 +73,31 @@ export async function adminCurriculumTreePageClientLoader({ params }: { params: 
   return null;
 }
 
+/**
+ * Trang cây chương trình của khu quản trị: bảng chương trình của một
+ * môn ở một khối lớp, dựng trên Data Table dùng chung (mỗi YCCĐ một
+ * dòng — xem `program-data-table.tsx`). Đầu trang có bộ chọn Môn và
+ * bộ chọn Lớp để chuyển thẳng tới cây của môn/khối khác mà không
+ * phải quay về trang danh sách; ô tìm kiếm là ô lọc toàn bảng của
+ * Data Table.
+ *
+ * Luồng dữ liệu: cây đọc qua TanStack Query như trước (lỗi 403 thì
+ * hiện thông báo không có quyền; chưa có dữ liệu thì giữ trạng thái
+ * đang tải). Hai bộ chọn đọc thêm danh sách môn neo ở context hệ
+ * thống và danh sách chương trình của môn đang chọn ở bộ chọn qua
+ * cùng tầng `lib/curriculum`; các nguồn phụ này lỗi hoặc chưa về thì
+ * bộ chọn tương ứng chưa hiện, bảng chính không bị ảnh hưởng. Đổi
+ * Lớp thì điều hướng ngay tới cây của chương trình được chọn; đổi
+ * Môn thì chờ danh sách chương trình của môn mới về rồi điều hướng
+ * tới chương trình cùng khối nếu có, không thì khối nhỏ nhất của
+ * môn đó. Xoá node/YCCĐ đi qua đột biến — cây tự làm mới nhờ
+ * làm-mới-khoá của đột biến.
+ */
 export function AdminCurriculumTreePage() {
   const { t } = useTranslation('app');
   const { curriculumId } = useParams();
+  const navigate = useNavigate();
   const [message, setMessage] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const groupsTopRef = useRef<HTMLDivElement>(null);
 
   // Cây đọc qua TanStack Query (F-01 của rà soát #133): lỗi 403 thì
   // trang hiện thông báo không có quyền; chưa có dữ liệu thì giữ
@@ -95,6 +108,38 @@ export function AdminCurriculumTreePage() {
   const forbidden = treeQuery.error instanceof ApiError && treeQuery.error.problem.status === 403;
   const deleteNodeMutation = useDeleteCurriculumNode();
   const deleteOutcomeMutation = useDeleteCurriculumOutcome();
+
+  // Nguồn phụ cho hai bộ chọn Môn/Lớp: môn neo ở context hệ thống
+  // (đọc qua tầng contexts như trang danh sách), chương trình theo
+  // môn đang chọn ở bộ chọn. `pickedSubjectId` là môn người dùng vừa
+  // chọn khi khác môn của cây đang xem; chưa chọn thì bộ chọn neo
+  // theo môn của cây.
+  const contextsQuery = useAccessContexts();
+  const systemContextId = contextsQuery.data?.find((c) => c.contextLevel === 10)?.id ?? null;
+  const subjectsQuery = useCurriculumSubjectsScoped(systemContextId);
+  const subjects = useMemo(
+    () => [...(subjectsQuery.data ?? [])].sort((a, b) => a.position - b.position),
+    [subjectsQuery.data],
+  );
+  const [pickedSubjectId, setPickedSubjectId] = useState<string | null>(null);
+  const selectorSubjectId = pickedSubjectId ?? tree?.subject.id ?? '';
+  const curriculaQuery = useCurriculumCurriculaScoped(selectorSubjectId, undefined, selectorSubjectId !== '');
+  const selectorCurricula = useMemo(
+    () => [...(curriculaQuery.data ?? [])].sort((a, b) => a.grade - b.grade),
+    [curriculaQuery.data],
+  );
+
+  // Đổi môn: danh sách chương trình của môn mới về thì điều hướng
+  // tới chương trình cùng khối với cây đang xem nếu môn mới có khối
+  // đó, không thì tới khối nhỏ nhất. Môn mới không có chương trình
+  // nào thì giữ nguyên trang (không có đích để chuyển).
+  useEffect(() => {
+    if (!tree || !pickedSubjectId || pickedSubjectId === tree.subject.id) return;
+    if (curriculaQuery.data === undefined) return;
+    const target =
+      selectorCurricula.find((c) => c.grade === tree.curriculum.grade) ?? selectorCurricula[0];
+    if (target) navigate(`/admin/curriculum/curricula/${target.id}`);
+  }, [pickedSubjectId, curriculaQuery.data, selectorCurricula, tree, navigate]);
 
   async function deleteNode(node: CurriculumTreeNode) {
     if (!window.confirm(t('curriculumConfirmDeleteNode', { title: node.title }))) return;
@@ -133,40 +178,16 @@ export function AdminCurriculumTreePage() {
     );
   }
 
-  // Phân trang theo dòng Nội dung trên toàn cây: các mạch giữ nguyên
-  // thứ tự, trang cắt đến đâu thì mạch đang dở được trình bày tiếp ở
-  // trang sau với tiêu đề lặp lại kèm dấu (tiếp). Mạch chưa có dòng nào
-  // vẫn hiện tiêu đề (giữ nút Thêm node con) ở trang chứa vị trí của nó.
-  const groups = buildProgramGroups(tree);
-  const totalRows = groups.reduce((n, g) => n + g.rows.length, 0);
-  const totalPages = Math.max(1, Math.ceil(totalRows / PROGRAM_PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const pageStart = (currentPage - 1) * PROGRAM_PAGE_SIZE;
-  const pageEnd = pageStart + PROGRAM_PAGE_SIZE;
-  const segments: { group: ProgramGroup; rows: ProgramRow[]; continued: boolean }[] = [];
-  let cursor = 0;
-  for (const group of groups) {
-    const start = cursor;
-    const end = start + group.rows.length;
-    cursor = end;
-    if (group.rows.length === 0) {
-      const attachIndex = Math.min(start, Math.max(totalRows - 1, 0));
-      if (Math.floor(attachIndex / PROGRAM_PAGE_SIZE) + 1 === currentPage) {
-        segments.push({ group, rows: [], continued: false });
-      }
-      continue;
-    }
-    const from = Math.max(start, pageStart);
-    const to = Math.min(end, pageEnd);
-    if (from < to) {
-      segments.push({ group, rows: group.rows.slice(from - start, to - start), continued: start < pageStart });
-    }
-  }
-
-  function goToPage(next: number) {
-    setPage(Math.max(1, Math.min(next, totalPages)));
-    groupsTopRef.current?.scrollIntoView?.({ block: 'start' });
-  }
+  const rows = buildProgramOutcomeRows(tree);
+  // Giá trị bộ chọn Lớp khi bộ chọn đang neo ở môn khác với cây đang
+  // xem (đang chờ điều hướng sau khi đổi môn): chương trình cùng
+  // khối nếu có, không thì khối nhỏ nhất của môn đó.
+  const gradeSelectValue =
+    selectorSubjectId === tree.subject.id
+      ? tree.curriculum.id
+      : (selectorCurricula.find((c) => c.grade === tree.curriculum.grade)?.id ??
+        selectorCurricula[0]?.id ??
+        '');
 
   return (
     <PageShell>
@@ -179,6 +200,54 @@ export function AdminCurriculumTreePage() {
           {message}
         </ErrorAlert>
       ) : null}
+      <div className="flex flex-wrap items-end gap-4">
+        {subjects.length > 0 ? (
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="curriculum-tree-subject">{t('curriculumSubjectPickerLabel')}</Label>
+            <Select
+              value={selectorSubjectId}
+              onValueChange={(value) => {
+                if (value) setPickedSubjectId(value);
+              }}
+            >
+              <SelectTrigger id="curriculum-tree-subject" className="w-64">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {subjects.map((subject) => (
+                  <SelectItem key={subject.id} value={subject.id}>
+                    {subject.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
+        {selectorCurricula.length > 0 ? (
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="curriculum-tree-grade">{t('curriculumGradePickerLabel')}</Label>
+            <Select
+              value={gradeSelectValue}
+              onValueChange={(value) => {
+                if (value && value !== curriculumId) {
+                  navigate(`/admin/curriculum/curricula/${value}`);
+                }
+              }}
+            >
+              <SelectTrigger id="curriculum-tree-grade" className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {selectorCurricula.map((curriculum) => (
+                  <SelectItem key={curriculum.id} value={curriculum.id}>
+                    {t('curriculumGradeLabel', { grade: curriculum.grade })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
+      </div>
       <div>
         <Button type="button" render={<Link to={`/admin/curriculum/curricula/${tree.curriculum.id}/nodes/new`} />}>
           {t('curriculumAddRootNode')}
@@ -187,49 +256,12 @@ export function AdminCurriculumTreePage() {
           {t('curriculumBackToList')}
         </Link>
       </div>
-      <div className="flex flex-col gap-4" ref={groupsTopRef}>
-        {segments.map(({ group, rows, continued }) => (
-          <ProgramGroupTable
-            key={`${group.key}-${continued ? 'cont' : 'start'}`}
-            title={group.title}
-            groupNode={group.groupNode}
-            rows={rows}
-            curriculumId={tree.curriculum.id}
-            onDeleteNode={(n) => void deleteNode(n)}
-            onDeleteOutcome={(n, id) => void deleteOutcome(n, id)}
-            continued={continued}
-          />
-        ))}
-      </div>
-      {totalPages > 1 ? (
-        <nav aria-label={t('curriculumPaginationLabel')} className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => goToPage(currentPage - 1)}>
-            {t('curriculumPagePrevious')}
-          </Button>
-          {pageNumberItems(totalPages, currentPage).map((item, i) =>
-            item === 'gap' ? (
-              <span key={`gap-${i}`} className="text-sm text-muted-foreground">…</span>
-            ) : (
-              <Button
-                key={item}
-                type="button"
-                variant={item === currentPage ? 'default' : 'outline'}
-                size="sm"
-                aria-current={item === currentPage ? 'page' : undefined}
-                onClick={() => goToPage(item)}
-              >
-                {item}
-              </Button>
-            ),
-          )}
-          <Button type="button" variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => goToPage(currentPage + 1)}>
-            {t('curriculumPageNext')}
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            {t('curriculumPageStatus', { current: currentPage, total: totalPages })}
-          </span>
-        </nav>
-      ) : null}
+      <ProgramDataTable
+        rows={rows}
+        curriculumId={tree.curriculum.id}
+        onDeleteNode={(n) => void deleteNode(n)}
+        onDeleteOutcome={(n, id) => void deleteOutcome(n, id)}
+      />
     </PageShell>
   );
 }
