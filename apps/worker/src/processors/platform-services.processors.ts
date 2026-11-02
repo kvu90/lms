@@ -18,6 +18,7 @@ import {
 import { NotificationDeliveryService } from '../notification-delivery.service';
 import { tenantAls } from '../db/tenant-als';
 import { resolveDefaultTenantId } from '../db/default-tenant';
+import { SpaceDatabaseService } from '../db/routing/space-database.service';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -269,6 +270,7 @@ export class ReportScheduleProcessor extends WorkerHost {
     @InjectDrizzle() private readonly db: Database,
     private readonly i18n: I18nService,
     private readonly delivery: NotificationDeliveryService,
+    private readonly spaceDb: SpaceDatabaseService,
   ) { super(); }
   async process(job: Job<{ scheduleId: string }>): Promise<{ rows: number; status: string }> {
     // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
@@ -300,7 +302,7 @@ export class ReportScheduleProcessor extends WorkerHost {
     // gắn tenant mặc định của người tạo lịch theo membership (người
     // sẽ đọc thông báo), truyền xuống hàm luật dùng chung để dòng
     // thông báo + dispatch log mang đúng tenant.
-    const tenantId = await resolveDefaultTenantId(this.db, schedule.createdBy);
+    const tenantId = await resolveDefaultTenantId(this.spaceDb.routedKysely, schedule.createdBy);
     await this.delivery.deliverInApp(schedule.createdBy, 'report_scheduled', {
       subject,
       body: this.i18n.t('platform.reportReadyBody', { locale: recipientLocale, args: { name: report?.name ?? String(schedule.reportId) } }),
