@@ -15,9 +15,10 @@
  *   2. Cụm PostgreSQL dưới 18: cài shim `uuidv7()` viết tay TRƯỚC
  *      carrier (PG18 có hàm tích hợp). Shim nằm ngoài carrier —
  *      nội dung carrier giữ nguyên từng byte.
- *   3. Áp bộ carrier của kho bằng Migrator của package (kèm bước
- *      cấy nhật ký — trên database trống thì bước này là no-op vì
- *      chưa có nhật ký Drizzle để cấy).
+ *   3. Áp toàn bộ migration của kho bằng Migrator của package (kèm
+ *      bước cấy nhật ký theo diện carrier đóng băng — trên database
+ *      trống thì bước này là no-op vì chưa có nhật ký Drizzle để
+ *      cấy).
  *
  * Đường dẫn carrier trỏ vào `packages/db/migrations/<kho>` — vị trí
  * của bộ SQL sau khi dời khỏi `apps/api/drizzle*` ở hạng mục nền
@@ -28,8 +29,8 @@ import { Client, Pool } from 'pg';
 import { Migrator } from 'kysely/migration';
 import { createCentreKysely, createControlPlaneKysely, createSystemBankKysely } from '../client';
 import { adoptJournal } from '../migrate/adopt-journal';
-import { FrozenSqlProvider, listCarrierNames } from '../migrate/frozen-sql-provider';
-import { installUuidv7Shim } from '../migrate/stores';
+import { FrozenSqlProvider } from '../migrate/frozen-sql-provider';
+import { installUuidv7Shim, MIGRATION_STORES } from '../migrate/stores';
 import type { Kysely } from 'kysely';
 
 /** Ba kho có thể dựng bằng harness này, khớp ba factory trong `client.ts`. */
@@ -45,7 +46,7 @@ function packageRoot(): string {
   return join(__dirname, '..', '..');
 }
 
-/** Thư mục carrier của từng kho, tính từ gốc package. */
+/** Thư mục migration của từng kho, tính từ gốc package. */
 function migrationsDirFor(store: TestStoreKind): string {
   return join(packageRoot(), 'migrations', store);
 }
@@ -70,19 +71,21 @@ export function withDatabase(connectionString: string, database: string): string
 }
 
 /**
- * Áp carrier của một kho vào database đã tạo bằng bộ máy migration
- * của package: cài shim `uuidv7()` trước nếu cụm dưới PG18, cấy
- * nhật ký (no-op trên database trống), rồi `migrateToLatest()`.
- * Lỗi migrate (Kysely không ném mà trả `{ error, results }`) được
- * chuyển thành ngoại lệ rõ ràng — harness im lặng bỏ qua lỗi áp
- * là database test thiếu bảng mà spec không biết.
+ * Áp toàn bộ migration của một kho (carrier đóng băng + migration
+ * native) vào database đã tạo bằng bộ máy migration của package:
+ * cài shim `uuidv7()` trước nếu cụm dưới PG18, cấy nhật ký theo
+ * diện carrier đóng băng của kho (no-op trên database trống), rồi
+ * `migrateToLatest()`. Lỗi migrate (Kysely không ném mà trả
+ * `{ error, results }`) được chuyển thành ngoại lệ rõ ràng —
+ * harness im lặng bỏ qua lỗi áp là database test thiếu bảng mà
+ * spec không biết.
  */
 async function applyCarrier(storeUrl: string, store: TestStoreKind): Promise<void> {
   const pool = new Pool({ connectionString: storeUrl });
   const db = createStoreKysely(store, pool);
   try {
     await installUuidv7Shim(db);
-    await adoptJournal(db, listCarrierNames(migrationsDirFor(store)));
+    await adoptJournal(db, MIGRATION_STORES[store].carrierNames);
     const migrator = new Migrator({ db, provider: new FrozenSqlProvider(migrationsDirFor(store)) });
     const { error, results } = await migrator.migrateToLatest();
     if (error || (results ?? []).some((result) => result.status === 'Error')) {

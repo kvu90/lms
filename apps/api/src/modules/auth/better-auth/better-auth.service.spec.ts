@@ -1,6 +1,6 @@
 import type { ConfigService } from '@nestjs/config';
 import { describe, expect, it } from 'vitest';
-import type { Database } from '../../../db/database';
+import type { SpaceDatabaseService } from '../../../db/routing/space-database.service';
 import type { AuthMailService } from '../../mail/auth-mail.service';
 import { PasswordService } from '../../users/password.service';
 import type { LoginLockoutService } from '../login-lockout.service';
@@ -20,7 +20,8 @@ const lockoutStub = {
 
 function buildService(values: Record<string, unknown>): BetterAuthService {
   const config = configStub(values);
-  return new BetterAuthService(config, {} as unknown as Database, new PasswordService(config), undefined, lockoutStub);
+  const spaceDb = { routedKysely: {} } as unknown as SpaceDatabaseService;
+  return new BetterAuthService(config, spaceDb, new PasswordService(config), undefined, lockoutStub);
 }
 
 /**
@@ -131,7 +132,7 @@ describe('Khối BetterAuthService', () => {
     const config = configStub({ BETTER_AUTH_ENABLED: true, BETTER_AUTH_SECRET: SECRET, PORT: 3000 });
     const service = new BetterAuthService(
       config,
-      {} as unknown as Database,
+      { routedKysely: {} } as unknown as SpaceDatabaseService,
       new PasswordService(config),
       mailPort,
     );

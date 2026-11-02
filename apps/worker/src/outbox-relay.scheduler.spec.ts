@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { MESSAGING_DISTRIBUTED_EVENT_TYPES } from '@lms/messaging';
-import { tenants } from '@lms/db';
 import type { SpaceRegistryEntry } from './db/routing/space-connection-resolver';
 import { OutboxRelayScheduler } from './outbox-relay.scheduler';
 import {
@@ -35,7 +34,7 @@ import {
  *     của một trung tâm không chặn các trung tâm khác.
  *
  * Toàn bộ test chạy trên DB/hàng đợi giả lập trong bộ nhớ theo đúng
- * bề mặt relay dùng (chuỗi truy vấn Drizzle, `Queue.add` của BullMQ,
+ * bề mặt relay dùng (chuỗi truy vấn Kysely, `Queue.add` của BullMQ,
  * `EventLogWriter.record`, `TaskLogService.recordRun`); hàng đợi giả
  * mô phỏng đúng luật chống trùng của BullMQ theo `jobId`. Các khẳng
  * định đều là hệ quả quan sát được (dòng có dấu hay chưa, job nằm ở
@@ -101,50 +100,77 @@ class FakeQueue {
 }
 
 /**
- * DB giả theo chuỗi truy vấn Drizzle mà relay dùng. Relay xử lý các
- * dòng tuần tự theo thứ tự đã quét và đóng dấu ngay trong vòng lặp,
- * nên bước ghi dấu của fake áp lên dòng đang chờ đóng dấu gần nhất
- * theo đúng thứ tự đó.
+ * DB giả theo chuỗi truy vấn Kysely mà relay dùng (`selectFrom` /
+ * `updateTable` trên handle định tuyến): lượt quét outbox trả các
+ * dòng chưa có dấu theo đúng thứ tự mảng và trần `limit`; tra cứu
+ * `tenants` lọc theo danh sách id của điều kiện `in`; bước đóng dấu
+ * áp `published_at` lên đúng dòng mà điều kiện `where` của lệnh
+ * cập nhật chỉ tới.
  */
 function makeFakeDb(rows: FakeRow[], tenantSlugs: Record<string, string> = {}) {
-  let awaitingStamp: FakeRow[] = [];
   const control = { failNextStamp: false };
   const db = {
-    select: () => ({
-      from: (table: unknown) => {
-        // Bảng tenants: relay tra slug của tenant cho cả lô bằng
-        // một truy vấn kết thúc ngay ở `where` (không orderBy/limit).
-        if (table === tenants) {
-          return {
-            where: async () =>
-              Object.entries(tenantSlugs).map(([id, slug]) => ({ id, slug })),
-          };
-        }
-        return {
-          where: () => ({
-            orderBy: () => ({
-              limit: async (limit: number) => {
-                const pending = rows.filter((r) => r.publishedAt === null).slice(0, limit);
-                awaitingStamp = [...pending];
-                return pending;
-              },
-            }),
-          }),
-        };
-      },
-    }),
-    update: () => ({
-      set: (values: { publishedAt: Date }) => ({
-        where: async () => {
+    selectFrom: (table: string) => {
+      let inIds: string[] | null = null;
+      let limitValue: number | undefined;
+      const builder = {
+        select: () => builder,
+        where: (column: string, op: string, value: unknown) => {
+          if (table === 'tenants' && column === 'id' && op === 'in') {
+            inIds = value as string[];
+          }
+          return builder;
+        },
+        orderBy: () => builder,
+        limit: (n: number) => {
+          limitValue = n;
+          return builder;
+        },
+        execute: async () => {
+          if (table === 'tenants') {
+            return Object.entries(tenantSlugs)
+              .filter(([id]) => inIds === null || inIds.includes(id))
+              .map(([id, slug]) => ({ id, slug }));
+          }
+          const pending = rows
+            .filter((r) => r.publishedAt === null)
+            .slice(0, limitValue ?? rows.length);
+          return pending.map((r) => ({
+            id: r.id,
+            seq: r.seq,
+            aggregate: r.aggregate,
+            type: r.type,
+            payload: r.payload,
+            occurredAt: r.occurredAt,
+            tenantId: r.tenantId,
+          }));
+        },
+      };
+      return builder;
+    },
+    updateTable: () => {
+      let targetId: string | null = null;
+      let stamp: Date | null = null;
+      const builder = {
+        set: (values: { published_at: Date }) => {
+          stamp = values.published_at;
+          return builder;
+        },
+        where: (_column: string, _op: string, value: unknown) => {
+          targetId = value as string;
+          return builder;
+        },
+        execute: async () => {
           if (control.failNextStamp) {
             control.failNextStamp = false;
             throw new Error('database write failed');
           }
-          const row = awaitingStamp.shift();
-          if (row) row.publishedAt = values.publishedAt;
+          const row = rows.find((r) => r.id === targetId);
+          if (row && stamp) row.publishedAt = stamp;
         },
-      }),
-    }),
+      };
+      return builder;
+    },
   };
   return { db, control };
 }
@@ -158,7 +184,7 @@ interface Harness {
 
 /**
  * Khung định tuyến giả cho relay: danh sách đăng ký cấu hình sẵn
- * và một bản đồ slug → DB giả của kho trung tâm; `withSpaceDatabase`
+ * và một bản đồ slug → DB giả của kho trung tâm; `withSpaceKysely`
  * của giả chạy thân quét trên đúng DB giả của slug đó (mô phỏng
  * phiên theo trung tâm của khung thật) và ném lỗi cho slug được
  * đánh dấu lỗi — đủ để khoá hành vi quét theo trung tâm của relay
@@ -171,7 +197,7 @@ function makeFakeSpaceDb(
 ) {
   return {
     listRegisteredSpaces: async () => spaces,
-    withSpaceDatabase: async (slug: string, fn: (db: unknown) => Promise<unknown>) => {
+    withSpaceKysely: async (slug: string, fn: (db: unknown) => Promise<unknown>) => {
       if (failingSlugs.has(slug)) throw new Error(`kho của ${slug} không mở được`);
       const db = centreDbs.get(slug);
       if (!db) throw new Error(`không có DB giả cho ${slug}`);
@@ -205,12 +231,13 @@ function makeRelay(
     },
   };
   const relay = new OutboxRelayScheduler(
-    db as never,
     eventLog as never,
     taskLog as never,
     routes,
     queues as never,
-    (options?.spaceDb ?? NO_SPACES) as never,
+    // Handle kho chung của relay là `routedKysely` trên khung định
+    // tuyến giả; phần quét theo trung tâm lấy từ options/NO_SPACES.
+    { routedKysely: db, ...(options?.spaceDb ?? NO_SPACES) } as never,
     { get: () => undefined } as never,
   );
   return { relay, queues, mirrored, taskRuns };
@@ -323,12 +350,11 @@ describe('Relay outbox duy nhất — ngữ nghĩa đóng dấu publishedAt', ()
     const queues = new Map<string, FakeQueue>([['outbox-auth-mail', new FakeQueue(rows)]]);
     const { db, control } = makeFakeDb(rows);
     const relay = new OutboxRelayScheduler(
-      db as never,
       { record: async () => undefined } as never,
       { recordRun: async () => undefined } as never,
       ROUTES,
       queues as never,
-      NO_SPACES as never,
+      { routedKysely: db, ...NO_SPACES } as never,
       { get: () => undefined } as never,
     );
     const queue = queues.get('outbox-auth-mail')!;
@@ -503,7 +529,7 @@ describe('Relay outbox — định tuyến theo trung tâm (issue #582)', () => 
       status: 'active',
     };
     // Không cấp DB giả cho hai slug này: nếu relay vẫn quét chúng,
-    // withSpaceDatabase giả sẽ ném lỗi và chúng lọt vào failedSlugs.
+    // withSpaceKysely giả sẽ ném lỗi và chúng lọt vào failedSlugs.
     const spaceDb = makeFakeSpaceDb([closedSpace, sharedSpace], new Map());
     const { relay } = makeRelay([], ROUTES, { spaceDb });
 
@@ -537,7 +563,7 @@ describe('Relay outbox — định tuyến theo trung tâm (issue #582)', () => 
       listRegisteredSpaces: async () => {
         throw new Error('control plane unreachable');
       },
-      withSpaceDatabase: async () => {
+      withSpaceKysely: async () => {
         throw new Error('không được gọi khi đọc sổ lỗi');
       },
     };

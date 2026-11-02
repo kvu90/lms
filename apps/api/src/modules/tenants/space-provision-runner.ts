@@ -105,6 +105,7 @@ import { RolesService } from '../access/roles.service';
 import { PlanLimitsService } from '../access/plan-limits.service';
 import { RoleSeparationService } from '../access/role-separation.service';
 import { OutboxService } from '../../infra/events/outbox.service';
+import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import type { Database } from '../../db/database';
 import { CONTEXT_LEVELS, DEFAULT_ROLES } from '../access/domain/capabilities';
 import { createCentreKysely, sql as kyselySql, type CentreDb } from '@lms/db';
@@ -286,35 +287,31 @@ const ROLE_BASELINE_MARKER_VERSION = 1;
  *   tiên) nên việc đồng bộ lại ma trận không mất thay đổi cục
  *   bộ nào.
  *
- * @param db - Handle Drizzle của kho đích (kết nối đã mang ngữ
- *   cảnh platform để qua RLS như mọi ghi seed của pipeline) —
- *   phục vụ hai service còn ở Drizzle (plan-limits,
- *   role-separation).
- * @param accessDb - Handle Kysely của kho đích (pool riêng trần
- *   1 kết nối đã mang GUC platform ở mức phiên — seed ghi qua
- *   AccessRepository phải qua RLS FORCE như mọi ghi seed khác;
- *   AccessRepository nay nhận CentreDb nên không dùng chung
- *   handle Drizzle được nữa, cùng khuôn pool riêng của bước
- *   restore gói chương trình).
- * @param outboxDb - Handle Kysely của đúng kho đích cho
- *   `OutboxService` (service đã chuyển sang Kysely ở D1, issue
- *   #653). Closure này chỉ gọi `listRoles`/`seedDefaults` — cả
- *   hai đều không phát sự kiện qua outbox — nên handle chỉ để
- *   dựng service đúng hợp đồng; pool của nó lười, không mở kết
- *   nối nào trong lượt cài này.
+ * @param accessDb - Handle Kysely của kho đích (pool riêng
+ *   trần 1 kết nối đã mang GUC platform ở mức phiên — seed
+ *   ghi qua AccessRepository phải qua RLS FORCE như mọi ghi
+ *   seed khác, cùng khuôn pool riêng của bước restore gói
+ *   chương trình). Cùng handle này dựng `OutboxService`
+ *   (service đã chuyển sang Kysely ở D1, issue #653) và hai
+ *   facade access `PlanLimitsService`/`RoleSeparationService`
+ *   qua stub mang `routedKysely` trỏ về chính nó. Closure này
+ *   chỉ gọi `listRoles`/`seedDefaults` — cả hai đều không
+ *   phát sự kiện qua outbox và không truy vấn qua hai lõi
+ *   access — nên các handle dựng service chỉ để đúng hợp
+ *   đồng, không mở thêm kết nối nào trong lượt cài này.
  * @returns `created` khi lượt này đã chạy đường gieo và ghi dấu
  *   mốc hoàn tất, `reused` khi kho đã cài trọn bộ vai nên không
  *   đổi gì.
  */
-async function installCentreRoleBaseline(db: Database, accessDb: CentreDb, outboxDb: CentreDb): Promise<'created' | 'reused'> {
+async function installCentreRoleBaseline(accessDb: CentreDb): Promise<'created' | 'reused'> {
   const accessRepository = new AccessRepository(accessDb);
   const contextsService = new ContextsService(accessRepository);
   const rolesService = new RolesService(
     accessRepository,
     contextsService,
-    new OutboxService(outboxDb),
-    new PlanLimitsService(db),
-    new RoleSeparationService(db),
+    new OutboxService(accessDb),
+    new PlanLimitsService({ routedKysely: accessDb } as unknown as SpaceDatabaseService),
+    new RoleSeparationService({ routedKysely: accessDb } as unknown as SpaceDatabaseService),
   );
   const existingRoles = await rolesService.listRoles();
   const presentShortNames = new Set(existingRoles.map((row) => row.shortName));
@@ -655,7 +652,7 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
       const accessDb = createCentreKysely(accessPool);
       try {
         await kyselySql`SELECT set_config('app.platform', 'on', false)`.execute(accessDb);
-        step('role-baseline', await installCentreRoleBaseline(db, accessDb, createCentreKysely(new Pool({ connectionString: centreUrl }))));
+        step('role-baseline', await installCentreRoleBaseline(accessDb));
       } finally {
         await accessDb.destroy().catch(() => undefined);
       }
@@ -902,7 +899,7 @@ export async function installSpaceRoleBaseline(options: SpaceRoleBaselineOptions
       let outcome: 'created' | 'reused';
       try {
         await kyselySql`SELECT set_config('app.platform', 'on', false)`.execute(accessDb);
-        outcome = await installCentreRoleBaseline(db, accessDb, createCentreKysely(new Pool({ connectionString: centreUrl })));
+        outcome = await installCentreRoleBaseline(accessDb);
       } finally {
         await accessDb.destroy().catch(() => undefined);
       }

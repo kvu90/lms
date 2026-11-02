@@ -1,1 +1,9 @@
-{"compilerOptions":{"noUncheckedIndexedAccess":true,"outDir":"./dist","rootDir":"./src"},"extends":"@lms/config/tsconfig/nest.json","include":["src"]}
+{"compilerOptions":{"noUncheckedIndexedAccess":true,"outDir":"./dist","rootDir":"./src",
+  // Wildcard repository Kysely của @lms/db (chiến dịch chuyển ORM
+  // sang Kysely): package giữ moduleResolution Node10 nên TS không
+  // đọc được `exports` của package — ánh xạ thẳng tới bản dist đã
+  // build, đúng cách apps/api và apps/worker đã làm cho cùng subpath.
+  // Runtime Node đọc `exports` trong package.json như thường; import
+  // ở đây chỉ là `export type` nên bị xoá hoàn toàn lúc chạy.
+  "paths":{"@lms/db/repositories/*":["../db/dist/repositories/*.d.ts"]}},
+ "extends":"@lms/config/tsconfig/nest.json","include":["src"]}

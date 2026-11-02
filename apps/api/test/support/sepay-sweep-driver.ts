@@ -75,6 +75,7 @@ let scheduler: SepayMatchingScheduler | null = null;
 let pool: TenantAwarePool | null = null;
 let sharedDb: NodePgDatabase<typeof relations> | null = null;
 let sharedKysely: CentreDb | null = null;
+let spaceDatabase: SpaceDatabaseService | null = null;
 let cohortSync: CohortSyncService | null = null;
 let cohortWatermark = 0;
 
@@ -102,28 +103,45 @@ function getSharedKysely(): CentreDb {
   return sharedKysely;
 }
 
+/**
+ * Khung định tuyến của worker cho cầu dẫn (dùng chung cho cả nhịp
+ * quét matching và nhịp đồng bộ cohort): không cấu hình control
+ * plane (`ConfigService` rỗng, không gọi `onModuleInit`) nên mọi
+ * phân giải cho `not_configured` và kích hoạt chạy platform ở kho
+ * chung — đúng hành vi của cầu dẫn trước hạng mục này. Handle kho
+ * chung THÔ được gắn vào khung định tuyến đúng như factory của
+ * module worker làm lúc khởi động, kèm handle Kysely dùng chung
+ * trên CÙNG pool (`getSharedKysely()` — D5 #657: cổng outbox
+ * Kysely của bề mặt enrol và điểm phân giải không gian theo
+ * payment cần facade `routedKysely` của khung).
+ */
+function getSpaceDatabase(): SpaceDatabaseService {
+  if (!spaceDatabase) {
+    const db = getSharedDb();
+    spaceDatabase = new SpaceDatabaseService({ get: () => undefined } as unknown as ConfigService);
+    spaceDatabase.bindSharedDatabase(db);
+    spaceDatabase.bindSharedKysely(getSharedKysely());
+  }
+  return spaceDatabase;
+}
+
 function getScheduler(): SepayMatchingScheduler {
   if (!scheduler) {
     const db = getSharedDb();
     const repo = new PaymentsRepository(getSharedKysely());
     const writer = new OutboxWriterService(getSharedKysely());
     const plans = new PlanEntitlementsService(repo);
-    // Cầu nối PR #683 (chủ đóng W2b #661): service outbox enrol và
-    // settlement dùng repository chuyển tiếp Drizzle trên handle
-    // Drizzle, như điểm dựng của int-spec worker — các adapter vẫn
-    // dùng handle Drizzle cho tới khi #661 chuyển chúng.
+    // Cầu nối PR #683 (chủ đóng W2b #661): settlement dùng
+    // repository chuyển tiếp Drizzle trên handle Drizzle, như
+    // điểm dựng của int-spec worker — các adapter vẫn dùng
+    // handle Drizzle cho tới khi #661 chuyển chúng. Service
+    // outbox enrol dựng trên khung định tuyến dùng chung ở trên:
+    // đường Kysely của nó ghi qua facade của khung, đường
+    // Drizzle (`enqueueInDrizzleTx`) ghi trực tiếp trên
+    // transaction của nơi gọi.
     const bridge = new WorkerPaymentsTransitionalRepository(db);
-    const enrolOutbox = new WorkerEnrolOutboxService(db);
-    // Điểm phân giải không gian theo payment của worker (tiền điều
-    // kiện Phần B của issue #587 — hạng mục 2): cầu dẫn không cấu
-    // hình control plane (`ConfigService` rỗng, không gọi
-    // `onModuleInit`) nên mọi phân giải cho `not_configured` và
-    // kích hoạt chạy platform ở kho chung — đúng hành vi của cầu
-    // dẫn trước hạng mục này. Handle kho chung THÔ được gắn vào
-    // khung định tuyến đúng như factory của module worker làm lúc
-    // khởi động.
-    const spaceDatabase = new SpaceDatabaseService({ get: () => undefined } as unknown as ConfigService);
-    spaceDatabase.bindSharedDatabase(db);
+    const spaceDatabase = getSpaceDatabase();
+    const enrolOutbox = new WorkerEnrolOutboxService(spaceDatabase);
     const spaceScope = new WorkerPaymentSpaceScope(db, spaceDatabase);
     const matching = new SepayMatchingService(
       repo,
@@ -155,7 +173,7 @@ const COHORT_SYNC_TYPES = ['cohort_member_added', 'cohort_member_removed'] as co
  * cohort mới sau watermark rồi vật chất hoá qua bề mặt dùng chung.
  */
 export async function driveCohortSync(): Promise<void> {
-  if (!cohortSync) cohortSync = new CohortSyncService(getSharedDb());
+  if (!cohortSync) cohortSync = new CohortSyncService(getSpaceDatabase());
   const rows = await getSharedDb()
     .select({ seq: outboxEvents.seq, type: outboxEvents.type, payload: outboxEvents.payload })
     .from(outboxEvents)
@@ -186,6 +204,7 @@ export async function closeSepaySweepDriver(): Promise<void> {
   cohortWatermark = 0;
   sharedDb = null;
   sharedKysely = null;
+  spaceDatabase = null;
   if (pool) {
     const closing = pool;
     pool = null;

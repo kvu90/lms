@@ -1,14 +1,8 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import type { Job } from 'bullmq';
-import { and, eq } from 'drizzle-orm';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type { relations } from '../db/relations';
-import { calendarEvents, calendarSubscriptions } from '@lms/db';
 import { parseIcs } from '../domain/ics';
 import { tenantAls } from '../db/tenant-als';
-
-type Database = NodePgDatabase<typeof relations>;
+import { SpaceDatabaseService } from '../db/routing/space-database.service';
 
 export interface CalendarImportJobData { subscriptionId: string }
 export interface CalendarImportResult { eventsimported: number; eventsskipped: number; eventsupdated: 0; eventsdeleted: 0 }
@@ -29,7 +23,7 @@ export interface CalendarImportResult { eventsimported: number; eventsskipped: n
  * (subscriptionId, UID) nên chạy song song an toàn.
  */
 export class CalendarImportProcessor extends WorkerHost {
-  constructor(@InjectDrizzle() private readonly db: Database) { super(); }
+  constructor(private readonly spaceDb: SpaceDatabaseService) { super(); }
 
   /**
    * Xử lý một job của queue tương ứng.
@@ -43,25 +37,42 @@ export class CalendarImportProcessor extends WorkerHost {
 
   private async processInContext(job: Job<CalendarImportJobData>): Promise<CalendarImportResult> {
     const { subscriptionId } = job.data;
-    const [sub] = await this.db.select().from(calendarSubscriptions).where(eq(calendarSubscriptions.id, subscriptionId));
+    const sub = await this.spaceDb.routedKysely
+      .selectFrom('calendar_subscriptions')
+      .select([
+        'id', 'ics_data as icsData', 'event_type as eventType', 'course_id as courseId',
+        'category_id as categoryId', 'user_id as userId',
+      ])
+      .where('id', '=', subscriptionId)
+      .executeTakeFirst();
     if (!sub || !sub.icsData) return { eventsimported: 0, eventsskipped: 0, eventsupdated: 0, eventsdeleted: 0 };
     const parsed = parseIcs(sub.icsData);
     let imported = 0;
     let skipped = 0;
     for (const event of parsed) {
-      const [existing] = await this.db.select().from(calendarEvents).where(and(
-        eq(calendarEvents.subscriptionId, subscriptionId), eq(calendarEvents.uuid, event.uid),
-      ));
+      const existing = await this.spaceDb.routedKysely
+        .selectFrom('calendar_events')
+        .select('id')
+        .where('subscription_id', '=', subscriptionId)
+        .where('uuid', '=', event.uid)
+        .executeTakeFirst();
       if (existing) { skipped += 1; continue; }
-      await this.db.insert(calendarEvents).values({
-        name: event.summary, description: event.description, eventType: sub.eventType,
-        courseId: sub.courseId, categoryId: sub.categoryId, userId: sub.userId,
-        subscriptionId: subscriptionId, uuid: event.uid, timeStart: event.start,
-        timeDuration: event.end ? Math.max(0, Math.round((event.end.getTime() - event.start.getTime()) / 1000)) : 0,
-      });
+      await this.spaceDb.routedKysely
+        .insertInto('calendar_events')
+        .values({
+          name: event.summary, description: event.description, event_type: sub.eventType,
+          course_id: sub.courseId, category_id: sub.categoryId, user_id: sub.userId,
+          subscription_id: subscriptionId, uuid: event.uid, time_start: event.start,
+          time_duration: event.end ? Math.max(0, Math.round((event.end.getTime() - event.start.getTime()) / 1000)) : 0,
+        })
+        .execute();
       imported += 1;
     }
-    await this.db.update(calendarSubscriptions).set({ lastUpdated: new Date() }).where(eq(calendarSubscriptions.id, subscriptionId));
+    await this.spaceDb.routedKysely
+      .updateTable('calendar_subscriptions')
+      .set({ last_updated: new Date() })
+      .where('id', '=', subscriptionId)
+      .execute();
     return { eventsimported: imported, eventsskipped: skipped, eventsupdated: 0, eventsdeleted: 0 };
   }
 }

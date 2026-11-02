@@ -1,12 +1,9 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import type { BetterAuthOptions } from 'better-auth';
 import { makeSignature } from 'better-auth/crypto';
 import { createInternalAdapter } from 'better-auth/db';
-import { and, eq } from 'drizzle-orm';
-import type { Database } from '../../../db/database';
-import { users } from '../../../db/schema';
-import { authAccount } from '../../../db/schema';
+import type { CentreDb } from '@lms/db';
+import { SpaceDatabaseService } from '../../../db/routing/space-database.service';
 import { BetterAuthService } from './better-auth.service';
 
 export interface CreateUserWithCredentialInput {
@@ -48,6 +45,14 @@ const USERNAME_PATTERN = /^[a-zA-Z0-9_.]+$/;
  */
 @Injectable()
 export class CredentialBridgeService {
+  /**
+   * Facade Kysely định tuyến theo trung tâm (issue #654, D2): giữ tham
+   * chiếu tới facade là an toàn — facade tự phân giải kho đích theo
+   * ngữ cảnh ALS tại mỗi lần gọi, không phải ảnh chụp kho tại thời
+   * điểm dựng service.
+   */
+  private readonly db: CentreDb;
+
   constructor(
     // forwardRef: vòng import/provider khép kín chỉ xuất hiện khi hai
     // lát GĐ2 gặp nhau — cầu nối → BetterAuthService → LoginLockoutService
@@ -57,8 +62,10 @@ export class CredentialBridgeService {
     // chưa nạp tuỳ thứ tự nạp module.
     @Inject(forwardRef(() => BetterAuthService))
     private readonly betterAuth: BetterAuthService,
-    @InjectDrizzle() private readonly db: Database,
-  ) {}
+    spaceDb: SpaceDatabaseService,
+  ) {
+    this.db = spaceDb.routedKysely;
+  }
 
   /**
    * Tự thực thi phần hiệu lực của database hook `user.create.before`
@@ -85,11 +92,12 @@ export class CredentialBridgeService {
         'username không hợp lệ: chỉ chấp nhận chữ cái, chữ số, dấu "_" và "." theo luật plugin username của Better Auth',
       );
     }
-    const [existing] = await this.db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.username, username.toLowerCase()))
-      .limit(1);
+    const existing = await this.db
+      .selectFrom('users')
+      .select('id')
+      .where('username', '=', username.toLowerCase())
+      .limit(1)
+      .executeTakeFirst();
     if (existing) {
       throw new Error(`username đã được sử dụng: "${username.toLowerCase()}" đã tồn tại`);
     }
@@ -110,7 +118,7 @@ export class CredentialBridgeService {
     // Cặp ghi user + account phải NGUYÊN TỬ (điểm giữ lại từ review
     // Giai đoạn 1): hai lần ghi rời nhau thì `createAccount` lỗi giữa
     // chừng để lại user có thật nhưng không credential — không bao giờ
-    // đăng nhập được. Adapter Drizzle của instance đã khai
+    // đăng nhập được. Adapter Kysely của instance đã khai
     // `transaction: true` ở factory nên `ctx.adapter.transaction` là
     // transaction PostgreSQL thật; internalAdapter gắn với adapter
     // giao dịch được dựng bằng chính `createInternalAdapter` của
@@ -207,7 +215,7 @@ export class CredentialBridgeService {
     // cặp user + credential đã commit nhất quán và user vẫn đăng nhập
     // được — khác hẳn rủi ro mồ côi mà transaction này bịt.
     if (input.lastName) {
-      await this.db.update(users).set({ lastName: input.lastName }).where(eq(users.id, user.id));
+      await this.db.updateTable('users').set({ last_name: input.lastName }).where('id', '=', user.id).execute();
     }
     return { id: user.id };
   }
@@ -223,28 +231,32 @@ export class CredentialBridgeService {
    */
   async linkExistingPasswordHash(userId: string): Promise<boolean> {
     this.betterAuth.requireAuth();
-    const [row] = await this.db
-      .select({ passwordHash: users.passwordHash })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-    if (!row?.passwordHash) return false;
-    const [existing] = await this.db
-      .select({ id: authAccount.id })
-      .from(authAccount)
-      .where(and(eq(authAccount.userId, userId), eq(authAccount.providerId, 'credential')))
-      .limit(1);
+    const row = await this.db
+      .selectFrom('users')
+      .select('password_hash')
+      .where('id', '=', userId)
+      .limit(1)
+      .executeTakeFirst();
+    if (!row?.password_hash) return false;
+    const existing = await this.db
+      .selectFrom('account')
+      .select('id')
+      .where('user_id', '=', userId)
+      .where('provider_id', '=', 'credential')
+      .limit(1)
+      .executeTakeFirst();
     if (existing) return false;
     const inserted = await this.db
-      .insert(authAccount)
+      .insertInto('account')
       .values({
-        userId,
-        providerId: 'credential',
-        accountId: userId,
-        password: row.passwordHash,
+        user_id: userId,
+        provider_id: 'credential',
+        account_id: userId,
+        password: row.password_hash,
       })
-      .onConflictDoNothing({ target: [authAccount.userId, authAccount.providerId] })
-      .returning({ id: authAccount.id });
+      .onConflict((oc) => oc.columns(['user_id', 'provider_id']).doNothing())
+      .returning('id')
+      .execute();
     if (inserted.length === 0) return false;
     // BA-1 — cùng chốt semantics như createUserWithCredential: việc
     // hệ thống/quản trị chép hash mật khẩu hiện hữu sang credential
@@ -254,7 +266,7 @@ export class CredentialBridgeService {
     // sẽ chạy revokeUnprovenAccountAccess và xoá chính credential
     // vừa liên kết. Chỉ liên kết thành công mới đổi cờ (đường đã có
     // credential từ trước trả false và không ghi gì thêm).
-    await this.db.update(users).set({ emailVerified: true }).where(eq(users.id, userId));
+    await this.db.updateTable('users').set({ email_verified: true }).where('id', '=', userId).execute();
     return true;
   }
 
@@ -274,35 +286,40 @@ export class CredentialBridgeService {
    */
   async syncCredentialPassword(userId: string): Promise<boolean> {
     if (!this.betterAuth.auth) return false;
-    const [row] = await this.db
-      .select({ passwordHash: users.passwordHash })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-    if (!row?.passwordHash) return false;
-    const [existing] = await this.db
-      .select({ id: authAccount.id, password: authAccount.password })
-      .from(authAccount)
-      .where(and(eq(authAccount.userId, userId), eq(authAccount.providerId, 'credential')))
-      .limit(1);
+    const row = await this.db
+      .selectFrom('users')
+      .select('password_hash')
+      .where('id', '=', userId)
+      .limit(1)
+      .executeTakeFirst();
+    if (!row?.password_hash) return false;
+    const existing = await this.db
+      .selectFrom('account')
+      .select(['id', 'password'])
+      .where('user_id', '=', userId)
+      .where('provider_id', '=', 'credential')
+      .limit(1)
+      .executeTakeFirst();
     if (existing) {
-      if (existing.password === row.passwordHash) return false;
+      if (existing.password === row.password_hash) return false;
       await this.db
-        .update(authAccount)
-        .set({ password: row.passwordHash, updatedAt: new Date() })
-        .where(eq(authAccount.id, existing.id));
+        .updateTable('account')
+        .set({ password: row.password_hash, updated_at: new Date() })
+        .where('id', '=', existing.id)
+        .execute();
       return true;
     }
     const inserted = await this.db
-      .insert(authAccount)
+      .insertInto('account')
       .values({
-        userId,
-        providerId: 'credential',
-        accountId: userId,
-        password: row.passwordHash,
+        user_id: userId,
+        provider_id: 'credential',
+        account_id: userId,
+        password: row.password_hash,
       })
-      .onConflictDoNothing({ target: [authAccount.userId, authAccount.providerId] })
-      .returning({ id: authAccount.id });
+      .onConflict((oc) => oc.columns(['user_id', 'provider_id']).doNothing())
+      .returning('id')
+      .execute();
     return inserted.length > 0;
   }
 

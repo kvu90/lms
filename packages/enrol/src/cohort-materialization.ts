@@ -1,5 +1,3 @@
-import { and, eq } from 'drizzle-orm';
-import { cohortMembers, course, enrol, groupsMembers, userEnrolments } from '@lms/db';
 import { getCourseContextId } from './contexts';
 import { isRoleContextConflictError, SharedDomainError } from './errors';
 import { PlanLimitsCore } from './plan-limits';
@@ -7,8 +5,15 @@ import { hasRelatedCourseData } from './related-data';
 import { ENROL_ASSIGNMENT_COMPONENT, RoleAssignmentCore } from './role-assignment';
 import { RoleSeparationCore } from './role-separation';
 import { ensureActiveTenantMembership } from './tenant-membership';
-import type {
-  EnrolDatabase, EnrolInstanceRow, RoleAssignmentRow, SharedOutboxPort, SharedSurfaceDeps, UserEnrolmentRow,
+import {
+  ENROL_COLUMNS,
+  USER_ENROLMENT_COLUMNS,
+  type EnrolDatabase,
+  type EnrolInstanceRow,
+  type RoleAssignmentRow,
+  type SharedOutboxPort,
+  type SharedSurfaceDeps,
+  type UserEnrolmentRow,
 } from './types';
 
 /** Trạng thái ghi danh đang hiệu lực. */
@@ -27,15 +32,26 @@ export const ENROL_WITHDRAWN = 2;
  */
 export const COURSE_COMPLETION_REAGGREGATION_REQUESTED = 'course_completion_reaggregation_requested';
 
-/** Tay cầm ghi/đọc tối thiểu dùng được cả ở DB gốc lẫn trong transaction. */
-type DbOrTx = Pick<EnrolDatabase, 'insert' | 'update' | 'select' | 'delete'>;
+/** Bản vá của một dòng ghi danh (hình camelCase; chỉ các trường có mặt mới được ghi). */
+interface UserEnrolmentPatch {
+  status?: number;
+  timeStart?: Date;
+  timeEnd?: Date | null;
+  modifierId?: string | null;
+}
 
 /** Dòng gán vai thuộc về một enrol instance: đúng dòng này (và chỉ dòng này) bị gỡ khi instance rút/đổi vai. */
 function isInstanceAssignment(a: RoleAssignmentRow, instance: EnrolInstanceRow): boolean {
   return a.roleId === instance.roleId && a.component === ENROL_ASSIGNMENT_COMPONENT && a.itemId === instance.id;
 }
 
-/** Lỗi có phải unique violation của PostgreSQL (mã 23505, có thể bọc trong cause của DrizzleQueryError) hay không. */
+/**
+ * Lỗi có phải unique violation của PostgreSQL (mã 23505) hay không.
+ * Qua Kysely, lỗi pg ném THÔ — `code`/`constraint` nằm trực tiếp
+ * trên error, không có lớp bọc `cause` như qua Drizzle (thử nghiệm
+ * T-10) — nên kiểm error trước, rồi mới đi tiếp xuống chuỗi `cause`
+ * tối đa 6 tầng cho các lớp bọc ngoài của host (nếu có).
+ */
 function isUniqueViolation(err: unknown): boolean {
   let current: unknown = err;
   for (let depth = 0; depth < 6 && current instanceof Error; depth++) {
@@ -95,7 +111,7 @@ export class CohortMaterializationSurface {
   private readonly roleAssignment: RoleAssignmentCore;
 
   /**
-   * @param deps - bộ phụ thuộc host cấp: tay cầm Drizzle, cổng outbox, cổng ngữ cảnh platform.
+   * @param deps - bộ phụ thuộc host cấp: tay cầm Kysely, cổng outbox, cổng ngữ cảnh platform.
    */
   constructor(deps: SharedSurfaceDeps) {
     this.db = deps.db;
@@ -125,18 +141,37 @@ export class CohortMaterializationSurface {
    * chưa từng ghi danh qua instance đó.
    */
   private async getUserEnrolment(instanceId: string, userId: string): Promise<UserEnrolmentRow | undefined> {
-    const [row] = await this.db.select().from(userEnrolments)
-      .where(and(eq(userEnrolments.enrolId, instanceId), eq(userEnrolments.userId, userId)));
-    return row;
+    return this.db
+      .selectFrom('user_enrolments')
+      .select(USER_ENROLMENT_COLUMNS)
+      .where((eb) => eb.and([
+        eb('user_enrolments.enrol_id', '=', instanceId),
+        eb('user_enrolments.user_id', '=', userId),
+      ]))
+      .executeTakeFirst();
   }
 
-  /** Cập nhật một dòng ghi danh (trạng thái, thời hạn, vết người thao tác). */
-  private async updateUserEnrolment(
-    handle: DbOrTx,
-    id: string,
-    v: Partial<typeof userEnrolments.$inferInsert>,
-  ): Promise<void> {
-    await handle.update(userEnrolments).set({ ...v, updatedAt: new Date() }).where(eq(userEnrolments.id, id));
+  /**
+   * Cập nhật một dòng ghi danh (trạng thái, thời hạn, vết người thao
+   * tác). Ánh xạ ghi tường minh, loại từng trường `undefined` (kỷ
+   * luật T-4): `undefined` trong WHERE của Kysely gắn NULL và lặng
+   * lẽ trả 0 dòng, còn trong ghi thì rơi về mặc định của cột — cả
+   * hai đều sai ngữ nghĩa "trường vắng mặt thì giữ nguyên". `null`
+   * là giá trị thật (xoá thời hạn kết thúc, xoá vết thao tác) nên
+   * được giữ nguyên.
+   */
+  private async updateUserEnrolment(handle: EnrolDatabase, id: string, v: UserEnrolmentPatch): Promise<void> {
+    await handle
+      .updateTable('user_enrolments')
+      .set({
+        ...(v.status !== undefined ? { status: v.status } : {}),
+        ...(v.timeStart !== undefined ? { time_start: v.timeStart } : {}),
+        ...(v.timeEnd !== undefined ? { time_end: v.timeEnd } : {}),
+        ...(v.modifierId !== undefined ? { modifier_id: v.modifierId } : {}),
+        updated_at: new Date(),
+      })
+      .where('id', '=', id)
+      .execute();
   }
 
   /**
@@ -197,15 +232,24 @@ export class CohortMaterializationSurface {
       ue = (await this.getUserEnrolment(instance.id, userId))!;
     } else {
       try {
-        ue = await this.db.transaction(async (tx) => {
-          const [row] = await tx.insert(userEnrolments)
-            .values({ enrolId: instance.id, userId, status: ENROL_ACTIVE, timeStart, timeEnd, modifierId })
-            .returning();
-          await this.outbox.enqueue(tx, {
+        ue = await this.db.transaction().execute(async (trx) => {
+          const row = await trx
+            .insertInto('user_enrolments')
+            .values({
+              enrol_id: instance.id,
+              user_id: userId,
+              status: ENROL_ACTIVE,
+              time_start: timeStart,
+              time_end: timeEnd,
+              ...(modifierId !== undefined ? { modifier_id: modifierId } : {}),
+            })
+            .returning(USER_ENROLMENT_COLUMNS)
+            .executeTakeFirstOrThrow();
+          await this.outbox.enqueue(trx, {
             aggregate: 'enrol', type: 'user_enrolled',
             payload: { courseId: instance.courseId, userId, instanceId: instance.id, method: instance.enrol, actorId: modifierId ?? null },
           });
-          return row!;
+          return row;
         });
         isNewEnrolment = true;
       } catch (err) {
@@ -225,7 +269,11 @@ export class CohortMaterializationSurface {
     // Ghi danh vào khoá của tenant nào thì thuộc tenant đó:
     // membership active được đảm bảo ngay tại đây để cổng membership
     // của phép đánh giá quyền cho qua các vai ghi danh vừa cấp.
-    const [courseRow] = await this.db.select({ tenantId: course.tenantId }).from(course).where(eq(course.id, instance.courseId));
+    const courseRow = await this.db
+      .selectFrom('course')
+      .select('course.tenant_id as tenantId')
+      .where('course.id', '=', instance.courseId)
+      .executeTakeFirst();
     if (courseRow?.tenantId) await ensureActiveTenantMembership(this.db, courseRow.tenantId, userId);
     if (instance.roleId) {
       const courseCtxId = await getCourseContextId(this.db, instance.courseId);
@@ -237,9 +285,11 @@ export class CohortMaterializationSurface {
       });
     }
     if (instance.customInt2) {
-      await this.db.insert(groupsMembers)
-        .values({ groupId: instance.customInt2, userId, component: 'enrol_cohort', itemId: instance.id })
-        .onConflictDoNothing()
+      await this.db
+        .insertInto('groups_members')
+        .values({ group_id: instance.customInt2, user_id: userId, component: 'enrol_cohort', item_id: instance.id })
+        .onConflict((oc) => oc.doNothing())
+        .execute()
         .catch(() => undefined);
     }
     return { userEnrolment: ue, isNewEnrolment };
@@ -309,9 +359,9 @@ export class CohortMaterializationSurface {
     const ue = await this.getUserEnrolment(instance.id, userId);
     if (!ue) return { withdrawn: false };
     const hasRelated = await hasRelatedCourseData(this.db, instance.courseId, userId);
-    await this.db.transaction(async (tx) => {
+    await this.db.transaction().execute(async (trx) => {
       if (hasRelated) {
-        await this.updateUserEnrolment(tx, ue.id, { status: ENROL_WITHDRAWN, modifierId });
+        await this.updateUserEnrolment(trx, ue.id, { status: ENROL_WITHDRAWN, modifierId });
       } else {
         // Xoá cứng NGAY trong transaction, không để sau commit: sự
         // kiện chỉ được phép trở nên nhìn thấy được khi dòng ghi
@@ -322,9 +372,9 @@ export class CohortMaterializationSurface {
         // quay lại; xoá sau commit còn để cửa sổ tiến trình chết
         // giữa commit và lệnh xoá, khi đó sự kiện đã chốt kèm một
         // dòng ghi danh mồ côi không bao giờ bị xoá.
-        await tx.delete(userEnrolments).where(eq(userEnrolments.id, ue.id));
+        await trx.deleteFrom('user_enrolments').where('id', '=', ue.id).execute();
       }
-      await this.outbox.enqueue(tx, {
+      await this.outbox.enqueue(trx, {
         aggregate: 'enrol', type: 'user_unenrolled',
         payload: { courseId: instance.courseId, userId, instanceId: instance.id, keptData: hasRelated, actorId: modifierId ?? null },
       });
@@ -332,7 +382,7 @@ export class CohortMaterializationSurface {
       // 'unenrol'): phát cùng transaction với user_unenrolled; phía
       // API tiêu thụ qua watermark seq riêng của CompletionModule,
       // KHÔNG qua bảng định tuyến relay của worker.
-      await this.outbox.enqueue(tx, {
+      await this.outbox.enqueue(trx, {
         aggregate: 'completion', type: COURSE_COMPLETION_REAGGREGATION_REQUESTED,
         payload: { courseId: instance.courseId, userId },
       });
@@ -362,8 +412,14 @@ export class CohortMaterializationSurface {
    * @param userId - người dùng cần kiểm.
    */
   async isCohortMember(cohortId: string, userId: string): Promise<boolean> {
-    const [row] = await this.db.select().from(cohortMembers)
-      .where(and(eq(cohortMembers.cohortId, cohortId), eq(cohortMembers.userId, userId)));
+    const row = await this.db
+      .selectFrom('cohort_members')
+      .select('cohort_members.cohort_id')
+      .where((eb) => eb.and([
+        eb('cohort_members.cohort_id', '=', cohortId),
+        eb('cohort_members.user_id', '=', userId),
+      ]))
+      .executeTakeFirst();
     return !!row;
   }
 
@@ -373,7 +429,11 @@ export class CohortMaterializationSurface {
    * @param cohortId - cohort đích.
    */
   async listCohortInstances(cohortId: string): Promise<EnrolInstanceRow[]> {
-    const rows = await this.db.select().from(enrol).where(eq(enrol.enrol, 'cohort'));
+    const rows = await this.db
+      .selectFrom('enrol')
+      .select(ENROL_COLUMNS)
+      .where('enrol.enrol', '=', 'cohort')
+      .execute();
     return rows.filter((r) => r.customInt1 === cohortId);
   }
 
