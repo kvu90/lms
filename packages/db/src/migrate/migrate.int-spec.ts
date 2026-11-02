@@ -27,9 +27,9 @@ import { Kysely, PostgresDialect } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildTestDatabase, dropTestDatabase, withDatabase } from '../test-support/build-test-database';
 import { adoptJournal } from './adopt-journal';
-import { FrozenSqlProvider, listCarrierNames } from './frozen-sql-provider';
+import { FrozenSqlProvider, listMigrationNames } from './frozen-sql-provider';
 import { getAppliedMigrations } from './journal';
-import { installUuidv7Shim, UUIDV7_SHIM } from './stores';
+import { installUuidv7Shim, MIGRATION_STORES, UUIDV7_SHIM } from './stores';
 import { verifyStore } from './verify';
 
 const adminUrl =
@@ -39,11 +39,52 @@ const adminUrl =
 const CENTRE_DB = 'lms_db_migrate_n2_centre';
 const ADOPT_DB = 'lms_db_migrate_n2_adopt';
 const STRANGE_DB = 'lms_db_migrate_n2_strange';
+const PROD_DB = 'lms_db_migrate_n2_prod';
 const T2_DB = 'lms_db_migrate_n2_t2';
 const T3_DB = 'lms_db_migrate_n2_t3';
 
+/**
+ * Diện carrier đóng băng của kho control plane — tập mà bước cấy
+ * nhật ký đối sánh (định nghĩa tại `stores.ts`). Khác với
+ * `listMigrationNames` (mọi migration trong thư mục, gồm cả
+ * migration native): nhật ký Drizzle và bước adoption chỉ biết tới
+ * các carrier này.
+ */
+const CP_CARRIERS: string[] = MIGRATION_STORES['control-plane'].carrierNames;
+
 function packageMigrationsDir(store: 'centre' | 'control-plane' | 'system-bank'): string {
   return join(process.cwd(), 'migrations', store);
+}
+
+/**
+ * Provider chỉ chứa các migration có tên thuộc tập cho trước, dựng
+ * trên `FrozenSqlProvider` đầy đủ — dùng để dựng trạng thái "mới áp
+ * một phần" (ví dụ database production mới áp carrier, migration
+ * native chưa áp) mà provider đầy đủ không dựng được.
+ */
+function providerOnly(migrationsDir: string, names: readonly string[]): MigrationProvider {
+  const inner = new FrozenSqlProvider(migrationsDir);
+  return {
+    async getMigrations() {
+      const all = await inner.getMigrations();
+      return Object.fromEntries(Object.entries(all).filter(([name]) => names.includes(name)));
+    },
+  };
+}
+
+/** Đọc DEFAULT hiện tại của `space_registry_history.created_at` từ `information_schema`. */
+async function registryCreatedAtDefault(dbUrl: string): Promise<string | null> {
+  const client = new Client({ connectionString: dbUrl });
+  await client.connect();
+  try {
+    const result = await client.query<{ column_default: string | null }>(
+      `SELECT column_default FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'space_registry_history' AND column_name = 'created_at'`,
+    );
+    return result.rows[0]?.column_default ?? null;
+  } finally {
+    await client.end();
+  }
 }
 
 /** Tạo database trống (xoá nếu có) và trả connection string tới nó. */
@@ -153,6 +194,7 @@ describe('cầu nối migration Kysely cho ba kho', () => {
     await dropTestDatabase(adminUrl, CENTRE_DB).catch(() => undefined);
     await dropTestDatabase(adminUrl, ADOPT_DB).catch(() => undefined);
     await dropTestDatabase(adminUrl, STRANGE_DB).catch(() => undefined);
+    await dropTestDatabase(adminUrl, PROD_DB).catch(() => undefined);
     await dropTestDatabase(adminUrl, T2_DB).catch(() => undefined);
     await dropTestDatabase(adminUrl, T3_DB).catch(() => undefined);
   });
@@ -173,18 +215,24 @@ describe('cầu nối migration Kysely cho ba kho', () => {
   });
 
   it('cấy nhật ký từ nhật ký Drizzle mô phỏng rồi migrateToLatest là no-op, không tạo bảng carrier', async () => {
-    const carrierNames = listCarrierNames(packageMigrationsDir('control-plane'));
-    expect(carrierNames).toHaveLength(3);
+    // Nhật ký Drizzle chỉ chứa tên carrier (bộ máy cũ không biết tới
+    // migration native) — cấy đúng diện carrier đóng băng của kho.
+    const carrierNames = [...CP_CARRIERS];
+    expect(carrierNames).toHaveLength(2);
     await mockDrizzleJournal(adoptUrl, carrierNames);
     const pool = new Pool({ connectionString: adoptUrl });
     const db = new Kysely({ dialect: new PostgresDialect({ pool }) });
     try {
       expect(await adoptJournal(db, carrierNames)).toBe('adopted');
       expect(await kyselyNames(adoptUrl)).toEqual([...carrierNames].sort());
-      const migrator = new Migrator({ db, provider: new FrozenSqlProvider(packageMigrationsDir('control-plane')) });
+      // Bước áp ở ca này chỉ xét diện carrier (provider lọc đúng tập
+      // carrier): sau adoption, migrateToLatest phải là no-op. Việc
+      // áp migration native trên database đã có schema carrier thuộc
+      // ca trạng thái production ở dưới.
+      const migrator = new Migrator({ db, provider: providerOnly(packageMigrationsDir('control-plane'), carrierNames) });
       const { error, results } = await migrator.migrateToLatest();
       expect(error).toBeUndefined();
-      expect((results ?? []).every((r) => r.status !== 'Error')).toBe(true);
+      expect(results ?? []).toHaveLength(0);
       // No-op thật: bảng carrier KHÔNG được tạo (migrateToLatest
       // không thực thi câu SQL carrier nào sau adoption).
       expect(await tableExists(adoptUrl, 'space_registry')).toBe(false);
@@ -195,7 +243,7 @@ describe('cầu nối migration Kysely cho ba kho', () => {
   });
 
   it('adoption lần hai là no-op và dữ kiện mẫu còn nguyên', async () => {
-    const carrierNames = listCarrierNames(packageMigrationsDir('control-plane'));
+    const carrierNames = [...CP_CARRIERS];
     const client = new Client({ connectionString: adoptUrl });
     await client.connect();
     try {
@@ -208,7 +256,9 @@ describe('cầu nối migration Kysely cho ba kho', () => {
     const db = new Kysely({ dialect: new PostgresDialect({ pool }) });
     try {
       expect(await adoptJournal(db, carrierNames)).toBe('already-adopted');
-      const migrator = new Migrator({ db, provider: new FrozenSqlProvider(packageMigrationsDir('control-plane')) });
+      // Cùng diện carrier như ca cấy: database mô phỏng này chưa có
+      // schema carrier nên bước áp chỉ xét provider lọc carrier.
+      const migrator = new Migrator({ db, provider: providerOnly(packageMigrationsDir('control-plane'), carrierNames) });
       const { error } = await migrator.migrateToLatest();
       expect(error).toBeUndefined();
     } finally {
@@ -226,7 +276,7 @@ describe('cầu nối migration Kysely cho ba kho', () => {
   });
 
   it('hàm đọc tương thích trả đúng nguồn theo từng trạng thái kho', async () => {
-    const carrierNames = listCarrierNames(packageMigrationsDir('control-plane'));
+    const carrierNames = [...CP_CARRIERS];
     const fresh = await freshDatabase('lms_db_migrate_n2_dual');
     try {
       const empty = new Client({ connectionString: fresh });
@@ -257,7 +307,7 @@ describe('cầu nối migration Kysely cho ba kho', () => {
   });
 
   it('tên lạ trong nhật ký Drizzle làm adoption dừng và runner CLI thoát mã khác 0', async () => {
-    const carrierNames = listCarrierNames(packageMigrationsDir('control-plane'));
+    const carrierNames = [...CP_CARRIERS];
     const strangeUrl = await freshDatabase(STRANGE_DB);
     await mockDrizzleJournal(strangeUrl, [...carrierNames, '99999999999999_ten_la_khong_thuoc_carrier']);
     const pool = new Pool({ connectionString: strangeUrl });
@@ -275,6 +325,57 @@ describe('cầu nối migration Kysely cho ba kho', () => {
       { env: { ...process.env, DATABASE_URL: strangeUrl, CONTROL_PLANE_DATABASE_URL: strangeUrl }, encoding: 'utf8' },
     );
     expect(run.status).not.toBe(0);
+  });
+
+  it('database đã nhận nuôi với nhật ký chỉ có carrier và migration native đang chờ: adoption khớp diện carrier, migrateToLatest áp native, chạy lại là no-op', async () => {
+    // Ca tái hiện sự cố deploy sau PR #687 (issue #689): trạng thái
+    // của database production lúc lỗi — schema đã dựng bằng carrier,
+    // nhật ký chỉ có các dòng carrier, migration native của kho chưa
+    // áp. Runner phải áp native thay vì dừng vì "thiếu carrier".
+    const dir = packageMigrationsDir('control-plane');
+    const allNames = listMigrationNames(dir);
+    const nativeNames = allNames.filter((name) => !CP_CARRIERS.includes(name));
+    expect(nativeNames).toHaveLength(1);
+    const prodUrl = await freshDatabase(PROD_DB);
+    const pool = new Pool({ connectionString: prodUrl });
+    const db = new Kysely({ dialect: new PostgresDialect({ pool }) });
+    try {
+      // Dựng trạng thái production: shim + adoption trên database
+      // trống (fresh), rồi chỉ áp carrier bằng provider lọc — trạng
+      // thái cuối tương đương database đã nhận nuôi ngoài production
+      // (schema do chính SQL carrier dựng, nhật ký chỉ có carrier).
+      await installUuidv7Shim(db);
+      expect(await adoptJournal(db, [...CP_CARRIERS])).toBe('fresh');
+      const carrierMigrator = new Migrator({ db, provider: providerOnly(dir, CP_CARRIERS) });
+      const firstRun = await carrierMigrator.migrateToLatest();
+      expect(firstRun.error).toBeUndefined();
+      expect(await kyselyNames(prodUrl)).toEqual([...CP_CARRIERS].sort());
+      expect(await registryCreatedAtDefault(prodUrl)).toContain('now()');
+
+      // Lượt runner trên trạng thái production: adoption đối sánh
+      // đúng diện carrier (không đòi tên native có sẵn trong nhật
+      // ký), rồi migrateToLatest áp đúng migration native đang chờ.
+      expect(await adoptJournal(db, [...CP_CARRIERS])).toBe('already-adopted');
+      const migrator = new Migrator({ db, provider: new FrozenSqlProvider(dir) });
+      const { error, results } = await migrator.migrateToLatest();
+      expect(error).toBeUndefined();
+      expect((results ?? []).map((r) => r.migrationName)).toEqual(nativeNames);
+      expect((results ?? []).every((r) => r.status === 'Success')).toBe(true);
+      expect(await kyselyNames(prodUrl)).toEqual([...allNames].sort());
+      expect(await registryCreatedAtDefault(prodUrl)).toContain('clock_timestamp()');
+      const verified = await verifyStore(db, 'control-plane');
+      expect(verified.ok).toBe(true);
+
+      // Chạy lại toàn trình trên database đã áp đủ: no-op sạch,
+      // không lỗi khớp nhật ký.
+      expect(await adoptJournal(db, [...CP_CARRIERS])).toBe('already-adopted');
+      const again = await migrator.migrateToLatest();
+      expect(again.error).toBeUndefined();
+      expect(again.results ?? []).toHaveLength(0);
+      expect(await kyselyNames(prodUrl)).toEqual([...allNames].sort());
+    } finally {
+      await db.destroy().catch(() => undefined);
+    }
   });
 
   it('down() của carrier ném lỗi tường minh thay vì chế tác SQL ngược', async () => {

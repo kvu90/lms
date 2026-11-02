@@ -45,7 +45,7 @@ import {
   type SystemBankDb,
 } from '../client';
 import { adoptJournal } from './adopt-journal';
-import { FrozenSqlProvider, listCarrierNames } from './frozen-sql-provider';
+import { FrozenSqlProvider } from './frozen-sql-provider';
 import { installUuidv7Shim, isMigrationStoreKey, MIGRATION_STORES, type MigrationStoreKey } from './stores';
 import { verifyStore } from './verify';
 
@@ -134,7 +134,12 @@ async function main(argv: string[]): Promise<number> {
     }
     const shim = await installUuidv7Shim(db);
     console.log(`tiền-migration ${store}: shim uuidv7 ${shim === 'installed' ? 'đã cài (cụm dưới PG18)' : 'bỏ qua (cụm PG18+)'}`);
-    const carrierNames = listCarrierNames(migrationsDir);
+    // Diện carrier lấy từ danh sách đóng băng của kho trong
+    // `stores.ts` — KHÔNG suy từ danh sách thư mục migration: thư
+    // mục còn chứa các migration native đang chờ áp, đưa chúng vào
+    // diện đối sánh là đòi nhật ký phải có sẵn tên chưa từng áp và
+    // làm runner dừng oan (sự cố deploy sau PR #687, issue #689).
+    const carrierNames = MIGRATION_STORES[store].carrierNames;
     const adoption = await adoptJournal(db, carrierNames);
     console.log(`adoption ${store}: ${adoption}`);
     const migrator = new Migrator({ db, provider: new FrozenSqlProvider(migrationsDir) });

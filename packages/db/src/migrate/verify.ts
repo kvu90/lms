@@ -21,10 +21,11 @@
  *   316 index đỡ ràng buộc; các index đỡ ràng buộc sinh tất định
  *   theo bảng/ràng buộc nên được kiểm gián tiếp qua số bảng và đối
  *   chiếu schema, đếm tách ở đây chỉ làm nhiễu cổng).
- * - Dòng nhật ký: số dòng trong `kysely_migration` — bằng đúng số
- *   migration carrier của kho sau migrate-từ-rỗng (migration native
- *   về sau làm số này tăng, nên hậu kiểm này chỉ có ý nghĩa so với
- *   bộ carrier hiện hành tại thời điểm chạy).
+ * - Dòng nhật ký: số dòng trong `kysely_migration` — bằng TỔNG số
+ *   migration của kho (carrier đóng băng + migration native) sau
+ *   một lượt migrate trọn. Đây là khái niệm khác diện carrier mà
+ *   bước cấy nhật ký đối sánh: nhật ký chứa cả tên native đã áp, còn
+ *   adoption chỉ đòi các carrier thật phải có mặt.
  */
 import { sql, type Kysely } from 'kysely';
 import { MIGRATION_STORES, type MigrationStoreKey } from './stores';
