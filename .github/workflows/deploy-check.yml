@@ -6,8 +6,11 @@
 # toàn bộ stack từ chính head của PR trong runner CI, chờ API khỏe,
 # kiểm tra trang gốc, rồi chờ Keycloak sẵn sàng và kiểm chứng nó
 # boot khỏe (healthcheck của service + issuer trong tài liệu
-# discovery của realm `master`), rồi dọn sạch. Nó KHÔNG deploy
-# lên máy tự host
+# discovery của realm `master`). Job chạy hai kịch bản nối tiếp:
+# mật khẩu bootstrap của Keycloak được đặt, rồi gỡ biến đó và
+# chạy lại stack đòi Keycloak vẫn boot khỏe (trạng thái của môi
+# trường triển khai sau khi kết thúc bootstrap); sau cùng dọn
+# sạch. Nó KHÔNG deploy lên máy tự host
 # thật — đường deploy production vẫn là Dokploy kéo từ main.
 #
 # Chuỗi status context của job dưới đây là "deploy-check / verify-stack"
@@ -141,6 +144,65 @@ jobs:
             fi
             if [ "$attempt" = "60" ]; then
               echo "Keycloak did not become healthy in time (last health status: ${health:-unknown})."
+              docker compose -f compose.yaml -f compose.ci.yaml ps
+              docker compose -f compose.yaml -f compose.ci.yaml logs keycloak kc-db
+              exit 1
+            fi
+            sleep 5
+          done
+          issuer=$(curl -sf http://127.0.0.1:8085/realms/master/.well-known/openid-configuration | jq -er '.issuer')
+          echo "Realm master discovery issuer: ${issuer}"
+          if [ "$issuer" != "https://auth.fuckr.net/realms/master" ]; then
+            echo "Unexpected issuer for realm master."
+            exit 1
+          fi
+
+      # Kịch bản thứ hai: chạy lại stack với KEYCLOAK_ADMIN_PASSWORD
+      # KHÔNG được đặt — đúng trạng thái của môi trường triển khai
+      # sau khi kết thúc bootstrap (đã có tài khoản quản trị lâu
+      # dài, tài khoản tạm đã xoá, biến mật khẩu đã gỡ khỏi môi
+      # trường). Kịch bản trên luôn đặt biến này nên trạng thái đó
+      # chưa từng được chạy trong CI, và production đã gãy đúng ở
+      # trạng thái đó tối 02/11/2026 (issue #724): compose từng
+      # ghim tên tài khoản bootstrap trong khi mật khẩu là biến
+      # tuỳ chọn, nên lần tạo lại container đầu tiên sau khi gỡ
+      # biến chết ở bước kiểm chứng cấu hình của Keycloak (lỗi
+      # "bootstrap-admin-username available only when bootstrap
+      # admin password is set", tiến trình thoát mã 2). Giữa hai
+      # kịch bản không dọn volume: cơ sở dữ liệu của Keycloak đã
+      # có realm master từ kịch bản trên — khớp trạng thái
+      # production khi deploy lại sau khi kết thúc bootstrap.
+      - name: Remove bootstrap admin password from CI environment
+        run: |
+          sed -i '/^KEYCLOAK_ADMIN_PASSWORD=/d' .env
+          if grep -q '^KEYCLOAK_ADMIN_PASSWORD=.\+' .env; then
+            echo "KEYCLOAK_ADMIN_PASSWORD is still set in .env."
+            exit 1
+          fi
+          echo "KEYCLOAK_ADMIN_PASSWORD removed from .env."
+
+      # Chỉ service keycloak nội suy biến vừa gỡ, nên lệnh up này
+      # tạo lại đúng container keycloak với môi trường mới; các
+      # service còn lại giữ nguyên.
+      - name: Restart the stack without bootstrap admin password
+        run: docker compose -f compose.yaml -f compose.ci.yaml up -d
+
+      # Chờ Keycloak đạt healthy trở lại trong trạng thái không
+      # có mật khẩu bootstrap, rồi khẳng định lại issuer trong
+      # tài liệu discovery của realm `master` như kịch bản trên.
+      # Quá hạn thì in trạng thái stack và log của keycloak +
+      # kc-db để chẩn đoán rồi fail.
+      - name: Verify Keycloak readiness without bootstrap admin password
+        run: |
+          for attempt in $(seq 1 60); do
+            container_id=$(docker compose -f compose.yaml -f compose.ci.yaml ps -q keycloak)
+            health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$container_id" 2>/dev/null || true)
+            if [ "$health" = "healthy" ]; then
+              echo "Keycloak healthy without bootstrap admin password after ${attempt} attempt(s)."
+              break
+            fi
+            if [ "$attempt" = "60" ]; then
+              echo "Keycloak did not become healthy without bootstrap admin password in time (last health status: ${health:-unknown})."
               docker compose -f compose.yaml -f compose.ci.yaml ps
               docker compose -f compose.yaml -f compose.ci.yaml logs keycloak kc-db
               exit 1

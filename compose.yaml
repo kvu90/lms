@@ -386,18 +386,40 @@ services:
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?Can dat KEYCLOAK_DB_PASSWORD trong file .env}
       # Tài khoản quản trị BOOTSTRAP của Keycloak: tài khoản
-      # `admin` thuộc realm master với quyền quản trị đầy đủ
+      # quản trị thuộc realm master với quyền quản trị đầy đủ
       # (không chỉ quyền vào Admin Console), được Keycloak tạo
-      # ở lần khởi động đầu tiên từ hai biến ở đây. Đây là tài
-      # khoản TẠM của lần dựng đầu: KEYCLOAK_ADMIN_PASSWORD
-      # bắt buộc phải có ở lần deploy đầu tiên để bootstrap tạo
-      # được tài khoản; sau khi đã có tài khoản quản trị lâu
-      # dài thì xoá tài khoản tạm này và gỡ biến khỏi môi
-      # trường triển khai theo quy trình kết thúc bootstrap ở
-      # mục nghiệm thu của issue #704. Nội suy dùng dạng
+      # ở lần khởi động đầu tiên trên cơ sở dữ liệu trống từ
+      # mật khẩu nội suy ở đây. Đây là tài khoản TẠM của lần
+      # dựng đầu: KEYCLOAK_ADMIN_PASSWORD cần có ở lần deploy
+      # đầu tiên để bootstrap tạo được tài khoản; sau khi đã
+      # có tài khoản quản trị lâu dài thì xoá tài khoản tạm
+      # này và gỡ biến khỏi môi trường triển khai theo quy
+      # trình kết thúc bootstrap ở mục nghiệm thu của
+      # issue #704.
+      #
+      # Chỉ mật khẩu được khai ở đây; tên tài khoản bootstrap
+      # TUYỆT ĐỐI không ghim trong compose. Keycloak kiểm
+      # chứng cặp tuỳ chọn này ngay ở bước kiểm chứng cấu
+      # hình của lệnh start: tên tài khoản bootstrap chỉ hợp
+      # lệ khi mật khẩu bootstrap đang được đặt, và tên đến
+      # từ biến môi trường là giá trị người dùng sửa được nên
+      # điều kiện kiểm chứng đó có chạy. Ghim tên tài khoản
+      # trong khi mật khẩu là biến tuỳ chọn khiến lần khởi
+      # động đầu tiên sau khi biến mật khẩu bị gỡ chết tại
+      # bước kiểm chứng (PropertyException
+      # "bootstrap-admin-username available only when
+      # bootstrap admin password is set", tiến trình thoát
+      # mã 2, container restart lặp vô hạn — sự cố
+      # production ngày 02/11/2026, issue #724). Không ghim
+      # tên thì giá trị mặc định `temp-admin` của Keycloak
+      # không qua điều kiện kiểm chứng đó, nên lỗi không xảy
+      # ra ở mọi trạng thái của biến mật khẩu; riêng dòng mật
+      # khẩu không gắn điều kiện kiểm chứng nào nên đứng một
+      # mình vẫn an toàn. Nội suy mật khẩu dùng dạng
       # ${...:-} (mặc định rỗng) thay cho dạng bắt buộc
-      # ${...:?} để việc gỡ biến sau này không chặn deploy.
-      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      # ${...:?} để việc gỡ biến sau khi kết thúc bootstrap
+      # không chặn deploy — khẳng định này chỉ đúng khi tên
+      # tài khoản không bị ghim như trên.
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-}
       # Địa chỉ công khai duy nhất của Keycloak: trình duyệt
       # chỉ gặp Keycloak qua tên miền này (Cloudflare Tunnel
