@@ -1,10 +1,8 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import { timingSafeEqual } from 'node:crypto';
-import { sql } from 'drizzle-orm';
+import { sql, type CentreTx } from '@lms/db';
 import { OutboxService } from '../../infra/events/outbox.service';
-import type { Database, DbTx } from '../../db/database';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { ClassesService } from '../classes/classes.service';
@@ -145,16 +143,13 @@ export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
 
   constructor(
+    // Các transaction của facade (tạo yêu cầu hoàn, xác nhận chi) mở
+    // từ `repo.transaction` — handle Kysely định tuyến mà module tiêm
+    // cho repository — để `tx` truyền đồng thời cho repository của
+    // package dùng chung `@lms/payments` và cho các service của API
+    // (enrol, classes) trong CÙNG một transaction mà vẫn khớp kiểu ở
+    // cả hai phía (issue #538, điểm nối C-8/C đã đóng ở #656).
     private readonly repo: PaymentsRepository,
-    // Handle DB của chính tiến trình API: các transaction của facade
-    // (tạo yêu cầu hoàn, xác nhận chi) mở từ handle này để `tx` truyền
-    // đồng thời cho repository của package dùng chung `@lms/payments`
-    // và cho các service của API (enrol, classes) trong CÙNG một
-    // transaction mà vẫn khớp kiểu ở cả hai phía. Đây là cùng một
-    // instance kết nối mà repository nhận qua `@InjectDrizzle()` từ
-    // cùng một đăng ký DrizzleModule, nên hành vi không đổi so với
-    // khi mở qua `repo.dbHandle` (issue #538).
-    @InjectDrizzle() private readonly db: Database,
     private readonly evaluator: PermissionEvaluator,
     private readonly contexts: ContextsService,
     private readonly outbox: OutboxService,
@@ -1002,12 +997,12 @@ export class PaymentsService {
       throw new BadRequestException({ message: 'A refund reason is required', code: 'payment.refund_reason_required' });
     }
     const threshold = await this.refundDualApprovalThreshold(payment.tenantId);
-    const created = await this.db.transaction(async (tx) => {
+    const created = await this.repo.transaction(async (tx) => {
       // Khoá dòng payments: mọi yêu cầu hoàn của cùng một khoản thu xếp
       // hàng tại đây, cổng cộng dồn đọc-tổng → so sánh → ghi không thể
       // bị hai yêu cầu song song chẻ đôi (mỗi transaction thấy tổng đã
       // gồm dòng của transaction thắng trước).
-      await tx.execute(sql`select id from payments where id = ${payment.id} for update`);
+      await sql`select id from payments where id = ${payment.id} for update`.execute(tx);
       const counted = await this.repo.sumRefundsByStatuses(payment.id, ['requested', 'approved', 'settled'], tx);
       if (counted + input.amount > payment.amount) {
         throw new BadRequestException({ message: 'Cumulative refunds would exceed the original payment amount', code: 'payment.refund_exceeds_total' });
@@ -1122,7 +1117,7 @@ export class PaymentsService {
    * phát bù SAU khi transaction commit (xem `applyRefundSettlement`).
    * Trả null khi không có lần gỡ cohort nào chờ phát.
    */
-  private async suspendEntitlementForFullRefund(actorId: string, payment: PaymentRow, tx: DbTx): Promise<{ cohortId: string; userId: string } | null> {
+  private async suspendEntitlementForFullRefund(actorId: string, payment: PaymentRow, tx: CentreTx): Promise<{ cohortId: string; userId: string } | null> {
     if (payment.component === 'enrol_fee' && payment.itemId) {
       await this.enrol.setSuspended(actorId, payment.itemId, payment.userId, true, tx);
     }
@@ -1199,8 +1194,8 @@ export class PaymentsService {
   }): Promise<RefundRow> {
     const { payment, refund } = input;
     const now = new Date();
-    const outcome = await this.db.transaction(async (tx) => {
-      await tx.execute(sql`select id from payments where id = ${payment.id} for update`);
+    const outcome = await this.repo.transaction(async (tx) => {
+      await sql`select id from payments where id = ${payment.id} for update`.execute(tx);
       const fresh = await this.repo.getRefund(refund.id, tx);
       if (!fresh || fresh.status === 'settled') return { settled: fresh ?? refund, pendingRemoval: null };
       if (fresh.status !== 'approved') {

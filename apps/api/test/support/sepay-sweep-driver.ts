@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { and, asc, gt, inArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { outboxEvents } from '@lms/db';
+import { createCentreKysely, outboxEvents, type CentreDb } from '@lms/db';
 import {
   OutboxWriterService,
   PaymentsRepository,
@@ -36,8 +36,9 @@ import { WorkerPaymentSpaceScope } from '../../../worker/src/worker-payment-spac
  * (không qua Nest, không boot WorkerModule — e2e shard chỉ build
  * `@lms/api`, không có tiến trình worker chạy kèm): tay cầm Drizzle
  * trên `TenantAwarePool` của worker (gắn GUC theo ALS như module
- * thật), repository + writer + service của `@lms/payments`, ba
- * adapter cổng của worker, `SepayMatchingService`, rồi
+ * thật) cho các adapter của worker, handle Kysely trên CÙNG pool
+ * cho repository + writer của `@lms/payments` (đã chuyển Kysely ở
+ * #656), ba adapter cổng của worker, `SepayMatchingService`, rồi
  * `SepayMatchingScheduler`. Mỗi vòng thăm dò của spec gọi một nhịp
  * `sweepTick()` rồi mới đọc trạng thái — giữ nguyên hình thăm dò
  * cũ, chỉ thêm bước dẫn nhịp vào đầu mỗi vòng.
@@ -72,22 +73,39 @@ import { WorkerPaymentSpaceScope } from '../../../worker/src/worker-payment-spac
 let scheduler: SepayMatchingScheduler | null = null;
 let pool: TenantAwarePool | null = null;
 let sharedDb: NodePgDatabase<typeof relations> | null = null;
+let sharedKysely: CentreDb | null = null;
 let cohortSync: CohortSyncService | null = null;
 let cohortWatermark = 0;
 
 function getSharedDb(): NodePgDatabase<typeof relations> {
   if (!sharedDb) {
-    pool = new TenantAwarePool({ connectionString: process.env.DATABASE_URL });
+    pool ??= new TenantAwarePool({ connectionString: process.env.DATABASE_URL });
     sharedDb = drizzle({ client: pool, relations });
   }
   return sharedDb;
 }
 
+/**
+ * Handle Kysely kho trung tâm trên CÙNG pool với handle Drizzle ở
+ * trên (không mở thêm pool — vòng đời của nó đi theo pool chung,
+ * không `destroy()` riêng): repository và writer của
+ * `@lms/payments` đã chuyển sang Kysely (#656) nên dựng trên handle
+ * này, trong khi các adapter của worker (kích hoạt, settlement)
+ * vẫn dùng handle Drizzle cho tới khi W2b (#661) chuyển chúng.
+ */
+function getSharedKysely(): CentreDb {
+  if (!sharedKysely) {
+    pool ??= new TenantAwarePool({ connectionString: process.env.DATABASE_URL });
+    sharedKysely = createCentreKysely(pool);
+  }
+  return sharedKysely;
+}
+
 function getScheduler(): SepayMatchingScheduler {
   if (!scheduler) {
     const db = getSharedDb();
-    const repo = new PaymentsRepository(db);
-    const writer = new OutboxWriterService(db);
+    const repo = new PaymentsRepository(getSharedKysely());
+    const writer = new OutboxWriterService(getSharedKysely());
     const plans = new PlanEntitlementsService(repo);
     const enrolOutbox = new WorkerEnrolOutboxService(writer);
     // Điểm phân giải không gian theo payment của worker (tiền điều
@@ -161,6 +179,7 @@ export async function closeSepaySweepDriver(): Promise<void> {
   cohortSync = null;
   cohortWatermark = 0;
   sharedDb = null;
+  sharedKysely = null;
   if (pool) {
     const closing = pool;
     pool = null;

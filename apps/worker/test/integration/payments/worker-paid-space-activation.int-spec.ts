@@ -11,6 +11,7 @@ import {
   PlanEntitlementsService,
   SepayMatchingService,
 } from '@lms/payments';
+import { createCentreKysely } from '@lms/db';
 import { spaceRegistry } from '@lms/db/control-plane';
 import { relations } from '../../../src/db/relations';
 import { SpaceDatabaseService } from '../../../src/db/routing/space-database.service';
@@ -390,10 +391,15 @@ describe('Kích hoạt ghi danh trả phí theo không gian của payment (integ
     sharedPool = new TenantAwarePool({ connectionString: process.env.DATABASE_URL! });
     const rawShared = drizzle({ client: sharedPool, relations });
     spaceDb.bindSharedDatabase(rawShared);
+    // Handle Kysely trên CÙNG pool (đúng như factory của module
+    // worker) cho repository + writer của `@lms/payments` đã chuyển
+    // Kysely ở #656; các adapter kích hoạt vẫn dùng handle Drizzle
+    // cho tới khi W2b (#661) chuyển chúng.
+    spaceDb.bindSharedKysely(createCentreKysely(sharedPool));
     const routed = spaceDb.routedDatabase;
 
-    const repo = new PaymentsRepository(routed as never);
-    const writer = new OutboxWriterService(routed as never);
+    const repo = new PaymentsRepository(spaceDb.routedKysely);
+    const writer = new OutboxWriterService(spaceDb.routedKysely);
     const plans = new PlanEntitlementsService(repo);
     const enrolOutbox = new WorkerEnrolOutboxService(writer);
     const scope = new WorkerPaymentSpaceScope(routed, spaceDb);
