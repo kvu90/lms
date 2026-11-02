@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
-import { MessagingRepository } from './messaging.repository';
+import { MessagingRepository } from '@lms/db/repositories/messaging';
 import { MessagingRealtimeService } from './messaging-realtime.service';
 import { MessagingNotificationsService } from './messaging-notifications.service';
 

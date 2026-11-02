@@ -9,7 +9,7 @@ import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { SiteConfigService } from '../site-config/site-config.service';
 import { UsersService } from '../users/users.service';
-import { MessagingRepository, type NotificationRow } from './messaging.repository';
+import { MessagingRepository, type NotificationRow } from '@lms/db/repositories/messaging';
 import { NotificationUnreadStreamService } from './notification-unread-stream.service';
 import { tenantAls } from '../tenants/tenant-als';
 import { MessagingGroupTreeService } from './messaging-group-tree.service';
@@ -128,6 +128,18 @@ export interface NotificationChannelPort {
  */
 export class MessagingNotificationsService {
   private readonly logger = new Logger(MessagingNotificationsService.name);
+
+  /**
+   * Phạm vi tenant hiệu lực cho các đường notification phía user:
+   * đọc từ ngữ cảnh tenant của request hiện hành và truyền TƯỜNG
+   * MINH xuống repository (repository tại `@lms/db` không đọc
+   * ALS — issue #658). Ngữ cảnh platform hoặc đường nền (không
+   * có store ALS) cho `undefined` = không lọc thêm ở tầng ứng
+   * dụng, đúng ngữ nghĩa của bản cũ khi repository tự đọc ALS.
+   */
+  private tenantScope(): string | undefined {
+    return tenantAls.getStore()?.tenantId;
+  }
 
   constructor(
     private readonly repo: MessagingRepository,
@@ -704,9 +716,9 @@ export class MessagingNotificationsService {
       unreadOnly: query.unreadOnly,
       cursor: cursor ? { latestAt: cursor.at, latestId: cursor.id } : undefined,
       limit: limit + 1,
-    });
+    }, this.tenantScope());
     const page = aggregates.slice(0, limit);
-    const latestRows = await this.repo.listNotificationsByIds(page.map((a) => a.latestId));
+    const latestRows = await this.repo.listNotificationsByIds(page.map((a) => a.latestId), this.tenantScope());
     const latestById = new Map(latestRows.map((r) => [r.id, r]));
     const items: NotificationGroup[] = page.map((a) => {
       const latest = latestById.get(a.latestId);
@@ -754,7 +766,7 @@ export class MessagingNotificationsService {
       unreadOnly: query.unreadOnly,
       cursor: cursor ? { createdAt: cursor.at, id: cursor.id } : undefined,
       limit: limit + 1,
-    });
+    }, this.tenantScope());
     const page = rows.slice(0, limit);
     const last = page[page.length - 1];
     return {
@@ -772,7 +784,7 @@ export class MessagingNotificationsService {
       eventType: dto.eventType,
       sourceKey: dto.contextUrl ?? '',
       day: dto.day,
-    });
+    }, this.tenantScope());
     if (marked > 0) await this.unreadStream.signalUnreadCountChanged(userId);
     return { marked };
   }
@@ -782,28 +794,28 @@ export class MessagingNotificationsService {
    * người khác được coi như không tồn tại (404, không lộ tồn tại).
    */
   async deleteNotification(userId: string, notificationId: string): Promise<{ deleted: boolean }> {
-    const ok = await this.repo.deleteNotification(notificationId, userId);
+    const ok = await this.repo.deleteNotification(notificationId, userId, this.tenantScope());
     if (!ok) throw new NotFoundException({ message: `Notification ${notificationId} not found`, code: 'messaging.notification_not_found' });
     return { deleted: true };
   }
 
   /** Trung tâm v2 — dọn mọi thông báo ĐÃ ĐỌC của mình. */
   async clearReadNotifications(userId: string): Promise<{ deleted: number }> {
-    return { deleted: await this.repo.deleteReadNotifications(userId) };
+    return { deleted: await this.repo.deleteReadNotifications(userId, this.tenantScope()) };
   }
 
   /**
    * Số notification chưa đọc.
    */
   async unreadNotificationCount(userId: string): Promise<number> {
-    return this.repo.countUnreadNotifications(userId);
+    return this.repo.countUnreadNotifications(userId, this.tenantScope());
   }
 
   /**
    * Đánh dấu đã đọc.
    */
   async markNotificationRead(userId: string, notificationId: string): Promise<{ read: boolean }> {
-    const ok = await this.repo.markNotificationRead(notificationId, userId);
+    const ok = await this.repo.markNotificationRead(notificationId, userId, this.tenantScope());
     if (!ok) throw new NotFoundException({ message: `Notification ${notificationId} not found`, code: 'messaging.notification_not_found' });
     await this.unreadStream.signalUnreadCountChanged(userId);
     return { read: true };
@@ -813,7 +825,7 @@ export class MessagingNotificationsService {
    * Đánh dấu tất cả đã đọc.
    */
   async markAllNotificationsRead(userId: string): Promise<{ marked: number }> {
-    const marked = await this.repo.markAllNotificationsRead(userId);
+    const marked = await this.repo.markAllNotificationsRead(userId, this.tenantScope());
     if (marked > 0) await this.unreadStream.signalUnreadCountChanged(userId);
     return { marked };
   }

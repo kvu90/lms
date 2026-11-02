@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { MessagingRepository } from './messaging.repository';
+import { MessagingRepository } from '@lms/db/repositories/messaging';
 import type { ContactRelationship, PersonSummaryView } from './messaging-contacts.service';
 import { MessagingMembershipSyncService } from './messaging-membership-sync.service';
 

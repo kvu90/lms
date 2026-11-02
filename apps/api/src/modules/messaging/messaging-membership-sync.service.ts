@@ -1,4 +1,4 @@
-import { MessagingRepository, type ConversationRow } from './messaging.repository';
+import { MessagingRepository, type ConversationRow } from '@lms/db/repositories/messaging';
 import { MessagingRealtimeService } from './messaging-realtime.service';
 import type { PermissionEvaluator } from '../access/permission-evaluator.service';
 
