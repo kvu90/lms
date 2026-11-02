@@ -9,7 +9,6 @@ import { CoursesModule } from '../courses/courses.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { CohortsController, CourseGroupingsController, CourseGroupsController } from './groups.controller';
 import { GroupsService } from './groups.service';
-import { GroupsTransitionalRepository } from './groups-transitional.repository';
 
 /** Facade của GroupsModule: GroupsService (groups, groupings, cohorts). Phụ thuộc Courses + Access + registry Availability. */
 @Module({
@@ -26,10 +25,6 @@ import { GroupsTransitionalRepository } from './groups-transitional.repository';
       useFactory: (spaceDb: SpaceDatabaseService) => new GroupsRepository(spaceDb.routedKysely),
       inject: [SpaceDatabaseService],
     },
-    // Repository chuyển tiếp Drizzle của điểm nối C-8/C (đường gỡ
-    // thành viên cohort trong transaction settle của payments) —
-    // chủ đóng D4 #656, xem file của nó.
-    GroupsTransitionalRepository,
     GroupsService,
   ],
   exports: [GroupsService],

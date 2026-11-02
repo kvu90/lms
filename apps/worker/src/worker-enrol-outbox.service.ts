@@ -1,11 +1,21 @@
 import { Injectable } from '@nestjs/common';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import {
   type SharedOutboxEventInput,
   type SharedOutboxPort,
 } from '@lms/enrol';
-import { sql, type CentreDB, type CentreTx } from '@lms/db';
-import { OutboxWriterService, type OutboxTx } from '@lms/payments';
+import { outboxEvents, sql, type CentreDB, type CentreTx } from '@lms/db';
 import { SpaceDatabaseService } from './db/routing/space-database.service';
+import type { relations } from './db/relations';
+
+type Database = NodePgDatabase<typeof relations>;
+
+/**
+ * Transaction Drizzle mà các luồng thanh toán trả phí của worker
+ * đang mở — cùng khuôn suy kiểu với cầu nối thanh toán chuyển
+ * tiếp (`worker-payments-transitional.repository.ts`).
+ */
+type WorkerTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 /**
  * Cổng ghi outbox phía worker cho bề mặt vật chất hoá cohort dùng
@@ -22,20 +32,31 @@ import { SpaceDatabaseService } from './db/routing/space-database.service';
  * này từ trước, không có gì thay đổi ở đây); tenant được gương vào
  * payload khi payload chưa có khoá `tenantId`.
  *
- * Đường Drizzle cũ còn giữ lại dưới tên `enqueueInDrizzleTx` cho
- * các luồng thanh toán trả phí (kích hoạt ghi danh lớp, đối soát
- * thanh toán) — các luồng đó vẫn mở MỘT transaction Drizzle cho cả
- * ghi danh và hai dòng outbox (bất biến đã chốt ở phán quyết trên
- * PR #552), và chỉ chuyển sang làn Kysely ở W2b #661. Đường này
- * uỷ thác thẳng cho `OutboxWriterService.enqueue` như trước, không
- * đổi ngữ nghĩa.
+ * Đường Drizzle còn lại dưới tên `enqueueInDrizzleTx` cho các
+ * luồng thanh toán trả phí (kích hoạt ghi danh lớp, đối soát thanh
+ * toán) — các luồng đó vẫn mở MỘT transaction Drizzle cho cả ghi
+ * danh và hai dòng outbox (bất biến đã chốt ở phán quyết trên PR
+ * #552), và chỉ chuyển sang làn Kysely ở W2b #661. Từ PR #683
+ * (D4), đường này KHÔNG còn uỷ thác cho `OutboxWriterService` của
+ * `@lms/payments` nữa: writer đó nay đã Kysely-only
+ * (`tx.insertInto(…)`), trong khi nơi gọi cổng này truyền
+ * transaction Drizzle đang mở — ghi qua writer sẽ gãy ở runtime vì
+ * transaction Drizzle không có `insertInto`.
+ * `enqueueInDrizzleTx` vì vậy tự ghi dòng outbox trên chính
+ * transaction Drizzle nhận được, với ngữ nghĩa `enqueue` VERBATIM
+ * từ bản Drizzle gốc của `OutboxWriterService` (trước PR #683):
+ * cùng khuôn dòng (aggregate, type, payload, tenant_id), tenant
+ * chỉ lấy từ tham số tường minh của nơi gọi, và gương `tenantId`
+ * vào payload khi payload chưa có khoá đó.
+ *
+ * Chủ đóng của đường Drizzle: W2b #661. Khi #661 lật các
+ * transaction của worker sang Kysely thì `enqueueInDrizzleTx` bị
+ * xoá và các nơi gọi quay về cổng Kysely của cổng này; issue #663
+ * đối chiếu không còn sót.
  */
 @Injectable()
 export class WorkerEnrolOutboxService implements SharedOutboxPort {
-  constructor(
-    private readonly writer: OutboxWriterService,
-    private readonly spaceDb: SpaceDatabaseService,
-  ) {}
+  constructor(private readonly spaceDb: SpaceDatabaseService) {}
 
   /**
    * Ghi sự kiện trong transaction Kysely nghiệp vụ đang mở (đường
@@ -74,12 +95,24 @@ export class WorkerEnrolOutboxService implements SharedOutboxPort {
 
   /**
    * Ghi sự kiện trong transaction Drizzle đang mở của các luồng
-   * thanh toán trả phí (điểm nối chuyển tiếp, chủ đóng W2b #661).
+   * thanh toán trả phí (điểm nối chuyển tiếp, chủ đóng W2b #661):
+   * tự ghi trực tiếp trên transaction nhận được theo ngữ nghĩa
+   * Drizzle gốc của `OutboxWriterService` (xem docblock của lớp về
+   * lý do không uỷ thác qua writer Kysely-only từ PR #683).
    *
    * @param tx - transaction Drizzle của nơi gọi (luồng thanh toán).
    * @param input - sự kiện cần ghi.
    */
-  async enqueueInDrizzleTx(tx: OutboxTx, input: SharedOutboxEventInput): Promise<void> {
-    await this.writer.enqueue(tx, input);
+  async enqueueInDrizzleTx(tx: WorkerTx, input: SharedOutboxEventInput): Promise<void> {
+    const tenantId = input.tenantId ?? null;
+    const payload = tenantId && input.payload['tenantId'] === undefined
+      ? { ...input.payload, tenantId }
+      : input.payload;
+    await tx.insert(outboxEvents).values({
+      aggregate: input.aggregate,
+      type: input.type,
+      payload,
+      tenantId,
+    });
   }
 }

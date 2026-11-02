@@ -106,7 +106,6 @@ describe('Lõi kiểm hạn mức gói — ngữ cảnh đọc membership khi k�
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
       { routedKysely: fakeDb } as never,
     );
     // Bề mặt vật chất hoá của EnrolService dựng lõi giới hạn slot

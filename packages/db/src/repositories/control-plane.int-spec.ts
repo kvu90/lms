@@ -601,15 +601,15 @@ describe('T-7 (phần control plane) + T-10 — contract hai ORM trên cùng dat
 });
 
 describe('cầu nối migration trên kho control plane — hai đường', () => {
-  it('đường từ rỗng: database dựng bằng cầu nối có đủ 6 bảng, 2 dòng nhật ký và hậu kiểm của package đạt', async () => {
+  it('đường từ rỗng: database dựng bằng cầu nối có đủ 6 bảng, 3 dòng nhật ký và hậu kiểm của package đạt', async () => {
     const counts = await verifyStore(db, 'control-plane');
     expect(counts.tables).toBe(6);
-    expect(counts.journalRows).toBe(2);
+    expect(counts.journalRows).toBe(3);
   });
 
   it('đường đã nhận nuôi: cấy nhật ký trả already-adopted và migrateToLatest là no-op, dữ kiện còn nguyên', async () => {
     const carrierNames = listCarrierNames(join(process.cwd(), 'migrations', 'control-plane'));
-    expect(carrierNames).toHaveLength(2);
+    expect(carrierNames).toHaveLength(3);
     const outcome = await adoptJournal(db, carrierNames);
     expect(outcome).toBe('already-adopted');
     const migrator = new Migrator({ db, provider: new FrozenSqlProvider(join(process.cwd(), 'migrations', 'control-plane')) });

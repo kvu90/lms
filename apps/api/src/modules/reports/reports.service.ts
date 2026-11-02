@@ -1,14 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { I18nService } from '@nestjs/i18n';
-import { sql } from 'drizzle-orm';
+import { ReportsRepository, type ReportRow, type ScheduleRow } from '@lms/db/repositories/reports';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { CoursesService } from '../courses/courses.service';
 import { MessagingService } from '../messaging/messaging.service';
-import { ReportsRepository, type ReportRow, type ScheduleRow } from './reports.repository';
-import {
-  courseCompletions, courseModulesCompletion, courseModules, enrol, gradeGrades, gradeItems, userEnrolments, users,
-} from '../../db/schema';
 
 /** Một dataSource đăng ký: read model theo entity, mỗi dòng kèm courseId để lọc quyền theo context. */
 export interface ReportDatasource {
@@ -63,9 +59,9 @@ export class ReportsService {
     this.datasources.set('enrolments', {
       name: 'enrolments', columns: ['userId', 'username', 'courseId', 'status'],
       fetchRows: async () => {
-        const instances = await db.select().from(enrol);
-        const ues = await db.select().from(userEnrolments);
-        const allUsers = await db.select().from(users);
+        const instances = await db.selectFrom('enrol').select(['id', 'course_id as courseId']).execute();
+        const ues = await db.selectFrom('user_enrolments').select(['user_id as userId', 'enrol_id as enrolId', 'status']).execute();
+        const allUsers = await db.selectFrom('users').select(['id', 'username']).execute();
         const byInstance = new Map(instances.map((i) => [i.id, i]));
         const byUser = new Map(allUsers.map((u) => [u.id, u]));
         return ues.map((ue) => ({
@@ -77,9 +73,9 @@ export class ReportsService {
     this.datasources.set('grades', {
       name: 'grades', columns: ['userId', 'username', 'courseId', 'itemId', 'finalGrade'],
       fetchRows: async () => {
-        const items = await db.select().from(gradeItems);
-        const grades = await db.select().from(gradeGrades);
-        const allUsers = await db.select().from(users);
+        const items = await db.selectFrom('grade_items').select(['id', 'course_id as courseId']).execute();
+        const grades = await db.selectFrom('grade_grades').select(['user_id as userId', 'item_id as itemId', 'final_grade as finalGrade']).execute();
+        const allUsers = await db.selectFrom('users').select(['id', 'username']).execute();
         const byItem = new Map(items.map((i) => [i.id, i]));
         const byUser = new Map(allUsers.map((u) => [u.id, u]));
         return grades.map((g) => ({
@@ -91,11 +87,11 @@ export class ReportsService {
     this.datasources.set('completion', {
       name: 'completion', columns: ['userId', 'username', 'courseId', 'status', 'cmId', 'completionState'],
       fetchRows: async () => {
-        const allUsers = await db.select().from(users);
+        const allUsers = await db.selectFrom('users').select(['id', 'username']).execute();
         const byUser = new Map(allUsers.map((u) => [u.id, u]));
-        const courseRows = await db.select().from(courseCompletions);
-        const cmRows = await db.select().from(courseModulesCompletion);
-        const cms = await db.select().from(courseModules);
+        const courseRows = await db.selectFrom('course_completions').select(['user_id as userId', 'course', 'status']).execute();
+        const cmRows = await db.selectFrom('course_modules_completion').select(['user_id as userId', 'course_module_id as courseModuleId', 'completion_state as completionState']).execute();
+        const cms = await db.selectFrom('course_modules').select(['id', 'course']).execute();
         const byCm = new Map(cms.map((c) => [c.id, c]));
         return [
           ...courseRows.map((r) => ({ userId: r.userId, username: byUser.get(r.userId)?.username ?? '', courseId: r.course, status: r.status, cmId: 0, completionState: -1 })),
@@ -150,11 +146,9 @@ export class ReportsService {
     // Audience theo role: resolve bằng bảng role_assignments (role shortName).
     const roleNames = audience.filter((a) => a.role).map((a) => a.role!);
     if (!roleNames.length) return false;
-    const db = this.repo.dbHandle;
-    const res = (await db.execute(sql`
-      select 1 as ok from role_assignments ra join role r on r.id = ra.role_id
-      where ra.user_id = ${userId} and r.short_name in (${sql.join(roleNames.map((n) => sql`${n}`), sql`, `)}) limit 1`)) as unknown as { rows: unknown[] };
-    return res.rows.length > 0;
+    // Truy vấn ghép danh sách tên vai trò bằng sql.join nằm ở
+    // repository (khuôn T-11 chốt tại issue #648).
+    return this.repo.userHasAnyRole(userId, roleNames);
   }
 
   /**

@@ -48,7 +48,7 @@ export const MIGRATION_STORES: Record<MigrationStoreKey, MigrationStore> = {
   },
   'control-plane': {
     migrationsDirName: 'control-plane',
-    expected: { tables: 6, journalRows: 2 },
+    expected: { tables: 6, journalRows: 3 },
     connectionEnvVars: ['CONTROL_PLANE_DATABASE_URL'],
   },
   'system-bank': {

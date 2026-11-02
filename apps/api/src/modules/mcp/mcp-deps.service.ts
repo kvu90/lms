@@ -11,7 +11,7 @@ import { TenantsService } from '../tenants/tenants.service';
 import { QuestionsService } from '../questions/questions.service';
 import { UsersService } from '../users/users.service';
 import { McpBridgeAuth } from './mcp-bridge-auth';
-import { McpIdempotencyRepository } from './mcp-idempotency.repository';
+import { McpIdempotencyRepository } from '@lms/db/repositories/mcp-idempotency';
 import type { McpMountDeps } from './mcp.mount';
 import { McpOAuthVerifier } from './mcp-oauth-verifier';
 import { McpRateLimiter } from './mcp-rate-limit';

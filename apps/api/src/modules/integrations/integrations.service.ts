@@ -3,7 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { CoursesService } from '../courses/courses.service';
-import { IntegrationsRepository, type ServiceRow, type TokenRow } from './integrations.repository';
+import { IntegrationsRepository, type ServiceRow, type TokenRow } from '@lms/db/repositories/integrations';
 
 /** Định nghĩa một external function trong registry code: capability bắt buộc + cách resolve context. */
 export interface ExternalFunctionDef {

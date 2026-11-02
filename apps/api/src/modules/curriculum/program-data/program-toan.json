@@ -579,14 +579,56 @@
        "content": [
         {
          "type": "text",
-         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn, chẳng hạn: – Thực hành đếm, nhận biết số, thực hiện phép tính trong một số tình huống thực tiễn hằng ngày (ví dụ: đếm số bàn học và số cửa sổ trong lớp học,...). – Thực hành các hoạt động liên quan đến vị trí, định hướng không gian (ví dụ: xác định được một vật ở trên hoặc dưới mặt bàn, một vật cao hơn hoặc thấp hơn vật khác,...). – Thực hành đo và ước lượng độ dài một số đồ vật trong thực tế gắn với đơn vị đo cm; thực hành đọc giờ đúng trên đồng hồ, xem lịch loại lịch tờ hằng ngày."
+         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn, chẳng hạn:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành đếm, nhận biết số, thực hiện phép tính trong một số tình huống thực tiễn hằng ngày (ví dụ: đếm số bàn học và số cửa sổ trong lớp học,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành các hoạt động liên quan đến vị trí, định hướng không gian (ví dụ: xác định được một vật ở trên hoặc dưới mặt bàn, một vật cao hơn hoặc thấp hơn vật khác,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành đo và ước lượng độ dài một số đồ vật trong thực tế gắn với đơn vị đo cm; thực hành đọc giờ đúng trên đồng hồ, xem lịch loại lịch tờ hằng ngày."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn, chẳng hạn: – Thực hành đếm, nhận biết số, thực hiện phép tính trong một số tình huống thực tiễn hằng ngày (ví dụ: đếm số bàn học và số cửa sổ trong lớp học,...). – Thực hành các hoạt động liên quan đến vị trí, định hướng không gian (ví dụ: xác định được một vật ở trên hoặc dưới mặt bàn, một vật cao hơn hoặc thấp hơn vật khác,...). – Thực hành đo và ước lượng độ dài một số đồ vật trong thực tế gắn với đơn vị đo cm; thực hành đọc giờ đúng trên đồng hồ, xem lịch loại lịch tờ hằng ngày.",
+   "outcome_text": "– Thực hành ứng dụng các kiến thức toán học vào thực tiễn, chẳng hạn: – Thực hành đếm, nhận biết số, thực hiện phép tính trong một số tình huống thực tiễn hằng ngày (ví dụ: đếm số bàn học và số cửa sổ trong lớp học,...). – Thực hành các hoạt động liên quan đến vị trí, định hướng không gian (ví dụ: xác định được một vật ở trên hoặc dưới mặt bàn, một vật cao hơn hoặc thấp hơn vật khác,...). – Thực hành đo và ước lượng độ dài một số đồ vật trong thực tế gắn với đơn vị đo cm; thực hành đọc giờ đúng trên đồng hồ, xem lịch loại lịch tờ hằng ngày.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -1644,14 +1686,42 @@
        "content": [
         {
          "type": "text",
-         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn, chẳng hạn: – Thực hành tính toán, đo lường và ước lượng độ dài, khối lượng, dung tích một số đồ vật trong thực tiễn; thực hành đọc giờ trên đồng hồ, xem lịch; thực hành sắp xếp thời gian biểu học tập và sinh hoạt của cá nhân hằng ngày, trong tuần,... – Thực hành thu thập, phân loại, ghi chép, kiểm đếm một số đối tượng thống kê trong trường, lớp."
+         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn, chẳng hạn:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành tính toán, đo lường và ước lượng độ dài, khối lượng, dung tích một số đồ vật trong thực tiễn; thực hành đọc giờ trên đồng hồ, xem lịch; thực hành sắp xếp thời gian biểu học tập và sinh hoạt của cá nhân hằng ngày, trong tuần,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành thu thập, phân loại, ghi chép, kiểm đếm một số đối tượng thống kê trong trường, lớp."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn, chẳng hạn: – Thực hành tính toán, đo lường và ước lượng độ dài, khối lượng, dung tích một số đồ vật trong thực tiễn; thực hành đọc giờ trên đồng hồ, xem lịch; thực hành sắp xếp thời gian biểu học tập và sinh hoạt của cá nhân hằng ngày, trong tuần,... – Thực hành thu thập, phân loại, ghi chép, kiểm đếm một số đối tượng thống kê trong trường, lớp.",
+   "outcome_text": "– Thực hành ứng dụng các kiến thức toán học vào thực tiễn, chẳng hạn: – Thực hành tính toán, đo lường và ước lượng độ dài, khối lượng, dung tích một số đồ vật trong thực tiễn; thực hành đọc giờ trên đồng hồ, xem lịch; thực hành sắp xếp thời gian biểu học tập và sinh hoạt của cá nhân hằng ngày, trong tuần,... – Thực hành thu thập, phân loại, ghi chép, kiểm đếm một số đối tượng thống kê trong trường, lớp.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -2879,14 +2949,42 @@
        "content": [
         {
          "type": "text",
-         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn, chẳng hạn: – Thực hành các hoạt động liên quan đến tính toán, đo lường và ước lượng như: thực hành tính và ước lượng chu vi, diện tích của một số hình phẳng trong thực tế liên quan đến các hình phẳng đã được học; thực hành đo, cân, đong và ước lượng độ dài, khối lượng, dung tích, nhiệt độ,... – Thực hành thu thập, phân loại, sắp xếp số liệu thống kê (theo các tiêu chí cho trước) về một số đối tượng thống kê trong trường, lớp."
+         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn, chẳng hạn:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành các hoạt động liên quan đến tính toán, đo lường và ước lượng như: thực hành tính và ước lượng chu vi, diện tích của một số hình phẳng trong thực tế liên quan đến các hình phẳng đã được học; thực hành đo, cân, đong và ước lượng độ dài, khối lượng, dung tích, nhiệt độ,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành thu thập, phân loại, sắp xếp số liệu thống kê (theo các tiêu chí cho trước) về một số đối tượng thống kê trong trường, lớp."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn, chẳng hạn: – Thực hành các hoạt động liên quan đến tính toán, đo lường và ước lượng như: thực hành tính và ước lượng chu vi, diện tích của một số hình phẳng trong thực tế liên quan đến các hình phẳng đã được học; thực hành đo, cân, đong và ước lượng độ dài, khối lượng, dung tích, nhiệt độ,... – Thực hành thu thập, phân loại, sắp xếp số liệu thống kê (theo các tiêu chí cho trước) về một số đối tượng thống kê trong trường, lớp.",
+   "outcome_text": "– Thực hành ứng dụng các kiến thức toán học vào thực tiễn, chẳng hạn: – Thực hành các hoạt động liên quan đến tính toán, đo lường và ước lượng như: thực hành tính và ước lượng chu vi, diện tích của một số hình phẳng trong thực tế liên quan đến các hình phẳng đã được học; thực hành đo, cân, đong và ước lượng độ dài, khối lượng, dung tích, nhiệt độ,... – Thực hành thu thập, phân loại, sắp xếp số liệu thống kê (theo các tiêu chí cho trước) về một số đối tượng thống kê trong trường, lớp.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -4234,14 +4332,56 @@
        "content": [
         {
          "type": "text",
-         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Thực hành các hoạt động liên quan đến tính toán, đo lường và ước lượng như: tính toán và ước lượng chu vi, diện tích, góc của một số hình phẳng trong thực tế liên quan đến các hình phẳng đã học; tính toán và ước lượng về khối lượng, dung tích,...; xác định năm, thế kỉ đánh dấu sự ra đời (diễn ra) của một số phát minh khoa học, sự kiện văn hoá – xã hội, lịch sử,... – Thực hành thu thập, phân tích, biểu diễn các số liệu thống kê (thông qua một số tình huống đơn giản gắn với những vấn đề phát triển kinh tế, xã hội hoặc có tính toàn cầu như biến đổi khí hậu, phát triển bền vững, giáo dục tài chính, chủ quyền biển đảo, biên giới, giáo dục STEM,...). – Thực hành mua bán, trao đổi tiền tệ."
+         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành các hoạt động liên quan đến tính toán, đo lường và ước lượng như: tính toán và ước lượng chu vi, diện tích, góc của một số hình phẳng trong thực tế liên quan đến các hình phẳng đã học; tính toán và ước lượng về khối lượng, dung tích,...; xác định năm, thế kỉ đánh dấu sự ra đời (diễn ra) của một số phát minh khoa học, sự kiện văn hoá – xã hội, lịch sử,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành thu thập, phân tích, biểu diễn các số liệu thống kê (thông qua một số tình huống đơn giản gắn với những vấn đề phát triển kinh tế, xã hội hoặc có tính toàn cầu như biến đổi khí hậu, phát triển bền vững, giáo dục tài chính, chủ quyền biển đảo, biên giới, giáo dục STEM,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành mua bán, trao đổi tiền tệ."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Thực hành các hoạt động liên quan đến tính toán, đo lường và ước lượng như: tính toán và ước lượng chu vi, diện tích, góc của một số hình phẳng trong thực tế liên quan đến các hình phẳng đã học; tính toán và ước lượng về khối lượng, dung tích,...; xác định năm, thế kỉ đánh dấu sự ra đời (diễn ra) của một số phát minh khoa học, sự kiện văn hoá – xã hội, lịch sử,... – Thực hành thu thập, phân tích, biểu diễn các số liệu thống kê (thông qua một số tình huống đơn giản gắn với những vấn đề phát triển kinh tế, xã hội hoặc có tính toàn cầu như biến đổi khí hậu, phát triển bền vững, giáo dục tài chính, chủ quyền biển đảo, biên giới, giáo dục STEM,...). – Thực hành mua bán, trao đổi tiền tệ.",
+   "outcome_text": "– Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Thực hành các hoạt động liên quan đến tính toán, đo lường và ước lượng như: tính toán và ước lượng chu vi, diện tích, góc của một số hình phẳng trong thực tế liên quan đến các hình phẳng đã học; tính toán và ước lượng về khối lượng, dung tích,...; xác định năm, thế kỉ đánh dấu sự ra đời (diễn ra) của một số phát minh khoa học, sự kiện văn hoá – xã hội, lịch sử,... – Thực hành thu thập, phân tích, biểu diễn các số liệu thống kê (thông qua một số tình huống đơn giản gắn với những vấn đề phát triển kinh tế, xã hội hoặc có tính toàn cầu như biến đổi khí hậu, phát triển bền vững, giáo dục tài chính, chủ quyền biển đảo, biên giới, giáo dục STEM,...). – Thực hành mua bán, trao đổi tiền tệ.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -5566,14 +5706,56 @@
        "content": [
         {
          "type": "text",
-         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Thực hành tổng hợp các hoạt động liên quan đến tính toán, đo lường và ước lượng như: tính toán và ước lượng thể tích của một số hình khối trong thực tiễn liên quan đến các hình đã học; tính toán và ước lượng về vận tốc, quãng đường, thời gian trong chuyển động đều. – Thực hành thu thập, phân tích, biểu diễn các số liệu thống kê (thông qua một số tình huống đơn giản gắn với những vấn đề phát triển kinh tế – xã hội hoặc có tính toàn cầu như biến đổi khí hậu, phát triển bền vững, giáo dục tài chính, chủ quyền biên giới, biển đảo, giáo dục STEM,...). – Thực hành mua bán, trao đổi, chi tiêu hợp lí; thực hành tính tiền lãi, lỗ trong mua bán; tính lãi suất trong tiền gửi tiết kiệm và vay vốn."
+         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành tổng hợp các hoạt động liên quan đến tính toán, đo lường và ước lượng như: tính toán và ước lượng thể tích của một số hình khối trong thực tiễn liên quan đến các hình đã học; tính toán và ước lượng về vận tốc, quãng đường, thời gian trong chuyển động đều."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành thu thập, phân tích, biểu diễn các số liệu thống kê (thông qua một số tình huống đơn giản gắn với những vấn đề phát triển kinh tế – xã hội hoặc có tính toàn cầu như biến đổi khí hậu, phát triển bền vững, giáo dục tài chính, chủ quyền biên giới, biển đảo, giáo dục STEM,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành mua bán, trao đổi, chi tiêu hợp lí; thực hành tính tiền lãi, lỗ trong mua bán; tính lãi suất trong tiền gửi tiết kiệm và vay vốn."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Thực hành tổng hợp các hoạt động liên quan đến tính toán, đo lường và ước lượng như: tính toán và ước lượng thể tích của một số hình khối trong thực tiễn liên quan đến các hình đã học; tính toán và ước lượng về vận tốc, quãng đường, thời gian trong chuyển động đều. – Thực hành thu thập, phân tích, biểu diễn các số liệu thống kê (thông qua một số tình huống đơn giản gắn với những vấn đề phát triển kinh tế – xã hội hoặc có tính toàn cầu như biến đổi khí hậu, phát triển bền vững, giáo dục tài chính, chủ quyền biên giới, biển đảo, giáo dục STEM,...). – Thực hành mua bán, trao đổi, chi tiêu hợp lí; thực hành tính tiền lãi, lỗ trong mua bán; tính lãi suất trong tiền gửi tiết kiệm và vay vốn.",
+   "outcome_text": "– Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Thực hành tổng hợp các hoạt động liên quan đến tính toán, đo lường và ước lượng như: tính toán và ước lượng thể tích của một số hình khối trong thực tiễn liên quan đến các hình đã học; tính toán và ước lượng về vận tốc, quãng đường, thời gian trong chuyển động đều. – Thực hành thu thập, phân tích, biểu diễn các số liệu thống kê (thông qua một số tình huống đơn giản gắn với những vấn đề phát triển kinh tế – xã hội hoặc có tính toàn cầu như biến đổi khí hậu, phát triển bền vững, giáo dục tài chính, chủ quyền biên giới, biển đảo, giáo dục STEM,...). – Thực hành mua bán, trao đổi, chi tiêu hợp lí; thực hành tính tiền lãi, lỗ trong mua bán; tính lãi suất trong tiền gửi tiết kiệm và vay vốn.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -7376,14 +7558,42 @@
        "content": [
         {
          "type": "text",
-         "text": "Tìm hiểu một số kiến thức về tài chính: – Làm quen với việc gửi tiền tiết kiệm và vay vốn ngân hàng; tính lỗ, lãi và dư nợ; thực hành tính lãi suất trong tiền gửi tiết kiệm và vay vốn. – Trả số tiền đúng theo hoá đơn hoặc tính tiền thừa khi mua hàng; thực hành ghi chép thu nhập và chi tiêu, cất giữ hoá đơn trong trường hợp cần sử dụng đến."
+         "text": "Tìm hiểu một số kiến thức về tài chính:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Làm quen với việc gửi tiền tiết kiệm và vay vốn ngân hàng; tính lỗ, lãi và dư nợ; thực hành tính lãi suất trong tiền gửi tiết kiệm và vay vốn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trả số tiền đúng theo hoá đơn hoặc tính tiền thừa khi mua hàng; thực hành ghi chép thu nhập và chi tiêu, cất giữ hoá đơn trong trường hợp cần sử dụng đến."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Tìm hiểu một số kiến thức về tài chính: – Làm quen với việc gửi tiền tiết kiệm và vay vốn ngân hàng; tính lỗ, lãi và dư nợ; thực hành tính lãi suất trong tiền gửi tiết kiệm và vay vốn. – Trả số tiền đúng theo hoá đơn hoặc tính tiền thừa khi mua hàng; thực hành ghi chép thu nhập và chi tiêu, cất giữ hoá đơn trong trường hợp cần sử dụng đến.",
+   "outcome_text": "– Tìm hiểu một số kiến thức về tài chính: – Làm quen với việc gửi tiền tiết kiệm và vay vốn ngân hàng; tính lỗ, lãi và dư nợ; thực hành tính lãi suất trong tiền gửi tiết kiệm và vay vốn. – Trả số tiền đúng theo hoá đơn hoặc tính tiền thừa khi mua hàng; thực hành ghi chép thu nhập và chi tiêu, cất giữ hoá đơn trong trường hợp cần sử dụng đến.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -7413,14 +7623,42 @@
        "content": [
         {
          "type": "text",
-         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Vận dụng kiến thức thống kê để đọc hiểu các bảng biểu trong môn Lịch sử và Địa lí lớp 6. – Thu thập và biểu diễn các dữ liệu từ một vài tình huống trong thực tiễn, ví dụ: thu thập nhiệt độ của địa phương tại mốc thời gian nhất định trong một tuần lễ, từ đó đưa ra những nhận xét về biến đổi thời tiết của địa phương trong tuần."
+         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng kiến thức thống kê để đọc hiểu các bảng biểu trong môn Lịch sử và Địa lí lớp 6."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thu thập và biểu diễn các dữ liệu từ một vài tình huống trong thực tiễn, ví dụ: thu thập nhiệt độ của địa phương tại mốc thời gian nhất định trong một tuần lễ, từ đó đưa ra những nhận xét về biến đổi thời tiết của địa phương trong tuần."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Vận dụng kiến thức thống kê để đọc hiểu các bảng biểu trong môn Lịch sử và Địa lí lớp 6. – Thu thập và biểu diễn các dữ liệu từ một vài tình huống trong thực tiễn, ví dụ: thu thập nhiệt độ của địa phương tại mốc thời gian nhất định trong một tuần lễ, từ đó đưa ra những nhận xét về biến đổi thời tiết của địa phương trong tuần.",
+   "outcome_text": "– Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Vận dụng kiến thức thống kê để đọc hiểu các bảng biểu trong môn Lịch sử và Địa lí lớp 6. – Thu thập và biểu diễn các dữ liệu từ một vài tình huống trong thực tiễn, ví dụ: thu thập nhiệt độ của địa phương tại mốc thời gian nhất định trong một tuần lễ, từ đó đưa ra những nhận xét về biến đổi thời tiết của địa phương trong tuần.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -7450,14 +7688,56 @@
        "content": [
         {
          "type": "text",
-         "text": "Tổ chức các hoạt động ngoài giờ chính khoá như thực hành ngoài lớp học, dự án học tập, các trò chơi học toán, cuộc thi về Toán, chẳng hạn: – Vận dụng tính đối xứng vào thực tiễn: gấp giấy tạo dựng các hình có trục đối xứng hoặc tâm đối xứng; sưu tầm các hình trong tự nhiên có tâm đối xứng hoặc có trục đối xứng; tìm kiếm các video về hình có tâm đối xứng, hình có trục đối xứng trong thế giới tự nhiên. – Vận dụng khái niệm ba điểm thẳng hàng vào thực tiễn như: trồng cây thẳng hàng, để các đồ vật thẳng hàng,... – Vận dụng các công thức tính diện tích và thể tích vào thực tiễn. Đo đạc và tính diện tích bề mặt, tính thể tích của các đồ vật có liên quan đến các hình đã học."
+         "text": "Tổ chức các hoạt động ngoài giờ chính khoá như thực hành ngoài lớp học, dự án học tập, các trò chơi học toán, cuộc thi về Toán, chẳng hạn:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng tính đối xứng vào thực tiễn: gấp giấy tạo dựng các hình có trục đối xứng hoặc tâm đối xứng; sưu tầm các hình trong tự nhiên có tâm đối xứng hoặc có trục đối xứng; tìm kiếm các video về hình có tâm đối xứng, hình có trục đối xứng trong thế giới tự nhiên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng khái niệm ba điểm thẳng hàng vào thực tiễn như: trồng cây thẳng hàng, để các đồ vật thẳng hàng,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng các công thức tính diện tích và thể tích vào thực tiễn. Đo đạc và tính diện tích bề mặt, tính thể tích của các đồ vật có liên quan đến các hình đã học."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Tổ chức các hoạt động ngoài giờ chính khoá như thực hành ngoài lớp học, dự án học tập, các trò chơi học toán, cuộc thi về Toán, chẳng hạn: – Vận dụng tính đối xứng vào thực tiễn: gấp giấy tạo dựng các hình có trục đối xứng hoặc tâm đối xứng; sưu tầm các hình trong tự nhiên có tâm đối xứng hoặc có trục đối xứng; tìm kiếm các video về hình có tâm đối xứng, hình có trục đối xứng trong thế giới tự nhiên. – Vận dụng khái niệm ba điểm thẳng hàng vào thực tiễn như: trồng cây thẳng hàng, để các đồ vật thẳng hàng,... – Vận dụng các công thức tính diện tích và thể tích vào thực tiễn. Đo đạc và tính diện tích bề mặt, tính thể tích của các đồ vật có liên quan đến các hình đã học.",
+   "outcome_text": "– Tổ chức các hoạt động ngoài giờ chính khoá như thực hành ngoài lớp học, dự án học tập, các trò chơi học toán, cuộc thi về Toán, chẳng hạn: – Vận dụng tính đối xứng vào thực tiễn: gấp giấy tạo dựng các hình có trục đối xứng hoặc tâm đối xứng; sưu tầm các hình trong tự nhiên có tâm đối xứng hoặc có trục đối xứng; tìm kiếm các video về hình có tâm đối xứng, hình có trục đối xứng trong thế giới tự nhiên. – Vận dụng khái niệm ba điểm thẳng hàng vào thực tiễn như: trồng cây thẳng hàng, để các đồ vật thẳng hàng,... – Vận dụng các công thức tính diện tích và thể tích vào thực tiễn. Đo đạc và tính diện tích bề mặt, tính thể tích của các đồ vật có liên quan đến các hình đã học.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -9052,14 +9332,56 @@
        "content": [
         {
          "type": "text",
-         "text": "Tìm hiểu một số kiến thức về tài chính: – Thực hành tính toán việc tăng, giảm theo giá trị phần trăm của một mặt hàng hoặc một kế hoạch sản xuất, kinh doanh. – Làm quen với giao dịch ngân hàng. – Làm quen với thuế và việc tính thuế."
+         "text": "Tìm hiểu một số kiến thức về tài chính:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành tính toán việc tăng, giảm theo giá trị phần trăm của một mặt hàng hoặc một kế hoạch sản xuất, kinh doanh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Làm quen với giao dịch ngân hàng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Làm quen với thuế và việc tính thuế."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Tìm hiểu một số kiến thức về tài chính: – Thực hành tính toán việc tăng, giảm theo giá trị phần trăm của một mặt hàng hoặc một kế hoạch sản xuất, kinh doanh. – Làm quen với giao dịch ngân hàng. – Làm quen với thuế và việc tính thuế.",
+   "outcome_text": "– Tìm hiểu một số kiến thức về tài chính: – Thực hành tính toán việc tăng, giảm theo giá trị phần trăm của một mặt hàng hoặc một kế hoạch sản xuất, kinh doanh. – Làm quen với giao dịch ngân hàng. – Làm quen với thuế và việc tính thuế.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -9089,14 +9411,42 @@
        "content": [
         {
          "type": "text",
-         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Vận dụng kiến thức thống kê để đọc hiểu các bảng biểu trong Lịch sử và Địa lí lớp 7, Khoa học tự nhiên lớp 7. – Thu thập, phân loại và biểu diễn dữ liệu (theo các tiêu chí cho trước) vào biểu đồ hình quạt tròn (pie chart) hoặc biểu đồ đoạn thẳng (line graph) từ một vài tình huống trong thực tiễn."
+         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng kiến thức thống kê để đọc hiểu các bảng biểu trong Lịch sử và Địa lí lớp 7, Khoa học tự nhiên lớp 7."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thu thập, phân loại và biểu diễn dữ liệu (theo các tiêu chí cho trước) vào biểu đồ hình quạt tròn (pie chart) hoặc biểu đồ đoạn thẳng (line graph) từ một vài tình huống trong thực tiễn."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Vận dụng kiến thức thống kê để đọc hiểu các bảng biểu trong Lịch sử và Địa lí lớp 7, Khoa học tự nhiên lớp 7. – Thu thập, phân loại và biểu diễn dữ liệu (theo các tiêu chí cho trước) vào biểu đồ hình quạt tròn (pie chart) hoặc biểu đồ đoạn thẳng (line graph) từ một vài tình huống trong thực tiễn.",
+   "outcome_text": "– Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Vận dụng kiến thức thống kê để đọc hiểu các bảng biểu trong Lịch sử và Địa lí lớp 7, Khoa học tự nhiên lớp 7. – Thu thập, phân loại và biểu diễn dữ liệu (theo các tiêu chí cho trước) vào biểu đồ hình quạt tròn (pie chart) hoặc biểu đồ đoạn thẳng (line graph) từ một vài tình huống trong thực tiễn.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -9126,14 +9476,56 @@
        "content": [
         {
          "type": "text",
-         "text": "Tổ chức các hoạt động ngoài giờ chính khoá như thực hành ngoài lớp học, dự án học tập, các trò chơi học Toán, cuộc thi về Toán, chẳng hạn: – Tạo dựng các hình có liên quan đến tia phân giác của một góc, liên quan đến hai đường song song, liên quan đến hình lăng trụ đứng. – Vận dụng kiến thức về tam giác bằng nhau trong thực tiễn, ví dụ: đo khoảng cách giữa hai vị trí mà giữa chúng có vật cản hoặc chỉ đến được một trong hai vị trí. – Thu thập một số vật thể trong thực tiễn có dạng hình lăng trụ đứng và tính diện tích xung quanh của các vật thể đó."
+         "text": "Tổ chức các hoạt động ngoài giờ chính khoá như thực hành ngoài lớp học, dự án học tập, các trò chơi học Toán, cuộc thi về Toán, chẳng hạn:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tạo dựng các hình có liên quan đến tia phân giác của một góc, liên quan đến hai đường song song, liên quan đến hình lăng trụ đứng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng kiến thức về tam giác bằng nhau trong thực tiễn, ví dụ: đo khoảng cách giữa hai vị trí mà giữa chúng có vật cản hoặc chỉ đến được một trong hai vị trí."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thu thập một số vật thể trong thực tiễn có dạng hình lăng trụ đứng và tính diện tích xung quanh của các vật thể đó."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Tổ chức các hoạt động ngoài giờ chính khoá như thực hành ngoài lớp học, dự án học tập, các trò chơi học Toán, cuộc thi về Toán, chẳng hạn: – Tạo dựng các hình có liên quan đến tia phân giác của một góc, liên quan đến hai đường song song, liên quan đến hình lăng trụ đứng. – Vận dụng kiến thức về tam giác bằng nhau trong thực tiễn, ví dụ: đo khoảng cách giữa hai vị trí mà giữa chúng có vật cản hoặc chỉ đến được một trong hai vị trí. – Thu thập một số vật thể trong thực tiễn có dạng hình lăng trụ đứng và tính diện tích xung quanh của các vật thể đó.",
+   "outcome_text": "– Tổ chức các hoạt động ngoài giờ chính khoá như thực hành ngoài lớp học, dự án học tập, các trò chơi học Toán, cuộc thi về Toán, chẳng hạn: – Tạo dựng các hình có liên quan đến tia phân giác của một góc, liên quan đến hai đường song song, liên quan đến hình lăng trụ đứng. – Vận dụng kiến thức về tam giác bằng nhau trong thực tiễn, ví dụ: đo khoảng cách giữa hai vị trí mà giữa chúng có vật cản hoặc chỉ đến được một trong hai vị trí. – Thu thập một số vật thể trong thực tiễn có dạng hình lăng trụ đứng và tính diện tích xung quanh của các vật thể đó.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -10611,14 +11003,56 @@
        "content": [
         {
          "type": "text",
-         "text": "Tìm hiểu một số kiến thức về tài chính như: – Lập kế hoạch chi tiêu của bản thân. – Làm quen với bài toán về đầu tư cá nhân (xác định vốn đầu tư để đạt được lãi suất mong đợi). – Hiểu được các bản sao kê của ngân hàng (bản sao kê thật hoặc ví dụ) để xác định giao dịch và theo dõi thu nhập và chi tiêu; lựa chọn hình thức thanh toán phù hợp."
+         "text": "Tìm hiểu một số kiến thức về tài chính như:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập kế hoạch chi tiêu của bản thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Làm quen với bài toán về đầu tư cá nhân (xác định vốn đầu tư để đạt được lãi suất mong đợi)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hiểu được các bản sao kê của ngân hàng (bản sao kê thật hoặc ví dụ) để xác định giao dịch và theo dõi thu nhập và chi tiêu; lựa chọn hình thức thanh toán phù hợp."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Tìm hiểu một số kiến thức về tài chính như: – Lập kế hoạch chi tiêu của bản thân. – Làm quen với bài toán về đầu tư cá nhân (xác định vốn đầu tư để đạt được lãi suất mong đợi). – Hiểu được các bản sao kê của ngân hàng (bản sao kê thật hoặc ví dụ) để xác định giao dịch và theo dõi thu nhập và chi tiêu; lựa chọn hình thức thanh toán phù hợp.",
+   "outcome_text": "– Tìm hiểu một số kiến thức về tài chính như: – Lập kế hoạch chi tiêu của bản thân. – Làm quen với bài toán về đầu tư cá nhân (xác định vốn đầu tư để đạt được lãi suất mong đợi). – Hiểu được các bản sao kê của ngân hàng (bản sao kê thật hoặc ví dụ) để xác định giao dịch và theo dõi thu nhập và chi tiêu; lựa chọn hình thức thanh toán phù hợp.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -10647,14 +11081,28 @@
        "content": [
         {
          "type": "text",
-         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Vận dụng kiến thức Đại số để giải thích một số quy tắc trong Hoá học, Sinh học. Ví dụ: Ứng dụng phương trình bậc nhất trong các bài toán về xác định nồng độ phần trăm."
+         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng kiến thức Đại số để giải thích một số quy tắc trong Hoá học, Sinh học. Ví dụ: Ứng dụng phương trình bậc nhất trong các bài toán về xác định nồng độ phần trăm."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Vận dụng kiến thức Đại số để giải thích một số quy tắc trong Hoá học, Sinh học. Ví dụ: Ứng dụng phương trình bậc nhất trong các bài toán về xác định nồng độ phần trăm.",
+   "outcome_text": "– Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Vận dụng kiến thức Đại số để giải thích một số quy tắc trong Hoá học, Sinh học. Ví dụ: Ứng dụng phương trình bậc nhất trong các bài toán về xác định nồng độ phần trăm.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -10683,14 +11131,56 @@
        "content": [
         {
          "type": "text",
-         "text": "Tổ chức các hoạt động ngoài giờ chính khoá như thực hành ngoài lớp học, dự án học tập, các trò chơi học toán, cuộc thi về Toán, chẳng hạn: – Tìm kiếm hoặc thực hành tạo dựng các đoạn video về ứng dụng của hình chóp, hình đồng dạng phối cảnh trong thế giới tự nhiên. – Vận dụng kiến thức về tam giác đồng dạng và định lí Pythagore trong thực tiễn (ví dụ: đo khoảng cách giữa hai vị trí mà giữa chúng có vật cản hoặc chỉ đến được một trong hai vị trí). – Thực hành tính diện tích, thể tích của một số hình, khối trong thực tế."
+         "text": "Tổ chức các hoạt động ngoài giờ chính khoá như thực hành ngoài lớp học, dự án học tập, các trò chơi học toán, cuộc thi về Toán, chẳng hạn:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm kiếm hoặc thực hành tạo dựng các đoạn video về ứng dụng của hình chóp, hình đồng dạng phối cảnh trong thế giới tự nhiên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng kiến thức về tam giác đồng dạng và định lí Pythagore trong thực tiễn (ví dụ: đo khoảng cách giữa hai vị trí mà giữa chúng có vật cản hoặc chỉ đến được một trong hai vị trí)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành tính diện tích, thể tích của một số hình, khối trong thực tế."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Tổ chức các hoạt động ngoài giờ chính khoá như thực hành ngoài lớp học, dự án học tập, các trò chơi học toán, cuộc thi về Toán, chẳng hạn: – Tìm kiếm hoặc thực hành tạo dựng các đoạn video về ứng dụng của hình chóp, hình đồng dạng phối cảnh trong thế giới tự nhiên. – Vận dụng kiến thức về tam giác đồng dạng và định lí Pythagore trong thực tiễn (ví dụ: đo khoảng cách giữa hai vị trí mà giữa chúng có vật cản hoặc chỉ đến được một trong hai vị trí). – Thực hành tính diện tích, thể tích của một số hình, khối trong thực tế.",
+   "outcome_text": "– Tổ chức các hoạt động ngoài giờ chính khoá như thực hành ngoài lớp học, dự án học tập, các trò chơi học toán, cuộc thi về Toán, chẳng hạn: – Tìm kiếm hoặc thực hành tạo dựng các đoạn video về ứng dụng của hình chóp, hình đồng dạng phối cảnh trong thế giới tự nhiên. – Vận dụng kiến thức về tam giác đồng dạng và định lí Pythagore trong thực tiễn (ví dụ: đo khoảng cách giữa hai vị trí mà giữa chúng có vật cản hoặc chỉ đến được một trong hai vị trí). – Thực hành tính diện tích, thể tích của một số hình, khối trong thực tế.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -12313,14 +12803,56 @@
        "content": [
         {
          "type": "text",
-         "text": "Tìm hiểu một số kiến thức về tài chính như: – Thực hành lập kế hoạch đầu tư cá nhân. – Làm quen với bảo hiểm. – Làm quen với bài toán về tăng trưởng (xác định vốn đầu tư để đạt được tỉ lệ tăng trưởng mong đợi)."
+         "text": "Tìm hiểu một số kiến thức về tài chính như:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành lập kế hoạch đầu tư cá nhân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Làm quen với bảo hiểm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Làm quen với bài toán về tăng trưởng (xác định vốn đầu tư để đạt được tỉ lệ tăng trưởng mong đợi)."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Tìm hiểu một số kiến thức về tài chính như: – Thực hành lập kế hoạch đầu tư cá nhân. – Làm quen với bảo hiểm. – Làm quen với bài toán về tăng trưởng (xác định vốn đầu tư để đạt được tỉ lệ tăng trưởng mong đợi).",
+   "outcome_text": "– Tìm hiểu một số kiến thức về tài chính như: – Thực hành lập kế hoạch đầu tư cá nhân. – Làm quen với bảo hiểm. – Làm quen với bài toán về tăng trưởng (xác định vốn đầu tư để đạt được tỉ lệ tăng trưởng mong đợi).",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -12349,14 +12881,42 @@
        "content": [
         {
          "type": "text",
-         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Vận dụng kiến thức về hệ phương trình bậc nhất hai ẩn trong bài toán cân bằng hệ số ở phương trình hoá học. – Vận dụng kiến thức về xác suất trong việc tính xác suất kết quả đời con của các phép lai."
+         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng kiến thức về hệ phương trình bậc nhất hai ẩn trong bài toán cân bằng hệ số ở phương trình hoá học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng kiến thức về xác suất trong việc tính xác suất kết quả đời con của các phép lai."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Vận dụng kiến thức về hệ phương trình bậc nhất hai ẩn trong bài toán cân bằng hệ số ở phương trình hoá học. – Vận dụng kiến thức về xác suất trong việc tính xác suất kết quả đời con của các phép lai.",
+   "outcome_text": "– Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Vận dụng kiến thức về hệ phương trình bậc nhất hai ẩn trong bài toán cân bằng hệ số ở phương trình hoá học. – Vận dụng kiến thức về xác suất trong việc tính xác suất kết quả đời con của các phép lai.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -12385,14 +12945,56 @@
        "content": [
         {
          "type": "text",
-         "text": "Tổ chức các hoạt động ngoài giờ chính khoá như thực hành ngoài lớp học, dự án học tập, các trò chơi học toán, cuộc thi về Toán, chẳng hạn: – Vận dụng kiến thức về tỉ số lượng giác trong thực tiễn (ví dụ: đo khoảng cách giữa hai vị trí mà giữa chúng có vật cản hoặc chỉ đến được một trong hai vị trí). – Vận dụng các công thức tính diện tích, thể tích vào thực tiễn: đo đạc và tính diện tích, thể tích của các hình khối trong khuôn viên của trường có liên quan đến hình trụ, hình nón, hình cầu. – Tìm kiếm hoặc thực hành tạo dựng các đoạn video liên quan đến đường tròn, tam giác vuông, đa giác đều và phép quay."
+         "text": "Tổ chức các hoạt động ngoài giờ chính khoá như thực hành ngoài lớp học, dự án học tập, các trò chơi học toán, cuộc thi về Toán, chẳng hạn:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng kiến thức về tỉ số lượng giác trong thực tiễn (ví dụ: đo khoảng cách giữa hai vị trí mà giữa chúng có vật cản hoặc chỉ đến được một trong hai vị trí)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng các công thức tính diện tích, thể tích vào thực tiễn: đo đạc và tính diện tích, thể tích của các hình khối trong khuôn viên của trường có liên quan đến hình trụ, hình nón, hình cầu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm kiếm hoặc thực hành tạo dựng các đoạn video liên quan đến đường tròn, tam giác vuông, đa giác đều và phép quay."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Tổ chức các hoạt động ngoài giờ chính khoá như thực hành ngoài lớp học, dự án học tập, các trò chơi học toán, cuộc thi về Toán, chẳng hạn: – Vận dụng kiến thức về tỉ số lượng giác trong thực tiễn (ví dụ: đo khoảng cách giữa hai vị trí mà giữa chúng có vật cản hoặc chỉ đến được một trong hai vị trí). – Vận dụng các công thức tính diện tích, thể tích vào thực tiễn: đo đạc và tính diện tích, thể tích của các hình khối trong khuôn viên của trường có liên quan đến hình trụ, hình nón, hình cầu. – Tìm kiếm hoặc thực hành tạo dựng các đoạn video liên quan đến đường tròn, tam giác vuông, đa giác đều và phép quay.",
+   "outcome_text": "– Tổ chức các hoạt động ngoài giờ chính khoá như thực hành ngoài lớp học, dự án học tập, các trò chơi học toán, cuộc thi về Toán, chẳng hạn: – Vận dụng kiến thức về tỉ số lượng giác trong thực tiễn (ví dụ: đo khoảng cách giữa hai vị trí mà giữa chúng có vật cản hoặc chỉ đến được một trong hai vị trí). – Vận dụng các công thức tính diện tích, thể tích vào thực tiễn: đo đạc và tính diện tích, thể tích của các hình khối trong khuôn viên của trường có liên quan đến hình trụ, hình nón, hình cầu. – Tìm kiếm hoặc thực hành tạo dựng các đoạn video liên quan đến đường tròn, tam giác vuông, đa giác đều và phép quay.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -14195,14 +14797,42 @@
        "content": [
         {
          "type": "text",
-         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Thực hành tổng hợp các hoạt động liên quan đến tính toán, đo lường, ước lượng và tạo lập hình, như: tính tiền khi đi taxi theo các khung giá: dưới 1km, từ 1 – 10km, từ 10 – 31km, trên 31km,...; đo đạc một vài yếu tố của vật thể mà chúng ta không thể dùng dụng cụ đo đạc để đo trực tiếp; tính chiều cao của công trình kiến trúc dạng Parabola (như cầu Nhật Tân, cầu Trường Tiền, cầu Mỹ Thuận,...); giải thích các hiện tượng, quy luật trong Vật lí; thực hành vẽ, cắt hình có dạng Ellipse (elip). – Thực hành mô tả và biểu diễn dữ liệu trên các bảng, biểu đồ."
+         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành tổng hợp các hoạt động liên quan đến tính toán, đo lường, ước lượng và tạo lập hình, như: tính tiền khi đi taxi theo các khung giá: dưới 1km, từ 1 – 10km, từ 10 – 31km, trên 31km,...; đo đạc một vài yếu tố của vật thể mà chúng ta không thể dùng dụng cụ đo đạc để đo trực tiếp; tính chiều cao của công trình kiến trúc dạng Parabola (như cầu Nhật Tân, cầu Trường Tiền, cầu Mỹ Thuận,...); giải thích các hiện tượng, quy luật trong Vật lí; thực hành vẽ, cắt hình có dạng Ellipse (elip)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành mô tả và biểu diễn dữ liệu trên các bảng, biểu đồ."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Thực hành tổng hợp các hoạt động liên quan đến tính toán, đo lường, ước lượng và tạo lập hình, như: tính tiền khi đi taxi theo các khung giá: dưới 1km, từ 1 – 10km, từ 10 – 31km, trên 31km,...; đo đạc một vài yếu tố của vật thể mà chúng ta không thể dùng dụng cụ đo đạc để đo trực tiếp; tính chiều cao của công trình kiến trúc dạng Parabola (như cầu Nhật Tân, cầu Trường Tiền, cầu Mỹ Thuận,...); giải thích các hiện tượng, quy luật trong Vật lí; thực hành vẽ, cắt hình có dạng Ellipse (elip). – Thực hành mô tả và biểu diễn dữ liệu trên các bảng, biểu đồ.",
+   "outcome_text": "– Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Thực hành tổng hợp các hoạt động liên quan đến tính toán, đo lường, ước lượng và tạo lập hình, như: tính tiền khi đi taxi theo các khung giá: dưới 1km, từ 1 – 10km, từ 10 – 31km, trên 31km,...; đo đạc một vài yếu tố của vật thể mà chúng ta không thể dùng dụng cụ đo đạc để đo trực tiếp; tính chiều cao của công trình kiến trúc dạng Parabola (như cầu Nhật Tân, cầu Trường Tiền, cầu Mỹ Thuận,...); giải thích các hiện tượng, quy luật trong Vật lí; thực hành vẽ, cắt hình có dạng Ellipse (elip). – Thực hành mô tả và biểu diễn dữ liệu trên các bảng, biểu đồ.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -14231,14 +14861,42 @@
        "content": [
         {
          "type": "text",
-         "text": "Tìm hiểu một số kiến thức về tài chính, như: – Hiểu sự khác biệt giữa tiết kiệm và đầu tư. – Thực hành thiết lập kế hoạch đầu tư cá nhân để đạt được tỉ lệ tăng trưởng như mong đợi."
+         "text": "Tìm hiểu một số kiến thức về tài chính, như:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hiểu sự khác biệt giữa tiết kiệm và đầu tư."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành thiết lập kế hoạch đầu tư cá nhân để đạt được tỉ lệ tăng trưởng như mong đợi."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Tìm hiểu một số kiến thức về tài chính, như: – Hiểu sự khác biệt giữa tiết kiệm và đầu tư. – Thực hành thiết lập kế hoạch đầu tư cá nhân để đạt được tỉ lệ tăng trưởng như mong đợi.",
+   "outcome_text": "– Tìm hiểu một số kiến thức về tài chính, như: – Hiểu sự khác biệt giữa tiết kiệm và đầu tư. – Thực hành thiết lập kế hoạch đầu tư cá nhân để đạt được tỉ lệ tăng trưởng như mong đợi.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -17432,14 +18090,42 @@
        "content": [
         {
          "type": "text",
-         "text": "Tìm hiểu một số kiến thức về tài chính, như: – Thực hành lên kế hoạch và quản lí thu nhập và tích luỹ của cải trong khoảng thời gian ngắn hạn và trung hạn. – Xác định được các phương thức để bảo vệ bản thân khỏi rủi ro."
+         "text": "Tìm hiểu một số kiến thức về tài chính, như:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành lên kế hoạch và quản lí thu nhập và tích luỹ của cải trong khoảng thời gian ngắn hạn và trung hạn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được các phương thức để bảo vệ bản thân khỏi rủi ro."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Tìm hiểu một số kiến thức về tài chính, như: – Thực hành lên kế hoạch và quản lí thu nhập và tích luỹ của cải trong khoảng thời gian ngắn hạn và trung hạn. – Xác định được các phương thức để bảo vệ bản thân khỏi rủi ro.",
+   "outcome_text": "– Tìm hiểu một số kiến thức về tài chính, như: – Thực hành lên kế hoạch và quản lí thu nhập và tích luỹ của cải trong khoảng thời gian ngắn hạn và trung hạn. – Xác định được các phương thức để bảo vệ bản thân khỏi rủi ro.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -19021,14 +19707,56 @@
        "content": [
         {
          "type": "text",
-         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Thực hành tổng hợp các hoạt động liên quan đến tính toán, đo lường, ước lượng và tạo lập hình. – Vận dụng kiến thức về phương pháp toạ độ trong hình học không gian để tìm hiểu hệ thống GPS, tìm hiểu về đồ hoạ, vẽ kĩ thuật và thiết kế trong Công nghệ. – Vận dụng kiến thức về đạo hàm để giải thích các quy luật của Vật lí (quy luật âm học, quang học), Hoá học và giải quyết bài toán tối ưu về kinh tế, thời gian, quãng đường,..."
+         "text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn:"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành tổng hợp các hoạt động liên quan đến tính toán, đo lường, ước lượng và tạo lập hình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng kiến thức về phương pháp toạ độ trong hình học không gian để tìm hiểu hệ thống GPS, tìm hiểu về đồ hoạ, vẽ kĩ thuật và thiết kế trong Công nghệ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng kiến thức về đạo hàm để giải thích các quy luật của Vật lí (quy luật âm học, quang học), Hoá học và giải quyết bài toán tối ưu về kinh tế, thời gian, quãng đường,..."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Thực hành tổng hợp các hoạt động liên quan đến tính toán, đo lường, ước lượng và tạo lập hình. – Vận dụng kiến thức về phương pháp toạ độ trong hình học không gian để tìm hiểu hệ thống GPS, tìm hiểu về đồ hoạ, vẽ kĩ thuật và thiết kế trong Công nghệ. – Vận dụng kiến thức về đạo hàm để giải thích các quy luật của Vật lí (quy luật âm học, quang học), Hoá học và giải quyết bài toán tối ưu về kinh tế, thời gian, quãng đường,...",
+   "outcome_text": "– Thực hành ứng dụng các kiến thức toán học vào thực tiễn và các chủ đề liên môn, chẳng hạn: – Thực hành tổng hợp các hoạt động liên quan đến tính toán, đo lường, ước lượng và tạo lập hình. – Vận dụng kiến thức về phương pháp toạ độ trong hình học không gian để tìm hiểu hệ thống GPS, tìm hiểu về đồ hoạ, vẽ kĩ thuật và thiết kế trong Công nghệ. – Vận dụng kiến thức về đạo hàm để giải thích các quy luật của Vật lí (quy luật âm học, quang học), Hoá học và giải quyết bài toán tối ưu về kinh tế, thời gian, quãng đường,...",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
