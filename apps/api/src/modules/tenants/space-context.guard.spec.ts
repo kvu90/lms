@@ -11,7 +11,7 @@ import type { SpaceDatabaseService } from '../../db/routing/space-database.servi
 import type { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { SkipSpaceContext } from './skip-space-context.decorator';
 import { SpaceContextGuard } from './space-context.guard';
-import type { TenantsRepository } from './tenants.repository';
+import type { TenantsRepository } from '@lms/db/repositories/tenants';
 
 @SkipSpaceContext()
 class SkipSpaceContextHandler {}

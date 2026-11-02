@@ -43,7 +43,7 @@ import { GroupsService } from '../groups/groups.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { UsersService } from '../users/users.service';
-import type { UserRow } from '../users/users.repository';
+import type { UserRow } from '@lms/db/repositories/users';
 import { CLASS_WHOLE_GROUP_NAME, ClassesRepository, type ClassJoinRequestRow, type ClassRow } from '@lms/db/repositories/classes';
 import { ClassesTransitionalRepository } from './classes-transitional.repository';
 

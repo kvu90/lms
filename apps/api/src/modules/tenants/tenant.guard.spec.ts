@@ -5,7 +5,7 @@ import type { SpaceDatabaseService } from '../../db/routing/space-database.servi
 import type { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { TenantGuard } from './tenant.guard';
 import type { TenantContextService } from './tenant-context.service';
-import type { TenantsRepository } from './tenants.repository';
+import type { TenantsRepository } from '@lms/db/repositories/tenants';
 import type { TenantsService } from './tenants.service';
 
 interface FakeRequest {

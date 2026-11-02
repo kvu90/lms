@@ -5,7 +5,7 @@ import { v7 as uuidv7 } from 'uuid';
 import {
   adminToken, assignRole, createContextViaApi, createRoleViaApi, createTestApp, createUserViaApi, http, login, systemContextId, uniqueName,
 } from '../../support/identity-access-helpers';
-import { UsersRepository } from '../../../src/modules/users/users.repository';
+import { UsersRepository } from '@lms/db/repositories/users';
 
 /**
  * Issue #568 (con C-backend của đợt #571): endpoint đọc gộp

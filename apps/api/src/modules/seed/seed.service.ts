@@ -7,9 +7,9 @@ import { ControlPlaneRegistryService } from '../control-plane/control-plane.serv
 import { SiteConfigService } from '../site-config/site-config.service';
 import { tenantAls } from '../tenants/tenant-als';
 import { TenantsService } from '../tenants/tenants.service';
-import type { TenantRow } from '../tenants/tenants.repository';
+import type { TenantRow } from '@lms/db/repositories/tenants';
 import { UsersService } from '../users/users.service';
-import type { UserRow } from '../users/users.repository';
+import type { UserRow } from '@lms/db/repositories/users';
 
 /**
  * Seed khởi tạo có tính idempotent: context hệ thống, registry capability, các role
