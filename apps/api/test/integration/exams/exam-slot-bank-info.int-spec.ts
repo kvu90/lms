@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { type RichTextDocument } from '@lms/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ExamsRepository } from '../../../src/modules/exams/exams.repository';
+import { ExamsRepository } from '@lms/db/repositories/exams';
 import { ExamsService } from '../../../src/modules/exams/exams.service';
 import { QuestionBanksService } from '../../../src/modules/questions/question-banks.service';
 import { QuestionsService } from '../../../src/modules/questions/questions.service';

@@ -11,7 +11,7 @@ import { QuizService, type MatrixSpecification } from '../quiz/quiz.service';
 import {
   ExamsRepository,
   type ExamDossierRow,
-} from './exams.repository';
+} from '@lms/db/repositories/exams';
 import { ExamsService, EXAM_CAPABILITIES, examPaperContentHash } from './exams.service';
 
 /**
