@@ -36,7 +36,7 @@ import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { CAP_ALLOW } from '../access/domain/permission';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { RolesService } from '../access/roles.service';
-import type { CourseRow } from '../courses/courses.repository';
+import type { CourseRow } from '@lms/db/repositories/courses';
 import { CoursesService } from '../courses/courses.service';
 import { EnrolService } from '../enrol/enrol.service';
 import { GroupsService } from '../groups/groups.service';
@@ -44,7 +44,8 @@ import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { UsersService } from '../users/users.service';
 import type { UserRow } from '../users/users.repository';
-import { CLASS_WHOLE_GROUP_NAME, ClassesRepository, type ClassJoinRequestRow, type ClassRow } from './classes.repository';
+import { CLASS_WHOLE_GROUP_NAME, ClassesRepository, type ClassJoinRequestRow, type ClassRow } from '@lms/db/repositories/classes';
+import { ClassesTransitionalRepository } from './classes-transitional.repository';
 
 export type { ClassRow };
 
@@ -170,6 +171,7 @@ export class ClassesService implements OnModuleInit {
     private readonly outbox: OutboxService,
     private readonly spaceDb: SpaceDatabaseService,
     private readonly directory: ControlPlaneRepository,
+    private readonly txRepo: ClassesTransitionalRepository,
   ) {}
 
   /** Đăng ký neo lớp vào đường tạo khoá của CoursesService (dependency inversion — Courses không import Classes). */
@@ -307,8 +309,14 @@ export class ClassesService implements OnModuleInit {
     // lúc thực hiện các thao tác này bằng kết nối thường.
     await this.ensureClassRoles();
 
-    const row = await this.repo.dbHandle.transaction(async (tx) => {
-      const cohortRow = await this.repo.insertBackingCohort({
+    // Điểm dừng của điểm nối C-8/B: giao dịch này còn mở phía
+    // Drizzle qua repository chuyển tiếp vì `roles.assignRole`
+    // (gọi kèm tx ở dưới) làm nhiều hơn ghi giới hạn nên biến thể
+    // Kysely của nó đã dừng theo điều kiện của phán quyết — xem
+    // `classes-transitional.repository.ts`. Chủ đóng: đợt access
+    // #651.
+    const row = await this.txRepo.transaction(async (tx) => {
+      const cohortRow = await this.txRepo.insertBackingCohort({
         tenantId,
         name: input.name,
         idNumber: '',
@@ -317,7 +325,7 @@ export class ClassesService implements OnModuleInit {
         component: 'class',
         visible: false,
       }, tx);
-      const classRow = await this.repo.insertClass({
+      const classRow = await this.txRepo.insertClass({
         tenantId,
         name: input.name,
         code: input.code ?? null,
@@ -331,7 +339,7 @@ export class ClassesService implements OnModuleInit {
         description: input.description ?? '',
       }, tx);
       const classCtx = await this.contexts.createContext(CONTEXT_LEVELS.CLASS, classRow.id, tenantCtx.id, tx);
-      await this.repo.updateCohortContext(cohortRow.id, classCtx.id, tx);
+      await this.txRepo.updateCohortContext(cohortRow.id, classCtx.id, tx);
       await this.applyClassRoleGrants(classCtx.id, actorId, tx);
       const ownerRole = await this.roles.getRoleByShortname(CLASS_OWNER_ROLE);
       if (!ownerRole) throw new Error('editingteacher role not seeded');
@@ -975,11 +983,12 @@ export class ClassesService implements OnModuleInit {
    * kiện Phần B, hạng mục 3 — thiết kế C1):
    * 1. Tra THƯ MỤC mã tham gia ở control plane trước. Mã có mục
    *    thư mục → lớp thuộc không gian kho riêng của mục đó: đọc
-   *    dòng lớp tại chính kho đích (`withSpaceDatabase`), bọc
-   *    platform đặt ngoài khung định tuyến theo khuôn các đường
-   *    đọc kho riêng của TenantsService. Thư mục trỏ tới kho
-   *    đích mà chuẩn bị kho lỗi → lỗi ném ra nguyên trạng,
-   *    không rơi về tra kho chung.
+   *    dòng lớp tại chính kho đích (`withSpaceKysely` — repository
+   *    lớp đã chuyển Kysely ở issue #645 nên bước chuẩn bị phải là
+   *    của facade Kysely), bọc platform đặt ngoài khung định
+   *    tuyến theo khuôn các đường đọc kho riêng của
+   *    TenantsService. Thư mục trỏ tới kho đích mà chuẩn bị kho
+   *    lỗi → lỗi ném ra nguyên trạng, không rơi về tra kho chung.
    * 2. Mã không có mục thư mục → đường hiện tại ở kho chung:
    *    tra ở ngữ cảnh platform (mã là bí mật toàn hệ, lớp đích
    *    có thể thuộc tenant khác tenant hiệu lực của người gọi —
@@ -994,7 +1003,7 @@ export class ClassesService implements OnModuleInit {
       const entry = await this.directory.findJoinCodeDirectory(code);
       if (entry) {
         const row = await tenantAls.run({ platform: true }, () =>
-          this.spaceDb.withSpaceDatabase(entry.spaceSlug, () => this.repo.getClassByJoinCode(code)),
+          this.spaceDb.withSpaceKysely(entry.spaceSlug, () => this.repo.getClassByJoinCode(code)),
         );
         if (!row || !row.allowSelfReport || !row.joinCode) {
           throw new NotFoundException({ message: 'Join code is not valid for any open class', code: 'class.join_code_invalid' });
@@ -1044,9 +1053,12 @@ export class ClassesService implements OnModuleInit {
    * Lớp thuộc không gian kho riêng (phân giải qua thư mục mã —
    * thiết kế C1): TOÀN BỘ các bước ghi của luồng (đảm bảo
    * membership, thêm vào roster, ghi outbox, tạo yêu cầu chờ
-   * duyệt) chạy trong kho của lớp qua `withSpaceDatabase`, bọc
-   * platform đặt ngoài khung định tuyến như các đường kho riêng
-   * khác; kho chung không nhận bất kỳ lượt ghi nào của luồng này.
+   * duyệt) chạy trong kho của lớp qua chuẩn bị kép hai facade
+   * (`withSpaceDatabase` + `withSpaceKysely` — thân luồng dùng cả
+   * repository Kysely lẫn đường Drizzle của membership/outbox),
+   * bọc platform đặt ngoài khung định tuyến như các đường kho
+   * riêng khác; kho chung không nhận bất kỳ lượt ghi nào của
+   * luồng này.
    */
   async joinByCode(actorId: string, joinCode: string): Promise<JoinClassResult> {
     const { row, spaceSlug } = await this.resolveClassByJoinCode(joinCode);
@@ -1076,7 +1088,14 @@ export class ClassesService implements OnModuleInit {
       return { outcome: 'pending' as const, class: view };
     };
     if (spaceSlug) {
-      return tenantAls.run({ platform: true }, () => this.spaceDb.withSpaceDatabase(spaceSlug, body));
+      // Thân luồng dùng cả hai họ repository (nhóm/ghi danh chờ
+      // duyệt đã chuyển Kysely; membership của tenant và outbox
+      // vẫn phía Drizzle) nên phải chuẩn bị đủ cả hai facade:
+      // bọc `withSpaceKysely` trong `withSpaceDatabase` để mọi
+      // truy vấn của thân đều có bảng đã-chuẩn-bị của facade mình.
+      return tenantAls.run({ platform: true }, () =>
+        this.spaceDb.withSpaceDatabase(spaceSlug, () => this.spaceDb.withSpaceKysely(spaceSlug, body)),
+      );
     }
     return this.tenantContext.run({ platform: true }, body);
   }
@@ -1138,7 +1157,7 @@ export class ClassesService implements OnModuleInit {
 
   /** Hàng chờ duyệt tự báo danh của lớp (cổng quản roster). */
   async listJoinRequests(actorId: string, classId: string): Promise<ClassJoinRequestView[]> {
-    const row = await this.getClassRow(classId);
+    await this.getClassRow(classId);
     const ctxId = await this.classContextId(classId);
     await this.evaluator.requireCapability(actorId, 'class:manageroster', ctxId);
     const requests = await this.repo.listJoinRequests(classId, 'pending');
@@ -1163,7 +1182,7 @@ export class ClassesService implements OnModuleInit {
 
   /** Duyệt (đưa vào roster qua đúng đường CLASS-0) hoặc từ chối (chỉ đóng yêu cầu) một yêu cầu tự báo danh. */
   async decideJoinRequest(actorId: string, classId: string, requestId: string, approve: boolean): Promise<ClassJoinRequestView> {
-    const row = await this.getClassRow(classId);
+    await this.getClassRow(classId);
     const ctxId = await this.classContextId(classId);
     await this.evaluator.requireCapability(actorId, 'class:manageroster', ctxId);
     const request = await this.repo.getJoinRequest(requestId);
