@@ -12,7 +12,7 @@ import { TenantsRepository, type TenantRow } from './tenants';
  *
  * Cache cả kết quả "chưa thấy" thì ca thứ hai phải đỏ.
  *
- * Bản Kysely của spec này (chuyển từ spec Drizzle cạnh module
+ * Bản Kysely của spec này (chuyển từ spec bộ máy cũ cạnh module
  * tenants ở issue #641): handle giả mô phỏng đúng chuỗi builder
  * mà repository dùng — `selectFrom → select → where →
  * executeTakeFirst` — và đếm số lần repository mở truy vấn chọn.

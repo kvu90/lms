@@ -11,7 +11,7 @@ import {
  * khuôn nhận diện lỗi `pg` (thử nghiệm T-10) ở dạng thuần — không
  * cần database. Hình dạng lỗi đưa vào đây là hình dạng ĐÃ ĐO trên
  * database thật ở spec tích hợp đi kèm: qua Kysely lỗi `pg` ném
- * trực tiếp (có `code`/`constraint`, không có `cause`); qua Drizzle
+ * trực tiếp (có `code`/`constraint`, không có `cause`); qua bộ máy cũ
  * lỗi bị bọc thành lớp lỗi truy vấn mang `cause` là lỗi `pg` gốc.
  */
 describe('isDedicatedDatabaseNameConflict — khuôn đọc lỗi pg (T-10)', () => {
@@ -20,9 +20,9 @@ describe('isDedicatedDatabaseNameConflict — khuôn đọc lỗi pg (T-10)', ()
     expect(isDedicatedDatabaseNameConflict(err)).toBe(true);
   });
 
-  it('nhận diện qua chuỗi cause của lỗi Drizzle bọc lỗi pg gốc', () => {
+  it('nhận diện qua chuỗi cause của lỗi bộ máy cũ bọc lỗi pg gốc', () => {
     const err = {
-      name: 'DrizzleQueryError',
+      name: 'LegacyQueryError',
       message: 'Failed query: insert into "space_registry" ...',
       cause: { code: '23505', constraint: DEDICATED_DATABASE_NAME_UNIQUE_INDEX },
     };

@@ -1,6 +1,6 @@
 /**
  * Repository của cụm BÀI TẬP (assignments) trên Kysely — một phần
- * của nhóm G9 trong chiến dịch chuyển tầng dữ liệu Drizzle → Kysely
+ * của nhóm G9 trong chiến dịch chuyển tầng dữ liệu sang Kysely
  * (issue #649).
  *
  * Vai trò: mọi truy cập tới mười hai bảng của hoạt động Bài tập nộp
@@ -29,7 +29,7 @@
  *
  * Hai thao tác ghi dạng ghi/đè (gói chấm và kết quả theo tiêu chí)
  * khoá theo khoá duy nhất tự nhiên của bảng và dùng ĐÚNG tập cột
- * cập nhật của đường Drizzle trước đây — gồm cả quy ước ghi tường
+ * cập nhật của đường cũ trước đây — gồm cả quy ước ghi tường
  * minh `null` cho các trường phản hồi/điểm vắng mặt trong dữ kiện
  * ghi (gói chấm bị ghi đè là thay toàn bộ gói, không giữ trường cũ).
  * Mọi phương thức ghi còn lại nhận thêm handle giao dịch tuỳ chọn:
@@ -261,7 +261,7 @@ export interface NewSubmissionFile {
  * Dữ kiện ghi một gói chấm. `graderId` và `attemptNumber` là bắt
  * buộc theo schema; các trường điểm/phản hồi/công bố vắng mặt trong
  * nhánh cập nhật-khi-trùng được ghi thành `null` tường minh (gói
- * chấm bị ghi đè là thay toàn bộ), đúng hành vi của đường Drizzle
+ * chấm bị ghi đè là thay toàn bộ), đúng hành vi của đường bộ máy cũ
  * trước đây.
  */
 export interface NewGrade {
@@ -335,7 +335,7 @@ export interface NewRubricLevel {
 /**
  * Dữ kiện ghi kết quả của một tiêu chí trong gói chấm; các trường
  * kết quả vắng mặt được ghi thành `null` tường minh ở nhánh cập
- * nhật-khi-trùng như đường Drizzle trước đây.
+ * nhật-khi-trùng như đường cũ trước đây.
  */
 export interface NewRubricEvaluation {
   id?: string;
@@ -1004,7 +1004,7 @@ export class AssignmentsRepository {
    * sinh) thay toàn bộ gói: người chấm và lần nộp lấy theo dữ kiện
    * mới; điểm/mức/các trường phản hồi/trạng thái công bố vắng mặt
    * trong dữ kiện ghi thì về `null` (trạng thái về `draft`), đúng
-   * tập set của đường Drizzle trước đây.
+   * tập set của đường cũ trước đây.
    */
   async upsertGrade(v: NewGrade, db: AssignmentsDb = this.db()): Promise<AssignGradeRow> {
     const rows = await db
@@ -1183,7 +1183,7 @@ export class AssignmentsRepository {
    * Ghi/cập nhật kết quả của một tiêu chí trong gói chấm. Nhánh cập
    * nhật khi trùng khoá duy nhất (gói chấm + tiêu chí) ghi `null`
    * tường minh cho mức/điểm/ghi chú vắng mặt trong dữ kiện ghi, đúng
-   * tập set của đường Drizzle trước đây.
+   * tập set của đường cũ trước đây.
    */
   async upsertEvaluation(v: NewRubricEvaluation, db: AssignmentsDb = this.db()): Promise<AssignRubricEvaluationRow> {
     const rows = await db

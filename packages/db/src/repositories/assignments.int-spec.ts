@@ -19,7 +19,7 @@ import { AssignmentsRepository } from './assignments';
  * `DATABASE_URL` của package). Mọi ca chạy qua repository production
  * trong ngữ cảnh tenant qua pool gắn GUC như đường production.
  *
- * Các bất biến được khoá ở đây là hợp đồng của đường Drizzle trước
+ * Các bất biến được khoá ở đây là hợp đồng của đường bộ máy cũ trước
  * đây mà tầng service dựa vào:
  * - Gói chấm và kết quả theo tiêu chí ghi/đè theo khoá duy nhất tự
  *   nhiên, nhánh cập nhật khi trùng ghi `null` tường minh cho các

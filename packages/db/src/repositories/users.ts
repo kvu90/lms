@@ -1,5 +1,5 @@
 /**
- * Repository của cụm NGƯỜI DÙNG trên Kysely — chuyển đổi Drizzle →
+ * Repository của cụm NGƯỜI DÙNG trên Kysely — chuyển đổi bộ máy cũ →
  * Kysely của chiến dịch chuyển tầng dữ liệu (issue #641, nhóm G1).
  *
  * Vai trò: mọi truy cập tới hai bảng `users` và `user_preferences`
@@ -156,7 +156,7 @@ function userInsertValues(values: NewUser): Insertable<CentreDB['users']> {
  * Ánh xạ một patch hồ sơ (camelCase) sang set update (snake_case),
  * LOẠI mọi trường `undefined` — patch chỉ chứa trường nào thì chỉ
  * trường đó đổi, đúng ngữ nghĩa bỏ qua `undefined` của đường
- * Drizzle trước đây (quy tắc T-4). Mốc `updated_at` do repository
+ * bộ máy cũ trước đây (quy tắc T-4). Mốc `updated_at` do repository
  * tự đóng dấu ở điểm gọi, không nằm trong hàm ánh xạ này.
  */
 function userUpdateSet(patch: UserPatch): Updateable<CentreDB['users']> {
@@ -188,7 +188,7 @@ export class UsersRepository {
    * mở transaction (`transaction(fn)` bên dưới) và cho các đường
    * đọc phụ trợ thuộc chính module người dùng. Handle này là
    * handle Kysely được định tuyến theo không gian, KHÔNG còn là
-   * handle Drizzle: mọi thao tác ghép vào transaction mở từ đây
+   * handle bộ máy cũ: mọi thao tác ghép vào transaction mở từ đây
    * đều là thao tác Kysely trên cùng một transaction.
    */
   get dbHandle(): CentreDb { return this.handle; }

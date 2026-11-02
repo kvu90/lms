@@ -1,10 +1,7 @@
-import { eq } from 'drizzle-orm';
-import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Kysely, PostgresDialect } from 'kysely';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { CentreDb, CentreDB } from '../client';
-import { examAttempts } from '../quiz.schema';
 import { buildTestDatabase, dropTestDatabase, withDatabase } from '../test-support/build-test-database';
 import { createTestKysely } from '../test-support/create-test-kysely';
 import { runInTestPlatformContext, TestTenantPool } from '../test-support/tenant-context';
@@ -22,12 +19,13 @@ import { QuizRepository, type ExamAttemptRow, type ExamPinRow } from './quiz';
  * khói của harness chốt; suite này chốt HÀNH VI của repository).
  *
  * Các chốt bằng chứng của nhóm theo hồ sơ chuẩn bị:
- * - JSON của lượt làm đọc/ghi khớp hai ORM (T-7): cùng một dòng
- *   `exam_attempts` đọc qua repository Kysely và qua Drizzle trên
- *   cùng database phải deep-equal từng trường, kể cả cột jsonb
- *   `applied_settings`, và thứ tự `listAttempts` hai đường trùng
- *   nhau (điểm duy nhất ở tầng repository có thể làm lệch kết quả
- *   chấm là kiểu runtime của jsonb/số và thứ tự đọc lượt làm).
+ * - JSON của lượt làm đọc/ghi khớp oracle độc lập (T-7): cùng
+ *   một dòng `exam_attempts` đọc qua repository và qua Kysely
+ *   thô ngoài repository trên cùng database phải deep-equal
+ *   từng trường, kể cả cột jsonb `applied_settings`, và thứ tự
+ *   `listAttempts` của hai đường trùng nhau (điểm duy nhất ở
+ *   tầng repository có thể làm lệch kết quả chấm là kiểu
+ *   runtime của jsonb/số và thứ tự đọc lượt làm).
  * - Patch cập nhật loại `undefined` tường minh (T-4): trường vắng
  *   mặt hoặc mang `undefined` trong patch không bị ghi thành NULL.
  * - Tăng bộ đếm ma trận giữ dạng biểu thức SQL nguyên tử (điểm nóng
@@ -51,7 +49,6 @@ const CONTEXT_ID = '01a19887-6b35-7760-8e64-a5960bfd0900';
 let pool: TestTenantPool;
 let db: CentreDb;
 let repo: QuizRepository;
-let drizzleDb: NodePgDatabase;
 
 let tenantId = '';
 let courseId = '';
@@ -214,7 +211,6 @@ beforeAll(async () => {
   pool = new TestTenantPool({ connectionString: roleUrl.toString() });
   db = createTestKysely(pool).centre;
   repo = new QuizRepository(db);
-  drizzleDb = drizzle({ client: pool });
   await platform(seedParents);
 }, 300_000);
 
@@ -242,21 +238,29 @@ describe('repository quiz trên Kysely — đối chiếu hành vi', () => {
     expect(inCourse.map((p) => p.id)).toContain(pin.id);
   });
 
-  it('JSON lượt làm khớp hai ORM: cùng dòng exam_attempts đọc qua Kysely và qua Drizzle deep-equal từng trường', async () => {
+  it('JSON lượt làm khớp oracle độc lập: cùng dòng exam_attempts đọc qua repository và qua Kysely thô deep-equal từng trường', async () => {
     const pin = await platform(() => seedPin());
     const settings = { timeLimit: 45, attempts: 2, nested: { shuffle: true, tags: ['a', 'b'] } };
     const attempt = await platform(() =>
       seedAttempt({ pinId: pin.id, userId: USER_A, attemptNumber: 1, appliedSettings: settings, sumGrades: 7.5 }),
     );
     expect(attempt.appliedSettings).toEqual(settings);
-    const viaDrizzle = await platform(async () => {
-      const rows = await drizzleDb.select().from(examAttempts).where(eq(examAttempts.id, attempt.id));
+    const viaOracle = await platform(async () => {
+      const rows = await db.selectFrom('exam_attempts')
+        .select([
+          'id', 'applied_settings as appliedSettings', 'attempt_number as attemptNumber',
+          'created_at as createdAt', 'makeup', 'pin_id as pinId', 'preview', 'state',
+          'sum_grades as sumGrades', 'time_finish as timeFinish', 'time_start as timeStart',
+          'updated_at as updatedAt', 'usage_id as usageId', 'user_id as userId',
+        ])
+        .where('id', '=', attempt.id)
+        .execute();
       return rows[0];
     });
-    expect(viaDrizzle).toEqual(attempt);
+    expect(viaOracle).toEqual(attempt);
   });
 
-  it('listAttempts giữ thứ tự (user_id, attempt_number) và khớp thứ tự của đường Drizzle trên cùng dữ kiện', async () => {
+  it('listAttempts giữ thứ tự (user_id, attempt_number) và khớp thứ tự của oracle độc lập trên cùng dữ kiện', async () => {
     const pin = await platform(() => seedPin());
     await platform(() => seedAttempt({ pinId: pin.id, userId: USER_B, attemptNumber: 2 }));
     await platform(() => seedAttempt({ pinId: pin.id, userId: USER_A, attemptNumber: 3 }));
@@ -269,11 +273,19 @@ describe('repository quiz trên Kysely — đối chiếu hành vi', () => {
       `${USER_B}#1`,
       `${USER_B}#2`,
     ]);
-    const viaDrizzle = await platform(() =>
-      drizzleDb.select().from(examAttempts).where(eq(examAttempts.pinId, pin.id))
-        .orderBy(examAttempts.userId, examAttempts.attemptNumber),
+    const viaOracle = await platform(() =>
+      db.selectFrom('exam_attempts')
+        .select([
+          'id', 'applied_settings as appliedSettings', 'attempt_number as attemptNumber',
+          'created_at as createdAt', 'makeup', 'pin_id as pinId', 'preview', 'state',
+          'sum_grades as sumGrades', 'time_finish as timeFinish', 'time_start as timeStart',
+          'updated_at as updatedAt', 'usage_id as usageId', 'user_id as userId',
+        ])
+        .where('pin_id', '=', pin.id)
+        .orderBy('user_id').orderBy('attempt_number')
+        .execute(),
     );
-    expect(viaRepo).toEqual(viaDrizzle);
+    expect(viaRepo).toEqual(viaOracle);
   });
 
   it('listAttemptsForUser lọc lượt preview theo cờ includePreview', async () => {

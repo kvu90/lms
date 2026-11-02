@@ -1,7 +1,7 @@
 /**
  * Repository của kho NGÂN HÀNG HỆ THỐNG trên Kysely — hạng mục
  * nhân rộng G10 của chiến dịch chuyển tầng dữ liệu (issue #650),
- * chuyển từ repository Drizzle phía `apps/api` theo khuôn pilot kho
+ * chuyển từ repository bộ máy cũ phía `apps/api` theo khuôn pilot kho
  * control plane (issue #640).
  *
  * Vai trò: mọi truy cập tới mười bảng của database kho ngân hàng
@@ -26,7 +26,7 @@
  *   minh có bí danh (`source_question_id as sourceQuestionId`),
  *   giá trị ghi ánh xạ từng trường camelCase → snake_case. Kiểu
  *   dòng công khai khai ngay trong file này, KHÔNG import từ file
- *   schema Drizzle (file đó bị xoá ở hạng mục gỡ Drizzle).
+ *   schema bộ máy cũ (file đó bị xoá ở hạng mục gỡ bộ máy cũ).
  * - Giá trị `undefined` bị LOẠI khỏi values trước khi gọi builder
  *   (quy tắc T-4 đã đo ở pilot: dựa vào mặc định thư viện là đủ
  *   chạy nhưng repository loại tường minh để hành vi không phụ

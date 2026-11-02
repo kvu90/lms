@@ -1,9 +1,10 @@
 /**
- * Điểm vào riêng của schema KHO NGÂN HÀNG HỆ THỐNG (issue #585) — xem
- * `system-bank.schema.ts` để biết vì sao schema này không đi qua barrel
- * `index.ts` (hai database, hai bộ migration tách nhau).
+ * Điểm vào riêng của kho NGÂN HÀNG HỆ THỐNG (issue #585): factory
+ * handle Kysely của kho này. Kho ngân hàng là một database riêng
+ * với bộ migration riêng (xem `src/migrate/stores.ts`) nên điểm
+ * vào tách khỏi barrel gốc của kho trung tâm — hai kho, hai điểm
+ * vào, không trộn kiểu.
  */
-export * from './system-bank.schema';
 export {
   createSystemBankKysely,
   type SystemBankDB,

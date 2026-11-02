@@ -1,6 +1,6 @@
 /**
  * Repository của cụm CUSTOM FIELDS trên Kysely — chuyển đổi
- * Drizzle → Kysely thuộc nhóm G8 của chiến dịch chuyển tầng dữ
+ * bộ máy cũ → Kysely thuộc nhóm G8 của chiến dịch chuyển tầng dữ
  * liệu (issue #648).
  *
  * Vai trò: mọi truy cập tới ba bảng custom_field_category,
@@ -11,7 +11,7 @@
  *
  * Lưu ý giữ nguyên hành vi: hai đường xoá nhiều bảng
  * (`deleteCategory`, `deleteField`) chạy TUẦN TỰ từng lệnh xoá
- * như bản Drizzle — repository gốc không bọc transaction, và bản
+ * như bản bộ máy cũ — repository gốc không bọc transaction, và bản
  * chuyển đổi cũng KHÔNG tự ý bọc transaction mới (đổi tính nguyên
  * tử là đổi nghiệp vụ, ngoài phạm vi chuyển ORM). Thứ tự xoá giữ
  * đúng: dữ liệu của từng field → các field → category.

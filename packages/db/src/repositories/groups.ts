@@ -3,7 +3,7 @@ import type { CentreDb, CentreTx } from '../client';
 /**
  * Kho dữ liệu nhóm trên Kysely (issue #645, nhóm G5 của chiến
  * dịch chuyển tầng dữ liệu sang Kysely): TOÀN BỘ bề mặt của
- * `GroupsRepository` cũ ở `apps/api` (Drizzle) được chuyển nguyên
+ * `GroupsRepository` cũ ở `apps/api`  được chuyển nguyên
  * vẹn sang đây — group, grouping, thành viên nhóm và cohort (nhóm
  * hệ thống/danh mục).
  *
@@ -14,7 +14,7 @@ import type { CentreDb, CentreTx } from '../client';
  *   từng trường (thử nghiệm T-4).
  * - Khoá chính `uuidv7()` do database sinh (phụ lục U): insert bỏ
  *   qua `id` và lấy id qua `returning`.
- * - Ba điểm `onConflictDoNothing` của bản Drizzle cũ (thêm thành
+ * - Ba điểm `onConflictDoNothing` của bản cũ trước chuyển đổi (thêm thành
  *   viên nhóm, đưa nhóm vào grouping, thêm thành viên cohort)
  *   dùng `onConflict … doNothing()` tương đương; riêng
  *   `addCohortMember` suy luận "đã chèn thật hay chưa" từ độ dài

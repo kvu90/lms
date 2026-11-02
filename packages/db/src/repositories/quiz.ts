@@ -1,6 +1,6 @@
 /**
  * Repository của cụm GHIM ĐỀ + LƯỢT LÀM trên Kysely — nhóm G3 của
- * chiến dịch chuyển tầng dữ liệu Drizzle → Kysely (issue #643),
+ * chiến dịch chuyển tầng dữ liệu sang Kysely (issue #643),
  * chuyển từ `apps/api/src/modules/quiz/quiz.repository.ts`.
  *
  * Vai trò: mọi truy cập tới các bảng của lần ghim đề (exam_pins),
@@ -43,7 +43,7 @@
  */
 import { sql, type Insertable, type InsertObject, type RawBuilder, type Updateable, type UpdateObject } from 'kysely';
 import type { CentreDb, CentreTx, CentreDB } from '../client';
-import type { ExamVariant } from '../quiz.schema';
+import type { ExamVariant } from '../jsonb-types';
 import { EXAM_COLUMNS, EXAM_SLOT_COLUMNS, EXAM_VERSION_COLUMNS, type ExamRow, type ExamSlotRow, type ExamVersionRow } from './exams';
 
 /** Handle giao dịch của kho trung tâm — kiểu `Transaction<CentreDB>` của package. */
@@ -1460,7 +1460,7 @@ export class QuizRepository {
   /**
    * Tăng bộ đếm số lượt một ma trận đã được copy đi (tín hiệu truy
    * vết copy — tăng nguyên tử ở tầng SQL như exams.copy_count).
-   * Biểu thức tăng giữ nguyên dạng SQL của đường Drizzle
+   * Biểu thức tăng giữ nguyên dạng SQL của đường bộ máy cũ
    * (`"exam_matrices"."copy_count" + 1`): cấm đổi thành đọc-cộng-ghi
    * vì hai lượt copy đồng thời sẽ mất một lượt tăng.
    */
@@ -1766,7 +1766,7 @@ export class QuizRepository {
 
   /**
    * Các mục điểm đổi của chính một học sinh trong một pin (nguồn cho bề mặt lịch sử sửa điểm của học sinh).
-   * Đường Drizzle chọn hình lồng `{ regrade, item }`; đường Kysely chọn
+   * Đường bộ máy cũ chọn hình lồng `{ regrade, item }`; đường Kysely chọn
    * phẳng một danh sách cột có bí danh phân biệt hai bảng (hai bảng
    * trùng tên cột `id`/`created_at`) rồi lồng lại ở JS — hình dạng
    * trả về giữ nguyên.

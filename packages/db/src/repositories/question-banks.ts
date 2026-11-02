@@ -6,7 +6,7 @@ import type { EntryRow, QCategoryRow, QuestionBankRow, QuestionRow } from './que
  * Kho dữ liệu lớp BANK của feat Ngân hàng câu hỏi chung trên Kysely
  * (issue #644, nhóm G4 của chiến dịch chuyển tầng dữ liệu sang
  * Kysely): TOÀN BỘ bề mặt của `QuestionBanksRepository` cũ ở
- * `apps/api` (Drizzle) được chuyển nguyên vẹn sang đây — bank,
+ * `apps/api`  được chuyển nguyên vẹn sang đây — bank,
  * category thuộc bank, đề xuất đóng góp, và các tra cứu tín hiệu
  * (số slot đề tham chiếu câu, đề/pin đang chứa câu, đội ngũ giáo
  * viên cho bank trường, tên hiển thị người dùng, YCCĐ theo node
@@ -31,7 +31,7 @@ import type { EntryRow, QCategoryRow, QuestionBankRow, QuestionRow } from './que
  *   thường hoặc handle giao dịch) để phía gọi lồng thao tác vào
  *   giao dịch của mình.
  * - CTE đệ quy của `listOutcomeIdsForNode` giữ NGUYÊN VĂN thân
- *   truy vấn SQL của bản Drizzle cũ, chỉ đổi đường thực thi sang
+ *   truy vấn SQL của bản cũ trước chuyển đổi, chỉ đổi đường thực thi sang
  *   `sql` của Kysely: `QueryResult.rows` đã có kiểu tường minh
  *   (MT-15) nên bỏ được lớp ép kiểu `as unknown as { rows }` của
  *   bản cũ.

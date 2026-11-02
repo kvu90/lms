@@ -1,17 +1,8 @@
-import { and, eq, inArray, isNull, or } from 'drizzle-orm';
-import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { alias } from 'drizzle-orm/pg-core';
 import { sql } from 'kysely';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createCentreKysely, type CentreDb } from '../client';
-import {
-  curricula, curriculumNodes, learningOutcomes, questionLearningOutcomes,
-  questionSubjects, type LearningOutcomeDoc,
-} from '../curriculum.schema';
-import {
-  question, questionBankEntries, questionVersions,
-} from '../questions.schema';
+import type { LearningOutcomeDoc } from '../jsonb-types';
 import { buildTestDatabase, dropTestDatabase, withDatabase } from '../test-support/build-test-database';
 import { QuestionsRepository, type EntryRow } from './questions';
 
@@ -27,21 +18,23 @@ import { QuestionsRepository, type EntryRow } from './questions';
  * Các tính chất chốt tại đây:
  * - Insert không truyền id nhận id UUIDv7 do database sinh
  *   (phụ lục U) và đọc lại nguyên vẹn qua chính repository.
- * - Ghi/đọc jsonb nội dung khớp hai chiều Kysely ↔ Drizzle trên
- *   cùng dữ kiện mẫu, gồm điểm sắc nhất của T-4: cột jsonb
- *   nullable phân biệt `null` (SQL NULL) với giá trị và với
- *   `undefined` (không đổi) ở cả insert lẫn update patch.
+ * - Ghi/đọc jsonb nội dung khớp hai chiều repository ↔ oracle
+ *   độc lập (Kysely thô ngoài repository) trên cùng dữ kiện mẫu,
+ *   gồm điểm sắc nhất của T-4: cột jsonb nullable phân biệt `null`
+ *   (SQL NULL) với giá trị và với `undefined` (không đổi) ở cả
+ *   insert lẫn update patch.
  * - Giao dịch của repository nguyên tử: lỗi giữa chừng rollback
  *   sạch mọi bảng đã ghi; `markSystemImportDerived` đổi cờ trong
  *   giao dịch và rollback cùng giao dịch khi giao dịch huỷ.
  * - `countQuestionsByCurriculumFilterPerCategory` trả `number`
  *   thật (ép `::int` — rủi ro R-G2-1: `count(*)` là int8, qua pg
  *   sẽ là `string` nếu không ép).
- * - Bộ lọc chương trình tương đương hành vi với bản Drizzle cũ:
- *   oracle trong spec này là chính các truy vấn Drizzle của
- *   repository cũ chạy trên CÙNG dữ kiện mẫu (gồm YCCĐ đã rút,
- *   YCCĐ phái sinh từ gốc đã rút, và điều kiện khớp cùng dòng nối
- *   outcomeId + cognitiveLevel) — hai phía phải cho cùng tập id.
+ * - Bộ lọc chương trình tương đương hành vi với bản cũ: oracle
+ *   trong spec này là chính các truy vấn của repository cũ (trước
+ *   #642) dựng lại bằng Kysely thô trên CÙNG dữ kiện mẫu (gồm
+ *   YCCĐ đã rút, YCCĐ phái sinh từ gốc đã rút, và điều kiện khớp
+ *   cùng dòng nối outcomeId + cognitiveLevel) — hai phía phải cho
+ *   cùng tập id.
  */
 
 const adminUrl =
@@ -58,7 +51,6 @@ const ACTOR_ID = '019276a1-1111-7000-8000-0000000000a1';
 let pool: Pool;
 let db: CentreDb;
 let repo: QuestionsRepository;
-let drizzleDb: NodePgDatabase;
 
 /** Tài liệu rich-text mẫu cho các cột jsonb nội dung. */
 const DOC_A = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Nội dung A' }] }] };
@@ -147,7 +139,6 @@ beforeAll(async () => {
   pool = new Pool({ connectionString: storeUrl });
   db = createCentreKysely(pool);
   repo = new QuestionsRepository(db);
-  drizzleDb = drizzle({ client: pool });
   seed = await seedData();
 }, 180_000);
 
@@ -158,46 +149,62 @@ afterAll(async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Oracle Drizzle: nguyên văn đường phân giải + lọc của repository cũ
-// (apps/api trước #642) để đối chiếu tương đương trên cùng dữ kiện.
+// Oracle độc lập: nguyên văn đường phân giải + lọc của repository
+// cũ (apps/api trước #642) dựng lại bằng Kysely thô ngoài
+// repository, để đối chiếu tương đương trên cùng dữ kiện.
 // ---------------------------------------------------------------------------
 
 type OracleFilter = {
   subjectId?: string; outcomeId?: string; nodeId?: string; cognitiveLevel?: string; qtype?: string; status?: string;
 };
 
+/** Điều kiện "YCCĐ đang hiệu lực" của bản cũ: chưa rút, và gốc phái sinh (nếu có) cũng chưa rút. */
+function activeOutcomeWheres<DB, TB extends keyof DB & string, O>(
+  query: import('kysely').SelectQueryBuilder<DB, TB, O>,
+): import('kysely').SelectQueryBuilder<DB, TB, O> {
+  return query
+    .where('learning_outcomes.retired_at' as never, 'is', null)
+    .where((eb) => eb.or([
+      eb('learning_outcomes.derived_from_id' as never, 'is', null),
+      eb('learning_outcome_root.retired_at' as never, 'is', null),
+    ]));
+}
+
 async function oracleResolveCandidateIds(filter: OracleFilter): Promise<Set<string> | null> {
-  const outcomeRoot = alias(learningOutcomes, 'learning_outcome_root');
-  const activeOutcomeConditions = [
-    isNull(learningOutcomes.retiredAt),
-    or(isNull(learningOutcomes.derivedFromId), isNull(outcomeRoot.retiredAt)),
-  ];
   const idSets: Set<string>[] = [];
   if (filter.subjectId !== undefined) {
-    const viaSubjects = await drizzleDb.select({ questionId: questionSubjects.questionId })
-      .from(questionSubjects).where(eq(questionSubjects.subjectId, filter.subjectId));
-    const viaOutcomes = await drizzleDb.select({ questionId: questionLearningOutcomes.questionId })
-      .from(questionLearningOutcomes)
-      .innerJoin(learningOutcomes, eq(learningOutcomes.id, questionLearningOutcomes.learningOutcomeId))
-      .leftJoin(outcomeRoot, eq(outcomeRoot.id, learningOutcomes.derivedFromId))
-      .innerJoin(curriculumNodes, eq(curriculumNodes.id, learningOutcomes.nodeId))
-      .innerJoin(curricula, eq(curricula.id, curriculumNodes.curriculumId))
-      .where(and(eq(curricula.subjectId, filter.subjectId), ...activeOutcomeConditions));
+    const viaSubjects = await db.selectFrom('question_subjects').select('question_id as questionId')
+      .where('subject_id', '=', filter.subjectId).execute();
+    const viaOutcomes = await activeOutcomeWheres(
+      db.selectFrom('question_learning_outcomes')
+        .select('question_learning_outcomes.question_id as questionId')
+        .innerJoin('learning_outcomes', 'learning_outcomes.id', 'question_learning_outcomes.learning_outcome_id')
+        .leftJoin('learning_outcomes as learning_outcome_root', 'learning_outcome_root.id', 'learning_outcomes.derived_from_id')
+        .innerJoin('curriculum_nodes', 'curriculum_nodes.id', 'learning_outcomes.node_id')
+        .innerJoin('curricula', 'curricula.id', 'curriculum_nodes.curriculum_id')
+        .where('curricula.subject_id', '=', filter.subjectId),
+    ).execute();
     idSets.push(new Set([...viaSubjects.map((r) => r.questionId), ...viaOutcomes.map((r) => r.questionId)]));
   }
   if (filter.outcomeId !== undefined || filter.nodeId !== undefined || filter.cognitiveLevel !== undefined) {
-    const conditions = [];
-    if (filter.outcomeId !== undefined) conditions.push(eq(questionLearningOutcomes.learningOutcomeId, filter.outcomeId));
-    if (filter.nodeId !== undefined) conditions.push(eq(learningOutcomes.nodeId, filter.nodeId));
-    if (filter.cognitiveLevel !== undefined) conditions.push(eq(questionLearningOutcomes.cognitiveLevel, filter.cognitiveLevel));
-    const rows = filter.nodeId !== undefined
-      ? await drizzleDb.select({ questionId: questionLearningOutcomes.questionId })
-        .from(questionLearningOutcomes)
-        .innerJoin(learningOutcomes, eq(learningOutcomes.id, questionLearningOutcomes.learningOutcomeId))
-        .leftJoin(outcomeRoot, eq(outcomeRoot.id, learningOutcomes.derivedFromId))
-        .where(and(...conditions, ...activeOutcomeConditions))
-      : await drizzleDb.select({ questionId: questionLearningOutcomes.questionId })
-        .from(questionLearningOutcomes).where(and(...conditions));
+    let rows: Array<{ questionId: string }>;
+    if (filter.nodeId !== undefined) {
+      let query = activeOutcomeWheres(
+        db.selectFrom('question_learning_outcomes')
+          .select('question_learning_outcomes.question_id as questionId')
+          .innerJoin('learning_outcomes', 'learning_outcomes.id', 'question_learning_outcomes.learning_outcome_id')
+          .leftJoin('learning_outcomes as learning_outcome_root', 'learning_outcome_root.id', 'learning_outcomes.derived_from_id'),
+      );
+      if (filter.outcomeId !== undefined) query = query.where('question_learning_outcomes.learning_outcome_id', '=', filter.outcomeId);
+      query = query.where('learning_outcomes.node_id', '=', filter.nodeId);
+      if (filter.cognitiveLevel !== undefined) query = query.where('question_learning_outcomes.cognitive_level', '=', filter.cognitiveLevel);
+      rows = await query.execute();
+    } else {
+      let query = db.selectFrom('question_learning_outcomes').select('question_id as questionId');
+      if (filter.outcomeId !== undefined) query = query.where('learning_outcome_id', '=', filter.outcomeId);
+      if (filter.cognitiveLevel !== undefined) query = query.where('cognitive_level', '=', filter.cognitiveLevel);
+      rows = await query.execute();
+    }
     idSets.push(new Set(rows.map((r) => r.questionId)));
   }
   let candidateIds: Set<string> | null = null;
@@ -212,13 +219,12 @@ async function oracleResolveCandidateIds(filter: OracleFilter): Promise<Set<stri
 async function oracleFilterIds(filter: OracleFilter): Promise<string[]> {
   const candidateIds = await oracleResolveCandidateIds(filter);
   if (candidateIds !== null && candidateIds.size === 0) return [];
-  const conditions = [];
-  if (candidateIds !== null) conditions.push(inArray(question.id, [...candidateIds]));
-  if (filter.qtype !== undefined) conditions.push(eq(question.qtype, filter.qtype));
-  if (filter.status !== undefined) conditions.push(eq(questionBankEntries.status, filter.status));
-  const rows = await drizzleDb.select({ id: question.id }).from(question)
-    .innerJoin(questionBankEntries, eq(questionBankEntries.questionId, question.id))
-    .where(conditions.length > 0 ? and(...conditions) : undefined);
+  let query = db.selectFrom('question').select('question.id')
+    .innerJoin('question_bank_entries', 'question_bank_entries.question_id', 'question.id');
+  if (candidateIds !== null) query = query.where('question.id', 'in', [...candidateIds]);
+  if (filter.qtype !== undefined) query = query.where('question.qtype', '=', filter.qtype);
+  if (filter.status !== undefined) query = query.where('question_bank_entries.status', '=', filter.status);
+  const rows = await query.execute();
   return rows.map((r) => r.id).sort();
 }
 
@@ -230,22 +236,26 @@ describe('QuestionsRepository trên Kysely (issue #642)', () => {
     expect(back).toMatchObject({ id: cat.id, name: 'Danh mục uuidv7', bankId: seed.bankId, stamp: 'uuidv7' });
   });
 
-  it('ghi jsonb qua Kysely đọc khớp qua Drizzle và ngược lại, kể cả đáp án và stimulus', async () => {
+  it('ghi jsonb qua repository đọc khớp qua oracle độc lập và ngược lại, kể cả đáp án và stimulus', async () => {
     const version = await repo.insertVersion({
       questionBankEntryId: seed.entry1.id, questionId: seed.q1, version: 1,
       questionText: DOC_A, generalFeedback: DOC_B, defaultMark: 1, penalty: 0, stimulusId: null,
     });
-    // Đọc qua Drizzle (oracle ORM còn lại): nội dung phải khớp từng phần tử.
-    const [viaDrizzle] = await drizzleDb.select().from(questionVersions).where(eq(questionVersions.id, version.id));
-    expect(viaDrizzle!.questionText).toEqual(DOC_A);
-    expect(viaDrizzle!.generalFeedback).toEqual(DOC_B);
+    // Đọc qua oracle độc lập (Kysely thô ngoài repository): nội dung phải khớp từng phần tử.
+    const viaOracle = await db.selectFrom('question_versions')
+      .select(['question_text as questionText', 'general_feedback as generalFeedback'])
+      .where('id', '=', version.id)
+      .executeTakeFirstOrThrow();
+    expect(viaOracle.questionText).toEqual(DOC_A);
+    expect(viaOracle.generalFeedback).toEqual(DOC_B);
 
-    // Ghi qua Drizzle, đọc qua Kysely: cùng một tài liệu phải khớp.
-    const [drizzleVersion] = await drizzleDb.insert(questionVersions).values({
-      questionBankEntryId: seed.entry1.id, questionId: seed.q1, version: 2,
-      questionText: DOC_B as never, generalFeedback: DOC_A as never, defaultMark: 2, penalty: 0, stimulusId: null,
-    }).returning();
-    const viaRepo = await repo.getVersion(drizzleVersion!.id);
+    // Ghi qua oracle độc lập, đọc qua repository: cùng một tài liệu phải khớp.
+    const oracleVersion = await db.insertInto('question_versions').values({
+      question_bank_entry_id: seed.entry1.id, question_id: seed.q1, version: 2,
+      question_text: sql`${JSON.stringify(DOC_B)}::jsonb`, general_feedback: sql`${JSON.stringify(DOC_A)}::jsonb`,
+      default_mark: 2, penalty: 0, stimulus_id: null,
+    }).returning('id').executeTakeFirstOrThrow();
+    const viaRepo = await repo.getVersion(oracleVersion.id);
     expect(viaRepo!.questionText).toEqual(DOC_B);
     expect(viaRepo!.generalFeedback).toEqual(DOC_A);
 
@@ -263,9 +273,12 @@ describe('QuestionsRepository trên Kysely (issue #642)', () => {
       questionBankEntryId: seed.entry1.id, questionId: seed.q1, version: 3,
       questionText: DOC_A, generalFeedback: null, defaultMark: 1, penalty: 0, stimulusId: null,
     });
-    // null ghi xuống phải là SQL NULL khi đọc qua ORM còn lại — không phải JSON `null` dạng object/chuỗi.
-    const [raw] = await drizzleDb.select().from(questionVersions).where(eq(questionVersions.id, version.id));
-    expect(raw!.generalFeedback).toBeNull();
+    // null ghi xuống phải là SQL NULL khi đọc qua oracle độc lập — không phải JSON `null` dạng object/chuỗi.
+    const raw = await db.selectFrom('question_versions')
+      .select('general_feedback as generalFeedback')
+      .where('id', '=', version.id)
+      .executeTakeFirstOrThrow();
+    expect(raw.generalFeedback).toBeNull();
     expect((await repo.getVersion(version.id))!.generalFeedback).toBeNull();
 
     await repo.updateVersion(version.id, { generalFeedback: DOC_B });
@@ -322,7 +335,7 @@ describe('QuestionsRepository trên Kysely (issue #642)', () => {
     for (const row of rows) expect(typeof row.count).toBe('number');
   });
 
-  it('bộ lọc chương trình cho cùng tập id với oracle Drizzle trên mọi tổ hợp điều kiện', async () => {
+  it('bộ lọc chương trình cho cùng tập id với oracle độc lập trên mọi tổ hợp điều kiện', async () => {
     const filters: OracleFilter[] = [
       {},
       { qtype: 'multichoice' },

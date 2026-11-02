@@ -13,7 +13,7 @@ import type { UserListStatus } from '@lms/contracts';
 /**
  * Kho dữ liệu phân quyền trên Kysely (issue #651, nhóm C của chiến
  * dịch chuyển tầng dữ liệu sang Kysely): chuyển nguyên vẹn bề mặt
- * của `AccessRepository` cũ ở `apps/api` (Drizzle) sang đây — bảng
+ * của `AccessRepository` cũ ở `apps/api`  sang đây — bảng
  * `context`, `capabilities`, `role`, `role_assignments`,
  * `role_capabilities` và `config` (khoá `siteadmins`), cùng bốn
  * phép đọc cổng tenant (`tenants`, `tenant_memberships`).
@@ -677,7 +677,7 @@ export class AccessRepository {
    * Gán role cho user tại một context. Chèn trùng bộ unique trả về dòng
    * đã có thay vì lỗi — kể cả gán tay (itemId NULL): ràng buộc unique
    * của Postgres KHÔNG bắt được trùng khi itemId NULL (NULL coi như
-   * khác nhau), nên bản Drizzle cũ lẫn bản port đầu tiên đều tạo dòng
+   * khác nhau), nên bản cũ trước chuyển đổi lẫn bản port đầu tiên đều tạo dòng
    * mới cho trường hợp này dù ý đồ trong comment là dedup (phần
    * fallback của nó chỉ chạy khi có xung đột unique, tức không bao giờ
    * chạy cho itemId NULL). Vì vậy phải đọc trước dòng khớp đúng nguồn

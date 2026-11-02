@@ -9,7 +9,7 @@
  *   TRỪ hai bảng nhật ký của Migrator (`kysely_migration`,
  *   `kysely_migration_lock`) — hai bảng này là sổ sách của bộ máy,
  *   không phải bảng nghiệp vụ, và không có mặt trong số đếm của
- *   đường Drizzle cũ nên phải loại ra thì đối chiếu mới khớp.
+ *   đường cũ trước chuyển đổi nên phải loại ra thì đối chiếu mới khớp.
  * - Policy RLS: đếm trong schema `public`, cũng loại đối tượng
  *   thuộc hai bảng nhật ký; chỉ kiểm khi kho có kỳ vọng (kho
  *   trung tâm — hai kho còn lại nghiệm thu chỉ cần số bảng và số
@@ -24,8 +24,8 @@
  * - Dòng nhật ký: số dòng trong `kysely_migration` — bằng TỔNG số
  *   migration của kho (carrier đóng băng + migration native) sau
  *   một lượt migrate trọn. Đây là khái niệm khác diện carrier mà
- *   bước cấy nhật ký đối sánh: nhật ký chứa cả tên native đã áp, còn
- *   adoption chỉ đòi các carrier thật phải có mặt.
+ *   hậu kiểm đối sánh: nhật ký chứa cả tên native đã áp, còn
+ *   hậu kiểm carrier chỉ đòi các carrier thật phải có mặt.
  */
 import { sql, type Kysely } from 'kysely';
 import { MIGRATION_STORES, type MigrationStoreKey } from './stores';

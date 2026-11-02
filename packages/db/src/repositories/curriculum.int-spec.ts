@@ -13,7 +13,7 @@ import { CurriculumRepository, type LearningOutcomeRow } from './curriculum';
  *
  * Spec này là nơi CHỐT THỬ NGHIỆM T-14 (chiếu toàn bảng trong
  * select) cho điểm đo duy nhất của repo: `searchOutcomes` của bản
- * Drizzle cũ chiếu `select({ outcome: learningOutcomes, … })` —
+ * bộ máy cũ chiếu `select({ outcome: learningOutcomes, … })` —
  * Kysely không có chiếu-gộp-cả-bảng nên bản mới liệt kê tường minh
  * MỌI cột của bảng YCCĐ dưới tiền tố `outcome…` rồi lồng lại thành
  * object `outcome` trong mã; ca T-14 dưới đây khoá hình dạng kết

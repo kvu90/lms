@@ -3,7 +3,7 @@ import type { CentreDb, CentreTx } from '../client';
 /**
  * Kho dữ liệu ghi danh trên Kysely (issue #645, nhóm G5 của chiến
  * dịch chuyển tầng dữ liệu sang Kysely): TOÀN BỘ bề mặt của
- * `EnrolRepository` cũ ở `apps/api` (Drizzle) được chuyển nguyên
+ * `EnrolRepository` cũ ở `apps/api`  được chuyển nguyên
  * vẹn sang đây — enrol instance (phương thức ghi danh của khoá
  * học) và user enrolment (ghi danh của từng user).
  *

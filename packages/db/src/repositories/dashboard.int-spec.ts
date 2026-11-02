@@ -1,18 +1,7 @@
-import { and, asc, eq, gt, inArray, isNotNull, lte, or, sql as drizzleSql } from 'drizzle-orm';
-import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { sql as kyselySql } from 'kysely';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { context, roleAssignments } from '../access.schema';
-import { assignGrades, assignments as assignmentsTable, assignSubmissions } from '../assignments.schema';
 import { createCentreKysely, type CentreDb } from '../client';
-import { course, courseModules } from '../courses.schema';
-import { userCourseCardPrefs, userDashboardState } from '../dashboard.schema';
-import { enrol, userEnrolments } from '../enrol.schema';
-import { examVersions } from '../exams.schema';
-import { gradeGrades, gradeItems, gradePublications } from '../grades.schema';
-import { examScans } from '../paper-grading.schema';
-import { examAttempts, examPins } from '../quiz.schema';
 import { buildTestDatabase, dropTestDatabase, withDatabase } from '../test-support/build-test-database';
 import { DashboardRepository, type ContextLevels } from './dashboard';
 
@@ -28,11 +17,12 @@ import { DashboardRepository, type ContextLevels } from './dashboard';
  *
  * Đối chiếu số liệu là tiêu chí nghiệm thu trung tâm của issue: với
  * MỖI method của repository, spec chạy cùng một truy vấn trên cùng
- * một dữ kiện mẫu qua hai đường — bản thực thi Drizzle cũ (sao
- * nguyên văn thân method của repository cũ vào các hàm `old*` dưới
- * đây, chạy trên schema Drizzle của package) và repository Kysely
- * mới — và khẳng định kết quả khớp nhau. Các method ghi được kiểm
- * hai chiều: ghi bằng đường này, đọc lại bằng đường kia.
+ * một dữ kiện mẫu qua hai đường — bản thực thi cũ (sao nguyên văn
+ * logic thân method của repository cũ vào các hàm `old*` dưới đây;
+ * từ #663 các hàm này dựng bằng Kysely thô vì ORM cũ đã rời khỏi
+ * cây) và repository hiện hành — và khẳng định kết quả khớp nhau.
+ * Các method ghi được kiểm hai chiều: ghi bằng đường này, đọc lại
+ * bằng đường kia.
  *
  * Cổng registry ngữ cảnh: repository chỉ đọc khoá `COURSE` qua
  * cổng. Dữ kiện mẫu của spec tự chọn số mức cho context khoá là
@@ -79,49 +69,56 @@ const SINCE = new Date('2026-11-01T00:00:00.000Z');
 let pool: Pool;
 let db: CentreDb;
 let repo: DashboardRepository;
-let drizzleDb: NodePgDatabase;
 
 // ---------------------------------------------------------------------------
-// Bản thực thi Drizzle cũ — sao nguyên văn thân method của repository cũ
-// (`apps/api/src/modules/dashboard/dashboard.repository.ts` tại main trước
-// lượt chuyển đổi), chỉ đổi điểm nhận handle và hằng mức khoá qua cổng mẫu.
+// Bản thực thi cũ — sao nguyên văn logic thân method của repository
+// cũ (`apps/api/src/modules/dashboard/dashboard.repository.ts` tại
+// main trước lượt chuyển đổi), chỉ đổi điểm nhận handle và hằng mức
+// khoá qua cổng mẫu. Từ #663 các hàm này dựng bằng Kysely thô trên
+// cùng handle (ORM cũ đã rời khỏi cây); logic truy vấn giữ nguyên
+// từng điều kiện/nối/sắp xếp của bản sao.
 // ---------------------------------------------------------------------------
 
-type OldDb = NodePgDatabase;
+type OldDb = CentreDb;
 
 /** Bản cũ của enrolledCourseIds (sao nguyên văn để đối chiếu trước/sau). */
 async function oldEnrolledCourseIds(oldDb: OldDb, userId: string, now: Date): Promise<string[]> {
   const rows = await oldDb
-    .selectDistinct({ courseId: enrol.courseId })
-    .from(userEnrolments)
-    .innerJoin(enrol, eq(enrol.id, userEnrolments.enrolId))
-    .where(and(
-      eq(userEnrolments.userId, userId),
-      eq(userEnrolments.status, 0),
-      or(drizzleSql`${userEnrolments.timeEnd} is null`, gt(userEnrolments.timeEnd, now)),
-    ));
+    .selectFrom('user_enrolments')
+    .innerJoin('enrol', 'enrol.id', 'user_enrolments.enrol_id')
+    .select('enrol.course_id as courseId')
+    .distinct()
+    .where('user_enrolments.user_id', '=', userId)
+    .where('user_enrolments.status', '=', 0)
+    .where((eb) => eb.or([
+      eb('user_enrolments.time_end', 'is', null),
+      eb('user_enrolments.time_end', '>', now),
+    ]))
+    .execute();
   return rows.map((r) => r.courseId);
 }
 
 /** Bản cũ của roleAssignedCourseIds (sao nguyên văn để đối chiếu trước/sau). */
 async function oldRoleAssignedCourseIds(oldDb: OldDb, userId: string): Promise<string[]> {
   const rows = await oldDb
-    .selectDistinct({ courseId: context.instanceId })
-    .from(roleAssignments)
-    .innerJoin(context, eq(context.id, roleAssignments.contextId))
-    .where(and(
-      eq(roleAssignments.userId, userId),
-      eq(context.contextLevel, COURSE_LEVEL),
-      isNotNull(context.instanceId),
-    ));
+    .selectFrom('role_assignments')
+    .innerJoin('context', 'context.id', 'role_assignments.context_id')
+    .select('context.instance_id as courseId')
+    .distinct()
+    .where('role_assignments.user_id', '=', userId)
+    .where('context.context_level', '=', COURSE_LEVEL)
+    .where('context.instance_id', 'is not', null)
+    .execute();
   return rows.map((r) => r.courseId!).filter(Boolean);
 }
 
 /** Bản cũ của courseNames (sao nguyên văn để đối chiếu trước/sau). */
 async function oldCourseNames(oldDb: OldDb, courseIds: string[]): Promise<Map<string, string>> {
   if (!courseIds.length) return new Map();
-  const rows = await oldDb.select({ id: course.id, fullName: course.fullName })
-    .from(course).where(inArray(course.id, courseIds));
+  const rows = await oldDb.selectFrom('course')
+    .select(['id', 'full_name as fullName'])
+    .where('id', 'in', courseIds)
+    .execute();
   return new Map(rows.map((r) => [r.id, r.fullName]));
 }
 
@@ -129,224 +126,218 @@ async function oldCourseNames(oldDb: OldDb, courseIds: string[]): Promise<Map<st
 async function oldQuizDueRows(oldDb: OldDb, courseIds: string[], userId: string, until: Date) {
   if (!courseIds.length) return [];
   return oldDb
-    .select({
-      cmId: courseModules.id,
-      activityId: courseModules.instanceId,
-      courseId: courseModules.course,
-      name: drizzleSql<string>`coalesce(${examPins.name}, ${examVersions.name})`,
-      dueAt: examPins.timeClose,
-      attemptState: examAttempts.state,
-    })
-    .from(courseModules)
-    .innerJoin(examPins, eq(examPins.id, courseModules.instanceId))
-    .innerJoin(examVersions, eq(examVersions.id, examPins.examVersionId))
-    .leftJoin(examAttempts, and(
-      eq(examAttempts.pinId, examPins.id),
-      eq(examAttempts.userId, userId),
-      eq(examAttempts.preview, false),
-    ))
-    .where(and(
-      inArray(courseModules.course, courseIds),
-      eq(courseModules.component, 'mod_quiz'),
-      eq(courseModules.visible, true),
-      eq(courseModules.deletionInProgress, false),
-      isNotNull(examPins.timeClose),
-      lte(examPins.timeClose, until),
-    ))
-    .orderBy(asc(examPins.timeClose));
+    .selectFrom('course_modules')
+    .innerJoin('exam_pins', 'exam_pins.id', 'course_modules.instance_id')
+    .innerJoin('exam_versions', 'exam_versions.id', 'exam_pins.exam_version_id')
+    .leftJoin('exam_attempts', (join) => join
+      .onRef('exam_attempts.pin_id', '=', 'exam_pins.id')
+      .on('exam_attempts.user_id', '=', userId)
+      .on('exam_attempts.preview', '=', false))
+    .select([
+      'course_modules.id as cmId',
+      'course_modules.instance_id as activityId',
+      'course_modules.course as courseId',
+      kyselySql<string>`coalesce(exam_pins.name, exam_versions.name)`.as('name'),
+      'exam_pins.time_close as dueAt',
+      'exam_attempts.state as attemptState',
+    ])
+    .where('course_modules.course', 'in', courseIds)
+    .where('course_modules.component', '=', 'mod_quiz')
+    .where('course_modules.visible', '=', true)
+    .where('course_modules.deletion_in_progress', '=', false)
+    .where('exam_pins.time_close', 'is not', null)
+    .where('exam_pins.time_close', '<=', until)
+    .orderBy('exam_pins.time_close')
+    .execute();
 }
 
 /** Bản cũ của assignmentDueRows (sao nguyên văn để đối chiếu trước/sau). */
 async function oldAssignmentDueRows(oldDb: OldDb, courseIds: string[], userId: string, until: Date) {
   if (!courseIds.length) return [];
   return oldDb
-    .select({
-      cmId: courseModules.id,
-      activityId: courseModules.instanceId,
-      courseId: courseModules.course,
-      name: assignmentsTable.name,
-      dueAt: assignmentsTable.dueDate,
-      submissionStatus: assignSubmissions.status,
-    })
-    .from(courseModules)
-    .innerJoin(assignmentsTable, eq(assignmentsTable.id, courseModules.instanceId))
-    .leftJoin(assignSubmissions, and(
-      eq(assignSubmissions.assignmentId, assignmentsTable.id),
-      eq(assignSubmissions.userId, userId),
-    ))
-    .where(and(
-      inArray(courseModules.course, courseIds),
-      eq(courseModules.component, 'mod_assign'),
-      eq(courseModules.visible, true),
-      eq(courseModules.deletionInProgress, false),
-      isNotNull(assignmentsTable.dueDate),
-      lte(assignmentsTable.dueDate, until),
-    ))
-    .orderBy(asc(assignmentsTable.dueDate));
+    .selectFrom('course_modules')
+    .innerJoin('assignments', 'assignments.id', 'course_modules.instance_id')
+    .leftJoin('assign_submissions', (join) => join
+      .onRef('assign_submissions.assignment_id', '=', 'assignments.id')
+      .on('assign_submissions.user_id', '=', userId))
+    .select([
+      'course_modules.id as cmId',
+      'course_modules.instance_id as activityId',
+      'course_modules.course as courseId',
+      'assignments.name as name',
+      'assignments.due_date as dueAt',
+      'assign_submissions.status as submissionStatus',
+    ])
+    .where('course_modules.course', 'in', courseIds)
+    .where('course_modules.component', '=', 'mod_assign')
+    .where('course_modules.visible', '=', true)
+    .where('course_modules.deletion_in_progress', '=', false)
+    .where('assignments.due_date', 'is not', null)
+    .where('assignments.due_date', '<=', until)
+    .orderBy('assignments.due_date')
+    .execute();
 }
+
+/** Cột đọc của hai bản cũ gradeRows* — đúng hình dạng `DashboardGradeRow`. */
+const OLD_GRADE_ROW_COLUMNS = [
+  'grade_grades.id as gradeId',
+  'grade_items.course_id as courseId',
+  'grade_items.id as itemId',
+  'grade_items.item_name as itemName',
+  'grade_items.item_type as itemType',
+  'grade_grades.final_grade as finalGrade',
+  'grade_items.grade_max as gradeMax',
+  'grade_grades.feedback as feedback',
+  'grade_grades.updated_at as updatedAt',
+] as const;
+
+/** Mảnh điều kiện hiển thị của bản cũ: có điểm, hoặc có phản hồi khác rỗng. */
+const OLD_VISIBLE_GRADE = kyselySql<boolean>`(grade_grades.final_grade is not null or (grade_grades.feedback is not null and grade_grades.feedback <> ''))`;
 
 /** Bản cũ của gradeRowsSince (sao nguyên văn để đối chiếu trước/sau). */
 async function oldGradeRowsSince(oldDb: OldDb, courseIds: string[], userId: string, since: Date) {
   if (!courseIds.length) return [];
   return oldDb
-    .select({
-      gradeId: gradeGrades.id,
-      courseId: gradeItems.courseId,
-      itemId: gradeItems.id,
-      itemName: gradeItems.itemName,
-      itemType: gradeItems.itemType,
-      finalGrade: gradeGrades.finalGrade,
-      gradeMax: gradeItems.gradeMax,
-      feedback: gradeGrades.feedback,
-      updatedAt: gradeGrades.updatedAt,
-    })
-    .from(gradeGrades)
-    .innerJoin(gradeItems, eq(gradeItems.id, gradeGrades.itemId))
-    .where(and(
-      eq(gradeGrades.userId, userId),
-      inArray(gradeItems.courseId, courseIds),
-      gt(gradeGrades.updatedAt, since),
-      drizzleSql`(${gradeGrades.finalGrade} is not null or (${gradeGrades.feedback} is not null and ${gradeGrades.feedback} <> ''))`,
-    ))
-    .orderBy(asc(gradeGrades.updatedAt));
+    .selectFrom('grade_grades')
+    .innerJoin('grade_items', 'grade_items.id', 'grade_grades.item_id')
+    .select(OLD_GRADE_ROW_COLUMNS)
+    .where('grade_grades.user_id', '=', userId)
+    .where('grade_items.course_id', 'in', courseIds)
+    .where('grade_grades.updated_at', '>', since)
+    .where(OLD_VISIBLE_GRADE)
+    .orderBy('grade_grades.updated_at')
+    .execute();
 }
 
 /** Bản cũ của itemPublications (sao nguyên văn để đối chiếu trước/sau). */
 async function oldItemPublications(oldDb: OldDb, courseIds: string[]) {
   if (!courseIds.length) return [];
   return oldDb
-    .select()
-    .from(gradePublications)
-    .where(and(
-      inArray(gradePublications.courseId, courseIds),
-      eq(gradePublications.scope, 'item'),
-    ))
-    .orderBy(asc(gradePublications.createdAt));
+    .selectFrom('grade_publications')
+    .select([
+      'id', 'course_id as courseId', 'item_id as itemId', 'scope', 'action',
+      'actor_id as actorId', 'note', 'created_at as createdAt',
+    ])
+    .where('course_id', 'in', courseIds)
+    .where('scope', '=', 'item')
+    .orderBy('created_at')
+    .execute();
 }
 
 /** Bản cũ của gradeRowsForItems (sao nguyên văn để đối chiếu trước/sau). */
 async function oldGradeRowsForItems(oldDb: OldDb, itemIds: string[], userId: string) {
   if (!itemIds.length) return [];
   return oldDb
-    .select({
-      gradeId: gradeGrades.id,
-      courseId: gradeItems.courseId,
-      itemId: gradeItems.id,
-      itemName: gradeItems.itemName,
-      itemType: gradeItems.itemType,
-      finalGrade: gradeGrades.finalGrade,
-      gradeMax: gradeItems.gradeMax,
-      feedback: gradeGrades.feedback,
-      updatedAt: gradeGrades.updatedAt,
-    })
-    .from(gradeGrades)
-    .innerJoin(gradeItems, eq(gradeItems.id, gradeGrades.itemId))
-    .where(and(
-      eq(gradeGrades.userId, userId),
-      inArray(gradeGrades.itemId, itemIds),
-      drizzleSql`(${gradeGrades.finalGrade} is not null or (${gradeGrades.feedback} is not null and ${gradeGrades.feedback} <> ''))`,
-    ));
+    .selectFrom('grade_grades')
+    .innerJoin('grade_items', 'grade_items.id', 'grade_grades.item_id')
+    .select(OLD_GRADE_ROW_COLUMNS)
+    .where('grade_grades.user_id', '=', userId)
+    .where('grade_grades.item_id', 'in', itemIds)
+    .where(OLD_VISIBLE_GRADE)
+    .execute();
 }
 
 /** Bản cũ của assignmentPendingRows (sao nguyên văn để đối chiếu trước/sau). */
 async function oldAssignmentPendingRows(oldDb: OldDb, courseIds: string[]) {
   if (!courseIds.length) return [];
   return oldDb
-    .select({
-      courseId: assignmentsTable.course,
-      submittedAt: assignSubmissions.submittedAt,
-      gradeStatus: assignGrades.status,
-    })
-    .from(assignSubmissions)
-    .innerJoin(assignmentsTable, eq(assignmentsTable.id, assignSubmissions.assignmentId))
-    .leftJoin(assignGrades, and(
-      eq(assignGrades.assignmentId, assignSubmissions.assignmentId),
-      eq(assignGrades.userId, assignSubmissions.userId),
-      eq(assignGrades.attemptNumber, assignSubmissions.attemptNumber),
-    ))
-    .where(and(
-      inArray(assignmentsTable.course, courseIds),
-      eq(assignSubmissions.status, 'submitted'),
-    ));
+    .selectFrom('assign_submissions')
+    .innerJoin('assignments', 'assignments.id', 'assign_submissions.assignment_id')
+    .leftJoin('assign_grades', (join) => join
+      .onRef('assign_grades.assignment_id', '=', 'assign_submissions.assignment_id')
+      .onRef('assign_grades.user_id', '=', 'assign_submissions.user_id')
+      .onRef('assign_grades.attempt_number', '=', 'assign_submissions.attempt_number'))
+    .select([
+      'assignments.course as courseId',
+      'assign_submissions.submitted_at as submittedAt',
+      'assign_grades.status as gradeStatus',
+    ])
+    .where('assignments.course', 'in', courseIds)
+    .where('assign_submissions.status', '=', 'submitted')
+    .execute();
 }
 
 /** Bản cũ của quizPendingRows (sao nguyên văn để đối chiếu trước/sau). */
 async function oldQuizPendingRows(oldDb: OldDb, courseIds: string[]) {
   if (!courseIds.length) return [];
   return oldDb
-    .select({
-      courseId: examPins.courseId,
-      timeFinish: examAttempts.timeFinish,
-      timeStart: examAttempts.timeStart,
-    })
-    .from(examAttempts)
-    .innerJoin(examPins, eq(examPins.id, examAttempts.pinId))
-    .where(and(
-      inArray(examPins.courseId, courseIds),
-      eq(examAttempts.state, 'needsgrading'),
-      eq(examAttempts.preview, false),
-    ));
+    .selectFrom('exam_attempts')
+    .innerJoin('exam_pins', 'exam_pins.id', 'exam_attempts.pin_id')
+    .select([
+      'exam_pins.course_id as courseId',
+      'exam_attempts.time_finish as timeFinish',
+      'exam_attempts.time_start as timeStart',
+    ])
+    .where('exam_pins.course_id', 'in', courseIds)
+    .where('exam_attempts.state', '=', 'needsgrading')
+    .where('exam_attempts.preview', '=', false)
+    .execute();
 }
 
 /** Bản cũ của paperPendingRows (sao nguyên văn để đối chiếu trước/sau). */
 async function oldPaperPendingRows(oldDb: OldDb, courseIds: string[]) {
   if (!courseIds.length) return [];
   return oldDb
-    .select({
-      courseId: examPins.courseId,
-      pinId: examScans.examPinId,
-      createdAt: examScans.createdAt,
-    })
-    .from(examScans)
-    .innerJoin(examPins, eq(examPins.id, examScans.examPinId))
-    .where(and(
-      inArray(examPins.courseId, courseIds),
-      inArray(examScans.status, ['needs_identity', 'needs_review']),
-    ));
+    .selectFrom('exam_scans')
+    .innerJoin('exam_pins', 'exam_pins.id', 'exam_scans.exam_pin_id')
+    .select([
+      'exam_pins.course_id as courseId',
+      'exam_scans.exam_pin_id as pinId',
+      'exam_scans.created_at as createdAt',
+    ])
+    .where('exam_pins.course_id', 'in', courseIds)
+    .where('exam_scans.status', 'in', ['needs_identity', 'needs_review'])
+    .execute();
 }
+
+/** Cột đọc của hai bảng mốc xem/tuỳ chọn với bí danh camelCase (dùng cho select + returning). */
+const OLD_STATE_COLUMNS = [
+  'user_id as userId', 'last_seen_at as lastSeenAt', 'created_at as createdAt', 'updated_at as updatedAt',
+] as const;
+const OLD_PREF_COLUMNS = [
+  'user_id as userId', 'course_id as courseId', 'color', 'nickname', 'created_at as createdAt', 'updated_at as updatedAt',
+] as const;
 
 /** Bản cũ của getState (sao nguyên văn để đối chiếu trước/sau). */
 async function oldGetState(oldDb: OldDb, userId: string) {
-  const [row] = await oldDb.select().from(userDashboardState)
-    .where(eq(userDashboardState.userId, userId));
-  return row;
+  return oldDb.selectFrom('user_dashboard_state')
+    .select(OLD_STATE_COLUMNS)
+    .where('user_id', '=', userId)
+    .executeTakeFirst();
 }
 
 /** Bản cũ của touchState (sao nguyên văn để đối chiếu trước/sau). */
 async function oldTouchState(oldDb: OldDb, userId: string, at: Date): Promise<void> {
-  await oldDb.insert(userDashboardState)
-    .values({ userId, lastSeenAt: at })
-    .onConflictDoUpdate({
-      target: userDashboardState.userId,
-      set: { lastSeenAt: at, updatedAt: new Date() },
-    });
+  await oldDb.insertInto('user_dashboard_state')
+    .values({ user_id: userId, last_seen_at: at })
+    .onConflict((oc) => oc.column('user_id').doUpdateSet({ last_seen_at: at, updated_at: new Date() }))
+    .execute();
 }
 
 /** Bản cũ của listPrefs (sao nguyên văn để đối chiếu trước/sau). */
 async function oldListPrefs(oldDb: OldDb, userId: string) {
-  return oldDb.select().from(userCourseCardPrefs)
-    .where(eq(userCourseCardPrefs.userId, userId))
-    .orderBy(asc(userCourseCardPrefs.courseId));
+  return oldDb.selectFrom('user_course_card_prefs')
+    .select(OLD_PREF_COLUMNS)
+    .where('user_id', '=', userId)
+    .orderBy('course_id')
+    .execute();
 }
 
 /** Bản cũ của upsertPref (sao nguyên văn để đối chiếu trước/sau). */
 async function oldUpsertPref(oldDb: OldDb, userId: string, courseId: string, color: string | null, nickname: string | null) {
-  const [row] = await oldDb.insert(userCourseCardPrefs)
-    .values({ userId, courseId, color, nickname })
-    .onConflictDoUpdate({
-      target: [userCourseCardPrefs.userId, userCourseCardPrefs.courseId],
-      set: { color, nickname, updatedAt: new Date() },
-    })
-    .returning();
-  return row!;
+  return oldDb.insertInto('user_course_card_prefs')
+    .values({ user_id: userId, course_id: courseId, color, nickname })
+    .onConflict((oc) => oc.columns(['user_id', 'course_id']).doUpdateSet({ color, nickname, updated_at: new Date() }))
+    .returning(OLD_PREF_COLUMNS)
+    .executeTakeFirstOrThrow();
 }
 
 /** Bản cũ của deletePref (sao nguyên văn để đối chiếu trước/sau). */
 async function oldDeletePref(oldDb: OldDb, userId: string, courseId: string): Promise<void> {
-  await oldDb.delete(userCourseCardPrefs).where(and(
-    eq(userCourseCardPrefs.userId, userId),
-    eq(userCourseCardPrefs.courseId, courseId),
-  ));
+  await oldDb.deleteFrom('user_course_card_prefs')
+    .where('user_id', '=', userId)
+    .where('course_id', '=', courseId)
+    .execute();
 }
 
 // ---------------------------------------------------------------------------
@@ -365,7 +356,6 @@ beforeAll(async () => {
   const url = await buildTestDatabase({ adminUrl, database: TEST_DB, store: 'centre' });
   pool = new Pool({ connectionString: url });
   db = createCentreKysely(pool);
-  drizzleDb = drizzle({ client: pool });
   repo = new DashboardRepository(db, TEST_CONTEXT_LEVELS);
 
   await db.insertInto('tenants').values({ id: TENANT_ID, slug: 'dash-652', name: 'Trung tâm mẫu 652', kind: 'centre' }).execute();
@@ -504,7 +494,7 @@ function sortedBy<T>(rows: T[], key: (row: T) => string): T[] {
 
 describe('đối chiếu dashboard: tập khoá của người dùng', () => {
   it('enrolledCourseIds khớp đường cũ và chỉ gồm khoá còn ghi danh hiệu lực', async () => {
-    const expected = await oldEnrolledCourseIds(drizzleDb, STUDENT_ID, NOW);
+    const expected = await oldEnrolledCourseIds(db, STUDENT_ID, NOW);
     const actual = await repo.enrolledCourseIds(STUDENT_ID, NOW);
     expect(actual).toEqual(expected);
     expect(actual).toEqual([COURSE_A]);
@@ -512,25 +502,25 @@ describe('đối chiếu dashboard: tập khoá của người dùng', () => {
   });
 
   it('roleAssignedCourseIds khớp đường cũ và mức khoá chỉ đến từ cổng', async () => {
-    const expected = await oldRoleAssignedCourseIds(drizzleDb, TEACHER_ID);
+    const expected = await oldRoleAssignedCourseIds(db, TEACHER_ID);
     const actual = await repo.roleAssignedCourseIds(TEACHER_ID);
     expect(actual).toEqual(expected);
     expect(actual).toEqual([COURSE_A]);
   });
 
   it('courseNames khớp đường cũ; tập rỗng trả Map rỗng ở cả hai đường', async () => {
-    const expected = await oldCourseNames(drizzleDb, [COURSE_A, COURSE_B]);
+    const expected = await oldCourseNames(db, [COURSE_A, COURSE_B]);
     const actual = await repo.courseNames([COURSE_A, COURSE_B]);
     expect([...actual.entries()].sort()).toEqual([...expected.entries()].sort());
     expect(actual.get(COURSE_A)).toBe('Khoá Toán 652');
     expect((await repo.courseNames([])).size).toBe(0);
-    expect((await oldCourseNames(drizzleDb, [])).size).toBe(0);
+    expect((await oldCourseNames(db, [])).size).toBe(0);
   });
 });
 
 describe('đối chiếu dashboard: việc đến hạn', () => {
   it('quizDueRows khớp đường cũ, gồm coalesce tên pin và loại attempt xem trước', async () => {
-    const expected = await oldQuizDueRows(drizzleDb, [COURSE_A], STUDENT_ID, UNTIL);
+    const expected = await oldQuizDueRows(db, [COURSE_A], STUDENT_ID, UNTIL);
     const actual = await repo.quizDueRows([COURSE_A], STUDENT_ID, UNTIL);
     expect(actual).toEqual(expected);
     expect(actual.map((r) => r.name)).toEqual(['Đề kiểm tra mẫu', 'Pin hai']);
@@ -538,7 +528,7 @@ describe('đối chiếu dashboard: việc đến hạn', () => {
   });
 
   it('assignmentDueRows khớp đường cũ; bài chưa nộp có submissionStatus null', async () => {
-    const expected = await oldAssignmentDueRows(drizzleDb, [COURSE_A], STUDENT_ID, UNTIL);
+    const expected = await oldAssignmentDueRows(db, [COURSE_A], STUDENT_ID, UNTIL);
     const actual = await repo.assignmentDueRows([COURSE_A], STUDENT_ID, UNTIL);
     expect(actual).toEqual(expected);
     expect(actual).toHaveLength(1);
@@ -559,7 +549,7 @@ describe('đối chiếu dashboard: việc đến hạn', () => {
 
 describe('đối chiếu dashboard: điểm và công bố', () => {
   it('gradeRowsSince khớp đường cũ và mảnh điều kiện loại dòng không có điểm lẫn phản hồi', async () => {
-    const expected = await oldGradeRowsSince(drizzleDb, [COURSE_A], STUDENT_ID, SINCE);
+    const expected = await oldGradeRowsSince(db, [COURSE_A], STUDENT_ID, SINCE);
     const actual = await repo.gradeRowsSince([COURSE_A], STUDENT_ID, SINCE);
     expect(actual).toEqual(expected);
     expect(actual.map((r) => r.finalGrade)).toEqual([8.5, null]);
@@ -567,7 +557,7 @@ describe('đối chiếu dashboard: điểm và công bố', () => {
   });
 
   it('itemPublications khớp đường cũ và chỉ gồm vết scope item theo thời gian tăng dần', async () => {
-    const expected = await oldItemPublications(drizzleDb, [COURSE_A]);
+    const expected = await oldItemPublications(db, [COURSE_A]);
     const actual = await repo.itemPublications([COURSE_A]);
     expect(actual).toEqual(expected);
     expect(actual).toHaveLength(1);
@@ -575,7 +565,7 @@ describe('đối chiếu dashboard: điểm và công bố', () => {
   });
 
   it('gradeRowsForItems khớp đường cũ trên tập item ứng viên và không lọc theo mốc thời gian', async () => {
-    const expected = await oldGradeRowsForItems(drizzleDb, [itemManualId, itemModId, itemOldId], STUDENT_ID);
+    const expected = await oldGradeRowsForItems(db, [itemManualId, itemModId, itemOldId], STUDENT_ID);
     const actual = await repo.gradeRowsForItems([itemManualId, itemModId, itemOldId], STUDENT_ID);
     expect(sortedBy(actual, (r) => r.gradeId)).toEqual(sortedBy(expected, (r) => r.gradeId));
     // Ba dòng: điểm hiện tại, dòng chỉ có phản hồi, và dòng điểm cũ
@@ -587,7 +577,7 @@ describe('đối chiếu dashboard: điểm và công bố', () => {
 
 describe('đối chiếu dashboard: hàng đợi chấm', () => {
   it('assignmentPendingRows khớp đường cũ, kèm trạng thái gói chấm của đúng attempt hiện tại', async () => {
-    const expected = await oldAssignmentPendingRows(drizzleDb, [COURSE_A]);
+    const expected = await oldAssignmentPendingRows(db, [COURSE_A]);
     const actual = await repo.assignmentPendingRows([COURSE_A]);
     const key = (r: { submittedAt: Date | null }) => String(r.submittedAt?.getTime());
     expect(sortedBy(actual, key)).toEqual(sortedBy(expected, key));
@@ -595,14 +585,14 @@ describe('đối chiếu dashboard: hàng đợi chấm', () => {
   });
 
   it('quizPendingRows khớp đường cũ và chỉ gồm lượt chờ chấm tay không phải xem trước', async () => {
-    const expected = await oldQuizPendingRows(drizzleDb, [COURSE_A]);
+    const expected = await oldQuizPendingRows(db, [COURSE_A]);
     const actual = await repo.quizPendingRows([COURSE_A]);
     expect(actual).toEqual(expected);
     expect(actual).toHaveLength(1);
   });
 
   it('paperPendingRows khớp đường cũ và chỉ gồm hai trạng thái chờ xử lý', async () => {
-    const expected = await oldPaperPendingRows(drizzleDb, [COURSE_A]);
+    const expected = await oldPaperPendingRows(db, [COURSE_A]);
     const actual = await repo.paperPendingRows([COURSE_A]);
     const key = (r: { createdAt: Date }) => String(r.createdAt.getTime());
     expect(sortedBy(actual, key)).toEqual(sortedBy(expected, key));
@@ -613,17 +603,17 @@ describe('đối chiếu dashboard: hàng đợi chấm', () => {
 describe('đối chiếu dashboard: mốc xem và tuỳ chọn thẻ khoá (ghi hai chiều)', () => {
   it('getState khi chưa từng xem là undefined ở cả hai đường', async () => {
     expect(await repo.getState(OTHER_ID)).toBeUndefined();
-    expect(await oldGetState(drizzleDb, OTHER_ID)).toBeUndefined();
+    expect(await oldGetState(db, OTHER_ID)).toBeUndefined();
   });
 
   it('touchState ghi bằng đường mới thì đường cũ đọc khớp, và ngược lại ở nhánh cập nhật', async () => {
     const first = new Date('2026-11-02T10:00:00.000Z');
     await repo.touchState(OTHER_ID, first);
-    const readByOld = await oldGetState(drizzleDb, OTHER_ID);
+    const readByOld = await oldGetState(db, OTHER_ID);
     expect(readByOld?.lastSeenAt.getTime()).toBe(first.getTime());
 
     const second = new Date('2026-11-02T11:00:00.000Z');
-    await oldTouchState(drizzleDb, OTHER_ID, second);
+    await oldTouchState(db, OTHER_ID, second);
     const readByNew = await repo.getState(OTHER_ID);
     expect(readByNew?.lastSeenAt.getTime()).toBe(second.getTime());
     expect(readByNew?.userId).toBe(OTHER_ID);
@@ -632,11 +622,11 @@ describe('đối chiếu dashboard: mốc xem và tuỳ chọn thẻ khoá (ghi 
   it('upsertPref ghi bằng đường mới thì đường cũ đọc khớp; cập nhật bằng đường cũ thì đường mới đọc khớp', async () => {
     const created = await repo.upsertPref(STUDENT_ID, COURSE_A, 'blue', 'Toán của tôi');
     expect(created).toMatchObject({ userId: STUDENT_ID, courseId: COURSE_A, color: 'blue', nickname: 'Toán của tôi' });
-    const readByOld = await oldListPrefs(drizzleDb, STUDENT_ID);
+    const readByOld = await oldListPrefs(db, STUDENT_ID);
     expect(readByOld).toHaveLength(1);
     expect(readByOld[0]).toMatchObject({ color: 'blue', nickname: 'Toán của tôi' });
 
-    const updated = await oldUpsertPref(drizzleDb, STUDENT_ID, COURSE_A, null, null);
+    const updated = await oldUpsertPref(db, STUDENT_ID, COURSE_A, null, null);
     expect(updated).toMatchObject({ color: null, nickname: null });
     const readByNew = await repo.listPrefs(STUDENT_ID);
     expect(readByNew).toHaveLength(1);
@@ -645,12 +635,12 @@ describe('đối chiếu dashboard: mốc xem và tuỳ chọn thẻ khoá (ghi 
   });
 
   it('deletePref bằng đường mới xoá được dòng do đường cũ ghi, và ngược lại', async () => {
-    await oldUpsertPref(drizzleDb, TEACHER_ID, COURSE_A, 'red', null);
+    await oldUpsertPref(db, TEACHER_ID, COURSE_A, 'red', null);
     await repo.deletePref(TEACHER_ID, COURSE_A);
-    expect(await oldListPrefs(drizzleDb, TEACHER_ID)).toEqual([]);
+    expect(await oldListPrefs(db, TEACHER_ID)).toEqual([]);
 
     await repo.upsertPref(TEACHER_ID, COURSE_B, 'green', 'Văn');
-    await oldDeletePref(drizzleDb, TEACHER_ID, COURSE_B);
+    await oldDeletePref(db, TEACHER_ID, COURSE_B);
     expect(await repo.listPrefs(TEACHER_ID)).toEqual([]);
   });
 });

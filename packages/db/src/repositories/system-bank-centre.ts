@@ -1,7 +1,7 @@
 /**
  * Repository phía TRUNG TÂM của kho ngân hàng hệ thống trên
  * Kysely — hạng mục nhân rộng G10 của chiến dịch chuyển tầng dữ
- * liệu (issue #650), chuyển từ repository Drizzle phía `apps/api`
+ * liệu (issue #650), chuyển từ repository bộ máy cũ phía `apps/api`
  * theo khuôn pilot kho control plane (issue #640).
  *
  * Vai trò: các bảng vệ tinh nằm trong kho nghiệp vụ của trung
@@ -25,8 +25,8 @@
  * bằng codegen; bên ngoài trả/nhận hình dạng dòng camelCase như
  * phía tiêu thụ đang dùng (danh sách cột tường minh có bí danh
  * cho cả select lẫn returning, kiểu dòng công khai khai ngay
- * trong file này — không import từ file schema Drizzle vốn bị
- * xoá ở hạng mục gỡ Drizzle); giá trị ghi vào cột jsonb đi qua
+ * trong file này — không import từ file schema bộ máy cũ vốn bị
+ * xoá ở hạng mục gỡ bộ máy cũ); giá trị ghi vào cột jsonb đi qua
  * helper serialize tường minh + `::jsonb`; mọi giá trị where là
  * tham số bắt buộc. Các phương thức ghi bản chụp nhận handle
  * giao dịch tuỳ chọn do bên gọi truyền tường minh (khuôn
@@ -35,7 +35,7 @@
  */
 import { sql, type RawBuilder } from 'kysely';
 import type { CentreDb, CentreTx } from '../client';
-import type { LearningOutcomeDoc } from '../curriculum.schema';
+import type { LearningOutcomeDoc } from '../jsonb-types';
 
 /** Handle giao dịch của kho trung tâm — kiểu `Transaction<CentreDB>` của package. */
 export type SbCentreTx = CentreTx;

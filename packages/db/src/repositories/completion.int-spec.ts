@@ -19,7 +19,7 @@ import { CompletionRepository } from './completion';
  * `DATABASE_URL` của package). Mọi ca chạy qua repository production
  * trong ngữ cảnh tenant qua pool gắn GUC như đường production.
  *
- * Các bất biến được khoá ở đây là hợp đồng của đường Drizzle trước
+ * Các bất biến được khoá ở đây là hợp đồng của đường bộ máy cũ trước
  * đây mà tầng service dựa vào:
  * - Ba thao tác ghi/đè khoá theo khoá duy nhất tự nhiên và nhánh cập
  *   nhật khi trùng chỉ chạm đúng tập cột đã chốt: đặc biệt

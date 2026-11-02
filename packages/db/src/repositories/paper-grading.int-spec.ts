@@ -1,12 +1,9 @@
-import { eq } from 'drizzle-orm';
-import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { sql } from 'kysely';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { PaperQuality, PaperReading, PaperRosterEntry, PaperSlotLayout } from '@lms/contracts';
 import { createCentreKysely, type CentreDb } from '../client';
-import type { ExamVariant } from '../quiz.schema';
-import { examBatches, examScans } from '../paper-grading.schema';
+import type { ExamVariant } from '../jsonb-types';
 import { buildTestDatabase, dropTestDatabase, withDatabase } from '../test-support/build-test-database';
 import { PaperGradingRepository } from './paper-grading';
 
@@ -22,10 +19,11 @@ import { PaperGradingRepository } from './paper-grading';
  *
  * Các tính chất chốt tại đây:
  * - Ghi/đọc jsonb nghiệp vụ (`layout`/`roster` của lô, `quality`/
- *   `readings` của phiếu) khớp hai chiều Kysely ↔ Drizzle trên
- *   cùng dữ kiện mẫu (mục `JSONColumnType` của tài liệu Kysely +
- *   thử nghiệm T-6): phía Kysely ghi qua helper xâu hoá +
- *   `::jsonb`, phía Drizzle đọc lại phải thấy đúng giá trị.
+ *   `readings` của phiếu) khớp hai chiều repository ↔ oracle độc
+ *   lập trên cùng dữ kiện mẫu (mục `JSONColumnType` của tài liệu
+ *   Kysely + thử nghiệm T-6): phía repository ghi qua helper xâu
+ *   hoá + `::jsonb`, phía oracle (Kysely thô ngoài repository)
+ *   đọc lại phải thấy đúng giá trị.
  * - `readings` có DEFAULT `[]` của database: insert không truyền
  *   thì nhận mảng rỗng, repository không tự điền.
  * - Patch phiếu theo T-4 với cột jsonb nullable đủ ba trạng
@@ -68,7 +66,6 @@ const QUALITY_2: PaperQuality = { blurVariance: 98.25, glareRatio: 0.03, fiducia
 let pool: Pool;
 let db: CentreDb;
 let repo: PaperGradingRepository;
-let drizzleDb: NodePgDatabase;
 
 interface Seed {
   pinId: string;
@@ -116,7 +113,6 @@ beforeAll(async () => {
   pool = new Pool({ connectionString: storeUrl });
   db = createCentreKysely(pool);
   repo = new PaperGradingRepository(db);
-  drizzleDb = drizzle({ client: pool });
   seed = await seedData();
 }, 180_000);
 
@@ -127,7 +123,7 @@ afterAll(async () => {
 });
 
 describe('PaperGradingRepository trên Kysely (issue #644)', () => {
-  it('insertBatch ghi layout/roster jsonb đọc lại nguyên vẹn qua cả Kysely và Drizzle', async () => {
+  it('insertBatch ghi layout/roster jsonb đọc lại nguyên vẹn qua cả repository và oracle độc lập', async () => {
     const batch = await repo.insertBatch({
       examPinId: seed.pinId, variantCode: 'A', examCode: '1001', codeDigits: 4,
       layout: LAYOUT, roster: ROSTER, createdBy: ACTOR,
@@ -138,7 +134,14 @@ describe('PaperGradingRepository trên Kysely (issue #644)', () => {
 
     const mine = await repo.getBatch(batch.id);
     expect(mine).toEqual(batch);
-    const oracle = await drizzleDb.select().from(examBatches).where(eq(examBatches.id, batch.id));
+    const oracle = await db.selectFrom('exam_batches')
+      .select([
+        'id', 'exam_pin_id as examPinId', 'variant_code as variantCode', 'exam_code as examCode',
+        'code_digits as codeDigits', 'layout', 'roster', 'created_by as createdBy',
+        'created_at as createdAt', 'updated_at as updatedAt',
+      ])
+      .where('id', '=', batch.id)
+      .execute();
     expect(oracle[0]).toEqual(batch);
 
     const forPin = await repo.listBatchesForPin(seed.pinId);
@@ -157,7 +160,7 @@ describe('PaperGradingRepository trên Kysely (issue #644)', () => {
     expect(await repo.getScan(scan.id)).toEqual(scan);
   });
 
-  it('insertScan đầy đủ: quality/readings jsonb khớp hai chiều Kysely ↔ Drizzle', async () => {
+  it('insertScan đầy đủ: quality/readings jsonb khớp hai chiều repository ↔ oracle độc lập', async () => {
     const scan = await repo.insertScan({
       examPinId: seed.pinId, fileId: FILE_2, uploadedBy: ACTOR,
       status: 'needs_review', quality: QUALITY, readings: READINGS,
@@ -166,7 +169,16 @@ describe('PaperGradingRepository trên Kysely (issue #644)', () => {
     });
     expect(scan.quality).toEqual(QUALITY);
     expect(scan.readings).toEqual(READINGS);
-    const oracle = await drizzleDb.select().from(examScans).where(eq(examScans.id, scan.id));
+    const oracle = await db.selectFrom('exam_scans')
+      .select([
+        'id', 'exam_pin_id as examPinId', 'batch_id as batchId', 'session_id as sessionId',
+        'file_id as fileId', 'warped_file_id as warpedFileId', 'uploaded_by as uploadedBy',
+        'status', 'identity_code as identityCode', 'identity_source as identitySource',
+        'student_id as studentId', 'attempt_id as attemptId', 'variant_code_read as variantCodeRead',
+        'quality', 'readings', 'expires_at as expiresAt', 'created_at as createdAt', 'updated_at as updatedAt',
+      ])
+      .where('id', '=', scan.id)
+      .execute();
     expect(oracle[0]).toEqual(scan);
   });
 

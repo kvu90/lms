@@ -1,5 +1,5 @@
 /**
- * Repository của cụm TENANT trên Kysely — chuyển đổi Drizzle →
+ * Repository của cụm TENANT trên Kysely — chuyển đổi bộ máy cũ →
  * Kysely của chiến dịch chuyển tầng dữ liệu (issue #641, nhóm G1).
  *
  * Vai trò: mọi truy cập tới ba bảng `tenants`, `tenant_memberships`
@@ -27,7 +27,7 @@
  *   driver `pg` hiểu một MẢNG ở cấp cao nhất là mảng PostgreSQL
  *   chứ không phải JSON, nên serialize tường minh cho mọi hình
  *   dạng giá trị; giá trị `null` giữ nguyên là SQL NULL như đường
- *   Drizzle trước đây.
+ *   bộ máy cũ trước đây.
  * - Repository không import từ `apps/*`, không đọc ALS/ngữ cảnh
  *   ứng dụng, không tự mở pool: handle do tầng ứng dụng dựng (điểm
  *   lắp ráp là facade định tuyến theo không gian `routedKysely`)
@@ -60,7 +60,7 @@ export interface TenantMembershipRow {
   endedAt: Date | null;
 }
 
-/** Một dòng cấu hình theo tenant; `value` là jsonb tự do nên giữ kiểu `unknown` như đường Drizzle trước đây. */
+/** Một dòng cấu hình theo tenant; `value` là jsonb tự do nên giữ kiểu `unknown` như đường cũ trước đây. */
 export interface TenantConfigRow {
   id: string;
   tenantId: string;
@@ -192,7 +192,7 @@ function membershipInsertValues(values: NewTenantMembership): Insertable<CentreD
  * Ánh xạ một patch membership (camelCase) sang set update
  * (snake_case), LOẠI mọi trường `undefined` (quy tắc T-4). Bảng
  * membership không có mốc `updated_at` nên repository không đóng
- * dấu mốc nào ở đường cập nhật này — đúng hành vi đường Drizzle
+ * dấu mốc nào ở đường cập nhật này — đúng hành vi đường bộ máy cũ
  * trước đây.
  */
 function membershipUpdateSet(patch: Partial<TenantMembershipRow>): Updateable<CentreDB['tenant_memberships']> {
@@ -218,8 +218,8 @@ export class TenantsRepository {
    * không gian). Tầng service còn đúng một điểm ghép cần handle
    * thô — uỷ thác bảo đảm membership cho tầng dùng chung
    * `@lms/enrol` — và điểm đó KHÔNG lấy handle từ đây nữa: tầng
-   * dùng chung đó vẫn chạy trên Drizzle cho tới hạng mục chuyển
-   * đổi của chính nó, nên service tự inject handle Drizzle cho
+   * dùng chung đó vẫn chạy trên bộ máy cũ cho tới hạng mục chuyển
+   * đổi của chính nó, nên service tự inject handle bộ máy cũ cho
    * riêng điểm uỷ thác đó (xem kiểm kê giao dịch trong thân PR
    * của issue #641). Getter này giữ cho các đường đọc/ghi Kysely
    * cần handle gốc trong tương lai của chính cụm tenant.

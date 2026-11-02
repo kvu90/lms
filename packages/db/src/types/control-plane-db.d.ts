@@ -3,7 +3,7 @@
  * Please do not edit it manually.
  */
 
-import type { SchemaMigrationStep, SpaceRegistrySnapshot } from "../control-plane.schema";
+import type { SchemaMigrationStep, SpaceRegistrySnapshot } from "../jsonb-types";
 import type { ColumnType } from "kysely";
 
 export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>

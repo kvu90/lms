@@ -1,7 +1,6 @@
 {
   "dependencies": {
     "@lms/contracts": "workspace:*",
-    "drizzle-orm": "1.0.0-rc.5",
     "uuid": "^14.0.3",
     "kysely": "0.29.7",
     "pg": "^8.23.1"
@@ -30,6 +29,10 @@
     "./repositories/*": {
       "types": "./dist/repositories/*.d.ts",
       "default": "./dist/repositories/*.js"
+    },
+    "./migrate": {
+      "types": "./dist/migrate/apply.d.ts",
+      "default": "./dist/migrate/apply.js"
     },
     "./test-support": {
       "types": "./dist/test-support/index.d.ts",

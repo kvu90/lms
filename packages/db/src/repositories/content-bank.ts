@@ -1,6 +1,6 @@
 /**
  * Repository của KHO HỌC LIỆU trên Kysely — chuyển đổi từ
- * repository Drizzle của module content-bank phía `apps/api`
+ * repository bộ máy cũ của module content-bank phía `apps/api`
  * (issue #646, nhóm G6 của chiến dịch chuyển tầng dữ liệu sang
  * Kysely).
  *
@@ -16,25 +16,25 @@
  *   bằng codegen: tên bảng/cột giữ nguyên snake_case của database.
  * - Bên ngoài, repository trả/nhận các hình dạng dòng camelCase như
  *   phía tiêu thụ đang dùng (khớp `$inferSelect`/`$inferInsert` của
- *   repository Drizzle cũ): cột được chọn bằng danh sách tường minh
+ *   repository cũ trước chuyển đổi): cột được chọn bằng danh sách tường minh
  *   có bí danh, giá trị ghi được ánh xạ từng trường ở các hàm
  *   `*InsertValues`/`*UpdateSet` trong file này.
  * - Giá trị `undefined` bị LOẠI khỏi values/set trước khi gọi
  *   builder (quy tắc T-4 đã chốt ở pilot); bộ lọc động của
  *   `listFiltered` ghép bằng các lần `.where(...)` xâu chuỗi trên
  *   cùng một builder giữ trong biến (khuôn T-13 đã chốt) thay cho
- *   mảng điều kiện + `and(...conds)` của Drizzle.
+ *   mảng điều kiện + `and(...conds)` của bộ máy cũ.
  * - Cột jsonb khi ghi (`config_data`, `outcome_ids`, `keywords`,
  *   `review_checklist`) đi qua helper serialize tường minh + ép
  *   kiểu `::jsonb` ({@link jsonbValue}).
  * - Cột `size_bytes` là bigint: codegen sinh kiểu `Int8` (đọc ra
  *   là `string` — thử nghiệm T-7 đã chốt: không bật parser toàn
  *   cục), trong khi hợp đồng dòng phía tiêu thụ giữ `number` như
- *   thời Drizzle (`mode: 'number'`). Repository vì vậy chuyển đổi
+ *   thời bộ máy cũ (`mode: 'number'`). Repository vì vậy chuyển đổi
  *   tường minh tại biên: đọc `string → number`, ghi `number`
  *   nguyên trạng (kiểu ghi của `Int8` nhận number).
  * - Hình chiếu toàn bảng của cohort trong `listCohortsForUser`
- *   (điểm cùng họ với thử nghiệm T-14): Drizzle cũ chọn
+ *   (điểm cùng họ với thử nghiệm T-14): bộ máy cũ chọn
  *   `select({ cohort })` rồi bóc `.cohort`; ở đây chọn tường minh
  *   từng cột của bảng cohort qua join — kết quả trả ra là chính
  *   các dòng cohort, hình dạng không đổi.
@@ -43,7 +43,7 @@ import { sql, type InsertObject, type RawBuilder, type UpdateObject } from 'kyse
 import type { CentreDb, CentreDB } from '../client';
 import type { JsonValue } from '../types/centre-db';
 
-/** Một dòng học liệu trong kho; các cột jsonb giữ `unknown` như hình dạng `$inferSelect` cũ (Drizzle không gắn `$type`). */
+/** Một dòng học liệu trong kho; các cột jsonb giữ `unknown` như hình dạng `$inferSelect` cũ (bộ máy cũ không gắn `$type`). */
 export interface ContentRow {
   id: string;
   name: string;

@@ -1,58 +1,26 @@
 /**
- * Barrel tổng hợp schema toàn hệ thống — NGUỒN SỰ THẬT DUY NHẤT về định
- * nghĩa bảng Drizzle cho cả apps/api và apps/worker (trước đây worker giữ
- * một bản sao subset chép tay; xem issue #140 / rà soát #134 mục 11.2).
- * Mỗi bounded context giữ schema của mình trong `src/<module>.schema.ts`
- * (hạ tầng nền tảng ở `src/infrastructure.schema.ts`); file này chỉ re-export
- * để mọi phía dùng một điểm vào duy nhất.
+ * Điểm vào gốc của `@lms/db` cho kho TRUNG TÂM: factory handle
+ * Kysely + hàm đọc nhật ký migration + các kiểu jsonb nghiệp vụ.
+ *
+ * Từ issue #663 (gỡ bộ máy cũ khỏi cây mã), package không còn lớp
+ * schema khai bảng: hình dạng bảng đến từ kiểu sinh bởi
+ * `kysely-codegen` trên database thật (`src/types/centre-db.d.ts`,
+ * cổng chống lệch `db:types` trong CI), và mọi truy cập dữ kiện đi
+ * qua handle Kysely (`client.ts`) cùng các repository trong
+ * `src/repositories/`. Phần GHI của bộ máy migration (trình tự áp
+ * dùng chung, runner CLI) được tiêu thụ qua điểm vào
+ * `@lms/db/migrate` và file `dist/migrate/run.js`, không qua
+ * barrel này.
  */
-export * from './infrastructure.schema';
-export * from './access.schema';
-export * from './users.schema';
-export * from './tenants.schema';
-export * from './auth.schema';
-export * from './custom-fields.schema';
-export * from './files.schema';
-export * from './courses.schema';
-export * from './groups.schema';
-export * from './classes.schema';
-export * from './enrol.schema';
-export * from './completion.schema';
-export * from './grades.schema';
-export * from './guardians.schema';
-export * from './dashboard.schema';
-export * from './questions.schema';
-export * from './mcp.schema';
-export * from './exams.schema';
-export * from './quiz.schema';
-export * from './paper-grading.schema';
-export * from './assignments.schema';
-export * from './content.schema';
-export * from './curriculum.schema';
-export * from './books.schema';
-export * from './messaging.schema';
-export * from './calendar.schema';
-export * from './badges.schema';
-export * from './competencies.schema';
-export * from './social.schema';
-export * from './search.schema';
-export * from './integrations.schema';
-export * from './backup.schema';
-export * from './analytics.schema';
-export * from './reports.schema';
-export * from './content-bank.schema';
-export * from './centre.schema';
-export * from './payments.schema';
-export * from './privacy.schema';
-export * from './system-bank-centre.schema';
 export { createCentreKysely, type CentreDB, type CentreDb, type CentreTx } from './client';
+export type { ExamVariant, LearningOutcomeDoc, LearningOutcomeDocNode } from './jsonb-types';
 /**
- * Hàm đọc nhật ký migration tương thích cho fleet/provision (issue
- * #639): đọc tập tên/phiên bản đã áp của một database qua
- * `pg.Client`, ưu tiên nhật ký Kysely sau adoption, dự phòng nhật
- * ký Drizzle trong cửa sổ cùng tồn tại. Phần ghi của bộ máy
- * migration (provider carrier, bước cấy, runner) được tiêu thụ qua
- * điểm vào file `dist/migrate/run.js`, không qua barrel này.
+ * Hàm đọc nhật ký migration cho fleet/provision (issue #639): đọc
+ * tập tên/phiên bản đã áp của một database qua `pg.Client` từ
+ * nhật ký `kysely_migration` của chính database đó (mọi kho sống
+ * đều đã qua bước cấy nhật ký ở các PR trước của chiến dịch; bước
+ * cấy và đường đọc dự phòng nhật ký cũ đã gỡ cùng issue #663 —
+ * xem `migrate/journal.ts`).
  */
 export {
   getAppliedMigrations,
@@ -69,6 +37,10 @@ export {
  * `Selectable`, `SqlBool`) cho các service phía app còn giữ truy
  * vấn qua handle của repository package (backup, search): kiểu
  * đi qua cùng một điểm vào, app vẫn không khai phụ thuộc trực
- * tiếp vào `kysely` ở cả tầng runtime lẫn tầng kiểu.
+ * tiếp vào `kysely` ở cả tầng runtime lẫn tầng kiểu. `JsonValue`
+ * không phải kiểu của Kysely: đó là kiểu JSON do codegen sinh trong
+ * `types/centre-db`, được barrel re-export từ đúng nguồn đó để các
+ * app dùng chung một định nghĩa với các repository.
  */
 export { sql, type RawBuilder, type Selectable, type SqlBool } from 'kysely';
+export type { JsonValue } from './types/centre-db';

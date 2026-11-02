@@ -1,6 +1,6 @@
 /**
  * Repository của cụm CHƯƠNG TRÌNH trên Kysely — chuyển đổi từ
- * repository Drizzle của module curriculum phía `apps/api` (issue
+ * repository bộ máy cũ của module curriculum phía `apps/api` (issue
  * #646, nhóm G6 của chiến dịch chuyển tầng dữ liệu sang Kysely).
  *
  * Vai trò: mọi truy cập tới năm bảng chương trình của kho trung tâm
@@ -22,12 +22,12 @@
  *   bằng codegen: tên bảng/cột giữ nguyên snake_case của database.
  * - Bên ngoài, repository trả/nhận các hình dạng dòng camelCase như
  *   phía tiêu thụ đang dùng (khớp `$inferSelect`/`$inferInsert` của
- *   repository Drizzle cũ): cột được chọn bằng danh sách tường minh
+ *   repository cũ trước chuyển đổi): cột được chọn bằng danh sách tường minh
  *   có bí danh (`context_id as contextId`), giá trị ghi được ánh xạ
  *   từng trường từ camelCase sang snake_case ở các hàm
  *   `*InsertValues`/`*UpdateSet` trong file này. Kiểu dòng công
  *   khai khai ngay trong file này, không import từ file schema
- *   Drizzle (các file schema đó bị xoá ở hạng mục gỡ Drizzle).
+ *   bộ máy cũ (các file schema đó bị xoá ở hạng mục gỡ bộ máy cũ).
  * - Giá trị `undefined` bị LOẠI khỏi values/set trước khi gọi
  *   builder (thử nghiệm T-4 đã chốt ở pilot: `undefined` lọt vào
  *   mệnh đề WHERE sẽ lặng lẽ thành so sánh với NULL và trả 0 dòng —
@@ -40,10 +40,10 @@
  * - Ghép điều kiện động (thử nghiệm T-13 đã chốt): mảng điều kiện
  *   dựng trong callback `where` rồi gộp bằng `eb.and(...)` /
  *   `eb.or(...)`; cấm chép nguyên khuôn `where(undefined)` của
- *   Drizzle.
+ *   bộ máy cũ.
  * - Chiếu toàn bảng trong select (thử nghiệm T-14, chốt tại issue
  *   này): Kysely không có hình chiếu lồng "cả bảng dưới một khoá"
- *   như `select({ outcome: learningOutcomes, … })` của Drizzle —
+ *   như `select({ outcome: learningOutcomes, … })` của bộ máy cũ —
  *   tương đương là chọn tường minh từng cột của bảng với bí danh
  *   tiền tố riêng rồi LỒNG LẠI thành object ở biên repository;
  *   hình dạng trả ra khớp sâu với hình dạng cũ (ca
@@ -52,7 +52,7 @@
  */
 import { sql, type InsertObject, type RawBuilder, type UpdateObject } from 'kysely';
 import type { CentreDb, CentreTx, CentreDB } from '../client';
-import type { LearningOutcomeDoc } from '../curriculum.schema';
+import type { LearningOutcomeDoc } from '../jsonb-types';
 import type { JsonValue } from '../types/centre-db';
 
 /** Handle giao dịch của kho trung tâm — kiểu `Transaction<CentreDB>` của package. */
@@ -833,7 +833,7 @@ export class CurriculumRepository {
    * từng môn rồi mới cắt theo hạn mức của caller.
    *
    * Hình chiếu toàn bảng của dòng YCCĐ (thử nghiệm T-14, chốt tại
-   * issue này): Drizzle cũ chọn `outcome: learningOutcomes` (cả
+   * issue này): bộ máy cũ chọn `outcome: learningOutcomes` (cả
    * bảng lồng dưới khoá `outcome`); Kysely không có hình chiếu lồng
    * tương đương nên ở đây chọn tường minh từng cột của bảng YCCĐ
    * với bí danh tiền tố `outcome…` rồi lồng lại thành object

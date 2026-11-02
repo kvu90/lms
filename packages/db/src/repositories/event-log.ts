@@ -1,5 +1,5 @@
 /**
- * Repository của cụm EVENT LOG trên Kysely — chuyển đổi Drizzle →
+ * Repository của cụm EVENT LOG trên Kysely — chuyển đổi bộ máy cũ →
  * Kysely thuộc nhóm G8 của chiến dịch chuyển tầng dữ liệu (issue
  * #648). Repository này chỉ phụ trách đường ĐỌC (truy vấn
  * logstore); đường ghi event_log/outbox ở tầng hạ tầng thuộc hạng
@@ -10,7 +10,7 @@
  * điều kiện dùng chung cho cả truy vấn dòng và truy vấn đếm, gom
  * vào mảng biểu thức rồi nối bằng `eb.and(...)`:
  * - Mảng rỗng (không bộ lọc nào) biên dịch thành `where 1 = 1`,
- *   tức không lọc — khớp hành vi `where(undefined)` của Drizzle.
+ *   tức không lọc — khớp hành vi `where(undefined)` của bộ máy cũ.
  * - Cấm port nguyên văn `where(undefined)`: Kysely biên dịch thành
  *   `where $1` với tham số null, lặng lẽ trả 0 dòng/0 tổng.
  * - Các mảnh lọc theo payload dùng toán tử trích text jsonb
@@ -20,7 +20,7 @@
  *
  * Đếm tổng bằng `count(*)::int` trong biểu thức `sql` (cùng khuôn
  * đếm của repository search): ép int4 ngay ở SQL nên giá trị về là
- * số thật, khớp helper `count()` của Drizzle vốn map kết quả đếm
+ * số thật, khớp helper `count()` của bộ máy cũ vốn map kết quả đếm
  * (int8) về number ở tầng driver.
  *
  * Hình dạng dòng: `seq` là cột int8 — qua Kysely nó đọc về là

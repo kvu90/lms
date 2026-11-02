@@ -1,6 +1,6 @@
 /**
  * Repository của cụm NĂNG LỰC trên Kysely — chuyển đổi từ
- * repository Drizzle của module competencies phía `apps/api`
+ * repository bộ máy cũ của module competencies phía `apps/api`
  * (issue #646, nhóm G6 của chiến dịch chuyển tầng dữ liệu sang
  * Kysely).
  *
@@ -20,11 +20,11 @@
  *   bằng codegen: tên bảng/cột giữ nguyên snake_case của database.
  * - Bên ngoài, repository trả/nhận các hình dạng dòng camelCase như
  *   phía tiêu thụ đang dùng (khớp `$inferSelect`/`$inferInsert` của
- *   repository Drizzle cũ): cột được chọn bằng danh sách tường minh
+ *   repository cũ trước chuyển đổi): cột được chọn bằng danh sách tường minh
  *   có bí danh, giá trị ghi được ánh xạ từng trường ở các hàm
  *   `*InsertValues`/`*UpdateSet` trong file này. Kiểu dòng công
  *   khai khai ngay trong file này, không import từ file schema
- *   Drizzle.
+ *   bộ máy cũ.
  * - Giá trị `undefined` bị LOẠI khỏi values/set trước khi gọi
  *   builder (quy tắc T-4 đã chốt ở pilot); mọi giá trị where là
  *   tham số bắt buộc.
@@ -34,7 +34,7 @@
  * - `onConflict`: liên kết course/module dùng khoá phức hợp
  *   `columns([...]).doUpdateSet(...)` chỉ cập nhật `rule_outcome`;
  *   các bảng liên kết template/plan dùng `doNothing()` không đích
- *   (mọi va chạm unique đều bỏ qua như đường Drizzle cũ).
+ *   (mọi va chạm unique đều bỏ qua như đường cũ trước chuyển đổi).
  */
 import { sql, type InsertObject, type RawBuilder, type UpdateObject } from 'kysely';
 import type { CentreDb, CentreTx, CentreDB } from '../client';
@@ -996,7 +996,7 @@ export class CompetenciesRepository {
    * Tìm bản ghi năng lực của user (usercomp) theo user + competency.
    * Phạm vi plan/khoá: NULL là một giá trị khớp tường minh (điều
    * kiện `is null`), không phải "không lọc" — giữ nguyên ngữ nghĩa
-   * của đường Drizzle cũ.
+   * của đường cũ trước chuyển đổi.
    */
   async findUsercomp(
     userId: string,

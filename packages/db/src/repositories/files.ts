@@ -1,7 +1,7 @@
 /**
  * Repository của cụm TỆP trên Kysely — hạng mục nhân rộng G7 của
  * chiến dịch chuyển tầng dữ liệu (issue #647), chuyển từ
- * repository Drizzle cũ ở
+ * repository cũ trước chuyển đổi ở
  * `apps/api/src/modules/files/files.repository.ts`.
  *
  * Vai trò: mọi truy cập tới bảng `files` của kho trung tâm (bản
@@ -23,7 +23,7 @@
  * dạng camelCase qua danh sách cột tường minh có bí danh và hàm
  * ánh xạ ghi loại `undefined` từng trường (thử nghiệm T-4); mọi
  * giá trị where là tham số bắt buộc. Phép đếm refcount giữ nguyên
- * biểu thức `count(*)::int` của đường Drizzle cũ (hàm tổng hợp của
+ * biểu thức `count(*)::int` của đường cũ trước chuyển đổi (hàm tổng hợp của
  * `sql` template — họ FunctionModule/`sql` trong tài liệu Kysely)
  * để kiểu runtime ở biên vẫn là `number`, không trôi thành chuỗi
  * int8. Repository không import từ `apps/*`, không đọc ALS/ngữ
@@ -179,7 +179,7 @@ export class FilesRepository {
   /**
    * Đếm bản ghi cùng contentHash — refcount của nội dung vật lý
    * (ngữ nghĩa Moodle: dữ liệu vật lý còn sống khi refcount > 0).
-   * Ép `::int` giữ kiểu runtime là `number` như đường Drizzle cũ.
+   * Ép `::int` giữ kiểu runtime là `number` như đường cũ trước chuyển đổi.
    */
   async countByHash(contentHash: string, db: RepoDb = this.db()): Promise<number> {
     const row = await db

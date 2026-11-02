@@ -3,26 +3,24 @@
  * package — chuỗi service `migrate` của compose và script `db:*`
  * của apps/api gọi đúng điểm vào này).
  *
- * Một lượt migrate làm đúng 4 việc, theo thứ tự:
+ * Một lượt migrate làm đúng 3 việc, theo thứ tự:
  * 1. Phân giải thư mục migration qua điểm vào chính của package
  *    (`require.resolve('@lms/db')` — đường dẫn TUYỆT ĐỐI, diệt lớp
  *    lỗi "sai thư mục làm việc báo thành công giả": runner không
  *    bao giờ suy thư mục từ cwd).
- * 2. Bước tiền-migration shim `uuidv7()` cho cụm dưới PostgreSQL 18
- *    (ngoài nội dung carrier, không ghi nhật ký).
- * 3. Cấy nhật ký (adoption) cho database đang sống, rồi
- *    `migrateToLatest()`. Kysely KHÔNG BAO GIỜ ném lỗi từ
- *    `migrateToLatest()` — kết quả trả về `{ error, results }` nên
- *    runner PHẢI tự kiểm: `error` khác rỗng hoặc bất kỳ
- *    `results[].status === 'Error'` thì thoát 1 (runner không tự
- *    kiểm là mất cổng).
- * 4. Hậu kiểm số đếm (`verify.ts`) trên database đích; lệch thì
+ * 2. Áp migration qua trình tự dùng chung `applyStoreMigrations`
+ *    (xem `apply.ts`): bước tiền-migration shim `uuidv7()` cho cụm
+ *    dưới PostgreSQL 18 (ngoài nội dung carrier, không ghi nhật
+ *    ký), rồi `migrateToLatest()` — hàm dùng chung tự kiểm kết quả
+ *    `{ error, results }` mà Kysely trả (Kysely không ném lỗi từ
+ *    `migrateToLatest()`) và ném lỗi khi có migration hỏng.
+ * 3. Hậu kiểm số đếm (`verify.ts`) trên database đích; lệch thì
  *    thoát 1 dù migrate báo thành công.
  *
- * Cờ `--verify-only`: chỉ làm việc 4 (đọc số đếm, không cấy, không
- * áp migration) — đường kiểm chứng sau deploy mà runbook dùng.
+ * Cờ `--verify-only`: chỉ làm việc 3 (đọc số đếm, không áp
+ * migration) — đường kiểm chứng sau deploy mà runbook dùng.
  *
- * URL kết nối theo kho (mỗi kho một biến, khớp cấu hình Drizzle cũ
+ * URL kết nối theo kho (mỗi kho một biến, khớp cấu hình bộ máy cũ
  * mà chuỗi migrate đang dùng): kho trung tâm ưu tiên
  * `MIGRATION_DATABASE_URL` rồi `DATABASE_URL`; control plane dùng
  * `CONTROL_PLANE_DATABASE_URL`; ngân hàng hệ thống dùng
@@ -35,7 +33,6 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import type { Kysely } from 'kysely';
 import { Pool, type PoolConfig } from 'pg';
-import { Migrator } from 'kysely/migration';
 import {
   createCentreKysely,
   createControlPlaneKysely,
@@ -44,9 +41,8 @@ import {
   type ControlPlaneDb,
   type SystemBankDb,
 } from '../client';
-import { adoptJournal } from './adopt-journal';
-import { FrozenSqlProvider } from './frozen-sql-provider';
-import { installUuidv7Shim, isMigrationStoreKey, MIGRATION_STORES, type MigrationStoreKey } from './stores';
+import { applyStoreMigrations } from './apply';
+import { isMigrationStoreKey, MIGRATION_STORES, type MigrationStoreKey } from './stores';
 import { verifyStore } from './verify';
 
 /** Gốc package `@lms/db`: phân giải qua chính package (không qua cwd). */
@@ -102,7 +98,7 @@ function createStoreKysely(store: MigrationStoreKey, pool: Pool): Kysely<any> {
 /** In hướng dẫn dùng rồi trả mã thoát cho lỗi tham số (không ném stack dài cho lỗi gõ lệnh). */
 function usage(): number {
   console.error(
-    `Cách dùng: node dist/migrate/run.js <kho> [--verify-only]\nKho: centre | control-plane | system-bank\n--verify-only: chỉ hậu kiểm số đếm, không cấy nhật ký, không áp migration.`,
+    `Cách dùng: node dist/migrate/run.js <kho> [--verify-only]\nKho: centre | control-plane | system-bank\n--verify-only: chỉ hậu kiểm số đếm, không áp migration.`,
   );
   return 1;
 }
@@ -132,24 +128,14 @@ async function main(argv: string[]): Promise<number> {
       }
       return 0;
     }
-    const shim = await installUuidv7Shim(db);
+    // Trình tự áp dùng chung của cả ba đường ghi migration (xem
+    // `apply.ts`): shim tiền-migration + `migrateToLatest()` + tự
+    // kiểm lỗi — lỗi áp được hàm dùng chung ném ra và rơi vào khối
+    // bắt lỗi của điểm vào CLI (thoát 1).
+    const { shim, results } = await applyStoreMigrations(db, store, migrationsDir);
     console.log(`tiền-migration ${store}: shim uuidv7 ${shim === 'installed' ? 'đã cài (cụm dưới PG18)' : 'bỏ qua (cụm PG18+)'}`);
-    // Diện carrier lấy từ danh sách đóng băng của kho trong
-    // `stores.ts` — KHÔNG suy từ danh sách thư mục migration: thư
-    // mục còn chứa các migration native đang chờ áp, đưa chúng vào
-    // diện đối sánh là đòi nhật ký phải có sẵn tên chưa từng áp và
-    // làm runner dừng oan (sự cố deploy sau PR #687, issue #689).
-    const carrierNames = MIGRATION_STORES[store].carrierNames;
-    const adoption = await adoptJournal(db, carrierNames);
-    console.log(`adoption ${store}: ${adoption}`);
-    const migrator = new Migrator({ db, provider: new FrozenSqlProvider(migrationsDir) });
-    const { error, results } = await migrator.migrateToLatest();
-    for (const result of results ?? []) {
+    for (const result of results) {
       console.log(`migration ${result.migrationName}: ${result.status}`);
-    }
-    if (error || (results ?? []).some((result) => result.status === 'Error')) {
-      console.error(`migrate ${store} THẤT BẠI: ${error ? (error as Error).message ?? String(error) : 'có migration báo Error'}`);
-      return 1;
     }
     const verified = await verifyStore(db, store);
     console.log(

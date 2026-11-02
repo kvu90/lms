@@ -5,7 +5,7 @@ import type { Json } from '../types/centre-db';
 /**
  * Kho dữ liệu khoá học trên Kysely (issue #645, nhóm G5 của chiến
  * dịch chuyển tầng dữ liệu sang Kysely): TOÀN BỘ bề mặt của
- * `CoursesRepository` cũ ở `apps/api` (Drizzle) được chuyển nguyên
+ * `CoursesRepository` cũ ở `apps/api`  được chuyển nguyên
  * vẹn sang đây — category (cây có path vật chất hoá), course,
  * section, course module (cm), neo khung chương trình/SGK chụp kèm
  * section, và format options.
@@ -31,7 +31,7 @@ import type { Json } from '../types/centre-db';
  * Bề mặt kiểu dòng (hàng `*Row` xuất khẩu dưới đây) giữ đúng hình
  * dạng `$inferSelect` của repository cũ để phía tiêu thụ trong
  * module courses không đổi hợp đồng: cột `availability` không có
- * `$type<>` ở schema Drizzle nên giữ là `unknown` như hợp đồng cũ.
+ * `$type<>` ở schema bộ máy cũ nên giữ là `unknown` như hợp đồng cũ.
  */
 
 /** Handle kho trung tâm mà repository chấp nhận: thường hoặc trong giao dịch. */

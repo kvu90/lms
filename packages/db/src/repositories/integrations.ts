@@ -1,6 +1,6 @@
 /**
  * Repository của cụm INTEGRATIONS trên Kysely — chuyển đổi
- * Drizzle → Kysely thuộc nhóm G8 của chiến dịch chuyển tầng dữ
+ * bộ máy cũ → Kysely thuộc nhóm G8 của chiến dịch chuyển tầng dữ
  * liệu (issue #648).
  *
  * Vai trò: mọi truy cập tới hai bảng external_services và

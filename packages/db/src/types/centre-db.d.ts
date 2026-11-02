@@ -3,8 +3,7 @@
  * Please do not edit it manually.
  */
 
-import type { LearningOutcomeDoc } from "../curriculum.schema";
-import type { ExamVariant } from "../quiz.schema";
+import type { ExamVariant, LearningOutcomeDoc } from "../jsonb-types";
 import type { PaperQuality, PaperReading, PaperRosterEntry, PaperSlotLayout } from "@lms/contracts";
 import type { ColumnType } from "kysely";
 

@@ -1,6 +1,6 @@
 /**
  * Repository của cụm NGÂN HÀNG ĐỀ trên Kysely — nhóm G3 của chiến
- * dịch chuyển tầng dữ liệu Drizzle → Kysely (issue #643), chuyển từ
+ * dịch chuyển tầng dữ liệu sang Kysely (issue #643), chuyển từ
  * `apps/api/src/modules/exams/exams.repository.ts`.
  *
  * Vai trò: mọi truy cập tới danh tính đề (exams), version nội dung
@@ -969,7 +969,7 @@ export class ExamsRepository {
 
   /**
    * Tăng copy_count của đề nguồn sau một lần copy thành công.
-   * Biểu thức tăng giữ nguyên dạng SQL của đường Drizzle
+   * Biểu thức tăng giữ nguyên dạng SQL của đường bộ máy cũ
    * (`"exams"."copy_count" + 1`): cấm đổi thành đọc-cộng-ghi vì hai
    * lượt copy đồng thời sẽ mất một lượt tăng.
    */

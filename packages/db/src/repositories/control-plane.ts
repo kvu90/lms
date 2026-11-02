@@ -1,6 +1,6 @@
 /**
  * Repository của kho CONTROL PLANE trên Kysely — pilot chuyển đổi
- * Drizzle → Kysely của chiến dịch chuyển tầng dữ liệu (issue #640).
+ * bộ máy cũ → Kysely của chiến dịch chuyển tầng dữ liệu (issue #640).
  *
  * Vai trò: mọi truy cập tới sáu bảng của database control plane
  * (sổ đăng ký không gian, lịch sử quản trị sổ, registry phiên bản
@@ -26,7 +26,7 @@
  * - Giá trị `undefined` bị LOẠI khỏi values/set trước khi gọi
  *   builder. Thử nghiệm T-4 của pilot đo được: Kysely tự loại
  *   `undefined` khỏi values/set khi biên dịch (khớp hành vi
- *   Drizzle), nhưng repository vẫn loại tường minh để hành vi
+ *   bộ máy cũ), nhưng repository vẫn loại tường minh để hành vi
  *   không phụ thuộc mặc định của thư viện. Ngược lại, `undefined`
  *   lọt vào mệnh đề WHERE được biên dịch thành một placeholder
  *   mà tham số giữ nguyên giá trị `undefined`; lúc thực thi
@@ -40,7 +40,7 @@
  */
 import { sql, type Insertable, type InsertObject, type RawBuilder, type Updateable } from 'kysely';
 import type { ControlPlaneDb, ControlPlaneTx, ControlPlaneDB } from '../client';
-import type { SchemaMigrationStep, SpaceRegistrySnapshot } from '../control-plane.schema';
+import type { SchemaMigrationStep, SpaceRegistrySnapshot } from '../jsonb-types';
 
 /** Handle giao dịch của control plane — kiểu `Transaction<ControlPlaneDB>` của package. */
 export type CpTx = ControlPlaneTx;
@@ -193,7 +193,7 @@ export const DEDICATED_DATABASE_NAME_UNIQUE_INDEX = 'space_registry_database_nam
  * Vì sao cần (đo tại pilot): `pg` tự `JSON.stringify` các OBJECT
  * thường khi gắn tham số, nhưng một MẢNG ở cấp cao nhất bị driver
  * hiểu là mảng PostgreSQL và gửi theo cú pháp mảng — cột jsonb
- * nhận vào sẽ lỗi `invalid input syntax for type json`. Drizzle
+ * nhận vào sẽ lỗi `invalid input syntax for type json`. bộ máy cũ
  * tránh được vì nó tự serialize mọi giá trị jsonb thành chuỗi JSON
  * trước khi gắn tham số. Khuôn ở đây: serialize tường minh +
  * ép kiểu `::jsonb` cho MỌI giá trị jsonb khi ghi (object lẫn
@@ -213,14 +213,14 @@ function jsonbValue<T>(value: T): RawBuilder<T> {
  * database dedicated hay không.
  *
  * PostgreSQL báo lỗi vi phạm unique bằng mã 23505. Qua Kysely, lỗi
- * `pg` được ném TRỰC TIẾP (không bọc `cause` như Drizzle) nên mã và
+ * `pg` được ném TRỰC TIẾP (không bọc `cause` như bộ máy cũ) nên mã và
  * tên ràng buộc đọc ngay trên object lỗi; vòng duyệt chuỗi `cause`
  * vẫn giữ để chịu được các lớp bọc lỗi phía trên (service/tầng ứng
  * dụng) nếu có. Mã 23505 một mình chưa đủ: chỉ khi tên ràng buộc là
  * chỉ số dedicated mới là va chạm này — các vi phạm unique khác
  * (ví dụ slug) không được nuốt thành "trùng tên database". Nhánh dự
  * phòng khớp tên chỉ số qua nội dung `message` giữ nguyên từ đường
- * Drizzle: object lỗi của một số đường ném (ví dụ lỗi được dựng lại
+ * bộ máy cũ: object lỗi của một số đường ném (ví dụ lỗi được dựng lại
  * từ thông điệp) không mang trường `constraint`.
  *
  * @param err - Lỗi bắt được từ thao tác ghi đăng ký.
@@ -341,7 +341,7 @@ function spaceRegistryInsertValues(values: NewSpaceRegistration): Insertable<Con
  * Ánh xạ một patch cập nhật dòng đăng ký (camelCase) sang set
  * update (snake_case), LOẠI mọi trường `undefined` — patch chỉ chứa
  * trường nào thì chỉ trường đó đổi, đúng ngữ nghĩa bỏ qua
- * `undefined` của đường Drizzle trước đây (quy tắc T-4).
+ * `undefined` của đường cũ trước đây (quy tắc T-4).
  */
 function spaceRegistryUpdateSet(patch: Partial<NewSpaceRegistration>): Updateable<ControlPlaneDB['space_registry']> {
   const set: Updateable<ControlPlaneDB['space_registry']> = {};
@@ -576,7 +576,7 @@ export class ControlPlaneRepository {
     // Set của nhánh cập nhật khi trùng khoá: dựng từ chính các
     // trường có mặt trong values (loại `undefined` như mọi đường
     // ghi khác), luôn kèm mốc cập nhật hiện tại — cùng hình dạng
-    // set tường minh của đường Drizzle trước đây.
+    // set tường minh của đường cũ trước đây.
     const updateSet: Updateable<ControlPlaneDB['space_schema_registry']> = { updated_at: new Date() };
     if (values.currentVersion !== undefined) updateSet.current_version = values.currentVersion;
     if (values.lastBackupStatus !== undefined) updateSet.last_backup_status = values.lastBackupStatus;

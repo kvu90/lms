@@ -38,7 +38,7 @@ của repo.
 - Cấm đổi khoá chính sang kiểu khác UUIDv7 cho bảng nghiệp vụ mới (ngoại lệ phải có
   quyết định riêng).
 - Cấm regen/gộp baseline làm mất SQL RLS viết tay: baseline chứa các câu RLS mà
-  drizzle-kit không sinh lại được — gộp phải giữ nguyên và kiểm chứng cây MERGE
+  bộ sinh migration không sinh lại được — gộp phải giữ nguyên và kiểm chứng cây MERGE
   chứa đúng MỘT thư mục `*_baseline` (đếm THƯ MỤC, không đếm file).
 - Cấm đổi FK của dữ liệu chuẩn GDPT về cascade (phải giữ `restrict`).
 - Cấm literal múi giờ `Asia/Saigon` trong mọi SQL mặc định/giá trị sinh — chỉ
@@ -61,7 +61,7 @@ của repo.
   kết quả sinh cùng lượt — CI kiểm `git diff` trên `src/types/` phải rỗng.
 - Cấm bật camelCase ở mọi tầng (không `--camel-case` khi sinh kiểu, không
   `CamelCasePlugin` khi truy vấn): tên cột trong code giữ snake_case như DB.
-- Cột jsonb có hình dạng nghiệp vụ (`$type<…>` phía Drizzle) phải có
+- Cột jsonb có hình dạng nghiệp vụ (hình dạng giữ ở `src/jsonb-types.ts`) phải có
   override từng cột trong `scripts/codegen/<kho>.json` ở cùng lượt chạm
   tới cột đó; `--type-mapping` của codegen là ánh xạ theo kiểu dữ liệu
   toàn cục, cấm dùng thay override từng cột.
@@ -70,10 +70,8 @@ của repo.
   `SystemBankDb`/`SystemBankTx`); cấm repository import từ `apps/*`, đọc
   ALS/ngữ cảnh app, tự mở pool hay đọc biến môi trường. Package không tự
   mở pool ở bất kỳ đâu ngoài harness test (`src/test-support/`).
-- Một module thuộc hẳn về một ORM; cấm giao dịch lai (một thao tác mở
-  đồng thời giao dịch Drizzle và giao dịch Kysely). Các file
-  `src/*.schema.ts` của Drizzle đóng băng tới hạng mục gỡ Drizzle: không
-  sửa, không xoá trong các PR chuyển đổi.
+- Mọi đường dữ liệu đi qua Kysely; cấm giao dịch lai (một thao tác mở
+  đồng thời hai giao dịch trên hai handle độc lập).
 - Cổng đếm kiểu sinh trên cụm PG18: số cột `id` có mặc định `uuidv7()`
   theo catalog là trung tâm 187 / control plane 5 / ngân hàng hệ thống
   10 — đổi schema làm lệch các con số này phải cập nhật README của
@@ -122,14 +120,13 @@ luồng nghiệp vụ — bằng tiếng Việt**; mọi tài liệu bằng ti�
 đổi sau làm theo đúng các khuôn này:
 
 - **Ranh giới hình dạng.** Repository giữ nguyên hợp đồng dòng mà
-  phía tiêu thụ đang dùng (hình camelCase của repository Drizzle
-  cũ): SELECT/RETURNING dùng danh sách cột tường minh có bí danh
+  phía tiêu thụ đang dùng (hình camelCase của repository trước
+  chuyển đổi): SELECT/RETURNING dùng danh sách cột tường minh có bí danh
   (`'database_name as databaseName'`), khai một hằng danh sách cột
   cho mỗi bảng dùng chung cho select và returning; giá trị ghi
   được ánh xạ từng trường camelCase → snake_case ở hàm ánh xạ
   riêng của bảng. Kiểu dòng công khai khai ngay trong file
-  repository, không import từ file schema Drizzle (file schema bị
-  xoá ở hạng mục gỡ Drizzle, repository phải sống sót qua nó).
+  repository, không import từ bất kỳ file khai bảng nào.
 - **Transaction.** Mọi phương thức nhận handle tuỳ chọn mặc định
   là handle gốc của repository; `transaction(fn)` mở giao dịch
   bằng handle đó và truyền handle giao dịch xuống các phương thức
@@ -159,13 +156,12 @@ luồng nghiệp vụ — bằng tiếng Việt**; mọi tài liệu bằng ti�
   `undefined` từng trường.
 - **Lỗi Postgres (thử nghiệm T-10, đã đo).** Qua Kysely, lỗi pg
   ném thẳng ra: `code` và `constraint` nằm trực tiếp trên lỗi,
-  không có `cause`. Qua Drizzle, lỗi bị bọc và lỗi pg thật nằm ở
+  không có `cause`. Qua bộ máy cũ trước chuyển đổi, lỗi bị bọc và lỗi pg thật nằm ở
   `cause`. Helper nhận diện lỗi phải duyệt chuỗi `cause` (vòng
   đầu kiểm chính lỗi được ném), khớp mã lỗi và tên
   constraint/chỉ số, và bắt buộc có spec ca âm tính (va chạm khác
   không được nhận diện nhầm) chạy trên database thật.
-- **Khoá hàng.** `select … for update` của Drizzle chuyển thành
-  `.forUpdate()` trên select builder; phương thức đọc kèm khoá
+- **Khoá hàng.** Khoá hàng dùng `.forUpdate()` trên select builder; phương thức đọc kèm khoá
   bắt buộc nhận handle giao dịch tường minh.
 - **Kiểu runtime (thử nghiệm T-7, đã đo).** `timestamptz` đọc
   thành `Date` ở cả hai ORM; `int8` đọc thành `string` (không bật

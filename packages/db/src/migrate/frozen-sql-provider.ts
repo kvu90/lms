@@ -3,7 +3,7 @@
  * đọc các file SQL trong `packages/db/migrations/<kho>/` và biến
  * mỗi thư mục migration thành một migration Kysely. Thư mục của
  * một kho chứa hai loại migration cùng khuôn file `migration.sql`:
- * carrier đóng băng (migration thời Drizzle, giữ nguyên từng byte)
+ * carrier đóng băng (migration thời bộ máy cũ, giữ nguyên từng byte)
  * và migration native (viết tay sau chiến dịch chuyển ORM). Provider
  * liệt kê và áp CẢ HAI loại; diện nào là carrier do danh sách đóng
  * băng trong `stores.ts` (`MigrationStore.carrierNames`) quyết
@@ -15,7 +15,7 @@
  * `.sql`, phải được thực thi đúng như SQL gốc — không dịch lại,
  * không sinh lại, không bọc thành chuỗi trong file `.ts`.
  *
- * Kỷ luật migration (giữ nguyên từ thời Drizzle):
+ * Kỷ luật migration (giữ nguyên từ thời bộ máy cũ):
  * - Tên migration = tên thư mục (mở đầu bằng dấu thời gian) — tên
  *   này là khoá danh tính mà fleet/provision và sổ đăng ký đối
  *   chiếu, nên provider liệt kê thư mục theo thứ tự tên tăng dần
@@ -38,7 +38,7 @@ import { join } from 'node:path';
 import { sql } from 'kysely';
 import type { Migration, MigrationProvider } from 'kysely/migration';
 
-/** Dấu phân tách câu lệnh trong file migration — cùng dấu bộ máy Drizzle dùng. */
+/** Dấu phân tách câu lệnh trong file migration — cùng dấu bộ máy bộ máy cũ dùng. */
 const STATEMENT_BREAKPOINT = '--> statement-breakpoint';
 
 /**

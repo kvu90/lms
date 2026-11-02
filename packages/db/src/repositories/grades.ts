@@ -3,7 +3,7 @@ import type { CentreDb, CentreTx } from '../client';
 /**
  * Kho dữ liệu điểm theo bài trên Kysely (issue #644, nhóm G4 của
  * chiến dịch chuyển tầng dữ liệu sang Kysely): TOÀN BỘ bề mặt của
- * `GradesRepository` cũ ở `apps/api` (Drizzle) được chuyển nguyên
+ * `GradesRepository` cũ ở `apps/api`  được chuyển nguyên
  * vẹn sang đây — grade item (một item = một bài/hoạt động), điểm
  * theo user, lịch sử điểm và vết công bố cấp bài.
  *
@@ -18,7 +18,7 @@ import type { CentreDb, CentreTx } from '../client';
  *   `upsertGrade`: tập trường của nhánh xung đột (composite
  *   `(item_id, user_id)`) chỉ gồm các trường phía gọi THẬT SỰ
  *   truyền — trường `undefined` bị loại khỏi cả hai nhánh
- *   insert/update như bản Drizzle cũ bỏ qua — cộng `updated_at`
+ *   insert/update như bản cũ trước chuyển đổi bỏ qua — cộng `updated_at`
  *   luôn làm mới.
  * - Khoá chính `uuidv7()` do database sinh (phụ lục U của kế
  *   hoạch): insert bỏ qua `id` và lấy dòng qua `returning`.
@@ -27,17 +27,14 @@ import type { CentreDb, CentreTx } from '../client';
  *   hoặc handle giao dịch) để phía gọi lồng thao tác vào giao
  *   dịch của mình.
  *
- * Điểm chuyển tiếp phía api (cùng họ ngoại lệ C-7/C-8, xem
- * CORRECTIONS.md của chiến dịch): ba luồng ghi điểm của
- * GradesService (`setGrade`, `recordActivityGrade`, `updateGrade`)
- * phải giữ nguyên tử trọn gói — dòng điểm + dòng lịch sử + dòng
- * outbox `grade_updated` trong MỘT giao dịch — mà phía outbox vẫn
- * ở Drizzle (chủ sở hữu là đợt D1, issue #653) nên ba luồng đó TẠM
- * giữ 100% phía Drizzle qua `GradesTransitionalRepository` phía
- * api; bề mặt Kysely ở file này là điểm ghi chuẩn của chúng sau
- * khi lật. Chủ đóng: issue #653 — khi OutboxService chuyển sang
- * Kysely, ba luồng lật sang `transaction` + các phương thức ở đây
- * và file chuyển tiếp bị xoá; issue #663 đối chiếu không còn sót.
+ * Ba luồng ghi điểm của GradesService (`setGrade`,
+ * `recordActivityGrade`, `updateGrade`) giữ nguyên tử trọn gói —
+ * dòng điểm + dòng lịch sử + dòng outbox `grade_updated` trong
+ * MỘT giao dịch — và chạy trên chính bề mặt này:
+ * `transaction` + `upsertGrade`/`updateGrade`/`insertHistory`
+ * kèm `enqueueKysely` của OutboxService (lật ở issue #663 khi
+ * repository chuyển tiếp phía bộ máy cũ bị xoá cùng đợt gỡ
+ * bộ máy cũ khỏi cây).
  */
 
 /** Dòng `grade_items`. */
@@ -316,7 +313,7 @@ function gradeInsertValues(v: NewGrade) {
 
 /**
  * Tập trường của nhánh xung đột của `upsertGrade`: đúng mười một
- * trường nghiệp vụ của bản Drizzle cũ — trường nào phía gọi không
+ * trường nghiệp vụ của bản cũ trước chuyển đổi — trường nào phía gọi không
  * truyền (`undefined`) thì KHÔNG xuất hiện trong SET (giữ nguyên
  * giá trị đang có của dòng), `null` thì ghi NULL tường minh;
  * `updated_at` luôn làm mới (rủi ro R-G4-2 của hồ sơ chuẩn bị,

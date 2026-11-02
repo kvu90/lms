@@ -22,7 +22,7 @@
  *
  * Kiểu của từng hàng suy bằng `Selectable`/`Insertable`/`Updateable`
  * của Kysely trên interface schema, thay cho `$inferSelect`/
- * `$inferInsert` của Drizzle, ví dụ:
+ * `$inferInsert` của bộ máy cũ, ví dụ:
  * `Selectable<CentreDB['tenants']>`.
  */
 import { Kysely, PostgresDialect, type Transaction } from 'kysely';
