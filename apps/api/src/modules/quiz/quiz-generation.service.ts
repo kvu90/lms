@@ -4,7 +4,7 @@ import { getTrueFalseStatements, TRUE_FALSE_STATEMENT_COUNT } from '@lms/contrac
 import { OutboxService } from '../../infra/events/outbox.service';
 import { CurriculumService } from '../curriculum/curriculum.service';
 import { QuestionsService, type QuestionView } from '../questions/questions.service';
-import { QUIZ_PIN_ATTEMPTS_LIMIT, QuizRepository, type ExamMatrixCellRow, type ExamMatrixRow } from './quiz.repository';
+import { QUIZ_PIN_ATTEMPTS_LIMIT, QuizRepository, type ExamMatrixCellRow, type ExamMatrixRow } from '@lms/db/repositories/quiz';
 import { QuizSharedService } from './quiz-shared.service';
 import { QuizAttemptsService } from './quiz-attempts.service';
 import { QUIZ_COMPONENT } from './quiz-shared.service';

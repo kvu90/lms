@@ -17,7 +17,7 @@ import {
   type ExamMatrixRow,
   type ExamAttemptRow,
   type ExamPinRow,
-} from './quiz.repository';
+} from '@lms/db/repositories/quiz';
 import type { PinRow, EffectiveSlotRow } from './quiz.service';
 
 export const QUIZ_COMPONENT = 'mod_quiz';

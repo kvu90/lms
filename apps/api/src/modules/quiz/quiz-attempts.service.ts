@@ -27,7 +27,7 @@ import {
   type ExamAttemptEventRow,
   type ExamAttemptRow,
   type ExamPinOverrideRow,
-} from './quiz.repository';
+} from '@lms/db/repositories/quiz';
 import { QuizSharedService } from './quiz-shared.service';
 import { QUIZ_COMPONENT } from './quiz-shared.service';
 import { QUIZ_CAPABILITIES } from './quiz-shared.service';
