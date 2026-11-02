@@ -8,12 +8,12 @@ import type { CourseRow } from './courses';
  * `ClassesRepository` cũ ở `apps/api` (Drizzle) được chuyển nguyên
  * vẹn sang đây — bảng `classes`, các truy vấn vật chất hoá phía lớp
  * (khoá của lớp, ghi danh active/đình chỉ suy từ instance cohort),
- * mã tham gia và hàng chờ tự báo danh. Riêng ba lệnh ghi của giao
- * dịch tạo lớp (cohort nền, dòng lớp, nối context cho cohort)
- * KHÔNG nằm ở đây: giao dịch tạo lớp còn giữ phía Drizzle theo
- * điểm dừng của điểm nối C-8/B (xem `CORRECTIONS.md` của chiến
- * dịch) nên chúng sống ở repository chuyển tiếp phía api cho tới
- * khi đợt access (#651) lật giao dịch đó sang Kysely.
+ * mã tham gia và hàng chờ tự báo danh. Ba lệnh ghi của giao dịch
+ * tạo lớp (cohort nền qua repository groups, dòng lớp qua
+ * `insertClass` tại đây, nối context cho cohort qua
+ * `updateCohort` của repository groups) đã lật sang Kysely cùng
+ * đợt access (#651) khi điểm nối C-8/B được hấp thụ: giao dịch
+ * tạo lớp nay mở bằng `transaction` của repository này.
  *
  * Khuôn truy vấn theo đúng pilot kho control plane (issue #640):
  * - Cột đọc khai tường minh kèm bí danh camelCase dùng chung cho
@@ -71,7 +71,7 @@ export interface ClassRow {
   updatedAt: Date;
 }
 
-/** Dòng `cohort` (chỉ đọc tại đây — ghi cohort thuộc repository groups và repository chuyển tiếp của giao dịch tạo lớp). */
+/** Dòng `cohort` (chỉ đọc tại đây — ghi cohort thuộc repository groups). */
 export interface CohortRow {
   id: string;
   tenantId: string;
@@ -101,6 +101,21 @@ export interface ClassJoinRequestRow {
 // ---------------------------------------------------------------------------
 // Kiểu ghi vào (khớp `$inferInsert` của repository cũ)
 // ---------------------------------------------------------------------------
+
+/** Giá trị chèn `classes` (id do database sinh bằng uuidv7; các trường còn lại theo mặc định của bảng khi bỏ qua). */
+export interface NewClass {
+  tenantId: string;
+  name: string;
+  code?: string | null;
+  schoolYear?: string | null;
+  ownerId: string;
+  cohortId: string;
+  allowSelfReport?: boolean;
+  joinCode?: string | null;
+  onLeave?: string;
+  status?: string;
+  description?: string;
+}
 
 /** Giá trị chèn `class_join_requests`. */
 export interface NewClassJoinRequest {
@@ -176,6 +191,22 @@ const CLASS_COURSE_COLUMNS = [
 // ---------------------------------------------------------------------------
 // Ánh xạ ghi: loại `undefined` tường minh từng trường (T-4).
 // ---------------------------------------------------------------------------
+
+function classInsertValues(v: NewClass) {
+  return {
+    tenant_id: v.tenantId,
+    name: v.name,
+    ...(v.code !== undefined ? { code: v.code } : {}),
+    ...(v.schoolYear !== undefined ? { school_year: v.schoolYear } : {}),
+    owner_id: v.ownerId,
+    cohort_id: v.cohortId,
+    ...(v.allowSelfReport !== undefined ? { allow_self_report: v.allowSelfReport } : {}),
+    ...(v.joinCode !== undefined ? { join_code: v.joinCode } : {}),
+    ...(v.onLeave !== undefined ? { on_leave: v.onLeave } : {}),
+    ...(v.status !== undefined ? { status: v.status } : {}),
+    ...(v.description !== undefined ? { description: v.description } : {}),
+  };
+}
 
 function classUpdateValues(v: Partial<ClassRow>) {
   return {
@@ -269,6 +300,16 @@ export class ClassesRepository {
       .where('tenant_id', '=', tenantId)
       .orderBy('created_at', 'asc')
       .execute() as Promise<ClassRow[]>;
+  }
+
+  /** Chèn lớp mới; nhận handle giao dịch khi gọi trong transaction tạo lớp. */
+  async insertClass(v: NewClass, tx?: ClassesDb): Promise<ClassRow> {
+    const db = tx ?? this.handle;
+    return db
+      .insertInto('classes')
+      .values(classInsertValues(v))
+      .returning(CLASS_COLUMNS)
+      .executeTakeFirstOrThrow() as Promise<ClassRow>;
   }
 
   /** Cập nhật lớp. */

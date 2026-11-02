@@ -10,12 +10,12 @@ import {
 } from '../../../src/modules/tenants/space-provision-runner';
 import { deriveCentreSecretEnvVar } from '../../../src/modules/tenants/centre-provision';
 import { FleetRegistryWriter } from '../../../src/modules/fleet/fleet-registry-writer';
-import { AccessRepository } from '../../../src/modules/access/access.repository';
+import { AccessRepository } from '@lms/db/repositories/access';
+import { createCentreKysely, sql as kyselySql } from '@lms/db';
 import { ContextsService } from '../../../src/modules/access/contexts.service';
 import { RolesService } from '../../../src/modules/access/roles.service';
 import { PlanLimitsService } from '../../../src/modules/access/plan-limits.service';
 import { RoleSeparationService } from '../../../src/modules/access/role-separation.service';
-import { createCentreKysely } from '@lms/db';
 import { OutboxService } from '../../../src/infra/events/outbox.service';
 import { relations } from '../../../src/db/relations';
 import { DEFAULT_ROLES } from '../../../src/modules/access/domain/capabilities';
@@ -174,19 +174,30 @@ async function seedSharedStoreDefaults(connectionString: string): Promise<void> 
   await withClient(connectionString, async (client) => {
     await client.query(`SELECT set_config('app.platform', 'on', false)`);
     const db = drizzle({ client, relations });
-    const accessRepository = new AccessRepository(db);
-    const rolesService = new RolesService(
-      accessRepository,
-      new ContextsService(accessRepository),
-      // OutboxService đã chuyển sang handle Kysely (D1, issue
-      // #653): handle trỏ đúng kho đang gieo; `seedDefaults`
-      // không phát sự kiện qua outbox nên pool lười này không
-      // mở kết nối nào.
-      new OutboxService(createCentreKysely(new Pool({ connectionString }))),
-      new PlanLimitsService(db),
-      new RoleSeparationService(db),
-    );
-    await rolesService.seedDefaults();
+    // AccessRepository nay nhận handle Kysely (issue #651): pool
+    // riêng trần 1 kết nối trên cùng connection string, GUC
+    // platform ở mức phiên như client Drizzle bên cạnh; hai
+    // service còn lại vẫn ở Drizzle trên `db`.
+    const accessPool = new Pool({ connectionString, max: 1 });
+    const accessDb = createCentreKysely(accessPool);
+    try {
+      await kyselySql`SELECT set_config('app.platform', 'on', false)`.execute(accessDb);
+      const accessRepository = new AccessRepository(accessDb);
+      const rolesService = new RolesService(
+        accessRepository,
+        new ContextsService(accessRepository),
+        // OutboxService đã chuyển sang handle Kysely (D1, issue
+        // #653): handle trỏ đúng kho đang gieo; `seedDefaults`
+        // không phát sự kiện qua outbox nên pool lười này không
+        // mở kết nối nào.
+        new OutboxService(createCentreKysely(new Pool({ connectionString }))),
+        new PlanLimitsService(db),
+        new RoleSeparationService(db),
+      );
+      await rolesService.seedDefaults();
+    } finally {
+      await accessDb.destroy().catch(() => undefined);
+    }
   });
 }
 

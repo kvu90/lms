@@ -2,11 +2,11 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { createHash } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
 import { extractRichTextPlainText, getTrueFalseStatements, TRUE_FALSE_STATEMENT_COUNT, type RichTextDocument } from '@lms/contracts';
-import type { DbTx } from '../../db/database';
+import type { CentreTx } from '@lms/db';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { CAP_ALLOW } from '../access/domain/permission';
-import { type ContextRow } from '../access/access.repository';
+import { type ContextRow } from '@lms/db/repositories/access';
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { RolesService } from '../access/roles.service';
@@ -21,7 +21,6 @@ import {
 } from '@lms/db/repositories/questions';
 import { QuestionsService, type QuestionView, type SupportedQtype } from './questions.service';
 import { QuestionBanksRepository, BANK_KINDS, type BankKind, type ContributionRow, type QuestionBankRow } from '@lms/db/repositories/question-banks';
-import { QuestionBanksTransitionalRepository } from './question-banks-transitional.repository';
 
 /** Vai chuyên dụng của lớp bank, gán TẠI context của từng bank (không phải archetype toàn cục). */
 export const QBANK_MEMBER_ROLE = 'qbankmember';
@@ -88,7 +87,6 @@ export interface AttributionView {
 export class QuestionBanksService {
   constructor(
     private readonly repo: QuestionBanksRepository,
-    private readonly txRepo: QuestionBanksTransitionalRepository,
     private readonly questionsRepo: QuestionsRepository,
     private readonly questions: QuestionsService,
     private readonly contexts: ContextsService,
@@ -131,12 +129,12 @@ export class QuestionBanksService {
   }
 
   /** Đặt override ALLOW cho một vai tại context bank (idempotent). */
-  private async grantCaps(roleId: string, contextId: string, caps: string[], tx?: DbTx): Promise<void> {
+  private async grantCaps(roleId: string, contextId: string, caps: string[], tx?: CentreTx): Promise<void> {
     for (const cap of caps) await this.roles.setCapabilityOverride(roleId, cap, contextId, CAP_ALLOW, undefined, tx);
   }
 
   /** Gán vai tại context bank nếu chưa có (gán trùng là no-op ở RolesService). */
-  private async ensureAssignment(userId: string, roleId: string, contextId: string, tx?: DbTx): Promise<void> {
+  private async ensureAssignment(userId: string, roleId: string, contextId: string, tx?: CentreTx): Promise<void> {
     const existing = await this.roles.listAssignments({ userId, contextId }, tx);
     if (!existing.some((a) => (a as { roleId: string }).roleId === roleId)) {
       await this.roles.assignRole(userId, roleId, contextId, undefined, undefined, tx);
@@ -172,19 +170,18 @@ export class QuestionBanksService {
     const kind = input.bankKind ?? 'question';
     const { memberRoleId, leadRoleId } = await this.ensureBankRoles();
     const bankId = uuidv7();
-    return this.txRepo.transaction(async (tx) => {
+    return this.repo.transaction(async (tx) => {
       const ctx = await this.contexts.createContext(input.contextLevel, bankId, input.parentContextId, tx);
-      const bank = await this.txRepo.insertBankTx({
+      const bank = await this.repo.insertBank({
         id: bankId, tenantId: input.tenantId, name: input.name, scope: input.scope, bankKind: kind, ownerId: input.ownerId,
         scopeRefId: input.scopeRefId, contextId: ctx.id, createdBy: actorId,
       }, tx);
       // Category mặc định chỉ thuộc về bank câu hỏi; bank đề/ma trận không có question_categories.
-      // Ghi qua điểm chuyển tiếp C-7 (insertCategoryTx phía QuestionBanksTransitionalRepository):
-      // transaction này là Drizzle (DL-09) nên không truyền được cho
-      // insertCategory phía Kysely của QuestionsRepository — xem C-7
-      // trong CORRECTIONS.md của chiến dịch và comment ở điểm chuyển tiếp.
+      // Điểm chuyển tiếp C-7 đã được hấp thụ ở đợt access (#651):
+      // giao dịch này nay mở phía Kysely nên category mặc định ghi
+      // thẳng qua `QuestionsRepository.insertCategory`.
       if (kind === 'question') {
-        await this.txRepo.insertCategoryTx({
+        await this.questionsRepo.insertCategory({
           name: 'Mặc định', contextId: ctx.id, bankId: bank.id, info: '', parent: null,
           stamp: `qbank-${Date.now().toString(36)}-${bank.id.slice(0, 8)}`,
         }, tx);
@@ -193,7 +190,7 @@ export class QuestionBanksService {
       await this.grantCaps(leadRoleId, ctx.id, leadCapsForKind(kind), tx);
       const leadUserId = input.ownerId ?? input.leadUserId ?? null;
       if (leadUserId) await this.ensureAssignment(leadUserId, leadRoleId, ctx.id, tx);
-      await this.outbox.enqueue(tx, {
+      await this.outbox.enqueueKysely(tx, {
         aggregate: 'question_bank', type: 'question_bank_created',
         payload: { bankId: bank.id, scope: bank.scope, scopeRefId: bank.scopeRefId, ownerId: bank.ownerId, actorId },
         tenantId: input.tenantId,

@@ -99,7 +99,7 @@ import {
   retargetUrl,
 } from '../fleet/fleet-common';
 import { FleetRegistryWriter } from '../fleet/fleet-registry-writer';
-import { AccessRepository } from '../access/access.repository';
+import { AccessRepository } from '@lms/db/repositories/access';
 import { ContextsService } from '../access/contexts.service';
 import { RolesService } from '../access/roles.service';
 import { PlanLimitsService } from '../access/plan-limits.service';
@@ -287,7 +287,15 @@ const ROLE_BASELINE_MARKER_VERSION = 1;
  *   bộ nào.
  *
  * @param db - Handle Drizzle của kho đích (kết nối đã mang ngữ
- *   cảnh platform để qua RLS như mọi ghi seed của pipeline).
+ *   cảnh platform để qua RLS như mọi ghi seed của pipeline) —
+ *   phục vụ hai service còn ở Drizzle (plan-limits,
+ *   role-separation).
+ * @param accessDb - Handle Kysely của kho đích (pool riêng trần
+ *   1 kết nối đã mang GUC platform ở mức phiên — seed ghi qua
+ *   AccessRepository phải qua RLS FORCE như mọi ghi seed khác;
+ *   AccessRepository nay nhận CentreDb nên không dùng chung
+ *   handle Drizzle được nữa, cùng khuôn pool riêng của bước
+ *   restore gói chương trình).
  * @param outboxDb - Handle Kysely của đúng kho đích cho
  *   `OutboxService` (service đã chuyển sang Kysely ở D1, issue
  *   #653). Closure này chỉ gọi `listRoles`/`seedDefaults` — cả
@@ -298,8 +306,8 @@ const ROLE_BASELINE_MARKER_VERSION = 1;
  *   mốc hoàn tất, `reused` khi kho đã cài trọn bộ vai nên không
  *   đổi gì.
  */
-async function installCentreRoleBaseline(db: Database, outboxDb: CentreDb): Promise<'created' | 'reused'> {
-  const accessRepository = new AccessRepository(db);
+async function installCentreRoleBaseline(db: Database, accessDb: CentreDb, outboxDb: CentreDb): Promise<'created' | 'reused'> {
+  const accessRepository = new AccessRepository(accessDb);
   const contextsService = new ContextsService(accessRepository);
   const rolesService = new RolesService(
     accessRepository,
@@ -643,7 +651,14 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
       // xem `installCentreRoleBaseline`): cài sau khi context hệ
       // thống và dòng tenant đã có, vì ma trận mặc định neo vào
       // context hệ thống của chính kho này.
-      step('role-baseline', await installCentreRoleBaseline(db, createCentreKysely(new Pool({ connectionString: centreUrl }))));
+      const accessPool = new Pool({ connectionString: centreUrl, max: 1 });
+      const accessDb = createCentreKysely(accessPool);
+      try {
+        await kyselySql`SELECT set_config('app.platform', 'on', false)`.execute(accessDb);
+        step('role-baseline', await installCentreRoleBaseline(db, accessDb, createCentreKysely(new Pool({ connectionString: centreUrl }))));
+      } finally {
+        await accessDb.destroy().catch(() => undefined);
+      }
       // Nhận diện của trung tâm (một dòng cho mỗi tenant).
       const [existingIdentity] = await db.select().from(centreIdentity).where(eq(centreIdentity.tenantId, tenantId)).limit(1);
       if (!existingIdentity) {
@@ -882,7 +897,15 @@ export async function installSpaceRoleBaseline(options: SpaceRoleBaselineOptions
       const db = drizzle({ client, relations });
       const [tenant] = await db.select().from(tenants).where(eq(tenants.slug, slug)).limit(1);
       if (!tenant) throw new Error(`Tenant ${slug} does not exist in the centre database yet`);
-      const outcome = await installCentreRoleBaseline(db, createCentreKysely(new Pool({ connectionString: centreUrl })));
+      const accessPool = new Pool({ connectionString: centreUrl, max: 1 });
+      const accessDb = createCentreKysely(accessPool);
+      let outcome: 'created' | 'reused';
+      try {
+        await kyselySql`SELECT set_config('app.platform', 'on', false)`.execute(accessDb);
+        outcome = await installCentreRoleBaseline(db, accessDb, createCentreKysely(new Pool({ connectionString: centreUrl })));
+      } finally {
+        await accessDb.destroy().catch(() => undefined);
+      }
       log(`[install-roles:${slug}] role-baseline: ${outcome}`);
       return { slug, outcome };
     } finally {

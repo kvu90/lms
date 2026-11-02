@@ -20,11 +20,10 @@ import type { CentreDb, CentreTx } from '../client';
  *   `addCohortMember` suy luận "đã chèn thật hay chưa" từ độ dài
  *   của `returning` như bản cũ.
  *
- * `removeCohortMember` nhận handle tuỳ chọn (mặc định handle
- * thường): đường gỡ thành viên TRONG transaction của bên gọi
- * (settle hoàn tiền — điểm nối C-8/C, đã đóng ở #656) truyền
- * transaction của bên gọi vào để việc gỡ và ghi sổ hoàn commit
- * cùng nhau.
+ * `removeCohortMember` của repository này luôn chạy trên handle
+ * thường: đường gỡ thành viên TRONG transaction Drizzle của bên
+ * gọi (settle hoàn tiền — điểm nối C-8/C của chiến dịch) sống ở
+ * repository chuyển tiếp phía api, không ở đây.
  *
  * Bề mặt kiểu dòng giữ đúng hình dạng `$inferSelect` của
  * repository cũ để phía tiêu thụ trong module groups không đổi
@@ -424,9 +423,10 @@ export class GroupsRepository {
       .execute() as Promise<GroupRow[]>;
   }
 
-  /** Chèn cohort. */
-  async insertCohort(v: NewCohort): Promise<CohortRow> {
-    return this.handle
+  /** Chèn cohort; nhận handle giao dịch khi gọi trong transaction tạo lớp. */
+  async insertCohort(v: NewCohort, tx?: GroupsDb): Promise<CohortRow> {
+    const db = tx ?? this.handle;
+    return db
       .insertInto('cohort')
       .values(cohortInsertValues(v))
       .returning(COHORT_COLUMNS)
@@ -451,9 +451,10 @@ export class GroupsRepository {
       .execute() as Promise<CohortRow[]>;
   }
 
-  /** Cập nhật cohort. */
-  async updateCohort(id: string, v: Partial<NewCohort>): Promise<void> {
-    await this.handle
+  /** Cập nhật cohort; nhận handle giao dịch khi gọi trong transaction tạo lớp. */
+  async updateCohort(id: string, v: Partial<NewCohort>, tx?: GroupsDb): Promise<void> {
+    const db = tx ?? this.handle;
+    await db
       .updateTable('cohort')
       .set({ ...cohortUpdateValues(v), updated_at: new Date() })
       .where('id', '=', id)
@@ -477,8 +478,8 @@ export class GroupsRepository {
   }
 
   /** Gỡ thành viên cohort; trả `true` khi có dòng bị xoá. */
-  async removeCohortMember(cohortId: string, userId: string, db: GroupsDb = this.handle): Promise<boolean> {
-    const deleted = await db
+  async removeCohortMember(cohortId: string, userId: string): Promise<boolean> {
+    const deleted = await this.handle
       .deleteFrom('cohort_members')
       .where('cohort_id', '=', cohortId)
       .where('user_id', '=', userId)

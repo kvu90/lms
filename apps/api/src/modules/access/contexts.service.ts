@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
-import { AccessRepository, type ContextRow } from './access.repository';
+import { AccessRepository, type ContextRow } from '@lms/db/repositories/access';
+import type { CentreTx } from '@lms/db';
 import { CONTEXT_LEVELS } from './domain/capabilities';
-import type { DbTx } from '../../db/database';
 
 @Injectable()
 /**
@@ -18,7 +18,7 @@ export class ContextsService {
   /**
    * Đảm bảo context hệ thống (level CONTEXT_SYSTEM, instance 0) tồn tại; idempotent.
    */
-  async ensureSystemContext(tx?: DbTx): Promise<ContextRow> {
+  async ensureSystemContext(tx?: CentreTx): Promise<ContextRow> {
     const existing = await this.repo.getContextByLevelInstance(CONTEXT_LEVELS.SYSTEM, null, tx);
     if (existing) return existing;
     const row = await this.repo.insertContext({ contextLevel: CONTEXT_LEVELS.SYSTEM, instanceId: null, path: '', depth: 0 }, tx);
@@ -49,7 +49,7 @@ export class ContextsService {
   /**
    * Tạo context con dưới một context cha, tính path/depth; cha không tồn tại → lỗi access.parent_context_not_found.
    */
-  async createContext(contextLevel: number, instanceId: string, parentId?: string, tx?: DbTx): Promise<ContextRow> {
+  async createContext(contextLevel: number, instanceId: string, parentId?: string, tx?: CentreTx): Promise<ContextRow> {
     const existing = await this.repo.getContextByLevelInstance(contextLevel, instanceId, tx);
     if (existing) return existing;
     const parent = contextLevel === CONTEXT_LEVELS.SYSTEM
@@ -69,7 +69,7 @@ export class ContextsService {
    * trả NotFound thay vì để DB ném lỗi cú pháp uuid: các guard chạy
    * trước pipe validate nên id thô trên URL tới được đây.
    */
-  async getContext(id: string, tx?: DbTx): Promise<ContextRow> {
+  async getContext(id: string, tx?: CentreTx): Promise<ContextRow> {
     const row = uuidIdSchema.safeParse(id).success ? await this.repo.getContextById(id, tx) : undefined;
     if (!row) throw new NotFoundException({ message: `Context ${id} not found`, code: 'access.context_not_found' });
     return row;
@@ -154,7 +154,7 @@ export class ContextsService {
   /**
    * Đánh dấu cây context đã đổi để các cache phụ thuộc phải tính lại.
    */
-  async markContextDirty(contextId: string, tx?: DbTx): Promise<void> {
+  async markContextDirty(contextId: string, tx?: CentreTx): Promise<void> {
     const ctx = await this.repo.getContextById(contextId, tx);
     if (ctx) await this.repo.bumpContextVersions(ctx.path, tx);
   }

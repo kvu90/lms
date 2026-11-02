@@ -2,16 +2,14 @@ import { ForbiddenException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import type { Queue } from 'bullmq';
 import type { Cache } from 'cache-manager';
-import { PgDialect } from 'drizzle-orm/pg-core';
 import { describe, expect, it, vi } from 'vitest';
-import type { Database } from '../../db/database';
-import { tenantMemberships, tenants } from '../../db/schema';
+import type { CentreDb } from '@lms/db';
+import { AccessRepository, type ContextRow } from '@lms/db/repositories/access';
 import type { FileSigningService } from '../files/file-signing.service';
 import type { FileRow, FilesRepository } from '@lms/db/repositories/files';
 import { FilesService } from '../files/files.service';
 import type { ObjectStorage } from '../files/storage';
 import { tenantAls } from '../tenants/tenant-als';
-import { AccessRepository, type ContextRow } from './access.repository';
 import type { ContextsService } from './contexts.service';
 import { CONTEXT_LEVELS } from './domain/capabilities';
 import { PermissionEvaluator } from './permission-evaluator.service';
@@ -34,9 +32,11 @@ import { PermissionEvaluator } from './permission-evaluator.service';
  * Spec này mô phỏng đúng cơ chế đó bằng một tầng cơ sở dữ liệu giả lập
  * áp chính sách RLS lên hai bảng cổng theo ngữ cảnh `tenantAls` tại
  * thời điểm truy vấn, và chốt cả hai nửa của bản sửa:
- *   - Nửa đường đọc (AccessRepository đọc dữ kiện cổng trong ngữ cảnh
- *     platform tường minh): các ca ở describe đầu và ca thành viên ở
- *     describe evaluator — gỡ nửa này thì dữ kiện cổng lại vô hình và
+ *   - Nửa đường đọc (evaluator lập ngữ cảnh platform tường minh qua
+ *     `platformScope` trước khi repository đọc dữ kiện cổng — ranh
+ *     giới mới từ issue #651: repository KHÔNG tự lập ngữ cảnh):
+ *     các ca ở describe evaluator và ca thành viên ở describe
+ *     evaluator — gỡ nửa này thì dữ kiện cổng lại vô hình và
  *     các ca đó đỏ (thành viên bị chặn oan bởi nửa fail-closed).
  *   - Nửa fail-closed (path có context tenant mà dữ kiện cổng không
  *     xác minh được thì từ chối): các ca ở describe "fail-closed" —
@@ -84,11 +84,17 @@ const ROLES: Record<string, { id: string; shortName: string }> = {
 };
 
 // ---------------------------------------------------------------------------
-// Tầng cơ sở dữ liệu giả lập áp chính sách FORCE RLS của baseline lên
-// đúng hai bảng cổng: một dòng chỉ "thấy được" khi ngữ cảnh tenantAls
-// tại thời điểm truy vấn là platform, hoặc dòng thuộc tenant của ngữ
-// cảnh đó. Mọi bảng khác không được AccessRepository chạm qua các phép
-// đọc cổng, nên tầng giả lập chỉ phục vụ hai bảng này.
+// Tầng cơ sở dữ liệu giả lập hình Kysely áp chính sách FORCE RLS của
+// baseline lên đúng hai bảng cổng: một dòng chỉ "thấy được" khi ngữ
+// cảnh tenantAls tại thời điểm truy vấn là platform, hoặc dòng thuộc
+// tenant của ngữ cảnh đó. Fake bắt chước đúng chuỗi builder mà
+// AccessRepository gọi (`selectFrom` → `select` → `where` →
+// `execute` / `executeTakeFirst`), ghi lại các bộ ba where rồi áp RLS
+// + chiếu cột lúc thực thi — đúng thời điểm RLS thật có hiệu lực
+// (lúc truy vấn, không phải lúc dựng builder), nên ngữ cảnh platform
+// mà evaluator lập quanh điểm gọi mới làm dữ kiện hiện ra. Mọi bảng
+// khác không được AccessRepository chạm qua các phép đọc cổng, nên
+// tầng giả lập chỉ phục vụ hai bảng này.
 // ---------------------------------------------------------------------------
 
 const TENANT_ROWS = [
@@ -97,38 +103,58 @@ const TENANT_ROWS = [
 ];
 const MEMBERSHIP_ROWS = [{ tenantId: 'tenant-b', userId: 'user-member', status: 'active' }];
 
-const dialect = new PgDialect();
+/** Ánh xạ cột DB (snake_case) → trường dòng giả lập của từng bảng cổng. */
+const COLUMN_FIELDS: Record<string, Record<string, string>> = {
+  tenants: { id: 'id', kind: 'kind', status: 'status' },
+  tenant_memberships: { tenant_id: 'tenantId', user_id: 'userId', status: 'status' },
+};
 
-function makeRlsDb(): Database {
+function makeRlsDb(): CentreDb {
   const visible = (rowTenantId: string): boolean => {
     const store = tenantAls.getStore();
     return store?.platform === true || store?.tenantId === rowTenantId;
   };
-  const select = (fields: Record<string, unknown>) => ({
-    from: (table: unknown) => ({
-      where: (cond: unknown) => {
-        const params = dialect.sqlToQuery(cond as never).params.map(String);
-        let rows: Record<string, unknown>[];
-        if (table === tenants) {
-          rows = TENANT_ROWS.filter((r) => visible(r.id) && params.includes(r.id));
-        } else if (table === tenantMemberships) {
-          rows = MEMBERSHIP_ROWS.filter((r) => visible(r.tenantId) && params.includes(r.tenantId) && params.includes(r.userId));
-        } else {
-          rows = [];
+  const selectFrom = (table: string) => {
+    const wheres: { column: string; op: string; value: unknown }[] = [];
+    let columns: string[] = [];
+    const run = (): Record<string, unknown>[] => {
+      const fields = COLUMN_FIELDS[table];
+      const source = table === 'tenants' ? TENANT_ROWS : table === 'tenant_memberships' ? MEMBERSHIP_ROWS : [];
+      const tenantField = table === 'tenants' ? 'id' : 'tenantId';
+      const matched = (source as Record<string, unknown>[]).filter((row) => {
+        if (!visible(String(row[tenantField]))) return false;
+        return wheres.every(({ column, op, value }) => {
+          const actual = row[fields[column]];
+          if (op === 'in') return (value as unknown[]).includes(actual);
+          return actual === value;
+        });
+      });
+      // Chiếu đúng các cột đã select, dịch bí danh `x as y` thành
+      // khoá y như Kysely làm với danh sách cột có bí danh.
+      return matched.map((row) => {
+        const out: Record<string, unknown> = {};
+        for (const column of columns) {
+          const [sourceColumn, alias] = column.split(' as ');
+          out[alias ?? sourceColumn] = row[fields[sourceColumn]];
         }
-        // Chiếu đúng các cột đã select: khoá của object select là tên
-        // thuộc tính phía TypeScript, trùng tên cột của dòng giả lập.
-        return Promise.resolve(
-          rows.map((r) => {
-            const out: Record<string, unknown> = {};
-            for (const key of Object.keys(fields)) out[key] = r[key];
-            return out;
-          }),
-        );
+        return out;
+      });
+    };
+    const builder = {
+      select: (cols: string[]) => {
+        columns = cols;
+        return builder;
       },
-    }),
-  });
-  return { select } as unknown as Database;
+      where: (column: string, op: string, value: unknown) => {
+        wheres.push({ column, op, value });
+        return builder;
+      },
+      execute: async () => run(),
+      executeTakeFirst: async () => run()[0],
+    };
+    return builder;
+  };
+  return { selectFrom } as unknown as CentreDb;
 }
 
 // ---------------------------------------------------------------------------
@@ -210,24 +236,23 @@ const inForeignSession = <T>(fn: () => Promise<T>): Promise<T> => tenantAls.run(
 
 // ---------------------------------------------------------------------------
 
-describe('AccessRepository — dữ kiện cổng đọc ở ngữ cảnh platform (mô phỏng FORCE RLS)', () => {
+describe('AccessRepository — repository KHÔNG tự lập ngữ cảnh platform (ranh giới issue #651, mô phỏng FORCE RLS)', () => {
   const repo = new AccessRepository(makeRlsDb());
 
-  it('đọc được thông tin của tenant đích khi phiên bao quanh là tenant khác', async () => {
+  it('đọc trực tiếp trong phiên tenant khác thì dữ kiện cổng bị RLS che — repository không tự lập ngữ cảnh', async () => {
     await inForeignSession(async () => {
-      await expect(repo.getTenantGateInfo('tenant-b')).resolves.toEqual({ kind: 'center', status: 'active' });
+      await expect(repo.getTenantGateInfo('tenant-b')).resolves.toBeUndefined();
+      await expect(repo.getMembershipStatus('tenant-b', 'user-member')).resolves.toBeUndefined();
+      await expect(repo.getTenantGateInfos(['tenant-b', 'tenant-platform'])).resolves.toEqual([]);
+      await expect(repo.getMembershipStatuses(['tenant-b'], 'user-member')).resolves.toEqual([]);
     });
   });
 
-  it('đọc được membership của tenant đích khi phiên bao quanh là tenant khác', async () => {
-    await inForeignSession(async () => {
+  it('đọc trực tiếp trong ngữ cảnh platform thì thấy đủ dữ kiện cổng — truy vấn của repository vẫn đúng, chỉ khác ngữ cảnh', async () => {
+    await tenantAls.run({ platform: true }, async () => {
+      await expect(repo.getTenantGateInfo('tenant-b')).resolves.toEqual({ kind: 'center', status: 'active' });
       await expect(repo.getMembershipStatus('tenant-b', 'user-member')).resolves.toBe('active');
       await expect(repo.getMembershipStatus('tenant-b', 'user-admin')).resolves.toBeUndefined();
-    });
-  });
-
-  it('bản theo lô đọc đủ thông tin cổng và membership của nhiều tenant trong phiên tenant khác', async () => {
-    await inForeignSession(async () => {
       await expect(repo.getTenantGateInfos(['tenant-b', 'tenant-platform'])).resolves.toEqual([
         { id: 'tenant-b', kind: 'center', status: 'active' },
         { id: 'tenant-platform', kind: 'platform', status: 'active' },
@@ -244,8 +269,8 @@ describe('AccessRepository — dữ kiện cổng đọc ở ngữ cảnh platfo
     });
   });
 
-  it('tenant thật sự không tồn tại vẫn trả undefined — undefined chỉ còn nghĩa này', async () => {
-    await inForeignSession(async () => {
+  it('tenant thật sự không tồn tại vẫn trả undefined trong ngữ cảnh platform — undefined chỉ còn nghĩa này', async () => {
+    await tenantAls.run({ platform: true }, async () => {
       await expect(repo.getTenantGateInfo('tenant-missing')).resolves.toBeUndefined();
     });
   });

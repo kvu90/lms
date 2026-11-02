@@ -44,7 +44,7 @@ export class RoleSeparationService {
   constructor(@InjectDrizzle() db: Database) {
     // Cổng ngữ cảnh platform GIỮ `spaceSlug` của ngữ cảnh hiện tại
     // (Phần A, issue #587 — A4, đúng khuôn
-    // `access.repository.ts`): khi lõi tách vai được gọi trong
+    // `permission-evaluator.service.ts`): khi lõi tách vai được gọi trong
     // request của một trung tâm ở kho riêng, các lượt đọc xuyên
     // tenant của nó phải chạy trên kho của trung tâm đó, không rơi
     // về kho chung. Chỉ đổi đích dữ kiện, không đổi tầm nhìn RLS

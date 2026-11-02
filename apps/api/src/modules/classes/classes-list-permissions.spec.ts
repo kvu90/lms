@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Cache } from 'cache-manager';
 import type { ConfigService } from '@nestjs/config';
 import type { OutboxService } from '../../infra/events/outbox.service';
-import type { AccessRepository, ContextRow } from '../access/access.repository';
+import type { AccessRepository, ContextRow } from '@lms/db/repositories/access';
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import type { CoursesService } from '../courses/courses.service';
@@ -17,7 +17,7 @@ import type { SpaceDatabaseService } from '../../db/routing/space-database.servi
 import type { ControlPlaneRepository } from '@lms/db/repositories/control-plane';
 import type { ClassesRepository, ClassRow } from '@lms/db/repositories/classes';
 import { ClassesService } from './classes.service';
-import type { ClassesTransitionalRepository } from './classes-transitional.repository';
+import type { GroupsRepository } from '@lms/db/repositories/groups';
 
 /**
  * Bộ spec phân quyền cho danh sách lớp (DL-06): khi `listClasses`
@@ -215,7 +215,7 @@ function makeWorld(opts: WorldOptions = {}) {
     // Thư mục control plane chưa cấu hình trong thế giới kiểm
     // chứng này: các đường mã tham gia giữ hành vi kho chung.
     { isConfigured: () => false } as unknown as ControlPlaneRepository,
-    {} as unknown as ClassesTransitionalRepository,
+    {} as unknown as GroupsRepository,
   );
   return { service, evaluator, contextsService, groups, rows };
 }
