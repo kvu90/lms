@@ -28,15 +28,16 @@ export class OutboxService {
   constructor(@InjectDrizzle() private readonly db: Database) {}
 
   /**
-   * Phân giải tenant hiệu lực và payload sẽ ghi cho một sự kiện:
+   * Phân giải tenant hiệu lực và payload của một sự kiện — nhà duy
+   * nhất của luật này cho MỌI đường ghi outbox (Drizzle, Kysely và
+   * standalone), để các đường không bao giờ lệch nhau.
+   *
    * TENANT-1 (#196): tenant hiệu lực mặc định lấy từ ngữ cảnh ALS
    * của luồng phát sinh (request tenant / job đã bọc) khi nơi gọi
    * không chỉ định tường minh; tenant cũng được GƯƠNG vào payload
    * để các consumer chạy ở ngữ cảnh platform (relay, consumer
    * thông báo/digest) biết sự kiện thuộc tenant nào mà gắn đúng
-   * tenant cho dữ liệu chúng tạo ra. Cả hai đường ghi (Drizzle và
-   * Kysely) dùng chung bước này để hình dạng dòng sự kiện không
-   * lệch nhau theo ORM của nơi gọi.
+   * tenant cho dữ liệu chúng tạo ra.
    */
   private resolveTenantPayload(input: OutboxEventInput): { tenantId: string | null; payload: Record<string, unknown> } {
     const tenantId = input.tenantId ?? tenantAls.getStore()?.tenantId ?? null;
@@ -57,24 +58,16 @@ export class OutboxService {
   }
 
   /**
-   * Biến thể Kysely của `enqueue`: ghi dòng sự kiện trong một
-   * transaction Kysely đang mở — điểm ghép cho các nơi gọi đã
-   * chuyển sang Kysely (đầu tiên là cụm người dùng, issue #641)
-   * mà bất biến "thay đổi nghiệp vụ + dòng sự kiện cùng
-   * thành/bại" vẫn phải giữ nguyên: TUYỆT ĐỐI không được tách
-   * hai nửa sang hai transaction của hai ORM (giao dịch lai bị
-   * cấm trong toàn chiến dịch chuyển đổi). Biến thể này chỉ là
-   * điểm ghép tối thiểu đi kèm nơi gọi đã chuyển; việc chuyển
-   * đổi toàn bộ OutboxService thuộc hạng mục hạ tầng sự kiện
-   * (D1, issue #653) — khi đó nơi gọi Drizzle cuối cùng biến mất
-   * thì biến thể Drizzle ở trên được gỡ.
-   *
-   * Payload đi qua helper serialize + ép kiểu `::jsonb` tường
-   * minh như mọi đường ghi jsonb khác của chiến dịch: cột
-   * `payload` mang kiểu sinh `Json` nên giá trị object thô không
-   * khớp kiểu biểu thức ghi, và việc serialize tường minh giữ
-   * hành vi không phụ thuộc mặc định của driver `pg` (đặc biệt
-   * mảng ở cấp cao nhất bị driver hiểu là mảng PostgreSQL).
+   * Đường ghi outbox qua handle Kysely: dòng sự kiện được ghi
+   * trong CÙNG transaction Kysely với thay đổi nghiệp vụ của nơi
+   * gọi — cùng bất biến giao dịch với {@link enqueue}, cho các
+   * module đã chuyển sang Kysely (hiện là calendar, badges —
+   * issue #647 — và cụm người dùng — issue #641). Cột `payload`
+   * jsonb đi qua serialize tường minh kèm `::jsonb` theo khuôn
+   * ghi jsonb của `@lms/db`: driver `pg`
+   * tự stringify object thường nhưng hiểu MẢNG cấp cao nhất là
+   * mảng PostgreSQL. Khi hạng mục chuyển đổi của chính outbox
+   * (D1) về đích, hai đường ghi hợp nhất về đường Kysely này.
    */
   async enqueueKysely(tx: CentreTx, input: OutboxEventInput): Promise<void> {
     const { tenantId, payload } = this.resolveTenantPayload(input);

@@ -4,21 +4,24 @@ import { eq } from 'drizzle-orm';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Client, Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { ServiceUnavailableException } from '@nestjs/common';
 import {
+  createCentreKysely,
   curricula,
   curriculumNodes,
   learningOutcomes,
   subjects,
+  type CentreDb,
 } from '@lms/db';
 import {
   systemBankEvents,
   systemQuestionImporters,
 } from '@lms/db/system-bank';
+import { SystemBankCentreRepository } from '@lms/db/repositories/system-bank-centre';
+import { SystemBankRepository } from '@lms/db/repositories/system-bank';
 import { tenantAls } from '../../../src/modules/tenants/tenant-als';
-import { SystemBankCentreRepository } from '../../../src/modules/system-bank/system-bank-centre.repository';
 import { SystemBankConnection } from '../../../src/modules/system-bank/system-bank.connection';
 import { checksumPackage } from '../../../src/modules/system-bank/system-bank-package';
-import { SystemBankRepository } from '../../../src/modules/system-bank/system-bank.repository';
 import { SystemBankService } from '../../../src/modules/system-bank/system-bank.service';
 
 /**
@@ -111,6 +114,7 @@ function doc(text: string): {
 describe('Kho ngân hàng hệ thống (issue #585)', () => {
   let bankPool: Pool;
   let centrePool: Pool;
+  let centreKysely: CentreDb;
   let bankConnection: SystemBankConnection;
   let service: SystemBankService;
   let bankDb: NodePgDatabase;
@@ -154,11 +158,25 @@ describe('Kho ngân hàng hệ thống (issue #585)', () => {
           : undefined,
     } as never);
     const connection = bankConnection;
-    const repo = new SystemBankRepository(connection);
-    const centreRepo = new SystemBankCentreRepository(centreDb as never);
+    // Repository chuyển sang package `@lms/db` (hạng mục G10, issue
+    // #650): kho ngân hàng nhận handle Kysely của adapter kết nối
+    // kèm hàm dựng lỗi 503 chưa-cấu-hình đúng hình dạng module dùng;
+    // repository phía trung tâm nhận MỘT handle Kysely trên pool
+    // trung tâm của spec, dùng chung với stub `withPlatformKysely`.
+    centreKysely = createCentreKysely(centrePool);
+    const repo = new SystemBankRepository(connection.kysely, () =>
+      new ServiceUnavailableException({
+        message: 'System bank is not configured (SYSTEM_BANK_DATABASE_URL is not set)',
+        code: 'system_bank.not_configured',
+      }),
+    );
+    const centreRepo = new SystemBankCentreRepository(centreKysely);
     const evaluator = { requireCapability: async () => {}, hasCapability: async () => true };
     const contexts = { ensureSystemContext: async () => ({ id: SYSTEM_ID }) };
-    const tenantDb = { withPlatform: async <T>(fn: (tx: never) => Promise<T>) => centreDb.transaction(fn as never) as Promise<T> };
+    const tenantDb = {
+      withPlatformKysely: async <T>(fn: (tx: never) => Promise<T>) =>
+        centreKysely.transaction().execute(fn as never) as Promise<T>,
+    };
     service = new SystemBankService(
       repo,
       centreRepo,
@@ -197,7 +215,9 @@ describe('Kho ngân hàng hệ thống (issue #585)', () => {
     // ngang (FATAL 57P01) và vitest báo lỗi dù mọi ca đã xanh.
     await bankConnection?.onModuleDestroy();
     await bankPool?.end();
-    await centrePool?.end();
+    // destroy() của handle Kysely trung tâm đóng luôn pool của nó —
+    // không end pool lần nữa.
+    await centreKysely?.destroy();
     const adminUrl = clusterUrl('postgres');
     for (const [database, role] of [
       [BANK_DATABASE, BANK_ROLE],
