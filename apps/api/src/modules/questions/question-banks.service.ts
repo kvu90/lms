@@ -20,7 +20,8 @@ import {
   type QuestionSubjectLinkRow, type QuestionsTx, type VersionRow,
 } from '@lms/db/repositories/questions';
 import { QuestionsService, type QuestionView, type SupportedQtype } from './questions.service';
-import { QuestionBanksRepository, BANK_KINDS, type BankKind, type ContributionRow, type QuestionBankRow } from './question-banks.repository';
+import { QuestionBanksRepository, BANK_KINDS, type BankKind, type ContributionRow, type QuestionBankRow } from '@lms/db/repositories/question-banks';
+import { QuestionBanksTransitionalRepository } from './question-banks-transitional.repository';
 
 /** Vai chuyên dụng của lớp bank, gán TẠI context của từng bank (không phải archetype toàn cục). */
 export const QBANK_MEMBER_ROLE = 'qbankmember';
@@ -87,6 +88,7 @@ export interface AttributionView {
 export class QuestionBanksService {
   constructor(
     private readonly repo: QuestionBanksRepository,
+    private readonly txRepo: QuestionBanksTransitionalRepository,
     private readonly questionsRepo: QuestionsRepository,
     private readonly questions: QuestionsService,
     private readonly contexts: ContextsService,
@@ -170,19 +172,19 @@ export class QuestionBanksService {
     const kind = input.bankKind ?? 'question';
     const { memberRoleId, leadRoleId } = await this.ensureBankRoles();
     const bankId = uuidv7();
-    return this.repo.dbHandle.transaction(async (tx) => {
+    return this.txRepo.transaction(async (tx) => {
       const ctx = await this.contexts.createContext(input.contextLevel, bankId, input.parentContextId, tx);
-      const bank = await this.repo.insertBank({
+      const bank = await this.txRepo.insertBankTx({
         id: bankId, tenantId: input.tenantId, name: input.name, scope: input.scope, bankKind: kind, ownerId: input.ownerId,
         scopeRefId: input.scopeRefId, contextId: ctx.id, createdBy: actorId,
       }, tx);
       // Category mặc định chỉ thuộc về bank câu hỏi; bank đề/ma trận không có question_categories.
-      // Ghi qua điểm chuyển tiếp C-7 (insertCategoryTx phía QuestionBanksRepository):
+      // Ghi qua điểm chuyển tiếp C-7 (insertCategoryTx phía QuestionBanksTransitionalRepository):
       // transaction này là Drizzle (DL-09) nên không truyền được cho
       // insertCategory phía Kysely của QuestionsRepository — xem C-7
       // trong CORRECTIONS.md của chiến dịch và comment ở điểm chuyển tiếp.
       if (kind === 'question') {
-        await this.repo.insertCategoryTx({
+        await this.txRepo.insertCategoryTx({
           name: 'Mặc định', contextId: ctx.id, bankId: bank.id, info: '', parent: null,
           stamp: `qbank-${Date.now().toString(36)}-${bank.id.slice(0, 8)}`,
         }, tx);

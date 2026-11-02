@@ -3,7 +3,7 @@ import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { QuestionBanksService } from './question-banks.service';
-import { BANK_KINDS, type BankKind } from './question-banks.repository';
+import { BANK_KINDS, type BankKind } from '@lms/db/repositories/question-banks';
 import { MatrixBanksService } from '../quiz/matrix-banks.service';
 import {
   approveMatrixContributionSchema, rejectMatrixContributionSchema,
