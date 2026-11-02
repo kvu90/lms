@@ -1,4 +1,5 @@
 import { forwardRef, Module } from '@nestjs/common';
+import { QuestionBanksRepository } from '@lms/db/repositories/question-banks';
 import { QuestionsRepository } from '@lms/db/repositories/questions';
 import { SpaceRoutingModule } from '../../db/routing/space-routing.module';
 import { SpaceDatabaseService } from '../../db/routing/space-database.service';
@@ -9,8 +10,8 @@ import { GroupsModule } from '../groups/groups.module';
 import { QuizModule } from '../quiz/quiz.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { QuestionBanksController } from './question-banks.controller';
-import { QuestionBanksRepository } from './question-banks.repository';
 import { QuestionBanksService } from './question-banks.service';
+import { QuestionBanksTransitionalRepository } from './question-banks-transitional.repository';
 import { QuestionsController, QuestionUsagesController, StimuliController } from './questions.controller';
 import { QuestionsService } from './questions.service';
 
@@ -34,6 +35,13 @@ import { QuestionsService } from './questions.service';
  * SpaceDatabaseService — cùng pool dùng chung có gắn ngữ cảnh
  * tenant mà tầng Drizzle đang chạy trên đó), không phải handle
  * tĩnh theo một database cố định.
+ *
+ * QuestionBanksRepository cũng là repository Kysely của `@lms/db`
+ * (issue #644), dựng bằng cùng khuôn factory. Riêng giao dịch
+ * `buildBank` còn giữ phía Drizzle (điểm chuyển tiếp C-7) nên
+ * module đăng ký thêm `QuestionBanksTransitionalRepository` phía
+ * Drizzle cho đúng hai lệnh ghi của luồng đó; chủ đóng C-7 là PR
+ * merge cuối trong ba issue #644/#651/#653.
  */
 @Module({
   imports: [AccessModule, EventsModule, GroupsModule, TenantsModule, FilesModule, SpaceRoutingModule, forwardRef(() => QuizModule)],
@@ -44,7 +52,12 @@ import { QuestionsService } from './questions.service';
       useFactory: (spaceDb: SpaceDatabaseService) => new QuestionsRepository(spaceDb.routedKysely),
       inject: [SpaceDatabaseService],
     },
-    QuestionsService, QuestionBanksRepository, QuestionBanksService,
+    {
+      provide: QuestionBanksRepository,
+      useFactory: (spaceDb: SpaceDatabaseService) => new QuestionBanksRepository(spaceDb.routedKysely),
+      inject: [SpaceDatabaseService],
+    },
+    QuestionsService, QuestionBanksTransitionalRepository, QuestionBanksService,
   ],
   exports: [QuestionsService, QuestionBanksService],
 })

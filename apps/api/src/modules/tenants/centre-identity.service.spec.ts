@@ -19,6 +19,7 @@ function makeService(options?: { prepared?: boolean }) {
     isSpacePrepared: vi.fn(() => options?.prepared ?? false),
     resolveTarget: vi.fn(async () => ({ slug: 'trung-tam-a', status: 'active', mode: 'dedicated' })),
     getDatabaseForSpace: vi.fn(async () => ({})),
+    getKyselyForSpace: vi.fn(async () => ({})),
   };
   const tenants = {
     getTenantBySlug: vi.fn(

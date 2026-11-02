@@ -8,7 +8,8 @@ import { EnrolService } from '../enrol/enrol.service';
 import { UsersService } from '../users/users.service';
 import { renderVneduWorkbook, type VneduExportItem, type VneduExportModel } from './domain/vnedu-export';
 import type { ExportGradesVneduDto } from './dto/grades.dto';
-import { GradesRepository, type GradeRow, type ItemRow } from './grades.repository';
+import { GradesRepository, type GradeRow, type ItemRow } from '@lms/db/repositories/grades';
+import { GradesTransitionalRepository } from './grades-transitional.repository';
 
 export const COMPLETION_PASS = 2;
 export const COMPLETION_FAIL = 3;
@@ -49,6 +50,7 @@ export interface ActivityGradeView {
 export class GradesService implements OnModuleInit {
   constructor(
     private readonly repo: GradesRepository,
+    private readonly txRepo: GradesTransitionalRepository,
     private readonly courses: CoursesService,
     private readonly enrol: EnrolService,
     private readonly evaluator: PermissionEvaluator,
@@ -215,15 +217,15 @@ export class GradesService implements OnModuleInit {
     const clampedRaw = raw === null ? null : Math.min(item.gradeMax, Math.max(item.gradeMin, raw));
     const { finalGrade, frozen } = this.leafFinal(item, clampedRaw, existing);
     let saved!: GradeRow;
-    await this.repo.dbHandle.transaction(async (tx) => {
-      saved = await this.repo.upsertGrade({
+    await this.txRepo.transaction(async (tx) => {
+      saved = await this.txRepo.upsertGradeTx({
         itemId: itemId, userId: userId, rawGrade: clampedRaw, rawGradeMin: item.gradeMin, rawGradeMax: item.gradeMax,
         finalGrade, feedback: input.feedback ?? existing?.feedback ?? null,
         hidden: existing?.hidden ?? false, locked: existing?.locked ?? false,
         overridden: options?.overridden ?? false, excluded: existing?.excluded ?? false, frozen,
         aggregationStatus: 'used', aggregationWeight: existing?.aggregationWeight ?? null,
       }, tx);
-      await this.repo.insertHistory({
+      await this.txRepo.insertHistoryTx({
         action: existing ? 2 : 1, oldId: existing?.id ?? null, itemId: itemId, userId: userId,
         rawGrade: clampedRaw, finalGrade, overridden: options?.overridden ?? false, excluded: existing?.excluded ?? false,
         frozen, source: options?.source ?? 'manual', loggedUser: actorId,
@@ -262,15 +264,15 @@ export class GradesService implements OnModuleInit {
     if (existing?.locked || existing?.overridden) return existing;
     const raw = rawGrade === null ? null : Math.min(item.gradeMax, Math.max(item.gradeMin, rawGrade));
     const { finalGrade, frozen } = this.leafFinal(item, raw, existing);
-    await this.repo.dbHandle.transaction(async (tx) => {
-      await this.repo.upsertGrade({
+    await this.txRepo.transaction(async (tx) => {
+      await this.txRepo.upsertGradeTx({
         itemId: itemId, userId: userId, rawGrade: raw, rawGradeMin: item.gradeMin, rawGradeMax: item.gradeMax,
         finalGrade, feedback: existing?.feedback ?? null,
         hidden: existing?.hidden ?? false, locked: existing?.locked ?? false,
         overridden: false, excluded: existing?.excluded ?? false, frozen,
         aggregationStatus: 'used', aggregationWeight: existing?.aggregationWeight ?? null,
       }, tx);
-      await this.repo.insertHistory({
+      await this.txRepo.insertHistoryTx({
         action: existing ? 2 : 1, oldId: existing?.id ?? null, itemId: itemId, userId: userId,
         rawGrade: raw, finalGrade, overridden: false, excluded: existing?.excluded ?? false,
         frozen, source, loggedUser: null,
@@ -306,9 +308,9 @@ export class GradesService implements OnModuleInit {
     if (input.overridden === true && input.finalGrade === undefined && grade.finalGrade === null) {
       throw new BadRequestException({ message: 'Overriding requires a finalGrade', code: 'grades.override_needs_grade' });
     }
-    await this.repo.dbHandle.transaction(async (tx) => {
-      await this.repo.updateGrade(gradeId, patch, tx);
-      await this.repo.insertHistory({
+    await this.txRepo.transaction(async (tx) => {
+      await this.txRepo.updateGradeTx(gradeId, patch, tx);
+      await this.txRepo.insertHistoryTx({
         action: 2, oldId: gradeId, itemId: grade.itemId, userId: grade.userId,
         rawGrade: grade.rawGrade, finalGrade: patch.finalGrade ?? grade.finalGrade,
         overridden: patch.overridden ?? grade.overridden, excluded: patch.excluded ?? grade.excluded,

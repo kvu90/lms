@@ -45,7 +45,7 @@ import {
   type SheetGeometry,
 } from './domain/sheet-layout';
 import { generateSheetsPdf, parseSheetQr, type SheetPageStudent } from './domain/sheet-pdf';
-import { PaperGradingRepository, type PaperBatchRow, type PaperScanRow } from './paper-grading.repository';
+import { PaperGradingRepository, type PaperBatchRow, type PaperScanRow } from '@lms/db/repositories/paper-grading';
 
 export const PAPER_COMPONENT = 'mod_quiz';
 const GRADE_PAPER_CAP = 'quiz:gradepaper';

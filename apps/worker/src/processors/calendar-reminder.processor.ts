@@ -9,6 +9,7 @@ import { calendarEvents, course, notifications } from '@lms/db';
 import { NotificationDeliveryService } from '../notification-delivery.service';
 import { tenantAls } from '../db/tenant-als';
 import { resolveDefaultTenantId } from '../db/default-tenant';
+import { SpaceDatabaseService } from '../db/routing/space-database.service';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -34,6 +35,7 @@ export class CalendarReminderProcessor extends WorkerHost {
     @InjectDrizzle() private readonly db: Database,
     private readonly i18n: I18nService,
     private readonly delivery: NotificationDeliveryService,
+    private readonly spaceDb: SpaceDatabaseService,
   ) { super(); }
 
   /**
@@ -71,7 +73,7 @@ export class CalendarReminderProcessor extends WorkerHost {
         .where(eq(course.id, event.courseId));
       tenantId = courseRow?.tenantId ?? null;
     }
-    if (!tenantId) tenantId = await resolveDefaultTenantId(this.db, userId);
+    if (!tenantId) tenantId = await resolveDefaultTenantId(this.spaceDb.routedKysely, userId);
     const delivered = await this.delivery.deliverInApp(userId, 'calendar_reminder', {
       subject,
       body: this.i18n.t('platform.calendarReminderBody', { locale: recipientLocale, args: { name: event.name, time: event.timeStart.toISOString() } }),

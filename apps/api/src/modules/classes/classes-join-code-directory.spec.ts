@@ -13,8 +13,9 @@ import type { TenantsService } from '../tenants/tenants.service';
 import type { UsersService } from '../users/users.service';
 import type { OutboxService } from '../../infra/events/outbox.service';
 import type { SpaceDatabaseService } from '../../db/routing/space-database.service';
-import type { ClassesRepository, ClassRow } from './classes.repository';
+import type { ClassesRepository, ClassRow } from '@lms/db/repositories/classes';
 import { ClassesService } from './classes.service';
+import type { ClassesTransitionalRepository } from './classes-transitional.repository';
 
 /**
  * Bộ spec cho điểm chặn 4 của hạng mục 3 (issue #587): ràng buộc
@@ -69,6 +70,7 @@ function buildService(overrides: {
       findJoinCodeDirectory,
       claimJoinCodeDirectory,
     } as unknown as ControlPlaneRepository,
+    {} as unknown as ClassesTransitionalRepository,
   );
   return { service, spaceTargetForTenant, findJoinCodeDirectory, claimJoinCodeDirectory };
 }

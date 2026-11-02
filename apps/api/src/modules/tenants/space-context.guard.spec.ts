@@ -69,6 +69,7 @@ function makeGuard(options?: {
       return options?.target ?? DEDICATED_TARGET;
     }),
     getDatabaseForSpace: vi.fn(async () => ({})),
+    getKyselyForSpace: vi.fn(async () => ({})),
     // Nhánh cookie đọc tenant hiệu lực qua kho riêng (Phần A,
     // issue #587): mock chạy thẳng callback như kho đích thật.
     withSpaceDatabase: vi.fn(async (_slug: string, fn: () => Promise<unknown>) => fn()),

@@ -1,9 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
 import { writeFileSync } from 'node:fs';
-import type { Database } from '../../db/database';
+import { CurriculumRepository } from '@lms/db/repositories/curriculum';
 import { ContextsService } from '../access/contexts.service';
-import { CurriculumRepository } from './curriculum.repository';
 import {
   buildProgramDumpSql, loadProgramDumpSql, restoreProgramDumpSql, PROGRAM_DUMP_VERSION,
 } from './program-dump';
@@ -27,7 +25,6 @@ import {
 @Injectable()
 export class ProgramDumpService {
   constructor(
-    @InjectDrizzle() private readonly db: Database,
     private readonly repo: CurriculumRepository,
     private readonly contexts: ContextsService,
   ) {}
@@ -47,7 +44,7 @@ export class ProgramDumpService {
     const existing = await this.repo.countProgramRecords();
     if (existing > 0) return { restored: false, version: PROGRAM_DUMP_VERSION };
     const system = await this.contexts.ensureSystemContext();
-    await restoreProgramDumpSql(this.db, loadProgramDumpSql(), { anchorContextId: system.id });
+    await restoreProgramDumpSql(this.repo.dbHandle, loadProgramDumpSql(), { anchorContextId: system.id });
     return { restored: true, version: PROGRAM_DUMP_VERSION };
   }
 
@@ -57,7 +54,7 @@ export class ProgramDumpService {
    * để giới hạn phạm vi theo một dataset).
    */
   async buildDumpSql(opts?: { datasetKey?: string }): Promise<string> {
-    return buildProgramDumpSql(this.db, opts);
+    return buildProgramDumpSql(this.repo.dbHandle, opts);
   }
 
   /**
@@ -69,7 +66,7 @@ export class ProgramDumpService {
    */
   async restoreDumpSql(dumpSql: string): Promise<void> {
     const system = await this.contexts.ensureSystemContext();
-    await restoreProgramDumpSql(this.db, dumpSql, { anchorContextId: system.id });
+    await restoreProgramDumpSql(this.repo.dbHandle, dumpSql, { anchorContextId: system.id });
   }
 
   /**
@@ -81,7 +78,7 @@ export class ProgramDumpService {
    * @returns Version của artifact vừa xuất.
    */
   async exportDumpToFile(filePath: string): Promise<{ version: string }> {
-    const dumpSql = await buildProgramDumpSql(this.db);
+    const dumpSql = await buildProgramDumpSql(this.repo.dbHandle);
     writeFileSync(filePath, dumpSql, 'utf8');
     return { version: PROGRAM_DUMP_VERSION };
   }
