@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { sql } from 'kysely';
-import { type CentreTx } from '@lms/db';
+import { sql, type CentreTx } from '@lms/db';
 import {
   ENROL_SUSPENDED,
   ENROL_WITHDRAWN,

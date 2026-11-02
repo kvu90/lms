@@ -1,7 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import type { Job } from 'bullmq';
-import { sql } from 'kysely';
-import { type CentreDB } from '@lms/db';
+import { sql, type CentreDB } from '@lms/db';
 import { SpaceDatabaseService } from '../db/routing/space-database.service';
 import { TaskLogService } from '../task-log.service';
 import { tenantAls } from '../db/tenant-als';
