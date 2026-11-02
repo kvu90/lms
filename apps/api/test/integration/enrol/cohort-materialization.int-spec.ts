@@ -548,9 +548,20 @@ describe('Vật chất hoá cohort dùng chung — đặc tả hoá hành vi ở
         return typeof value === 'function' ? (value as (...args: never[]) => unknown).bind(target) : value;
       },
     });
+    const realOutbox = app.get(OutboxService);
     const surface = new CohortMaterializationSurface({
       db: wrappedDb,
-      outbox: app.get(OutboxService),
+      // Cổng outbox của bề mặt phải đi qua bộ điều hợp Kysely như
+      // `EnrolService` vẫn dựng cho bề mặt của nó: phương thức
+      // `enqueue` của `OutboxService` là đường ghi Drizzle chuyển
+      // tiếp (chỉ nhận transaction Drizzle), trong khi bề mặt này
+      // chạy trên transaction Kysely — truyền thẳng service vào
+      // cổng thì lượt ghi đầu tiên gãy vì transaction Kysely
+      // không có `insert` của Drizzle.
+      outbox: {
+        enqueue: (tx, input) => realOutbox.enqueueKysely(tx, input),
+        enqueueStandalone: (input) => app.get(SpaceDatabaseService).routedKysely.transaction().execute((trx) => realOutbox.enqueueKysely(trx, input)),
+      },
       runInPlatformScope: (fn) => tenantAls.run({ platform: true }, fn),
     });
 
