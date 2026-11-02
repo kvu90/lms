@@ -10,14 +10,14 @@ import { AuthService } from '../auth/auth.service';
  * Ca khoá hành vi của lỗ hổng AsyncLocalStorage ở A4 (issue #587)
  * và của các closure giữ `spaceSlug` đã sửa cùng đợt:
  *
- * - Truy vấn Drizzle là thenable lười — việc thực thi chỉ bắt đầu
- *   khi truy vấn được await (điểm `.then`). Lõi `PlanLimitsCore`
- *   phải await truy vấn membership BÊN TRONG callback async của
- *   cổng platform thì lượt đọc mới chạy trong ngữ cảnh platform;
- *   callback trả thẳng thenable ra khỏi cổng thì điểm `.then` chạy
- *   ngoài `tenantAls.run`, lượt đọc rơi về ngữ cảnh của bên gọi và
- *   tầm nhìn RLS sai (che membership ở tenant khác, làm lọt chốt
- *   chặn slot).
+ * - Builder truy vấn Kysely cũng là thenable lười — việc thực thi
+ *   chỉ bắt đầu khi builder được await (điểm `.then`) hoặc khi gọi
+ *   `.execute()`. Lõi `PlanLimitsCore` phải gọi `.execute()` BÊN
+ *   TRONG callback async của cổng platform thì lượt đọc mới chạy
+ *   trong ngữ cảnh platform; builder trả thẳng ra khỏi cổng rồi mới
+ *   thực thi ngoài `tenantAls.run` thì lượt đọc rơi về ngữ cảnh của
+ *   bên gọi và tầm nhìn RLS sai (che membership ở tenant khác, làm
+ *   lọt chốt chặn slot).
  * - Ba wrapper của A4 (`PlanLimitsService`, `RoleSeparationService`,
  *   `EnrolService`) và đường cấp token (`AuthService.
  *   centreClaimForTenant`) đều phải GIỮ `spaceSlug` của ngữ cảnh
@@ -45,10 +45,24 @@ function makeLazyQuery(seen: Array<TenantAlsStore | undefined>) {
   };
 }
 
+/**
+ * Fake handle Kysely: chuỗi `selectFrom → select → where` kết thúc
+ * bằng `execute`/`executeTakeFirst` ghi lại ngữ cảnh ALS tại đúng
+ * thời điểm thực thi (điểm `.execute()`), rồi trả về rỗng.
+ */
 function makeFakeDb(seen: Array<TenantAlsStore | undefined>): EnrolDatabase {
-  const lazy = makeLazyQuery(seen);
+  const terminal = {
+    execute: async (): Promise<unknown[]> => {
+      seen.push(tenantAls.getStore());
+      return [];
+    },
+    executeTakeFirst: async (): Promise<undefined> => {
+      seen.push(tenantAls.getStore());
+      return undefined;
+    },
+  };
   return {
-    select: () => ({ from: () => ({ where: () => lazy }) }),
+    selectFrom: () => ({ select: () => ({ where: () => terminal }) }),
   } as unknown as EnrolDatabase;
 }
 
@@ -58,7 +72,7 @@ const CALLER_STORE: TenantAlsStore = { tenantId: 'tenant-goi', spaceSlug: 'trung
 describe('Lõi kiểm hạn mức gói — ngữ cảnh đọc membership khi kích hoạt lại tài khoản', () => {
   it('closure thật của PlanLimitsService giữ spaceSlug khi vào ngữ cảnh platform', async () => {
     const seen: Array<TenantAlsStore | undefined> = [];
-    const service = new PlanLimitsService(makeFakeDb(seen) as never);
+    const service = new PlanLimitsService({ routedKysely: makeFakeDb(seen) } as never);
     await tenantAls.run(CALLER_STORE, () => service.assertUserReactivationWithinSlotLimits('user-1'));
     expect(seen).toHaveLength(1);
     expect(seen[0]?.platform).toBe(true);
@@ -67,7 +81,7 @@ describe('Lõi kiểm hạn mức gói — ngữ cảnh đọc membership khi k�
 
   it('closure thật của RoleSeparationService giữ spaceSlug khi vào ngữ cảnh platform', async () => {
     const seen: Array<TenantAlsStore | undefined> = [];
-    const service = new RoleSeparationService(makeFakeDb(seen) as never);
+    const service = new RoleSeparationService({ routedKysely: makeFakeDb(seen) } as never);
     await tenantAls.run(CALLER_STORE, () => service.hasTeachingCoverageForCourse('user-1', 'course-1'));
     expect(seen).toHaveLength(1);
     expect(seen[0]?.platform).toBe(true);
@@ -78,8 +92,9 @@ describe('Lõi kiểm hạn mức gói — ngữ cảnh đọc membership khi k�
     const seen: Array<TenantAlsStore | undefined> = [];
     const fakeDb = makeFakeDb(seen);
     // Kể từ khi repository enrol chuyển sang Kysely (issue #645),
-    // bề mặt vật chất hoá nhận handle Drizzle đã định tuyến qua
-    // tham số inject cuối của EnrolService thay vì qua repository.
+    // bề mặt vật chất hoá nhận handle Kysely đã định tuyến qua
+    // tham số inject cuối của EnrolService (`SpaceDatabaseService`)
+    // thay vì qua repository.
     const service = new EnrolService(
       {} as never,
       {} as never,
@@ -92,7 +107,7 @@ describe('Lõi kiểm hạn mức gói — ngữ cảnh đọc membership khi k�
       {} as never,
       {} as never,
       {} as never,
-      fakeDb as never,
+      { routedKysely: fakeDb } as never,
     );
     // Bề mặt vật chất hoá của EnrolService dựng lõi giới hạn slot
     // bằng đúng closure của service này — gọi lõi đó là đi qua

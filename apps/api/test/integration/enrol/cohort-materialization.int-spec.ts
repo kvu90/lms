@@ -519,25 +519,30 @@ describe('Vật chất hoá cohort dùng chung — đặc tả hoá hành vi ở
     // tại hay không. Consumer quét mỗi giây chỉ được phép quan
     // sát sự kiện khi dòng ghi danh đã biến mất, vì tiêu chí
     // 'unenrol' đọc chính dòng đó.
-    const realDb = app.get(SpaceDatabaseService).routedDatabase;
+    const realDb = app.get(SpaceDatabaseService).routedKysely;
     const observed: { current: { eventVisible: boolean; enrolmentPresent: boolean } | null } = { current: null };
     const wrappedDb = new Proxy(realDb, {
       get(target, prop) {
         if (prop === 'transaction') {
-          return async (callback: (tx: unknown) => Promise<unknown>): Promise<unknown> => {
-            const result = await Reflect.apply(target.transaction, target, [callback]) as unknown;
-            if (observed.current === null) {
-              const ev = await pg.query(
-                "SELECT COUNT(*)::int AS n FROM outbox_events WHERE type = 'course_completion_reaggregation_requested' AND payload ->> 'userId' = $1",
-                [userId],
-              );
-              observed.current = {
-                eventVisible: Number((ev.rows[0] as { n: number }).n) > 0,
-                enrolmentPresent: (await ueRow(graph.instanceId, userId)) !== undefined,
-              };
-            }
-            return result;
-          };
+          // Kysely: `db.transaction()` trả về builder, callback chạy
+          // ở `.execute()` — quan sát đặt SAU execute (transaction
+          // đã commit) như bản Drizzle cũ đặt sau `transaction(cb)`.
+          return () => ({
+            execute: async (callback: (trx: unknown) => Promise<unknown>): Promise<unknown> => {
+              const result = await target.transaction().execute(callback as never) as unknown;
+              if (observed.current === null) {
+                const ev = await pg.query(
+                  "SELECT COUNT(*)::int AS n FROM outbox_events WHERE type = 'course_completion_reaggregation_requested' AND payload ->> 'userId' = $1",
+                  [userId],
+                );
+                observed.current = {
+                  eventVisible: Number((ev.rows[0] as { n: number }).n) > 0,
+                  enrolmentPresent: (await ueRow(graph.instanceId, userId)) !== undefined,
+                };
+              }
+              return result;
+            },
+          });
         }
         const value = Reflect.get(target, prop) as unknown;
         return typeof value === 'function' ? (value as (...args: never[]) => unknown).bind(target) : value;
@@ -574,14 +579,14 @@ describe('Vật chất hoá cohort dùng chung — đặc tả hoá hành vi ở
         if (input.type === 'course_completion_reaggregation_requested') {
           throw new Error('Lỗi giả lập: ghi sự kiện tái tổng hợp hoàn thành thất bại');
         }
-        await realOutbox.enqueue(tx, input);
+        await realOutbox.enqueueKysely(tx, input);
       },
       enqueueStandalone: async (input) => {
-        await realOutbox.enqueueStandalone(input);
+        await app.get(SpaceDatabaseService).routedKysely.transaction().execute((trx) => realOutbox.enqueueKysely(trx, input));
       },
     };
     const surface = new CohortMaterializationSurface({
-      db: app.get(SpaceDatabaseService).routedDatabase,
+      db: app.get(SpaceDatabaseService).routedKysely,
       outbox: failingOutbox,
       runInPlatformScope: (fn) => tenantAls.run({ platform: true }, fn),
     });

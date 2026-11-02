@@ -1,5 +1,3 @@
-import { and, eq, inArray } from 'drizzle-orm';
-import { courseModules, courseModulesCompletion, gradeGrades, gradeItems } from '@lms/db';
 import type { EnrolDatabase } from './types';
 
 /**
@@ -27,48 +25,55 @@ import type { EnrolDatabase } from './types';
  * dòng chỉ-ghi-nhận-đã-xem — không lọc theo trạng thái hoàn thành,
  * đúng ngữ nghĩa probe hiện hành).
  *
- * @param db - tay cầm Drizzle của host.
+ * @param db - tay cầm Kysely của host.
  * @param courseId - khoá học cần kiểm.
  * @param userId - người dùng cần kiểm.
  */
 export async function hasCourseCompletionData(db: EnrolDatabase, courseId: string, userId: string): Promise<boolean> {
   const cms = await db
-    .select({ id: courseModules.id })
-    .from(courseModules)
-    .where(and(eq(courseModules.course, courseId), eq(courseModules.deletionInProgress, false)));
+    .selectFrom('course_modules')
+    .select('course_modules.id')
+    .where((eb) => eb.and([
+      eb('course_modules.course', '=', courseId),
+      eb('course_modules.deletion_in_progress', '=', false),
+    ]))
+    .execute();
   if (!cms.length) return false;
   const rows = await db
-    .select({ id: courseModulesCompletion.id })
-    .from(courseModulesCompletion)
-    .where(and(
-      eq(courseModulesCompletion.userId, userId),
-      inArray(courseModulesCompletion.courseModuleId, cms.map((c) => c.id)),
-    ));
+    .selectFrom('course_modules_completion')
+    .select('course_modules_completion.id')
+    .where((eb) => eb.and([
+      eb('course_modules_completion.user_id', '=', userId),
+      eb('course_modules_completion.course_module_id', 'in', cms.map((c) => c.id)),
+    ]))
+    .execute();
   return rows.length > 0;
 }
 
 /**
- * Người dùng còn dữ liệu ĐIỂM trong khoá học hay không: tồn tại ít
- * nhất một dòng `grade_grades` của người dùng trên bất kỳ mục điểm
+ * Người dùng còn dữ liệu ĐIỂM trong khoá học hay không: tồn
+ * tại ít nhất một dòng `grade_grades` của người dùng trên bất kỳ mục điểm
  * nào của khoá.
  *
- * @param db - tay cầm Drizzle của host.
+ * @param db - tay cầm Kysely của host.
  * @param courseId - khoá học cần kiểm.
  * @param userId - người dùng cần kiểm.
  */
 export async function hasCourseGradeData(db: EnrolDatabase, courseId: string, userId: string): Promise<boolean> {
   const items = await db
-    .select({ id: gradeItems.id })
-    .from(gradeItems)
-    .where(eq(gradeItems.courseId, courseId));
+    .selectFrom('grade_items')
+    .select('grade_items.id')
+    .where('grade_items.course_id', '=', courseId)
+    .execute();
   if (!items.length) return false;
   const rows = await db
-    .select({ id: gradeGrades.id })
-    .from(gradeGrades)
-    .where(and(
-      eq(gradeGrades.userId, userId),
-      inArray(gradeGrades.itemId, items.map((i) => i.id)),
-    ));
+    .selectFrom('grade_grades')
+    .select('grade_grades.id')
+    .where((eb) => eb.and([
+      eb('grade_grades.user_id', '=', userId),
+      eb('grade_grades.item_id', 'in', items.map((i) => i.id)),
+    ]))
+    .execute();
   return rows.length > 0;
 }
 
@@ -77,7 +82,7 @@ export async function hasCourseGradeData(db: EnrolDatabase, courseId: string, us
  * khoá học hay không — hợp của hai kiểm trên, đúng ngữ nghĩa vòng
  * lặp probe hiện hành (bất kỳ probe nào báo có là có).
  *
- * @param db - tay cầm Drizzle của host.
+ * @param db - tay cầm Kysely của host.
  * @param courseId - khoá học cần kiểm.
  * @param userId - người dùng cần kiểm.
  */

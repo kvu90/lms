@@ -319,7 +319,9 @@ export class WorkerPaymentSettlementService implements PaymentSettlementPort {
     await tx.update(userEnrolments)
       .set({ status: ENROL_SUSPENDED, modifierId: actorId, updatedAt: new Date() })
       .where(eq(userEnrolments.id, ue.id));
-    await this.enrolOutbox.enqueue(tx, {
+    // Đường Drizzle cũ (điểm nối chuyển tiếp, chủ đóng W2b #661):
+    // khâu settle vẫn chạy trong transaction Drizzle của nó.
+    await this.enrolOutbox.enqueueInDrizzleTx(tx, {
       aggregate: 'enrol', type: 'user_enrolment_suspended',
       payload: { courseId: instance.courseId, userId, instanceId, actorId },
     });
@@ -348,7 +350,8 @@ export class WorkerPaymentSettlementService implements PaymentSettlementPort {
       .where(and(eq(cohortMembers.cohortId, row.cohortId), eq(cohortMembers.userId, userId)))
       .returning();
     if (deleted.length === 0) return;
-    await this.enrolOutbox.enqueue(tx, {
+    // Đường Drizzle cũ (điểm nối chuyển tiếp, chủ đóng W2b #661).
+    await this.enrolOutbox.enqueueInDrizzleTx(tx, {
       aggregate: 'cohort', type: 'cohort_member_removed',
       payload: { cohortId: row.cohortId, userId },
     });

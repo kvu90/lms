@@ -99,7 +99,7 @@ export class WorkerPaidClassEnrolActivationService implements PaidClassEnrolActi
     private readonly spaceScope: WorkerPaymentSpaceScope,
   ) {
     this.materialization = new CohortMaterializationSurface({
-      db: this.db,
+      db: this.spaceScope.routedKysely,
       outbox: enrolOutbox,
       // Phạm vi platform của bề mặt giữ nguyên `spaceSlug` của
       // ngữ cảnh đang chạy (cùng khuôn `CohortSyncService`): phạm
@@ -135,22 +135,25 @@ export class WorkerPaidClassEnrolActivationService implements PaidClassEnrolActi
           }
           // Đã thuộc roster (kích hoạt lặp / webhook replay) → dừng tại đây.
           if (await this.materialization.isCohortMember(row.cohortId, userId)) return;
-          await ensureActiveTenantMembership(this.db, row.tenantId, userId);
+          await ensureActiveTenantMembership(this.spaceScope.routedKysely, row.tenantId, userId);
           await this.materialization.roleSeparationChecks.assertCohortMembershipAllowed(userId, row.cohortId);
           // Chèn thành viên + cả hai dòng outbox trong CÙNG một
           // transaction: lỗi ở bước nào cũng rollback toàn bộ, lần chạy
           // lại thấy chưa thuộc roster và chạy đủ cả ba bước ghi.
+          // Hai dòng outbox đi qua đường Drizzle cũ
+          // `enqueueInDrizzleTx` (điểm nối chuyển tiếp, chủ đóng W2b
+          // #661) vì transaction này vẫn là Drizzle.
           await this.db.transaction(async (tx) => {
             const inserted = await tx.insert(cohortMembers)
               .values({ cohortId: row.cohortId, userId })
               .onConflictDoNothing()
               .returning();
             if (inserted.length === 0) return;
-            await this.enrolOutbox.enqueue(tx, {
+            await this.enrolOutbox.enqueueInDrizzleTx(tx, {
               aggregate: 'cohort', type: 'cohort_member_added',
               payload: { cohortId: row.cohortId, userId },
             });
-            await this.enrolOutbox.enqueue(tx, {
+            await this.enrolOutbox.enqueueInDrizzleTx(tx, {
               aggregate: 'class', type: 'class_member_joined',
               payload: { classId: row.id, tenantId: row.tenantId, userId, via: 'class_fee' },
               tenantId: row.tenantId,
