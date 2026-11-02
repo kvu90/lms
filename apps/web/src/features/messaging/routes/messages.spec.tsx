@@ -1013,16 +1013,29 @@ describe('Messages page — M1: sắp xếp, thời gian tương đối, nháp, 
   });
 
   it('hiện nhãn giờ của tin cuối theo định dạng demo và đẩy conversation có tin mới lên đầu khi nhận conversation.updated', async () => {
-    // Ghim đồng hồ cho riêng ca này về một mốc cố định lấy tại đầu
-    // ca: nhãn giờ tính từ Date.now() ở CẢ hai phía — stub dựng
-    // mốc tin cuối bằng isoMinutesAgo (Date.now lúc dựng stub) còn
-    // hàm nhãn giờ đọc Date.now lúc hiển thị — hai lần đọc đồng hồ
-    // thật lệch nhau qua biên phút/giờ làm nhãn "30 phút trước" /
-    // "2 giờ trước" trượt ngẫu nhiên trên máy tải nặng. Ghim để cả
-    // hai phía dùng chung một đồng hồ; khôi phục khi ca kết thúc.
-    // (new Date() không bị ghim ảnh hưởng nên tin realtime ở dưới vẫn
-    // mang mốc thật, chỉ lệch mốc ghim vài mili-giây — vẫn "vừa xong".)
-    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.now());
+    // Ghim đồng hồ cho riêng ca này về một mốc cố định giữa ngày
+    // lịch hiện tại (12:00 theo giờ địa phương của tiến trình):
+    // nhãn giờ tính từ Date.now() ở CẢ hai phía — stub dựng mốc
+    // tin cuối bằng isoMinutesAgo (Date.now lúc dựng stub) còn
+    // hàm nhãn giờ đọc Date.now lúc hiển thị — hai lần đọc đồng
+    // hồ thật lệch nhau qua biên phút/giờ làm nhãn "30 phút
+    // trước" / "2 giờ trước" trượt ngẫu nhiên trên máy tải nặng.
+    // Ghim để cả hai phía dùng chung một đồng hồ; khôi phục khi
+    // ca kết thúc.
+    // Mốc ghim phải nằm giữa ngày chứ không lấy nguyên đồng hồ
+    // treo tường: ca chạy lúc 00:00–02:00 giờ địa phương sẽ làm
+    // mốc "2 giờ trước" rơi sang ngày lịch hôm trước, và hàm
+    // nhãn giờ trả đúng nhãn "Hôm qua" thay cho nhãn giờ đồng hồ
+    // mà ca này kiểm — ca đỏ trên CI mỗi khi lượt chạy rơi vào
+    // cửa sổ đó (issue #681). Giữa ngày thì "2 giờ trước" luôn
+    // cùng ngày lịch với mốc ghim, theo đúng ngày lịch địa phương
+    // mà hàm nhãn giờ dùng.
+    // Tin realtime ở dưới lấy mốc tạo tin từ chính đồng hồ đã
+    // ghim (new Date(Date.now())) nên vẫn là tin mới nhất của
+    // danh sách và mang nhãn "vừa xong" như hành vi đang kiểm.
+    const pinnedNow = new Date();
+    pinnedNow.setHours(12, 0, 0, 0);
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(pinnedNow.getTime());
     onTestFinished(() => nowSpy.mockRestore());
     const calls: RecordedCall[] = [];
     stubFetchM1(calls);
@@ -1047,7 +1060,7 @@ describe('Messages page — M1: sắp xếp, thời gian tương đối, nháp, 
         conversationId: CONV_B,
         message: {
           id: 'm-b2', conversationId: CONV_B, userIdFrom: OTHER_ID, fullMessage: 'tin mới từ B',
-          createdAt: new Date().toISOString(), seq: 5, clientMessageId: null,
+          createdAt: new Date(Date.now()).toISOString(), seq: 5, clientMessageId: null,
         },
         unreadCount: 1,
       } as never);
