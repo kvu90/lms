@@ -28,6 +28,15 @@
  *      (superuser, pool thường không gắn GUC) trên cùng DB — đúng
  *      vai của đường seed production và bảo đảm khẳng định của spec
  *      quan sát được toàn bộ dữ kiện, không bị chính RLS che.
+ *   4. Handle Kysely kho chung (`spaceDb.routedKysely`) được gắn
+ *      lại sau init sang cùng pool role thường của `ordinaryDb`:
+ *      factory của `WorkerModule` đã gắn nó vào pool superuser của
+ *      module trong lúc init, nên harness phải gắn lại — nếu không
+ *      các processor/service đã chuyển sang Kysely sẽ lặng lẽ chạy
+ *      trên pool superuser và vô hiệu hoá bất biến RLS của harness
+ *      đúng như lỗi mà lát 2 này sinh ra để chặn. Instance Kysely
+ *      không được `destroy()` riêng — vòng đời của nó đi theo pool
+ *      (xem `SpaceDatabaseService`), `close()` chỉ đóng hai pool.
  *
  * Bất biến:
  *   - Khẳng định nghiệp vụ của spec không đổi khi chuyển sang
@@ -45,8 +54,10 @@ import { getDrizzleToken } from '@nestjs/drizzle';
 import { Test } from '@nestjs/testing';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
+import { createCentreKysely } from '@lms/db';
 import { relations } from '../../src/db/relations';
 import { TenantAwarePool } from '../../src/db/tenant-pool';
+import { SpaceDatabaseService } from '../../src/db/routing/space-database.service';
 import { WorkerModule } from '../../src/worker.module';
 import { adminDatabaseUrl, ensureOrdinaryRole, ordinaryRoleUrl } from './ordinary-role';
 
@@ -67,6 +78,14 @@ export interface OrdinaryWorkerModuleHarness {
    * phải nhận đúng kết nối này mới là phần xử lý dưới RLS.
    */
   ordinaryDb: NodePgDatabase<typeof relations>;
+  /**
+   * Khung định tuyến của module sau khi harness đã gắn lại handle
+   * Kysely kho chung sang pool role thường (mục 4 của docblock
+   * đầu file). Spec tự dựng processor/service đã chuyển sang
+   * Kysely bằng tay phải truyền đúng service này (không phải
+   * `ordinaryDb` Drizzle) mới là phần xử lý dưới RLS.
+   */
+  spaceDb: SpaceDatabaseService;
   /** Đóng testing context rồi đóng hai pool của harness. */
   close: () => Promise<void>;
 }
@@ -101,10 +120,16 @@ export async function bootWorkerModuleAsOrdinaryRole(): Promise<OrdinaryWorkerMo
     .compile();
   await context.init();
 
+  // Gắn lại handle Kysely kho chung sang pool role thường (mục 4):
+  // factory của module đã gắn nó vào pool superuser trong lúc init.
+  const spaceDb = context.get(SpaceDatabaseService);
+  spaceDb.bindSharedKysely(createCentreKysely(ordinaryPool));
+
   return {
     context,
     adminDb,
     ordinaryDb,
+    spaceDb,
     close: async () => {
       await context.close();
       await ordinaryPool.end();

@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
-import { sql, type CentreDB, type CentreTx } from '@lms/db';
+import { sql, type CentreDb, type CentreDB, type CentreTx } from '@lms/db';
 import type { Database } from '../../db/database';
 import { outboxEvents } from '../../db/schema';
 import { tenantAls } from '../../modules/tenants/tenant-als';
@@ -13,7 +12,7 @@ export interface OutboxEventInput {
   tenantId?: string | null;
 }
 
-/** Bề mặt transaction tối thiểu mà OutboxService cần (một tx của Drizzle). */
+/** Bề mặt transaction tối thiểu mà đường ghi Drizzle chuyển tiếp cần (một tx của Drizzle). */
 export interface OutboxTx {
   insert: Database['insert'];
 }
@@ -22,10 +21,36 @@ export interface OutboxTx {
  * Outbox giao dịch (tự dựng): dòng sự kiện được ghi trong CÙNG
  * transaction cơ sở dữ liệu với thay đổi nghiệp vụ. Nếu transaction bị rollback
  * thì không tồn tại dòng sự kiện nào và không gì có thể được phát đi.
+ *
+ * Trạng thái sau chuyển đổi Kysely (D1, issue #653): handle riêng
+ * của service là handle Kysely kho trung tâm (`CentreDb` — ở tầng
+ * ứng dụng là facade định tuyến theo không gian), và đường ghi
+ * chuẩn là {@link OutboxService.enqueueKysely}. Đường ghi Drizzle
+ * {@link OutboxService.enqueue} còn giữ dạng CHUYỂN TIẾP cho các
+ * phía gọi vẫn mở transaction Drizzle; nó chỉ được gỡ khi điểm gọi
+ * Drizzle cuối cùng đã chuyển sang Kysely (hạng mục gỡ Drizzle
+ * cuối chiến dịch đối chiếu điểm này không còn tồn tại).
+ *
+ * Riêng đường standalone cần một hàm phân giải handle riêng
+ * (`resolveStandaloneDb`, tham số constructor thứ hai, tuỳ chọn):
+ * bảng đã-chuẩn-bị của hai facade là hai bảng riêng — một phiên
+ * làm việc mở bằng đường chuẩn bị phía Drizzle (guard ngữ cảnh
+ * không gian, `withSpaceDatabase`, các điểm vào xác thực) KHÔNG
+ * chuẩn bị phía Kysely, nên đọc thẳng facade Kysely trong phiên
+ * đó cho trung tâm kho riêng sẽ fail-closed theo luật định tuyến.
+ * Hàm phân giải (tầng wiring cấp) chuẩn bị phía Kysely cho đúng
+ * slug trong ngữ cảnh rồi mới trả handle, giữ nguyên hành vi
+ * trước chuyển đổi (đường standalone luôn ghi được vào kho của
+ * trung tâm đang hiệu lực). Điểm dựng tay ngoài tầng wiring
+ * (runner cấp phát, spec) truyền handle của đúng kho đích nên
+ * không cần hàm phân giải — khi đó handle chính là đích ghi.
  */
 @Injectable()
 export class OutboxService {
-  constructor(@InjectDrizzle() private readonly db: Database) {}
+  constructor(
+    private readonly db: CentreDb,
+    private readonly resolveStandaloneDb?: () => Promise<CentreDb>,
+  ) {}
 
   /**
    * Phân giải tenant hiệu lực và payload của một sự kiện — nhà duy
@@ -47,6 +72,16 @@ export class OutboxService {
     return { tenantId, payload };
   }
 
+  /**
+   * Đường ghi Drizzle CHUYỂN TIẾP: ghi dòng sự kiện bằng chính
+   * transaction Drizzle của phía gọi, cho các module chưa chuyển
+   * sang Kysely. Cùng bảng `outbox_events`, cùng hình dạng dòng và
+   * cùng khâu phân giải tenant/payload với đường Kysely chuẩn
+   * ({@link OutboxService.enqueueKysely}) — bản Kysely là đặc tả
+   * đích. Điều kiện gỡ: điểm gọi Drizzle cuối cùng chuyển sang
+   * Kysely thì phương thức này và kiểu {@link OutboxTx} bị xoá;
+   * hạng mục gỡ Drizzle cuối chiến dịch đối chiếu.
+   */
   async enqueue(tx: OutboxTx, input: OutboxEventInput): Promise<void> {
     const { tenantId, payload } = this.resolveTenantPayload(input);
     await tx.insert(outboxEvents).values({
@@ -58,16 +93,17 @@ export class OutboxService {
   }
 
   /**
-   * Đường ghi outbox qua handle Kysely: dòng sự kiện được ghi
-   * trong CÙNG transaction Kysely với thay đổi nghiệp vụ của nơi
-   * gọi — cùng bất biến giao dịch với {@link enqueue}, cho các
-   * module đã chuyển sang Kysely (hiện là calendar, badges —
-   * issue #647 — và cụm người dùng — issue #641). Cột `payload`
-   * jsonb đi qua serialize tường minh kèm `::jsonb` theo khuôn
-   * ghi jsonb của `@lms/db`: driver `pg`
-   * tự stringify object thường nhưng hiểu MẢNG cấp cao nhất là
-   * mảng PostgreSQL. Khi hạng mục chuyển đổi của chính outbox
-   * (D1) về đích, hai đường ghi hợp nhất về đường Kysely này.
+   * Đường ghi outbox chuẩn qua handle Kysely: dòng sự kiện được
+   * ghi trong CÙNG transaction Kysely với thay đổi nghiệp vụ của
+   * nơi gọi — cùng bất biến giao dịch với {@link enqueue}. Đây là
+   * điểm nối A của phán quyết C-8 đã được hợp nhất tại D1 (issue
+   * #653): biến thể do các cụm đã chuyển (G7 #647 đưa vào, G5 #645
+   * tái sử dụng) nay là đường ghi chuẩn của service đã chuyển đổi;
+   * chữ ký `enqueueKysely(tx: CentreTx, input)` giữ nguyên để mọi
+   * phía gọi phía Kysely không đổi hợp đồng. Cột `payload` jsonb
+   * đi qua serialize tường minh kèm `::jsonb` theo khuôn ghi jsonb
+   * của `@lms/db`: driver `pg` tự stringify object thường nhưng
+   * hiểu MẢNG cấp cao nhất là mảng PostgreSQL.
    */
   async enqueueKysely(tx: CentreTx, input: OutboxEventInput): Promise<void> {
     const { tenantId, payload } = this.resolveTenantPayload(input);
@@ -82,10 +118,17 @@ export class OutboxService {
       .execute();
   }
 
-  /** Hàm tiện ích: đưa vào hàng đợi trong một transaction ngắn riêng. */
+  /**
+   * Hàm tiện ích: đưa vào hàng đợi trong một transaction Kysely
+   * ngắn riêng. Handle đích lấy qua hàm phân giải standalone khi
+   * tầng wiring có cấp (xem TSDoc của lớp — phiên mở bằng đường
+   * chuẩn bị phía Drizzle cần được chuẩn bị phía Kysely trước),
+   * không thì dùng thẳng handle của service.
+   */
   async enqueueStandalone(input: OutboxEventInput): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      await this.enqueue(tx as OutboxTx, input);
+    const db = this.resolveStandaloneDb ? await this.resolveStandaloneDb() : this.db;
+    await db.transaction().execute(async (tx) => {
+      await this.enqueueKysely(tx, input);
     });
   }
 }

@@ -290,9 +290,13 @@ const ROLE_BASELINE_MARKER_VERSION = 1;
  * @param db - Handle Drizzle của kho đích (kết nối đã mang ngữ
  *   cảnh platform để qua RLS như mọi ghi seed của pipeline).
  * @param kyselyDb - Handle Kysely của cùng kho đích (cùng ngữ cảnh
- *   platform ở mức phiên) cho hai service access mà `RolesService`
- *   yêu cầu ở constructor (D5 #657); đường gieo mặc định không
- *   truy vấn qua hai lõi này, handle chỉ cần tồn tại đúng kho.
+ *   platform ở mức phiên) cho `OutboxService` (service đã chuyển
+ *   sang Kysely ở D1, issue #653) và hai service access mà
+ *   `RolesService` yêu cầu ở constructor (D5 #657). Closure này
+ *   chỉ gọi `listRoles`/`seedDefaults` — cả hai đều không phát
+ *   sự kiện qua outbox và không truy vấn qua hai lõi access —
+ *   nên handle chỉ để dựng các service đúng hợp đồng, chỉ cần
+ *   tồn tại đúng kho.
  * @returns `created` khi lượt này đã chạy đường gieo và ghi dấu
  *   mốc hoàn tất, `reused` khi kho đã cài trọn bộ vai nên không
  *   đổi gì.
@@ -303,7 +307,7 @@ async function installCentreRoleBaseline(db: Database, kyselyDb: CentreDb): Prom
   const rolesService = new RolesService(
     accessRepository,
     contextsService,
-    new OutboxService(db),
+    new OutboxService(kyselyDb),
     new PlanLimitsService({ routedKysely: kyselyDb } as unknown as SpaceDatabaseService),
     new RoleSeparationService({ routedKysely: kyselyDb } as unknown as SpaceDatabaseService),
   );
@@ -641,9 +645,10 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
       // Bộ vai mặc định của kho trung tâm (cơ chế chuyển tiếp —
       // xem `installCentreRoleBaseline`): cài sau khi context hệ
       // thống và dòng tenant đã có, vì ma trận mặc định neo vào
-      // context hệ thống của chính kho này. Handle Kysely cho hai
-      // service access dựng trên pool riêng trần 1 kết nối (cùng
-      // khuôn restorePool ở trên) với GUC platform ở mức phiên.
+      // context hệ thống của chính kho này. Handle Kysely cho
+      // `OutboxService` và hai service access dựng trên pool riêng
+      // trần 1 kết nối (cùng khuôn restorePool ở trên) với GUC
+      // platform ở mức phiên.
       const baselinePool = new Pool({ connectionString: centreUrl, max: 1 });
       const baselineKysely = createCentreKysely(baselinePool);
       try {
@@ -890,9 +895,9 @@ export async function installSpaceRoleBaseline(options: SpaceRoleBaselineOptions
       const db = drizzle({ client, relations });
       const [tenant] = await db.select().from(tenants).where(eq(tenants.slug, slug)).limit(1);
       if (!tenant) throw new Error(`Tenant ${slug} does not exist in the centre database yet`);
-      // Handle Kysely cho hai service access (D5 #657): pool riêng
-      // trần 1 kết nối với GUC platform ở mức phiên, cùng khuôn
-      // điểm gọi cấp phát ở trên.
+      // Handle Kysely cho `OutboxService` và hai service access
+      // (D1 #653, D5 #657): pool riêng trần 1 kết nối với GUC
+      // platform ở mức phiên, cùng khuôn điểm gọi cấp phát ở trên.
       const baselinePool = new Pool({ connectionString: centreUrl, max: 1 });
       const baselineKysely = createCentreKysely(baselinePool);
       let outcome: 'created' | 'reused';

@@ -130,8 +130,8 @@ describe('Kênh email thông báo của worker + digest hàng ngày (NB-5, issue
     // Hai processor tự dựng bằng tay phải chạy bằng kết nối role
     // thường của harness — dùng `db` quản trị ở đây sẽ đưa phần xử
     // lý cần kiểm chứng quay lại superuser và vô hiệu hoá lát #294.
-    dispatch = new NotificationDispatchProcessor(harness.ordinaryDb, mail as never);
-    digest = new NotificationDigestProcessor(harness.ordinaryDb, mail as never, buildFakeI18n() as never);
+    dispatch = new NotificationDispatchProcessor(harness.spaceDb, mail as never);
+    digest = new NotificationDigestProcessor(harness.spaceDb, mail as never, buildFakeI18n() as never);
   });
   afterAll(async () => { await harness.close(); });
 

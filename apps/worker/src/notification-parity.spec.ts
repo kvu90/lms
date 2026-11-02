@@ -4,9 +4,6 @@ import {
   WORKER_PROVIDERS,
   type WorkerProviderLaw,
 } from './notification-delivery.service';
-import {
-  notifications, pluginConfig, userPreferences, users,
-} from '@lms/db';
 
 /**
  * Parity luật thông báo API ↔ worker — nửa HÀNH VI (issue #293).
@@ -55,11 +52,13 @@ describe('Đối chiếu thông báo: worker mirror kiểm tra tỉnh táo cục
 });
 
 /**
- * Dựng NotificationDeliveryService với DB giả theo từng bảng (mỗi
- * kịch bản tối đa một dòng có nghĩa cho mỗi bảng — đủ cho các ca
- * luật cứng ở đây). Tín hiệu badge qua Redis được stub để spec
- * không phụ thuộc Redis: hành vi cần khẳng định là luật phân phối,
- * không phải đường tín hiệu thời gian thực.
+ * Dựng NotificationDeliveryService với handle Kysely giả theo từng
+ * bảng (mỗi kịch bản tối đa một dòng có nghĩa cho mỗi bảng — đủ cho
+ * các ca luật cứng ở đây; chuỗi builder mô phỏng đúng chuỗi mà
+ * service dùng, điều kiện where được bỏ qua như khuôn notify.spec).
+ * Tín hiệu badge qua Redis được stub để spec không phụ thuộc Redis:
+ * hành vi cần khẳng định là luật phân phối, không phải đường tín
+ * hiệu thời gian thực.
  */
 function buildDelivery(scenario: {
   user?: { id: string; suspended: boolean; deleted: boolean };
@@ -68,29 +67,45 @@ function buildDelivery(scenario: {
 }) {
   const insertedNotifications: Record<string, unknown>[] = [];
   const insertedLogs: Record<string, unknown>[] = [];
-  const rowsFor = (table: unknown): Record<string, unknown>[] => {
-    if (table === users) return scenario.user ? [scenario.user] : [];
-    if (table === pluginConfig) return scenario.sitePolicyValue === undefined ? [] : [{ value: scenario.sitePolicyValue }];
-    if (table === userPreferences) return scenario.preferenceValue === undefined ? [] : [{ value: scenario.preferenceValue }];
-    return [];
+  const rowFor = (table: string): Record<string, unknown> | undefined => {
+    if (table === 'users') return scenario.user as unknown as Record<string, unknown> | undefined;
+    if (table === 'plugin_config') return scenario.sitePolicyValue === undefined ? undefined : { value: scenario.sitePolicyValue };
+    if (table === 'user_preferences') return scenario.preferenceValue === undefined ? undefined : { value: scenario.preferenceValue };
+    return undefined;
   };
-  const db = {
-    select: () => ({
-      from: (table: unknown) => ({ where: async () => rowsFor(table) }),
-    }),
-    insert: (table: unknown) => ({
-      values: (v: Record<string, unknown>) => {
-        if (table === notifications) {
-          insertedNotifications.push(v);
-          return { returning: async () => [{ id: 'notif-parity-1' }] };
-        }
-        insertedLogs.push(v);
-        return { onConflictDoNothing: async () => [] };
+  const selectBuilder = (table: string) => {
+    const builder = {
+      select: () => builder,
+      where: () => builder,
+      executeTakeFirst: async () => rowFor(table),
+      execute: async () => {
+        const row = rowFor(table);
+        return row ? [row] : [];
       },
-    }),
+    };
+    return builder;
+  };
+  const insertBuilder = (table: string) => ({
+    values: (v: Record<string, unknown>) => {
+      if (table === 'notifications') {
+        insertedNotifications.push(v);
+        return {
+          returning: () => ({ executeTakeFirst: async () => ({ id: 'notif-parity-1' }) }),
+        };
+      }
+      insertedLogs.push(v);
+      return {
+        onConflict: () => ({ execute: async () => [] }),
+        execute: async () => [],
+      };
+    },
+  });
+  const routedKysely = {
+    selectFrom: (table: string) => selectBuilder(table),
+    insertInto: (table: string) => insertBuilder(table),
   };
   const config = { getOrThrow: () => 'redis://localhost:6379' };
-  const delivery = new NotificationDeliveryService(db as never, config as never);
+  const delivery = new NotificationDeliveryService({ routedKysely } as never, config as never);
   (delivery as unknown as { signalUnreadCountChanged: (userId: string) => Promise<void> })
     .signalUnreadCountChanged = vi.fn(async () => undefined);
   return { delivery, insertedNotifications, insertedLogs };
@@ -144,8 +159,8 @@ describe('Đối chiếu thông báo: luật gửi của worker khớp luật c�
     expect(result.status).toBe('delivered');
     expect(result.notificationId).toBe('notif-parity-1');
     expect(insertedNotifications).toHaveLength(1);
-    expect(insertedNotifications[0]).toMatchObject({ eventType: 'calendar_reminder', component: 'core_calendar' });
-    expect(insertedLogs[0]).toMatchObject({ provider: 'calendar_reminder', status: 'delivered', dedupeKey: 'popup-notif-parity-1' });
+    expect(insertedNotifications[0]).toMatchObject({ event_type: 'calendar_reminder', component: 'core_calendar' });
+    expect(insertedLogs[0]).toMatchObject({ provider: 'calendar_reminder', status: 'delivered', dedupe_key: 'popup-notif-parity-1' });
   });
 
   it('provider bắt buộc (P2) ép bật kênh in-app ngay cả khi tuỳ chọn đã lưu đang tắt — đúng luật phía API', async () => {
@@ -178,7 +193,7 @@ describe('Đối chiếu thông báo: luật gửi của worker khớp luật c�
       const mandatoryResult = await delivery.deliverInApp('user-parity', 'parity_mandatory_probe', CALENDAR_INPUT);
       expect(mandatoryResult.status).toBe('delivered');
       expect(insertedNotifications).toHaveLength(1);
-      expect(insertedNotifications[0]).toMatchObject({ eventType: 'parity_mandatory_probe', component: 'core_probe' });
+      expect(insertedNotifications[0]).toMatchObject({ event_type: 'parity_mandatory_probe', component: 'core_probe' });
       const optionalResult = await delivery.deliverInApp('user-parity', 'parity_optional_probe', CALENDAR_INPUT);
       expect(optionalResult.status).toBe('skipped-admin-disabled');
       expect(insertedNotifications).toHaveLength(1);
