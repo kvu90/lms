@@ -453,7 +453,15 @@ services:
       # quan sát trạng thái và cho CI chờ readiness — không cơ
       # chế nào restart container theo healthcheck, nên
       # database chập chờn không làm Keycloak bị khởi động lại.
-      test: ["CMD", "bash", "-c", 'exec 3<>/dev/tcp/127.0.0.1/9000 || exit 1; printf "GET /health/ready HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n" >&3; IFS= read -r status <&3; case "$status" in *" 200 "*) exit 0 ;; *) exit 1 ;; esac']
+      # Biến $status của shell trong lệnh dưới đây PHẢI viết
+      # thành $$status: Compose nội suy mọi $... ngay trong
+      # chuỗi lệnh của healthcheck, viết một $ thì biến bị thay
+      # bằng chuỗi rỗng trước khi lệnh tới container và probe
+      # hỏng lặng lẽ (đã vấp ở lượt CI đầu của healthcheck này:
+      # log job có cảnh báo "status variable is not set" trong
+      # khi Keycloak khởi động và nạp realm hoàn toàn bình
+      # thường).
+      test: ["CMD", "bash", "-c", 'exec 3<>/dev/tcp/127.0.0.1/9000 || exit 1; printf "GET /health/ready HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n" >&3; IFS= read -r status <&3; case "$$status" in *" 200 "*) exit 0 ;; *) exit 1 ;; esac']
       interval: 10s
       timeout: 5s
       retries: 12
