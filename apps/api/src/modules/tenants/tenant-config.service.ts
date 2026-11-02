@@ -1,9 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, eq, isNull } from 'drizzle-orm';
 import type { SiteSetting } from '@lms/contracts';
-import type { Database } from '../../db/database';
-import { adminSettingAudit, config, pluginConfig } from '../../db/schema';
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import {
@@ -12,6 +8,7 @@ import {
   validateSiteSettingValue,
   type SiteSettingDefinition,
 } from '../site-config/settings-registry';
+import { SiteConfigRepository } from '@lms/db/repositories/site-config';
 import { TenantsRepository } from '@lms/db/repositories/tenants';
 import { TenantContextService } from './tenant-context.service';
 
@@ -33,29 +30,22 @@ export class TenantConfigService {
     private readonly contexts: ContextsService,
     private readonly evaluator: PermissionEvaluator,
     private readonly tenantContext: TenantContextService,
-    @InjectDrizzle() private readonly db: Database,
+    private readonly siteConfig: SiteConfigRepository,
   ) {}
 
   private settingKey(def: SiteSettingDefinition): string {
     return `${def.component}/${def.name}`;
   }
 
-  /** Giá trị đã lưu ở tầng platform (cùng quy tắc lưu trữ với SiteConfigRepository); undefined khi chưa có ghi đè. */
+  /**
+   * Giá trị đã lưu ở tầng platform; undefined khi chưa có ghi đè.
+   * Quy tắc lưu trữ (bảng `config` cho core, `plugin_config` cho
+   * component kèm nhánh đọc JSON) do `SiteConfigRepository` của
+   * `@lms/db` giữ — service này uỷ quyền thẳng, không giữ bản sao
+   * đường truy vấn riêng.
+   */
   private async platformStoredValue(component: string, name: string): Promise<unknown> {
-    if (component === 'core') {
-      const [row] = await this.db.select().from(config).where(eq(config.key, name));
-      return row ? row.value : undefined;
-    }
-    const [row] = await this.db
-      .select()
-      .from(pluginConfig)
-      .where(and(eq(pluginConfig.plugin, component), eq(pluginConfig.name, name), isNull(pluginConfig.tenantId)));
-    if (!row || row.value === null) return undefined;
-    try {
-      return JSON.parse(row.value) as unknown;
-    } catch {
-      return row.value;
-    }
+    return this.siteConfig.getStoredValue(component, name);
   }
 
   /**
@@ -198,10 +188,10 @@ export class TenantConfigService {
     newValue: unknown,
     actorId: string,
   ): Promise<void> {
-    await this.db.insert(adminSettingAudit).values({
+    await this.siteConfig.insertAudit({
       settingKey: this.settingKey(def),
-      oldValue: oldValue ?? null,
-      newValue: newValue ?? null,
+      oldValue,
+      newValue,
       changedBy: actorId,
       tenantId,
     });

@@ -32,11 +32,14 @@ import { TenantContextService } from './tenant-context.service';
  * vượt tenant và mọi thao tác qua đường này phải được ghi audit ở tầng
  * ứng dụng (TenantsService / SiteConfigService / event log).
  *
- * Bản Kysely tối thiểu (`withTenantKysely` / `withPlatformKysely` /
- * `withCurrentKysely`, issue #639) giữ cùng ngữ nghĩa transaction +
- * GUC nhưng chạy trên handle Kysely định tuyến và giữ `spaceSlug`
- * của ngữ cảnh cha (xem ghi chú ở `withTenantKysely`); phần đầy
- * đủ của các wrapper Kysely thuộc việc D3.
+ * Bản Kysely đầy đủ (issue #639 dựng ba wrapper giao dịch ở mức
+ * pilot cần, issue #655 hoàn thiện nốt hai runner ngữ cảnh) có đủ
+ * năm điểm vào như phía Drizzle — `runInTenantContextKysely` /
+ * `runInPlatformContextKysely` cho ngữ cảnh ALS thuần và
+ * `withTenantKysely` / `withPlatformKysely` / `withCurrentKysely`
+ * cho giao dịch — giữ cùng ngữ nghĩa GUC như bản Drizzle nhưng
+ * chạy trên handle Kysely định tuyến và giữ `spaceSlug` của ngữ
+ * cảnh cha (xem ghi chú ở `withTenantKysely`).
  */
 @Injectable()
 export class TenantDbService {
@@ -97,9 +100,36 @@ export class TenantDbService {
   }
 
   /**
-   * Biến thể Kysely TỐI THIỂU của các wrapper `with*` (issue #639,
-   * mức pilot cần — phần đầy đủ thuộc việc D3): cùng ngữ nghĩa
-   * transaction + GUC như bản Drizzle, nhưng chạy trên handle
+   * Chạy `fn` trong ngữ cảnh ALS của một tenant cho đường Kysely
+   * (không mở transaction) — bản song song của `runInTenantContext`:
+   * trường tenant/userId lấy theo đối số như bản Drizzle, nhưng ngữ
+   * cảnh dựng bằng cơ chế hợp ngữ cảnh cha nên giữ `spaceSlug` định
+   * tuyến; mọi truy vấn qua `routedKysely` trong `fn` chạy dưới
+   * RLS của đúng tenant đó nhờ GUC mà pool gắn theo ngữ cảnh.
+   */
+  async runInTenantContextKysely<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
+    return this.runInKyselyContext(
+      { tenantId, userId: this.tenantContext.currentUserId(), platform: false },
+      fn,
+    );
+  }
+
+  /**
+   * Chạy `fn` trong ngữ cảnh ALS platform tường minh cho đường
+   * Kysely (không mở transaction) — bản song song của
+   * `runInPlatformContext`, giữ `spaceSlug` của ngữ cảnh cha như
+   * mọi điểm vào Kysely của service này; chỉ dành cho vận hành hệ
+   * thống như bản Drizzle (mỗi thao tác dữ liệu tenant cụ thể vẫn
+   * phải tự giới hạn theo tenant của bản ghi).
+   */
+  async runInPlatformContextKysely<T>(fn: () => Promise<T>): Promise<T> {
+    return this.runInKyselyContext({ userId: this.tenantContext.currentUserId(), platform: true }, fn);
+  }
+
+  /**
+   * Biến thể Kysely của các wrapper `with*` (issue #639 dựng ở mức
+   * pilot cần, issue #655 hoàn thiện đầy đủ mặt bằng): cùng ngữ
+   * nghĩa transaction + GUC như bản Drizzle, nhưng chạy trên handle
    * Kysely định tuyến (`SpaceDatabaseService.routedKysely`) và trả
    * handle giao dịch `CentreTx` cho callback.
    *
@@ -109,8 +139,8 @@ export class TenantDbService {
    * điều kiện để `routedKysely` vẫn trỏ đúng kho riêng của trung
    * tâm bên trong transaction — wrapper mà làm rơi slug thì mọi
    * transaction Kysely đều rơi về kho chung bất kể phiên đang ở
-   * kho riêng. Việc D3 về sau sẽ đối chiếu lại bản Drizzle theo
-   * cùng luật này; PR này không sửa hành vi bản Drizzle.
+   * kho riêng. Bản Drizzle giữ nguyên hành vi của nó cho tới hạng
+   * mục gỡ Drizzle; hai phía chỉ khác nhau ở điểm giữ slug này.
    */
   async withTenantKysely<T>(tenantId: string, fn: (tx: CentreTx) => Promise<T>): Promise<T> {
     return this.runInKyselyContext({ tenantId, userId: this.tenantContext.currentUserId(), platform: false }, () =>

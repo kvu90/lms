@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CentreIdentityRepository } from '@lms/db/repositories/centre-identity';
+import { SiteConfigRepository } from '@lms/db/repositories/site-config';
 import { TenantsRepository } from '@lms/db/repositories/tenants';
 import { SpaceDatabaseService } from '../../db/routing/space-database.service';
 import { SpaceRoutingModule } from '../../db/routing/space-routing.module';
@@ -42,6 +43,15 @@ import { TenantsService } from './tenants.service';
     {
       provide: CentreIdentityRepository,
       useFactory: (spaceDb: SpaceDatabaseService) => new CentreIdentityRepository(spaceDb.routedKysely),
+      inject: [SpaceDatabaseService],
+    },
+    // SiteConfigRepository phục vụ TenantConfigService (đọc giá trị
+    // platform của setting + ghi vết vào `admin_setting_audit`) —
+    // cùng khuôn factory trên `routedKysely` như hai repository trên
+    // (việc D3, issue #655).
+    {
+      provide: SiteConfigRepository,
+      useFactory: (spaceDb: SpaceDatabaseService) => new SiteConfigRepository(spaceDb.routedKysely),
       inject: [SpaceDatabaseService],
     },
     CentreIdentityService,
