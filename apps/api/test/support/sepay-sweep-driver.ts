@@ -20,6 +20,7 @@ import { WorkerPaidClassEnrolActivationService } from '../../../worker/src/worke
 import { WorkerPaidEnrolActivationService } from '../../../worker/src/worker-paid-enrol-activation.service';
 import { WorkerPaymentSettlementService } from '../../../worker/src/worker-payment-settlement.service';
 import { WorkerPaymentSpaceScope } from '../../../worker/src/worker-payment-space-scope.service';
+import { WorkerPaymentsTransitionalRepository } from '../../../worker/src/worker-payments-transitional.repository';
 
 /**
  * Cầu dẫn nhịp quét matching SePay ở worker cho các suite e2e
@@ -107,7 +108,12 @@ function getScheduler(): SepayMatchingScheduler {
     const repo = new PaymentsRepository(getSharedKysely());
     const writer = new OutboxWriterService(getSharedKysely());
     const plans = new PlanEntitlementsService(repo);
-    const enrolOutbox = new WorkerEnrolOutboxService(writer);
+    // Cầu nối PR #683 (chủ đóng W2b #661): service outbox enrol và
+    // settlement dùng repository chuyển tiếp Drizzle trên handle
+    // Drizzle, như điểm dựng của int-spec worker — các adapter vẫn
+    // dùng handle Drizzle cho tới khi #661 chuyển chúng.
+    const bridge = new WorkerPaymentsTransitionalRepository(db);
+    const enrolOutbox = new WorkerEnrolOutboxService(db);
     // Điểm phân giải không gian theo payment của worker (tiền điều
     // kiện Phần B của issue #587 — hạng mục 2): cầu dẫn không cấu
     // hình control plane (`ConfigService` rỗng, không gọi
@@ -125,7 +131,7 @@ function getScheduler(): SepayMatchingScheduler {
       new WorkerPaidEnrolActivationService(db, enrolOutbox, spaceScope),
       new WorkerPaidClassEnrolActivationService(db, enrolOutbox, spaceScope),
       plans,
-      new WorkerPaymentSettlementService(db, repo, plans, enrolOutbox, spaceScope),
+      new WorkerPaymentSettlementService(db, repo, bridge, enrolOutbox, spaceScope),
     );
     scheduler = new SepayMatchingScheduler(matching);
   }
