@@ -107,6 +107,7 @@ import { RoleSeparationService } from '../access/role-separation.service';
 import { OutboxService } from '../../infra/events/outbox.service';
 import type { Database } from '../../db/database';
 import { CONTEXT_LEVELS, DEFAULT_ROLES } from '../access/domain/capabilities';
+import { createCentreKysely, sql as kyselySql } from '@lms/db';
 import { isDedicatedDatabaseNameConflict } from '@lms/db/repositories/control-plane';
 import {
   loadProgramDumpSql,
@@ -600,7 +601,25 @@ export async function runSpaceProvision(options: SpaceProvisionOptions): Promise
         const subjectRows = (executed as unknown as { rows: { c: string }[] }).rows;
         programRecordsPresent = Number(subjectRows[0]?.c ?? 0) > 0;
         if (!existingInstall && !programRecordsPresent) {
-          await restoreProgramDumpSql(db, dumpSql, { anchorContextId: systemContextId });
+          // Từ issue #646, `restoreProgramDumpSql` chạy trên
+          // handle Kysely. Đường seed này đang giữ GUC platform ở
+          // MỨC PHIÊN trên `seedClient` để restore (transaction
+          // riêng của nó) qua được RLS FORCE — bản Kysely vì vậy
+          // dùng một pool RIÊNG trần 1 kết nối trên cùng
+          // connection string: đặt GUC platform ở mức phiên lên
+          // kết nối duy nhất đó trước, rồi transaction của restore
+          // mượn lại đúng kết nối ấy (không có lượt dùng song song
+          // nào khác trên pool này trong bước seed). Pool đóng
+          // ngay sau restore; các câu Drizzle xung quanh trên
+          // `seedClient` không đổi.
+          const restorePool = new Pool({ connectionString: centreUrl, max: 1 });
+          const restoreDb = createCentreKysely(restorePool);
+          try {
+            await kyselySql`SELECT set_config('app.platform', 'on', false)`.execute(restoreDb);
+            await restoreProgramDumpSql(restoreDb, dumpSql, { anchorContextId: systemContextId });
+          } finally {
+            await restoreDb.destroy().catch(() => undefined);
+          }
         }
         if (!existingInstall) {
           await db.insert(programPackageInstalls).values({

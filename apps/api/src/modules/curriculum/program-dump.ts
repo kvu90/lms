@@ -1,10 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { and, inArray, ne, sql } from 'drizzle-orm';
-import type { Database } from '../../db/database';
-import {
-  curricula, curriculumNodes, curriculumProgramRecords, learningOutcomes, subjects,
-} from '../../db/schema';
+import { sql, type CentreDb } from '@lms/db';
+import type {
+  CurriculumNodeRow, CurriculumRow, LearningOutcomeRow, ProgramRecordRow, SubjectRow,
+} from '@lms/db/repositories/curriculum';
 
 /**
  * DUMP ĐÔNG CỨNG dữ liệu chương trình GDPT 2018 — mô hình phân phối
@@ -134,12 +133,29 @@ function orderOutcomesTopologically<T extends { id: string; derivedFromId: strin
  * @param opts - `datasetKey` để giới hạn phạm vi theo một dataset.
  * @returns Toàn văn file SQL (kèm header version + số dòng từng bảng).
  */
-export async function buildProgramDumpSql(db: Database, opts?: { datasetKey?: string }): Promise<string> {
-  let subjectRows = await db.select().from(subjects);
-  let curriculaRows = await db.select().from(curricula);
-  let nodeRows = await db.select().from(curriculumNodes);
-  let outcomeRows = await db.select().from(learningOutcomes);
-  let recordRows = await db.select().from(curriculumProgramRecords);
+export async function buildProgramDumpSql(db: CentreDb, opts?: { datasetKey?: string }): Promise<string> {
+  let subjectRows: SubjectRow[] = await db.selectFrom('subjects').select([
+    'id', 'context_id as contextId', 'name', 'slug', 'position',
+    'created_at as createdAt', 'updated_at as updatedAt',
+  ]).execute();
+  let curriculaRows: CurriculumRow[] = await db.selectFrom('curricula').select([
+    'id', 'subject_id as subjectId', 'grade', 'created_at as createdAt', 'updated_at as updatedAt',
+  ]).execute();
+  let nodeRows: CurriculumNodeRow[] = await db.selectFrom('curriculum_nodes').select([
+    'id', 'curriculum_id as curriculumId', 'parent_id as parentId', 'title', 'kind', 'position',
+    'duration_periods as durationPeriods', 'duration_percent as durationPercent',
+    'created_at as createdAt', 'updated_at as updatedAt',
+  ]).execute();
+  let outcomeRows: LearningOutcomeRow[] = await db.selectFrom('learning_outcomes').select([
+    'id', 'tenant_id as tenantId', 'node_id as nodeId', 'content', 'position',
+    'source_kind as sourceKind', 'source_ref as sourceRef', 'derived_from_id as derivedFromId',
+    'retired_at as retiredAt', 'created_at as createdAt', 'updated_at as updatedAt',
+  ]).execute();
+  let recordRows: ProgramRecordRow[] = await db.selectFrom('curriculum_program_records').select([
+    'id', 'dataset_key as datasetKey', 'record_id as recordId', 'subject_id as subjectId',
+    'curriculum_id as curriculumId', 'node_id as nodeId', 'content_hash as contentHash', 'source',
+    'created_at as createdAt', 'updated_at as updatedAt',
+  ]).execute();
   if (opts?.datasetKey) {
     recordRows = recordRows.filter((r) => r.datasetKey === opts.datasetKey);
     const subjectIds = new Set(recordRows.map((r) => r.subjectId));
@@ -243,26 +259,37 @@ export function loadProgramDumpSql(): string {
  *   ProgramDumpService).
  */
 export async function restoreProgramDumpSql(
-  db: Database,
+  db: CentreDb,
   dumpSql: string,
   opts?: { anchorContextId?: string },
 ): Promise<void> {
-  await db.transaction(async (tx) => {
-    const subjectIdsBefore = opts?.anchorContextId
-      ? new Set((await tx.select({ id: subjects.id }).from(subjects)).map((r) => r.id))
+  const anchorContextId = opts?.anchorContextId;
+  await db.transaction().execute(async (tx) => {
+    const subjectIdsBefore = anchorContextId
+      ? new Set((await tx.selectFrom('subjects').select(['id']).execute()).map((r) => r.id))
       : null;
-    await tx.execute(sql.raw(dumpSql));
-    if (opts?.anchorContextId && subjectIdsBefore) {
-      const restoredIds = (await tx.select({ id: subjects.id }).from(subjects))
+    // Thử nghiệm T-12 (chốt tại issue #646): toàn bộ artifact là
+    // một script nhiều câu lệnh KHÔNG tham số (mọi giá trị là
+    // literal trong văn bản) — `sql.raw` của Kysely biên dịch nó
+    // thành đúng một truy vấn không tham số, và driver `pg` khi
+    // không có tham số thì dùng giao thức truy vấn đơn giản nên cả
+    // script chạy trong transaction này; lỗi ở bất kỳ câu nào giữa
+    // script làm transaction huỷ và rollback sạch mọi câu đã chạy
+    // trước đó. Hành vi được khoá bằng spec tích hợp chạy artifact
+    // thật trên database thật (gồm ca cố ý gây lỗi giữa script).
+    await sql.raw(dumpSql).execute(tx);
+    if (anchorContextId && subjectIdsBefore) {
+      const restoredIds = (await tx.selectFrom('subjects').select(['id']).execute())
         .map((r) => r.id)
         .filter((id) => !subjectIdsBefore.has(id));
       if (restoredIds.length > 0) {
-        await tx.update(subjects)
-          .set({ contextId: opts.anchorContextId, updatedAt: new Date() })
-          .where(and(
-            inArray(subjects.id, restoredIds),
-            ne(subjects.contextId, opts.anchorContextId),
-          ));
+        await tx
+          .updateTable('subjects')
+          .set({ context_id: anchorContextId, updated_at: new Date() })
+          .where((eb) =>
+            eb.and([eb('id', 'in', restoredIds), eb('context_id', '!=', anchorContextId)]),
+          )
+          .execute();
       }
     }
   });

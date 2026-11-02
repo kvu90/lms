@@ -1,13 +1,11 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { and, eq, inArray } from 'drizzle-orm';
+import { ContentRepository, type PageRow, type ResourceRow } from '@lms/db/repositories/content';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CompletionService } from '../completion/completion.service';
 import { CoursesService } from '../courses/courses.service';
 import type { CmRow } from '../courses/courses.repository';
 import { FilesService } from '../files/files.service';
-import { courseGroups, courseModulesCompletion, enrol, groupsMembers, userEnrolments, users } from '../../db/schema';
-import { ContentRepository, type PageRow, type ResourceRow } from './content.repository';
 import { isSafeExternalResourceUrl, sanitizePageContent } from './page-content-sanitizer';
 
 export const PAGE_COMPONENT = 'mod_page';
@@ -424,8 +422,15 @@ export class ContentService {
     const trackedIds = cms.map((cm) => cm.id);
     const completedByCm = new Map<string, Set<string>>();
     if (trackedIds.length) {
-      const rows = await db.select().from(courseModulesCompletion)
-        .where(inArray(courseModulesCompletion.courseModuleId, trackedIds));
+      const rows = await db
+        .selectFrom('course_modules_completion')
+        .select([
+          'course_module_id as courseModuleId',
+          'user_id as userId',
+          'completion_state as completionState',
+        ])
+        .where('course_module_id', 'in', trackedIds)
+        .execute();
       for (const row of rows) {
         if (row.completionState === 0) continue;
         const set = completedByCm.get(row.courseModuleId) ?? new Set<string>();
@@ -453,19 +458,31 @@ export class ContentService {
         percent: pairs ? Math.round((donePairs / pairs) * 100) : null,
       };
     };
-    const groups = await db.select().from(courseGroups).where(eq(courseGroups.courseId, courseId));
+    const groups = await db
+      .selectFrom('course_groups')
+      .select(['id', 'name'])
+      .where('course_id', '=', courseId)
+      .execute();
     const markers: ClassMarker[] = [];
     if (groups.length) {
-      const memberRows = await db.select().from(groupsMembers)
-        .where(inArray(groupsMembers.groupId, groups.map((g) => g.id)));
+      const memberRows = await db
+        .selectFrom('groups_members')
+        .select(['group_id as groupId', 'user_id as userId'])
+        .where('group_id', 'in', groups.map((g) => g.id))
+        .execute();
       for (const group of groups) {
         const ids = memberRows.filter((r) => r.groupId === group.id).map((r) => r.userId);
         markers.push(markerFor('group', group.id, group.name, ids));
       }
     } else {
-      const rows = await db.select({ userId: userEnrolments.userId }).from(userEnrolments)
-        .innerJoin(enrol, eq(userEnrolments.enrolId, enrol.id))
-        .where(and(eq(enrol.courseId, courseId), eq(userEnrolments.status, 0)));
+      const rows = await db
+        .selectFrom('user_enrolments')
+        .innerJoin('enrol', 'enrol.id', 'user_enrolments.enrol_id')
+        .select(['user_enrolments.user_id as userId'])
+        .where((eb) =>
+          eb.and([eb('enrol.course_id', '=', courseId), eb('user_enrolments.status', '=', 0)]),
+        )
+        .execute();
       markers.push(markerFor('course', null, 'Toàn khoá', [...new Set(rows.map((r) => r.userId))]));
     }
     return { courseId, trackedTotal: cms.length, markers };
@@ -495,12 +512,17 @@ export class ContentService {
     let state = (await this.completion.getCmCompletion(cmId, userId)).state;
     if (modeOfCm(cm) === 'progress' && row.percent >= VIDEO_COMPLETION_THRESHOLD_PERCENT && state === 0) {
       const db = this.repo.dbHandle;
-      await db.insert(courseModulesCompletion)
-        .values({ courseModuleId: cmId, userId, completionState: 1, viewed: true, overrideBy: null })
-        .onConflictDoUpdate({
-          target: [courseModulesCompletion.courseModuleId, courseModulesCompletion.userId],
-          set: { completionState: 1, viewed: true, updatedAt: new Date() },
-        });
+      await db
+        .insertInto('course_modules_completion')
+        .values({
+          course_module_id: cmId, user_id: userId, completion_state: 1, viewed: true, override_by: null,
+        })
+        .onConflict((oc) =>
+          oc.columns(['course_module_id', 'user_id']).doUpdateSet({
+            completion_state: 1, viewed: true, updated_at: new Date(),
+          }),
+        )
+        .execute();
       await this.repo.insertLearningRecord({ userId, courseId, cmId, cmName: cm.name, component: cm.component });
       await this.completion.reaggregateCourseCompletion(userId, courseId);
       state = 1;
@@ -537,24 +559,46 @@ export class ContentService {
       .sort((a, b) => (sectionOrder.get(a.section) ?? 0) - (sectionOrder.get(b.section) ?? 0));
     let studentIds: string[];
     if (groupId) {
-      const rows = await db.select().from(groupsMembers).where(eq(groupsMembers.groupId, groupId));
+      const rows = await db
+        .selectFrom('groups_members')
+        .select(['user_id as userId'])
+        .where('group_id', '=', groupId)
+        .execute();
       studentIds = [...new Set(rows.map((r) => r.userId))];
     } else {
-      const rows = await db.select({ userId: userEnrolments.userId }).from(userEnrolments)
-        .innerJoin(enrol, eq(userEnrolments.enrolId, enrol.id))
-        .where(and(eq(enrol.courseId, courseId), eq(userEnrolments.status, 0)));
+      const rows = await db
+        .selectFrom('user_enrolments')
+        .innerJoin('enrol', 'enrol.id', 'user_enrolments.enrol_id')
+        .select(['user_enrolments.user_id as userId'])
+        .where((eb) =>
+          eb.and([eb('enrol.course_id', '=', courseId), eb('user_enrolments.status', '=', 0)]),
+        )
+        .execute();
       studentIds = [...new Set(rows.map((r) => r.userId))];
     }
     const userRows = studentIds.length
-      ? await db.select().from(users).where(inArray(users.id, studentIds))
+      ? await db
+        .selectFrom('users')
+        .select(['id', 'username', 'first_name as firstName', 'last_name as lastName'])
+        .where('id', 'in', studentIds)
+        .execute()
       : [];
     const userById = new Map(userRows.map((u) => [u.id, u]));
     const completionRows = cms.length && studentIds.length
-      ? await db.select().from(courseModulesCompletion)
-        .where(and(
-          inArray(courseModulesCompletion.courseModuleId, cms.map((c) => c.id)),
-          inArray(courseModulesCompletion.userId, studentIds),
-        ))
+      ? await db
+        .selectFrom('course_modules_completion')
+        .select([
+          'course_module_id as courseModuleId',
+          'user_id as userId',
+          'completion_state as completionState',
+        ])
+        .where((eb) =>
+          eb.and([
+            eb('course_module_id', 'in', cms.map((c) => c.id)),
+            eb('user_id', 'in', studentIds),
+          ]),
+        )
+        .execute()
       : [];
     const stateOf = new Map(completionRows.map((r) => [`${r.userId}:${r.courseModuleId}`, r.completionState]));
     const records = await this.repo.listLearningRecords(courseId);

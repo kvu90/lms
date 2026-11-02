@@ -1,9 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type { ProgramDatasetStatus, ProgramImportChange, ProgramImportResult } from '@lms/contracts';
-import type { DbTx } from '../../db/database';
+import type { CentreTx } from '@lms/db';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
-import { CurriculumRepository, type CurriculumNodeRow } from './curriculum.repository';
+import { CurriculumRepository, type CurriculumNodeRow } from '@lms/db/repositories/curriculum';
 import { CURRICULUM_MANAGE, CURRICULUM_VIEW } from './curriculum.service';
 import {
   loadProgramDataset, programAncestorNodeId, programCurriculumId, programDatasetByKey, programLessonNodeId,
@@ -268,7 +268,7 @@ export class ProgramImportService {
       if (!reg) {
         const position = this.takePosition(index, parentId);
         const lessonId = programLessonNodeId(def.key, record.id);
-        await this.repo.dbHandle.transaction(async (tx) => {
+        await this.repo.transaction(async (tx) => {
           const lesson = await this.repo.insertNode({
             id: lessonId, curriculumId, parentId, title, kind: 'lesson', position,
           }, tx);
@@ -298,7 +298,7 @@ export class ProgramImportService {
       const current = await this.repo.getNode(reg.nodeId);
       const diff = await this.diffOutcomes({ recordId: record.id, nodeId: reg.nodeId, entries });
       changes.push(...diff.changes);
-      await this.repo.dbHandle.transaction(async (tx) => {
+      await this.repo.transaction(async (tx) => {
         const patch: {
           title: string; parentId?: string | null; position?: number; curriculumId?: string;
         } = { title };
@@ -333,7 +333,7 @@ export class ProgramImportService {
       const currentManaged = managed.filter((o) => o.retiredAt === null);
       if (currentManaged.length === 0) continue;
       const links = await this.repo.countOutcomeLinks(currentManaged.map((o) => o.id));
-      await this.repo.dbHandle.transaction(async (tx) => {
+      await this.repo.transaction(async (tx) => {
         for (const outcome of currentManaged) {
           await this.repo.updateOutcome(outcome.id, { retiredAt: new Date() }, tx);
         }
@@ -393,7 +393,7 @@ export class ProgramImportService {
    * @param sourceRef - Truy vết nguồn ghi trên các dòng chèn mới.
    * @param writes - Các lệnh ghi do diffOutcomes sinh ra.
    */
-  private async applyOutcomeWrites(tx: DbTx, nodeId: string, sourceRef: string, writes: OutcomeWrite[]): Promise<void> {
+  private async applyOutcomeWrites(tx: CentreTx, nodeId: string, sourceRef: string, writes: OutcomeWrite[]): Promise<void> {
     const TEMP_POSITION_BASE = 1_000_000;
     let tempSeq = 0;
     for (const write of writes) {
