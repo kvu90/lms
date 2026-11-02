@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Job } from 'bullmq';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import { sql } from '@lms/db';
 import { tenantAls } from '../db/tenant-als';
 import { SpaceDatabaseService } from '../db/routing/space-database.service';
 
@@ -39,9 +40,13 @@ export class FileCleanupProcessor extends WorkerHost {
 
   private async processInContext(job: Job<FileCleanupJobData>): Promise<FileCleanupResult> {
     const { contentHash } = job.data;
+    // Đếm giữ đúng khuôn cũ `count(*)::int`: `count(*)` trần của
+    // PostgreSQL là int8 và Kysely đọc int8 thành chuỗi, trong khi
+    // hợp đồng kết quả của processor là số — ép `::int` ngay trong
+    // SQL như đường Drizzle trước đây để giá trị về thẳng là số.
     const row = await this.spaceDb.routedKysely
       .selectFrom('files')
-      .select((eb) => eb.fn.countAll<number>().as('n'))
+      .select(sql<number>`count(*)::int`.as('n'))
       .where('content_hash', '=', contentHash)
       .executeTakeFirst();
     const refcount = row?.n ?? 0;

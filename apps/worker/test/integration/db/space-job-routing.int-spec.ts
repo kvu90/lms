@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { course, courseCategories, gradeItems, notifications, outboxEvents, tenants, users } from '@lms/db';
+import { course, courseCategories, createCentreKysely, gradeItems, notifications, outboxEvents, tenants, users } from '@lms/db';
 import { spaceRegistry } from '@lms/db/control-plane';
 import { relations } from '../../../src/db/relations';
 import { tenantAls } from '../../../src/db/tenant-als';
@@ -209,6 +209,11 @@ describe('Định tuyến job theo trung tâm phía worker (integration)', () =>
     sharedPool = new TenantAwarePool({ connectionString: process.env.DATABASE_URL! });
     sharedDb = drizzle({ client: sharedPool, relations });
     spaceDb.bindSharedDatabase(sharedDb);
+    // Relay outbox đã chuyển sang handle Kysely (issue #664) nên
+    // ca này phải gắn cả handle Kysely kho chung trên cùng pool —
+    // đúng nhịp gắn hai handle của `worker.module.ts` lúc khởi
+    // động; thiếu là facade Kysely fail-closed `shared_not_bound`.
+    spaceDb.bindSharedKysely(createCentreKysely(sharedPool));
 
     // Dòng đăng ký của trung tâm kiểm chứng trong sổ.
     await withClient(clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD), async (client) => {
